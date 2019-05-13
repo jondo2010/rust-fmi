@@ -1,3 +1,7 @@
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/cargo
+  APT_CACHE_DIR: $CI_PROJECT_DIR/apt
+
 .cargo_build_template: &cargo_build
   stage: build
   script:
@@ -9,15 +13,19 @@
 .cargo_test_template: &cargo_test
   stage: test
   script:
-    - apt-get update -qyy
-    - apt-get install -y curl
-    - curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
-    - apt-get install -y git-core git-lfs
-    - git lfs pull
     - cargo test --verbose --jobs 1 --all
+
+before_script:
+  - echo "deb http://ftp.debian.org/debian stretch-backports main" >> /etc/apt/sources.list
+  - apt-get update -yq
+  - apt-get install -o dir::cache::archives="$APT_CACHE_DIR" -yqq --no-install-recommends libgfortran3
 
 cache:
   untracked: true
+  paths:
+    - apt/
+    - cargo/
+    - target/
 
 stages:
   - build
@@ -35,7 +43,7 @@ test:stable:cargo:
   <<: *cargo_test
   after_script:
     - |
-      for file in target/debug/question-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+      for file in target/debug/fmi-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
       bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN &&
       echo "Uploaded code coverage"
 
