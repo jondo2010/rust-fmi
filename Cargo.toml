@@ -1,0 +1,41 @@
+[package]
+name = "fmi"
+version = "0.1.0"
+authors = ["John Hughes <jondo2010@gmail.com>"]
+edition = "2018"
+exclude = ["data/*"]
+description = "A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/"
+repository = "https://gitlab.com/jondo2010/quillum-rs"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+
+[build-dependencies]
+cc = "1.0.25"
+built = "0.3"
+
+[dependencies]
+serde = {version = "1.0.88", features = ["derive"] }
+serde-xml-rs = "0.3.1"
+dtparse = "1.0.3"
+num-traits = "^0.1"
+enum-primitive-derive = "^0.1"
+derive_more = "0.13.0"
+failure = "0.1.5"
+dlopen = "0.1.5"
+dlopen_derive = "0.1.3"
+zip = "0.4.2"
+url = "1.7.2"
+tempfile = "3.0.4"
+pretty_env_logger = "0.3.0"
+chrono = { version = "0.4.6", features = ["serde"] }
+libc = { version = "0.2.44", features = ["align"] }
+log = { version = "0.4.6", features = ["std", "serde"] }
+
+[dev-dependencies]
+quicli = "0.4.0"
+structopt = "0.2"
+failure = "0.1.5"
+prettytable-rs = "0.8.0"
+pretty_env_logger = "0.3.0"
+interpolation = "0.1.0"
+csv = "1.0.5"
