@@ -1,13 +1,19 @@
 [package]
 name = "fmi"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["John Hughes <jondo2010@gmail.com>"]
 edition = "2018"
 exclude = ["data/*"]
 description = "A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/"
-repository = "https://gitlab.com/jondo2010/quillum-rs"
+repository = "https://gitlab.com/jondo2010/rust-fmi"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
+keywords = ["model", "ode", "modelica"]
+categories = ["science", "simulation"]
+
+[badges]
+gitlab = { repository = "jondo2010/rust-fmi", branch = "master" }
+codecov = { repository = "jondo2010/rust-fmi", branch = "master", service = "gitlab" }
 
 [build-dependencies]
 cc = "1.0.25"

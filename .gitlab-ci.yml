@@ -9,6 +9,11 @@
 .cargo_test_template: &cargo_test
   stage: test
   script:
+    - apt-get update -qyy
+    - apt-get install -y curl
+    - curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
+    - apt-get install -y git-core git-lfs
+    - git lfs pull
     - cargo test --verbose --jobs 1 --all
 
 cache:
