@@ -1,0 +1,61 @@
+.cargo_build_template: &cargo_build
+  stage: build
+  script:
+    - cargo build --release --all
+  artifacts:
+    paths:
+      - target/release
+
+.cargo_test_template: &cargo_test
+  stage: test
+  script:
+    - cargo test --verbose --jobs 1 --all
+
+cache:
+  untracked: true
+
+stages:
+  - build
+  - test
+  - docs
+
+build:stable:cargo:
+  cache:
+    key: stable
+  image: rust
+  <<: *cargo_build
+
+test:stable:cargo:
+  image: registry.gitlab.com/starshell/docker/rust-codecov:stable
+  <<: *cargo_test
+  after_script:
+    - |
+      for file in target/debug/question-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+      bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN &&
+      echo "Uploaded code coverage"
+
+test:beta:cargo:
+  image: registry.gitlab.com/starshell/docker/rust-codecov:beta
+  <<: *cargo_test
+
+test:nightly:cargo:
+  image: registry.gitlab.com/starshell/docker/rust-codecov:nightly
+  <<: *cargo_test
+
+pages:
+  image: rust
+  stage: docs 
+  cache:
+    key: stable
+    policy: pull
+  script:
+    - cargo doc --all --no-deps
+    - rm -rf public
+    - mkdir public
+    - cp -R target/doc/* public
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
+    - tags
