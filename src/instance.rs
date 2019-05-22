@@ -1,5 +1,5 @@
 use super::{fmi, handle_status_u32, logger, model_descr, Import, Result};
-use failure::{format_err};
+use failure::format_err;
 use log::{trace, warn};
 use std::rc::Rc;
 
@@ -113,20 +113,29 @@ pub trait Common: std::hash::Hash {
     /// fmi2EnterInitializationMode have to be called.
     fn reset(&self) -> Result<()>;
 
-    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<f64>;
-    fn get_integer(&mut self, sv: &model_descr::ScalarVariable) -> Result<i64>;
+    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real>;
+    fn get_integer(&mut self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer>;
     fn get_boolean(&mut self, sv: &model_descr::ScalarVariable) -> Result<bool>;
     fn get_string(&mut self, sv: &model_descr::ScalarVariable) -> Result<String>;
 
     /// Set real values
     ///
     /// # Arguments
-    /// * `vrs` - a slice of `u64` ValueReferences
-    /// * `values` - a slice of `f64` values to set
-    fn set_real(&self, vrs: &[u64], values: &[f64]) -> Result<()>;
+    /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
+    /// * `values` - a slice of `fmi::fmi2Real` values to set
+    fn set_real(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Real]) -> Result<()>;
 
-    //fn set_real(&self, sv: &model_descr::ScalarVariable, value: f64) -> Result<()>;
-    fn set_integer(&self, sv: &model_descr::ScalarVariable, value: i64) -> Result<()>;
+    /// Set integer values
+    ///
+    /// # Arguments
+    /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
+    /// * `values` - a slice of `fmi::fmi2Integer` values to set
+    fn set_integer(
+        &self,
+        vrs: &[fmi::fmi2ValueReference],
+        values: &[fmi::fmi2Integer],
+    ) -> Result<()>;
+
     fn set_boolean(&self, sv: &model_descr::ScalarVariable, value: bool) -> Result<()>;
     fn set_string(&self, sv: &model_descr::ScalarVariable, value: &str) -> Result<()>;
 
@@ -243,6 +252,7 @@ pub struct Instance<A: fmi::FmiApi> {
     /// API Container
     container: dlopen::wrapper::Container<A>,
 
+    #[allow(dead_code)]
     /// Callbacks struct
     callbacks: Box<fmi::CallbackFunctions>,
 
@@ -589,46 +599,39 @@ where
         handle_status_u32(unsafe { self.container.common().reset(self.component) })
     }
 
-    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<f64> {
-        let mut ret: f64 = 0.0;
-        let vr = sv.value_reference as fmi::fmi2ValueReference;
-        let vr = &vr as *const fmi::fmi2ValueReference;
+    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real> {
+        let mut ret: fmi::fmi2Real = 0.0;
         handle_status_u32(unsafe {
             self.container
                 .common()
-                .get_real(self.component, vr, 1, &mut ret as *mut fmi::fmi2Real)
+                .get_real(self.component, &sv.value_reference, 1, &mut ret)
+        })
+        .and(Ok(ret as f64))
+    }
+
+    fn get_integer(&mut self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer> {
+        let mut ret: fmi::fmi2Integer = 0;
+        handle_status_u32(unsafe {
+            self.container
+                .common()
+                .get_integer(self.component, &sv.value_reference, 1, &mut ret)
         })
         .and(Ok(ret))
     }
 
-    fn get_integer(&mut self, sv: &model_descr::ScalarVariable) -> Result<i64> {
-        let mut ret: i64 = 0;
-        let vr = sv.value_reference as fmi::fmi2ValueReference;
-        let vr = &vr as *const fmi::fmi2ValueReference;
-        handle_status_u32(unsafe {
-            self.container.common().get_integer(
-                self.component,
-                vr,
-                1,
-                &mut ret as *mut fmi::fmi2Integer,
-            )
-        })
-        .and(Ok(ret as i64))
-    }
-
-    fn get_boolean(&mut self, sv: &model_descr::ScalarVariable) -> Result<bool> {
+    fn get_boolean(&mut self, _sv: &model_descr::ScalarVariable) -> Result<bool> {
         unimplemented!()
     }
 
-    fn get_string(&mut self, sv: &model_descr::ScalarVariable) -> Result<String> {
+    fn get_string(&mut self, _sv: &model_descr::ScalarVariable) -> Result<String> {
         unimplemented!()
     }
 
-    fn set_real(&self, vrs: &[u64], values: &[f64]) -> Result<()> {
+    fn set_real(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Real]) -> Result<()> {
         handle_status_u32(unsafe {
             self.container.common().set_real(
                 self.component,
-                vrs.as_ptr() as *const fmi::fmi2ValueReference,
+                vrs.as_ptr(),
                 values.len(),
                 values.as_ptr(),
             )
@@ -647,24 +650,26 @@ where
     }
     */
 
-    fn set_integer(&self, sv: &model_descr::ScalarVariable, value: i64) -> Result<()> {
-        let vr = sv.value_reference as fmi::fmi2ValueReference;
-        let vr = &vr as *const fmi::fmi2ValueReference;
+    fn set_integer(
+        &self,
+        vrs: &[fmi::fmi2ValueReference],
+        values: &[fmi::fmi2Integer],
+    ) -> Result<()> {
         handle_status_u32(unsafe {
             self.container.common().set_integer(
                 self.component,
-                vr,
-                1,
-                &value as *const fmi::fmi2Integer,
+                vrs.as_ptr(),
+                values.len(),
+                values.as_ptr(),
             )
         })
     }
 
-    fn set_boolean(&self, sv: &model_descr::ScalarVariable, value: bool) -> Result<()> {
+    fn set_boolean(&self, _sv: &model_descr::ScalarVariable, _value: bool) -> Result<()> {
         unimplemented!()
     }
 
-    fn set_string(&self, sv: &model_descr::ScalarVariable, value: &str) -> Result<()> {
+    fn set_string(&self, _sv: &model_descr::ScalarVariable, _value: &str) -> Result<()> {
         unimplemented!()
     }
 
@@ -702,6 +707,8 @@ where
 mod tests {
     use super::*;
 
+    //TODO Make this work on other targets
+    #[cfg(target_os = "linux")]
     #[test]
     fn test_instance1() {
         let import = Import::new(std::path::Path::new(

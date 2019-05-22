@@ -1,3 +1,4 @@
+use super::fmi;
 /// This module implements the ModelDescription datamodel and provides
 /// attributes to serde_xml_rs to generate an XML deserializer.
 use derive_more::Display;
@@ -460,7 +461,7 @@ pub struct ScalarVariable {
 
     /// A handle of the variable to efficiently identify the variable value in the model interface.
     #[serde(deserialize_with = "t_from_str")]
-    pub value_reference: u64,
+    pub value_reference: fmi::fmi2ValueReference,
 
     /// An optional description string describing the meaning of the variable.
     #[serde(default)]
@@ -502,7 +503,7 @@ impl ScalarVariable {
     pub fn is_continuous_input(&self) -> bool {
         match (&self.elem, &self.causality) {
             (ScalarVariableElement::Real { .. }, Causality::Input) => true,
-            _ => false
+            _ => false,
         }
     }
 }
