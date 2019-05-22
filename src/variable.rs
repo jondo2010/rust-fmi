@@ -1,4 +1,4 @@
-use super::{instance, model_descr, Result};
+use super::{fmi, instance, model_descr, Result};
 use derive_more::Display;
 use failure::{bail, format_err};
 use std::cmp::Ordering;
@@ -9,8 +9,8 @@ pub use super::model_descr::{Causality, Initial, Variability};
 
 #[derive(Display, Debug)]
 pub enum Value {
-    Real(f64),
-    Integer(i64),
+    Real(fmi::fmi2Real),
+    Integer(fmi::fmi2Integer),
     Bool(bool),
     String(String),
     Enum(u32),
@@ -114,7 +114,7 @@ impl<I: instance::Common> Var<I> {
                 self.instance.set_real(&[self.sv.value_reference], &[*x])
             }
             (model_descr::ScalarVariableElement::Integer { .. }, Value::Integer(x)) => {
-                self.instance.set_integer(&self.sv, *x)
+                self.instance.set_integer(&[self.sv.value_reference], &[*x])
             }
             (model_descr::ScalarVariableElement::Boolean { .. }, Value::Bool(x)) => {
                 self.instance.set_boolean(&self.sv, *x)

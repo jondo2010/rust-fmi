@@ -4,12 +4,11 @@
 //! # Examples
 //!
 //! ```
-//! let import = fmi::Import::new(std::path::Path::new("data/Modelica_Blocks_Sources_Sine.fmu")).unwrap();
-//! let instance1 = fmi::InstanceME::new(&import, "inst1", false, true).unwrap();
+//! #[cfg(target_os = "linux")] {
+//!     let import = fmi::Import::new(std::path::Path::new("data/Modelica_Blocks_Sources_Sine.fmu")).unwrap();
+//!     let instance1 = fmi::InstanceME::new(&import, "inst1", false, true).unwrap();
+//! }
 //! ```
-
-#[macro_use]
-extern crate derive_more;
 
 pub mod fmi;
 pub mod import;

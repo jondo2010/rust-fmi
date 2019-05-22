@@ -225,6 +225,8 @@ impl Import {
 mod tests {
     use super::*;
 
+    //TODO Make this work on other targets
+    #[cfg(target_os = "linux")]
     #[test]
     fn test_import1() {
         let import = Import::new(std::path::Path::new(
