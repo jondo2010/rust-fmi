@@ -349,6 +349,8 @@ pub struct LogCategories {
 #[serde(rename_all = "camelCase")]
 pub struct Category {
     pub name: String,
+
+    #[serde(default)]
     pub description: String,
 }
 
@@ -554,7 +556,7 @@ pub enum ScalarVariableElement {
         #[serde(default)]
         declared_type: String,
         #[serde(default, deserialize_with = "t_from_str")]
-        start: u32,
+        start: i64,
     },
 }
 

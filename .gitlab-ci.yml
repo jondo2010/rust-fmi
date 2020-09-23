@@ -16,9 +16,8 @@ variables:
     - cargo test --verbose --jobs 1 --all
 
 before_script:
-  - echo "deb http://ftp.debian.org/debian stretch-backports main" >> /etc/apt/sources.list
   - apt-get update -yq
-  - apt-get install -o dir::cache::archives="$APT_CACHE_DIR" -yqq --no-install-recommends libgfortran3
+  - apt-get install -o dir::cache::archives="$APT_CACHE_DIR" -yqq --no-install-recommends libgfortran4 libblas3 liblapack3 libgcc1
 
 cache:
   untracked: true

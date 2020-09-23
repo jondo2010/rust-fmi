@@ -11,9 +11,9 @@ pub use super::model_descr::{Causality, Initial, Variability};
 pub enum Value {
     Real(fmi::fmi2Real),
     Integer(fmi::fmi2Integer),
-    Bool(bool),
+    Boolean(fmi::fmi2Boolean),
     String(String),
-    Enum(u32),
+    Enumeration(fmi::fmi2Integer),
 }
 
 /// Var wraps access to an underlying ScalarVariable on an Instance
@@ -97,14 +97,11 @@ impl<I: instance::Common> Var<I> {
 
     pub fn get(&self) -> Result<Value> {
         match self.sv.elem {
-            model_descr::ScalarVariableElement::Real { .. } => self
-                .instance
-                .get_real(&self.sv)
-                .map(|value| Value::Real(value)),
-            model_descr::ScalarVariableElement::Integer { .. } => Ok(Value::Integer(0)),
-            model_descr::ScalarVariableElement::Boolean { .. } => Ok(Value::Bool(false)),
-            model_descr::ScalarVariableElement::String { .. } => Ok(Value::String("".to_owned())),
-            model_descr::ScalarVariableElement::Enumeration { .. } => bail!("Unsupported"),
+            model_descr::ScalarVariableElement::Real { .. } => self.instance.get_real(&self.sv).map(|value| Value::Real(value)),
+            model_descr::ScalarVariableElement::Integer { .. } => self.instance.get_integer(&self.sv).map(|value| Value::Integer(value)),
+            model_descr::ScalarVariableElement::Boolean { .. } => self.instance.get_boolean(&self.sv).map(|value| Value::Boolean(value)),
+            model_descr::ScalarVariableElement::String { .. } => bail!("String variables not supported yet."),
+            model_descr::ScalarVariableElement::Enumeration { .. } => self.instance.get_integer(&self.sv).map(|value| Value::Enumeration(value))
         }
     }
 
@@ -116,14 +113,14 @@ impl<I: instance::Common> Var<I> {
             (model_descr::ScalarVariableElement::Integer { .. }, Value::Integer(x)) => {
                 self.instance.set_integer(&[self.sv.value_reference], &[*x])
             }
-            (model_descr::ScalarVariableElement::Boolean { .. }, Value::Bool(x)) => {
-                self.instance.set_boolean(&self.sv, *x)
+            (model_descr::ScalarVariableElement::Boolean { .. }, Value::Boolean(x)) => {
+                self.instance.set_boolean(&[self.sv.value_reference], &[*x])
             }
-            (model_descr::ScalarVariableElement::String { .. }, Value::String(x)) => {
-                self.instance.set_string(&self.sv, x)
+            (model_descr::ScalarVariableElement::String { .. }, Value::String(_x)) => {
+                bail!("String variables not supported yet.")
             }
-            (model_descr::ScalarVariableElement::Enumeration { .. }, Value::Enum(_x)) => {
-                unimplemented!();
+            (model_descr::ScalarVariableElement::Enumeration { .. }, Value::Enumeration(x)) => {
+                self.instance.set_integer(&[self.sv.value_reference], &[*x])
             }
             _ => Err(format_err!("Type mismatch")),
         }

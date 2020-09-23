@@ -114,9 +114,9 @@ pub trait Common: std::hash::Hash {
     fn reset(&self) -> Result<()>;
 
     fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real>;
-    fn get_integer(&mut self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer>;
-    fn get_boolean(&mut self, sv: &model_descr::ScalarVariable) -> Result<bool>;
-    fn get_string(&mut self, sv: &model_descr::ScalarVariable) -> Result<String>;
+    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer>;
+    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Boolean>;
+    fn get_string(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2String>;
 
     /// Set real values
     ///
@@ -130,14 +130,9 @@ pub trait Common: std::hash::Hash {
     /// # Arguments
     /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
     /// * `values` - a slice of `fmi::fmi2Integer` values to set
-    fn set_integer(
-        &self,
-        vrs: &[fmi::fmi2ValueReference],
-        values: &[fmi::fmi2Integer],
-    ) -> Result<()>;
-
-    fn set_boolean(&self, sv: &model_descr::ScalarVariable, value: bool) -> Result<()>;
-    fn set_string(&self, sv: &model_descr::ScalarVariable, value: &str) -> Result<()>;
+    fn set_integer(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Integer]) -> Result<()>;
+    fn set_boolean(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Boolean]) -> Result<()>;
+    fn set_string(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2String]) -> Result<()>;
 
     /*
     fn get_fmu_state(&self) -> Result<FmuState>;
@@ -238,7 +233,9 @@ pub trait ModelExchange: Common {
     fn get_nominals_of_continuous_states(&self) -> Result<&[f64]>;
 }
 
-pub trait CoSimulation: Common {}
+pub trait CoSimulation: Common {
+    fn do_step(&self, current_communication_point: f64, communication_step_size: f64, no_set_fmu_state_prior_to_current_point: bool) -> Result<()>;
+}
 
 /// An Instance is templated around an FMU Api, and holds state for the API container,
 /// callbacks struct, and the internal instantiated component.
@@ -523,6 +520,15 @@ impl InstanceCS {
     }
 }
 
+impl CoSimulation for InstanceCS {
+    fn do_step(&self, current_communication_point: f64, communication_step_size: f64, no_set_fmu_state_prior_to_current_point: bool) -> Result<()> {
+        handle_status_u32(unsafe {
+            self.container
+            .cs
+            .do_step(self.component, current_communication_point,communication_step_size, no_set_fmu_state_prior_to_current_point as fmi::fmi2Boolean)
+        })
+    }
+}
 impl<A> Common for Instance<A>
 where
     A: fmi::FmiApi,
@@ -543,16 +549,22 @@ where
     }
 
     fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Result<()> {
-        let categories = categories
+        let category_cstr = categories
             .iter()
-            .map(|c| std::ffi::CString::new(*c).unwrap().as_ptr())
+            .map(|c| std::ffi::CString::new(*c).unwrap())
             .collect::<Vec<_>>();
+
+        let category_ptrs: Vec<_> = category_cstr
+            .iter()
+            .map(|c| c.as_ptr())
+            .collect();
+
         handle_status_u32(unsafe {
             self.container.common().set_debug_logging(
                 self.component,
                 logging_on as fmi::fmi2Boolean,
-                categories.len(),
-                categories.as_ptr(),
+                category_ptrs.len(),
+                category_ptrs.as_ptr(),
             )
         })
     }
@@ -609,7 +621,7 @@ where
         .and(Ok(ret as f64))
     }
 
-    fn get_integer(&mut self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer> {
+    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer> {
         let mut ret: fmi::fmi2Integer = 0;
         handle_status_u32(unsafe {
             self.container
@@ -619,11 +631,17 @@ where
         .and(Ok(ret))
     }
 
-    fn get_boolean(&mut self, _sv: &model_descr::ScalarVariable) -> Result<bool> {
-        unimplemented!()
+    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Boolean> {
+        let mut ret: fmi::fmi2Boolean = 0;
+        handle_status_u32(unsafe {
+            self.container
+                .common()
+                .get_boolean(self.component, &sv.value_reference, 1, &mut ret)
+        })
+        .and(Ok(ret))
     }
 
-    fn get_string(&mut self, _sv: &model_descr::ScalarVariable) -> Result<String> {
+    fn get_string(&self, _sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2String> {
         unimplemented!()
     }
 
@@ -650,11 +668,7 @@ where
     }
     */
 
-    fn set_integer(
-        &self,
-        vrs: &[fmi::fmi2ValueReference],
-        values: &[fmi::fmi2Integer],
-    ) -> Result<()> {
+    fn set_integer(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Integer]) -> Result<()> {
         handle_status_u32(unsafe {
             self.container.common().set_integer(
                 self.component,
@@ -665,11 +679,18 @@ where
         })
     }
 
-    fn set_boolean(&self, _sv: &model_descr::ScalarVariable, _value: bool) -> Result<()> {
-        unimplemented!()
+    fn set_boolean(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Boolean]) -> Result<()> {
+        handle_status_u32(unsafe {
+            self.container.common().set_boolean(
+                self.component,
+                vrs.as_ptr(),
+                values.len(),
+                values.as_ptr(),
+            )
+        })
     }
 
-    fn set_string(&self, _sv: &model_descr::ScalarVariable, _value: &str) -> Result<()> {
+    fn set_string(&self, _vrs: &[fmi::fmi2ValueReference], _values: &[fmi::fmi2String]) -> Result<()> {
         unimplemented!()
     }
 
@@ -710,7 +731,7 @@ mod tests {
     //TODO Make this work on other targets
     #[cfg(target_os = "linux")]
     #[test]
-    fn test_instance1() {
+    fn test_instance_me() {
         let import = Import::new(std::path::Path::new(
             "data/Modelica_Blocks_Sources_Sine.fmu",
         ))
@@ -741,7 +762,50 @@ mod tests {
         instance1
             .exit_initialization_mode()
             .expect("exit_initialization_mode");
-        instance1.reset().expect("reset");
         instance1.terminate().expect("terminate");
+        instance1.reset().expect("reset");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_instance_cs() {
+        use super::super::variable::{Var, Value};
+        use assert_approx_eq::assert_approx_eq;
+
+        let import = Import::new(std::path::Path::new(
+            "data/Modelica_Blocks_Sources_Sine.fmu",
+        ))
+        .unwrap();
+
+        let instance1 = InstanceCS::new(&import, "inst1", false, true).unwrap();
+        assert_eq!(instance1.version().unwrap(), "2.0");
+
+        instance1
+        .setup_experiment(Some(1.0e-6_f64), 0.0, None)
+        .expect("setup_experiment");
+
+        instance1
+        .enter_initialization_mode()
+        .expect("enter_initialization_mode");
+
+        let param = Var::from_name(&instance1, "freqHz").expect("freqHz parameter from_name");
+        param.set(&Value::Real(2.0f64)).expect("set freqHz parameter");
+
+        instance1
+        .exit_initialization_mode()
+        .expect("exit_initialization_mode");
+
+        let y = Var::from_name(&instance1, "y").expect("get y");
+
+        if let Value::Real(y_val) = y.get().expect("get y value") {
+            assert_approx_eq!(y_val, 0.0, 1.0e-6);
+        } 
+
+        instance1.do_step(0.0, 0.125, false).expect("do_step");
+
+        if let Value::Real(y_val) = y.get().expect("get y value") {
+            assert_approx_eq!(y_val, 1.0, 1.0e-6);
+        } 
+        
     }
 }

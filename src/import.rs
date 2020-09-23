@@ -228,7 +228,7 @@ mod tests {
     //TODO Make this work on other targets
     #[cfg(target_os = "linux")]
     #[test]
-    fn test_import1() {
+    fn test_import_me() {
         let import = Import::new(std::path::Path::new(
             "data/Modelica_Blocks_Sources_Sine.fmu",
         ))
@@ -236,5 +236,17 @@ mod tests {
         assert_eq!(import.descr().fmi_version, "2.0");
 
         let _me = import.container_me().unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_import_cs() {
+        let import = Import::new(std::path::Path::new(
+            "data/Modelica_Blocks_Sources_Sine.fmu",
+        ))
+        .unwrap();
+        assert_eq!(import.descr().fmi_version, "2.0");
+
+        let _cs = import.container_cs().unwrap();
     }
 }
