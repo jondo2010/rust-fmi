@@ -629,7 +629,7 @@ mod tests {
 
     #[test]
     fn test_scalar_variable() {
-        let s =r##"
+        let s = r##"
 <ScalarVariable name="inertia1.J" valueReference="1073741824" description="Moment of load inertia" causality="parameter" variability="fixed">
 <Real declaredType="Modelica.SIunits.Inertia" start="1"/>
 </ScalarVariable>
@@ -773,5 +773,4 @@ mod tests {
         println!("{:#?}", x);
     }
     */
-
 }

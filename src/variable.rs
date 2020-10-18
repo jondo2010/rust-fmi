@@ -97,11 +97,25 @@ impl<I: instance::Common> Var<I> {
 
     pub fn get(&self) -> Result<Value> {
         match self.sv.elem {
-            model_descr::ScalarVariableElement::Real { .. } => self.instance.get_real(&self.sv).map(|value| Value::Real(value)),
-            model_descr::ScalarVariableElement::Integer { .. } => self.instance.get_integer(&self.sv).map(|value| Value::Integer(value)),
-            model_descr::ScalarVariableElement::Boolean { .. } => self.instance.get_boolean(&self.sv).map(|value| Value::Boolean(value)),
-            model_descr::ScalarVariableElement::String { .. } => bail!("String variables not supported yet."),
-            model_descr::ScalarVariableElement::Enumeration { .. } => self.instance.get_integer(&self.sv).map(|value| Value::Enumeration(value))
+            model_descr::ScalarVariableElement::Real { .. } => self
+                .instance
+                .get_real(&self.sv)
+                .map(|value| Value::Real(value)),
+            model_descr::ScalarVariableElement::Integer { .. } => self
+                .instance
+                .get_integer(&self.sv)
+                .map(|value| Value::Integer(value)),
+            model_descr::ScalarVariableElement::Boolean { .. } => self
+                .instance
+                .get_boolean(&self.sv)
+                .map(|value| Value::Boolean(value)),
+            model_descr::ScalarVariableElement::String { .. } => {
+                bail!("String variables not supported yet.")
+            }
+            model_descr::ScalarVariableElement::Enumeration { .. } => self
+                .instance
+                .get_integer(&self.sv)
+                .map(|value| Value::Enumeration(value)),
         }
     }
 
