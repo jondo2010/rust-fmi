@@ -1,20 +1,16 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![allow(clippy::too_many_arguments)]
 
 use derive_more::Display;
 /// Internal private low-level FMI types
 use dlopen::wrapper::{WrapperApi, WrapperMultiApi};
 use dlopen_derive::{WrapperApi, WrapperMultiApi};
-use enum_primitive_derive::Primitive;
 
-pub const fmi2TypesPlatform: &'static [u8; 8usize] = b"default\0";
+pub const fmi2TypesPlatform: &[u8; 8usize] = b"default\0";
 pub const fmi2True: fmi2Boolean = 1;
 pub const fmi2False: fmi2Boolean = 0;
-
-pub type fmi2Type = u32;
-pub type fmi2StatusKind = u32;
-pub type fmi2Status = u32;
 
 pub type fmi2Component = *mut ::std::os::raw::c_void;
 pub type fmi2ComponentEnvironment = *mut ::std::os::raw::c_void;
@@ -27,34 +23,45 @@ pub type fmi2Char = ::std::os::raw::c_char;
 pub type fmi2String = *const fmi2Char;
 pub type fmi2Byte = ::std::os::raw::c_char;
 
-#[derive(Primitive)]
-pub enum Type {
+#[repr(C)]
+#[derive(Debug, Display)]
+pub enum fmi2Type {
     ModelExchange = 0,
     CoSimulation = 1,
 }
 
-#[derive(Primitive)]
-pub enum StatusKind {
+#[repr(C)]
+#[derive(Debug, Display)]
+pub enum fmi2StatusKind {
+    /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers
+    /// fmi2Pending if the computation is not finished. Otherwise the function returns the result
+    /// of the asynchronously executed fmi2DoStep call
     DoStepStatus = 0,
+    /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers a
+    /// string which informs about the status of the currently running asynchronous fmi2DoStep
+    /// computation.
     PendingStatus = 1,
+    /// Returns the end time of the last successfully completed communication step. Can be called
+    /// after fmi2DoStep(...) returned fmi2Discard.
     LastSuccessfulTime = 2,
+    /// Returns true, if the slave wants to terminate the simulation. Can be called after
+    /// fmi2DoStep(...) returned fmi2Discard. Use fmi2LastSuccessfulTime to determine the time
+    /// instant at which the slave terminated
     Terminated = 3,
 }
 
-/// Status returned by FMI API functions.
-#[derive(Debug, Primitive, PartialEq, Display)]
-pub enum Status {
+#[repr(C)]
+pub enum fmi2Status {
     /// All well
     OK = 0,
-
     /// things are not quite right, but the computation can continue. Function “logger” was called
     /// in the model (see below) and it is expected that this function has shown the prepared
     /// information message to the user
     Warning = 1,
+    ///
     Discard = 2,
     Error = 3,
     Fatal = 4,
-
     /// Pending is returned only from the co-simulation interface, if the slave executes the
     /// function in an asynchronous way. That means the slave starts to compute but returns
     /// immediately. The master has to call fmi2GetStatus(..., fmi2DoStepStatus) to determine, if
@@ -305,7 +312,7 @@ pub struct Common {
 
 /// Functions for FMI2 for Model Exchange
 #[derive(WrapperApi)]
-pub struct ME {
+pub(crate) struct ME {
     // Enter and exit the different modes
     #[dlopen_name = "fmi2EnterEventMode"]
     enter_event_mode: unsafe extern "C" fn(c: fmi2Component) -> fmi2Status,
@@ -362,7 +369,7 @@ pub struct ME {
 
 /// Functions for FMI2 for Co-Simulation
 #[derive(WrapperApi)]
-pub struct CS {
+pub(crate) struct CS {
     // Simulating the slave
     #[dlopen_name = "fmi2SetRealInputDerivatives"]
     set_real_input_derivatives: unsafe extern "C" fn(
@@ -393,7 +400,7 @@ pub struct CS {
         c: fmi2Component,
         current_communication_point: fmi2Real,
         communication_step_size: fmi2Real,
-        no_set_fmu_state_prior_to_current_point: fmi2Boolean,
+        new_step: fmi2Boolean,
     ) -> fmi2Status,
 
     #[dlopen_name = "fmi2CancelStep"]
@@ -442,8 +449,8 @@ pub trait FmiApi: WrapperApi {
 
 #[derive(WrapperMultiApi)]
 pub struct Fmi2ME {
-    pub common: Common,
-    pub me: ME,
+    pub(crate) common: Common,
+    pub(crate) me: ME,
 }
 
 impl FmiApi for Fmi2ME {
@@ -454,8 +461,8 @@ impl FmiApi for Fmi2ME {
 
 #[derive(WrapperMultiApi)]
 pub struct Fmi2CS {
-    pub common: Common,
-    pub cs: CS,
+    pub(crate) common: Common,
+    pub(crate) cs: CS,
 }
 
 impl FmiApi for Fmi2CS {

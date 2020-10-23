@@ -1,6 +1,5 @@
-use super::{fmi, model_descr, Result};
+use super::{fmi, model_descr, FmiError, Result};
 use dlopen::wrapper::Container;
-use failure::{format_err, ResultExt};
 use log::trace;
 use std::rc::Rc;
 
@@ -31,14 +30,13 @@ fn extract_archive(archive: &std::path::Path, outdir: &std::path::Path) -> Resul
         archive.display(),
         outdir.display()
     );
-    let file = std::fs::File::open(&archive).context(format!("{:?}", archive))?;
+    let file = std::fs::File::open(&archive)?;
     let mut archive = zip::ZipArchive::new(file)?;
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let outpath = outdir.join(file.sanitized_name());
-
-        if (&*file.name()).ends_with('/') {
+        let outpath = outdir.join(file.name());
+        if file.is_dir() {
             //trace!( "File {} extracted to \"{}\"", i, outpath.as_path().display());
             std::fs::create_dir_all(&outpath)?;
         } else {
@@ -135,7 +133,8 @@ impl Import {
     pub fn new(path: &std::path::Path) -> Result<Rc<Import>> {
         // First create a temp directory
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
-        extract_archive(path, temp_dir.path()).context("extraction")?;
+        extract_archive(path, temp_dir.path())?;
+        //.context("extraction")?;
 
         // Open and parse the model description
         let descr_file_path = temp_dir.path().join(MODEL_DESCRIPTION);
@@ -144,8 +143,7 @@ impl Import {
         //.context(format!("{}", descr_file_path.as_path().display()))?;
 
         let descr: model_descr::ModelDescription =
-            model_descr::from_reader(std::io::BufReader::new(descr_file))
-                .map_err(failure::SyncFailure::new)?;
+            model_descr::from_reader(std::io::BufReader::new(descr_file))?;
 
         let cap_string = if descr.model_exchange.is_some() && descr.co_simulation.is_some() {
             "ME+CS".to_owned()
@@ -165,7 +163,7 @@ impl Import {
 
         Ok(Rc::new(Import {
             dir: temp_dir,
-            descr: descr,
+            descr,
         }))
     }
 
@@ -175,7 +173,7 @@ impl Import {
             .descr
             .model_exchange
             .as_ref()
-            .ok_or(format_err!("ModelExchange not supported"))?;
+            .ok_or(FmiError::UnsupportedFmuType(fmi::fmi2Type::ModelExchange))?;
         trace!("Found ModelExchange model \"{}\"", me.model_identifier);
 
         let lib_path = self
@@ -184,7 +182,7 @@ impl Import {
             .join(construct_so_path(&me.model_identifier));
         trace!("Loading shared library {:?}", lib_path);
 
-        unsafe { Container::load(lib_path) }.map_err(failure::Error::from)
+        unsafe { Container::load(lib_path) }.map_err(FmiError::from)
     }
 
     /// Create a CoSimulation API container if supported
@@ -193,7 +191,7 @@ impl Import {
             .descr
             .co_simulation
             .as_ref()
-            .ok_or(format_err!("CoSimulation not supported"))?;
+            .ok_or(FmiError::UnsupportedFmuType(fmi::fmi2Type::CoSimulation))?;
         trace!("Found CoSimulation model \"{}\"", cs.model_identifier);
 
         let lib_path = self
@@ -202,7 +200,7 @@ impl Import {
             .join(construct_so_path(&cs.model_identifier));
         trace!("Loading shared library {:?}", lib_path);
 
-        unsafe { Container::load(lib_path) }.map_err(failure::Error::from)
+        unsafe { Container::load(lib_path) }.map_err(FmiError::from)
     }
 
     /// Return the path to the extracted FMU
@@ -215,9 +213,9 @@ impl Import {
         &self.descr
     }
 
-    pub fn resource_url(&self) -> Result<url::Url> {
+    pub fn resource_url(&self) -> url::Url {
         url::Url::from_file_path(self.path().join("resources"))
-            .map_err(|_| format_err!("Error forming resource location URL"))
+            .expect("Error forming resource location URL")
     }
 }
 
@@ -235,7 +233,7 @@ mod tests {
         .unwrap();
         assert_eq!(import.descr().fmi_version, "2.0");
 
-        let _me = import.container_me().unwrap();
+        let me = import.container_me().unwrap();
     }
 
     #[cfg(target_os = "linux")]

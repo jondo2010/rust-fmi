@@ -2,9 +2,9 @@ use super::fmi;
 /// This module implements the ModelDescription datamodel and provides
 /// attributes to serde_xml_rs to generate an XML deserializer.
 use derive_more::Display;
-use failure::{format_err, Error, ResultExt};
 use serde::{de, Deserialize, Deserializer};
 use std::str::FromStr;
+use thiserror::Error;
 
 // Re-exports
 pub use serde_xml_rs::from_reader;
@@ -28,10 +28,10 @@ where
     <T as std::str::FromStr>::Err: std::fmt::Display,
 {
     let s = <String>::deserialize(deser)?;
-    if s.len() == 0 {
+    if s.is_empty() {
         return Ok(Vec::<T>::new());
     }
-    s.split(" ")
+    s.split(' ')
         .map(|i| T::from_str(&i).map_err(de::Error::custom))
         .collect()
 }
@@ -45,8 +45,23 @@ where
     let s = <String>::deserialize(deser)?;
     dtparse::parse(&s)
         .map_err(|e| de::Error::custom(format!("{:?}", e)))
-        .and_then(|dt| Ok(DateTime::<Utc>::from_utc(dt.0, Utc)))
+        .map(|dt| DateTime::<Utc>::from_utc(dt.0, Utc))
     //( chrono::naive::NaiveDateTime, Option<chrono::offset::FixedOffset>,)
+}
+
+#[derive(Debug, Error, PartialEq)]
+pub enum ModelDescriptionError {
+    #[error("ScalarVariable at index {} not found in Model '{}'.", .1, .0)]
+    VariableAtIndexNotFound(String, usize),
+
+    #[error("ScalarVariable '{}' not found in Model '{}'.", name, model)]
+    VariableNotFound { model: String, name: String },
+
+    #[error("Mismatched variable type: expected {} but found {}", .0, .1)]
+    VariableTypeMismatch(ScalarVariableElementBase, ScalarVariableElementBase),
+
+    #[error("ScalarVariable '{}' does not define a derivative.", .0)]
+    VariableDerivativeMissing(String),
 }
 
 /* fmiModelDescription */
@@ -219,7 +234,10 @@ impl ModelDescription {
     }
 
     /// Turns an UnknownList into a nested Vector of ScalarVariables and their Dependencies
-    fn map_unknowns(&self, list: &UnknownList) -> Result<Vec<UnknownsTuple>, Error> {
+    fn map_unknowns(
+        &self,
+        list: &UnknownList,
+    ) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         list.unknowns
             .iter()
             .map(|unknown| {
@@ -227,9 +245,12 @@ impl ModelDescription {
                     .variables
                     // Variable indices start at 1 in the modelDescription
                     .get(unknown.index as usize - 1)
-                    .ok_or(format_err!("Variable not found"))
-                    .context(format!("{} var index {}", self.model_name, unknown.index))
-                    .map_err(|e| -> Error { e.into() })
+                    .ok_or_else(|| {
+                        ModelDescriptionError::VariableAtIndexNotFound(
+                            self.model_name.clone(),
+                            unknown.index as usize,
+                        )
+                    })
                     .and_then(|var| {
                         let deps = unknown
                             .dependencies
@@ -238,14 +259,14 @@ impl ModelDescription {
                                 self.model_variables
                                     .variables
                                     .get(*dep as usize - 1)
-                                    .ok_or(format_err!("Dependency not found"))
-                                    .context(format!(
-                                        "{} var index {}",
-                                        self.model_name, *dep as usize
-                                    ))
-                                    .map_err(|e| -> Error { e.into() })
+                                    .ok_or_else(|| {
+                                        ModelDescriptionError::VariableAtIndexNotFound(
+                                            self.model_name.clone(),
+                                            *dep as usize,
+                                        )
+                                    })
                             })
-                            .collect::<Result<Vec<_>, Error>>()?;
+                            .collect::<Result<Vec<_>, ModelDescriptionError>>()?;
 
                         Ok((var, deps))
                     })
@@ -254,30 +275,34 @@ impl ModelDescription {
     }
 
     /// Get a reference to the vector of Unknowns marked as outputs
-    pub fn outputs(&self) -> Result<Vec<UnknownsTuple>, Error> {
+    pub fn outputs(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         self.map_unknowns(&self.model_structure.outputs)
     }
 
     /// Get a reference to the vector of Unknowns marked as derivatives
-    pub fn derivatives(&self) -> Result<Vec<UnknownsTuple>, Error> {
+    pub fn derivatives(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         self.map_unknowns(&self.model_structure.derivatives)
     }
 
     /// Get a reference to the vector of Unknowns marked as initial_unknowns
-    pub fn initial_unknowns(&self) -> Result<Vec<UnknownsTuple>, Error> {
+    pub fn initial_unknowns(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         self.map_unknowns(&self.model_structure.initial_unknowns)
     }
 
-    fn model_variable_by_index(&self, idx: usize) -> Result<&ScalarVariable, Error> {
-        self.model_variables
-            .variables
-            .get(idx - 1)
-            .ok_or(format_err!("Variable not found"))
+    fn model_variable_by_index(
+        &self,
+        idx: usize,
+    ) -> Result<&ScalarVariable, ModelDescriptionError> {
+        self.model_variables.variables.get(idx - 1).ok_or_else(|| {
+            ModelDescriptionError::VariableAtIndexNotFound(self.model_name.clone(), idx as usize)
+        })
     }
 
     /// Return a vector of tuples `(&ScalarVariable, &ScalarVariabel)`, where the 1st is a
     /// continuous-time state, and the 2nd is its derivative.
-    pub fn continuous_states(&self) -> Result<Vec<(&ScalarVariable, &ScalarVariable)>, Error> {
+    pub fn continuous_states(
+        &self,
+    ) -> Result<Vec<(&ScalarVariable, &ScalarVariable)>, ModelDescriptionError> {
         self.model_structure
             .derivatives
             .unknowns
@@ -287,13 +312,20 @@ impl ModelDescription {
                     .and_then(|der| {
                         if let ScalarVariableElement::Real { derivative, .. } = der.elem {
                             derivative
-                                .ok_or(format_err!("Derivative index missing"))
+                                .ok_or_else(|| {
+                                    ModelDescriptionError::VariableDerivativeMissing(
+                                        der.name.clone(),
+                                    )
+                                })
                                 .and_then(|der_idx| {
                                     self.model_variable_by_index(der_idx as usize)
                                         .map(|state| (state, der))
                                 })
                         } else {
-                            Err(format_err!("Referenced state variable not a Real"))
+                            Err(ModelDescriptionError::VariableTypeMismatch(
+                                ScalarVariableElementBase::Real,
+                                ScalarVariableElementBase::from(&der.elem),
+                            ))
                         }
                     })
             })
@@ -503,10 +535,10 @@ impl std::hash::Hash for ScalarVariable {
 
 impl ScalarVariable {
     pub fn is_continuous_input(&self) -> bool {
-        match (&self.elem, &self.causality) {
-            (ScalarVariableElement::Real { .. }, Causality::Input) => true,
-            _ => false,
-        }
+        matches!(
+            (&self.elem, &self.causality),
+            (ScalarVariableElement::Real { .. }, Causality::Input)
+        )
     }
 }
 
@@ -560,6 +592,27 @@ pub enum ScalarVariableElement {
     },
 }
 
+#[derive(Debug, Display, PartialEq)]
+pub enum ScalarVariableElementBase {
+    Real,
+    Integer,
+    Boolean,
+    String,
+    Enumeration,
+}
+
+impl From<&ScalarVariableElement> for ScalarVariableElementBase {
+    fn from(sve: &ScalarVariableElement) -> Self {
+        match sve {
+            ScalarVariableElement::Real { .. } => Self::Real,
+            ScalarVariableElement::Integer { .. } => Self::Integer,
+            ScalarVariableElement::Boolean { .. } => Self::Boolean,
+            ScalarVariableElement::String { .. } => Self::String,
+            ScalarVariableElement::Enumeration { .. } => Self::Enumeration,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ModelVariables {
     #[serde(default, rename = "$value")]
@@ -604,6 +657,7 @@ struct ModelStructure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_approx_eq::assert_approx_eq;
 
     #[test]
     fn test_model_exchange() {
@@ -616,15 +670,15 @@ mod tests {
     fn test_default_experiment() {
         let s = r##"<DefaultExperiment stopTime="3.0" tolerance="0.0001"/>"##;
         let x: DefaultExperiment = serde_xml_rs::from_reader(s.as_bytes()).unwrap();
-        assert_eq!(x.start_time, 0.0);
-        assert_eq!(x.stop_time, 3.0);
-        assert_eq!(x.tolerance, 0.0001);
+        assert_approx_eq!(x.start_time, 0.0, f64::EPSILON);
+        assert_approx_eq!(x.stop_time, 3.0, f64::EPSILON);
+        assert_approx_eq!(x.tolerance, 0.0001, f64::EPSILON);
 
         let s = r#"<DefaultExperiment startTime = "0.10000000000000000e+00" stopTime  = "1.50000000000000000e+00" tolerance = "0.0001"/>"#;
         let x: DefaultExperiment = serde_xml_rs::from_reader(s.as_bytes()).unwrap();
-        assert_eq!(x.start_time, 0.1);
-        assert_eq!(x.stop_time, 1.5);
-        assert_eq!(x.tolerance, 0.0001);
+        assert_approx_eq!(x.start_time, 0.1, f64::EPSILON);
+        assert_approx_eq!(x.stop_time, 1.5, f64::EPSILON);
+        assert_approx_eq!(x.tolerance, 0.0001, f64::EPSILON);
     }
 
     #[test]
@@ -663,14 +717,12 @@ mod tests {
         "##;
         let x: ModelVariables = serde_xml_rs::from_reader(s.as_bytes()).unwrap();
         assert_eq!(x.variables.len(), 4);
-        assert_eq!(
-            x.variables
-                .iter()
-                .map(|v| &v.name)
-                .collect::<Vec<_>>()
-                .sort(),
-            vec!["x[1]", "x[2]", "der(x[1])", "der(x[2])"].sort()
-        );
+        assert!(x
+            .variables
+            .iter()
+            .map(|v| &v.name)
+            .zip(["x[1]", "x[2]", "der(x[1])", "der(x[2])"].iter())
+            .all(|(a, b)| a == b));
     }
 
     #[test]
