@@ -1,7 +1,8 @@
-use super::{fmi, handle_status_u32, logger, model_descr, Import, Result};
-use failure::format_err;
+use crate::FmiStatus;
+
+use super::{fmi, logger, model_descr, FmiError, Import, Result};
 use log::{trace, warn};
-use std::rc::Rc;
+use std::{ffi::CString, rc::Rc};
 
 impl Default for fmi::CallbackFunctions {
     fn default() -> Self {
@@ -10,7 +11,7 @@ impl Default for fmi::CallbackFunctions {
             allocate_memory: Some(libc::calloc),
             free_memory: Some(libc::free),
             step_finished: None,
-            component_environment: 0 as *mut std::os::raw::c_void,
+            component_environment: std::ptr::null_mut::<std::os::raw::c_void>(),
         }
     }
 }
@@ -18,21 +19,21 @@ impl Default for fmi::CallbackFunctions {
 /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
 /// from the library and the Model Description XML
 fn check_consistency(import: &Rc<Import>, common: &fmi::Common) -> Result<()> {
-    if unsafe { std::ffi::CStr::from_ptr(common.get_types_platform()) }.to_bytes_with_nul()
-        != fmi::fmi2TypesPlatform
-    {
-        Err(format_err!(
-            "TypesPlatform of loaded API doesn't match expected"
-        ))?
+    let types_platform =
+        unsafe { std::ffi::CStr::from_ptr(common.get_types_platform()) }.to_bytes_with_nul();
+
+    if types_platform != fmi::fmi2TypesPlatform {
+        return Err(FmiError::TypesPlatformMismatch {
+            found: types_platform.into(),
+        });
     }
 
-    if unsafe { std::ffi::CStr::from_ptr(common.get_version()) }.to_bytes()
-        != import.descr().fmi_version.as_bytes()
-    {
-        Err(format_err!(
-            "FMI version of loaded API doesn't match expected ({})",
-            import.descr().fmi_version
-        ))?
+    let fmi_version = unsafe { std::ffi::CStr::from_ptr(common.get_version()) }.to_bytes();
+    if fmi_version != import.descr().fmi_version.as_bytes() {
+        return Err(FmiError::FmiVersionMismatch {
+            found: fmi_version.into(),
+            expected: import.descr().fmi_version.as_bytes().into(),
+        });
     }
 
     Ok(())
@@ -50,7 +51,7 @@ pub trait Common: std::hash::Hash {
     /// The FMI-standard version string
     fn version(&self) -> Result<&str>;
 
-    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Result<()>;
+    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Result<FmiStatus>;
 
     /// Informs the FMU to setup the experiment. This function can be called after `instantiate()`
     /// and before `enter_initialization_mode()` is called.
@@ -81,7 +82,7 @@ pub trait Common: std::hash::Hash {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> Result<()>;
+    ) -> Result<FmiStatus>;
 
     /// Informs the FMU to enter Initialization Mode.
     ///
@@ -90,28 +91,28 @@ pub trait Common: std::hash::Hash {
     /// *Setting other variables is not allowed*. Furthermore, `setup_experiment()` must be called
     /// at least once before calling `enter_initialization_mode()`, in order that `start_time` is
     /// defined.
-    fn enter_initialization_mode(&self) -> Result<()>;
+    fn enter_initialization_mode(&self) -> Result<FmiStatus>;
 
     /// Informs the FMU to exit Initialization Mode.
     ///
     /// Under ModelExchange this function switches off all initialization equations and the FMU
     /// enters implicitely Event Mode, that is all continuous-time and active discrete-time
     /// equations are available.
-    fn exit_initialization_mode(&self) -> Result<()>;
+    fn exit_initialization_mode(&self) -> Result<FmiStatus>;
 
     /// Informs the FMU that the simulation run is terminated.
     ///
     /// After calling this function, the final values of all variables can be inquired with the
     /// fmi2GetXXX(..) functions. It is not allowed to call this function after one of the
     /// functions returned with a status flag of fmi2Error or fmi2Fatal.
-    fn terminate(&self) -> Result<()>;
+    fn terminate(&self) -> Result<FmiStatus>;
 
     /// Is called by the environment to reset the FMU after a simulation run.
     ///
     /// The FMU goes into the same state as if fmi2Instantiate would have been called. All
     /// variables have their default values. Before starting a new run, fmi2SetupExperiment and
     /// fmi2EnterInitializationMode have to be called.
-    fn reset(&self) -> Result<()>;
+    fn reset(&self) -> Result<FmiStatus>;
 
     fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real>;
     fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer>;
@@ -123,7 +124,11 @@ pub trait Common: std::hash::Hash {
     /// # Arguments
     /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
     /// * `values` - a slice of `fmi::fmi2Real` values to set
-    fn set_real(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Real]) -> Result<()>;
+    fn set_real(
+        &self,
+        vrs: &[fmi::fmi2ValueReference],
+        values: &[fmi::fmi2Real],
+    ) -> Result<FmiStatus>;
 
     /// Set integer values
     ///
@@ -134,14 +139,19 @@ pub trait Common: std::hash::Hash {
         &self,
         vrs: &[fmi::fmi2ValueReference],
         values: &[fmi::fmi2Integer],
-    ) -> Result<()>;
+    ) -> Result<FmiStatus>;
+
     fn set_boolean(
         &self,
         vrs: &[fmi::fmi2ValueReference],
         values: &[fmi::fmi2Boolean],
-    ) -> Result<()>;
-    fn set_string(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2String])
-        -> Result<()>;
+    ) -> Result<FmiStatus>;
+
+    fn set_string(
+        &self,
+        vrs: &[fmi::fmi2ValueReference],
+        values: &[fmi::fmi2String],
+    ) -> Result<FmiStatus>;
 
     /*
     fn get_fmu_state(&self) -> Result<FmuState>;
@@ -162,7 +172,7 @@ pub trait ModelExchange: Common {
 
     /// The model enters Event Mode from the Continuous-Time Mode and discrete-time equations may
     /// become active (and relations are not "frozen").
-    fn enter_event_mode(&self) -> Result<()>;
+    fn enter_event_mode(&self) -> Result<FmiStatus>;
 
     /// The FMU is in Event Mode and the super dense time is incremented by this call. If the super
     /// dense time before a call to `new_discrete_states` was (tR,tI) then the time instant after
@@ -175,7 +185,7 @@ pub trait ModelExchange: Common {
     ///     * call `terminate`, if `terminate_simulation` = true is returned by at least one FMU,
     ///     * call `enter_continuous_time_mode` if all FMUs return `new_discrete_states_needed` = false.
     ///     * stay in Event Mode otherwise.
-    fn new_discrete_states(&self, event_info: &mut fmi::EventInfo) -> Result<()>;
+    fn new_discrete_states(&self, event_info: &mut fmi::EventInfo) -> Result<FmiStatus>;
 
     /// The model enters Continuous-Time Mode and all discrete-time equations become inactive and
     /// all relations are "frozen".
@@ -183,7 +193,7 @@ pub trait ModelExchange: Common {
     /// This function has to be called when changing from Event Mode (after the global event
     /// iteration in Event Mode over all involved FMUs and other models has converged) into
     /// Continuous-Time Mode.
-    fn enter_continuous_time_mode(&self) -> Result<()>;
+    fn enter_continuous_time_mode(&self) -> Result<FmiStatus>;
 
     /// Complete integrator step and return enterEventMode.
     ///
@@ -203,7 +213,7 @@ pub trait ModelExchange: Common {
     /// the newly provided time value is different to the previously set time value (variables that
     /// depend solely on constants or parameters need not to be newly computed in the sequel, but
     /// the previously computed values can be reused).
-    fn set_time(&self, time: f64) -> Result<()>;
+    fn set_time(&self, time: f64) -> Result<FmiStatus>;
 
     /// Set a new (continuous) state vector and re-initialize caching of variables that depend on
     /// the states. Argument nx is the length of vector x and is provided for checking purposes
@@ -211,21 +221,21 @@ pub trait ModelExchange: Common {
     /// newly computed in the sequel, but the previously computed values can be reused).
     /// Note, the continuous states might also be changed in Event Mode.
     /// Note: fmi2Status = fmi2Discard is possible.
-    fn set_continuous_states(&self, states: &[f64]) -> Result<()>;
+    fn set_continuous_states(&self, states: &[f64]) -> Result<FmiStatus>;
 
     /// Compute state derivatives and event indicators at the current time instant and for the current states.
     /// The derivatives are returned as a vector with “nx” elements.
-    fn get_derivatives(&self, dx: &mut Vec<f64>) -> Result<()>;
+    fn get_derivatives(&self, dx: &mut Vec<f64>) -> Result<FmiStatus>;
 
     /// A state event is triggered when the domain of an event indicator changes from zj > 0 to zj ≤ 0 or vice versa.
     /// The FMU must guarantee that at an event restart zj ≠ 0, for example by shifting zj with a small value. Furthermore, zj should be scaled in the FMU with its nominal value (so all elements of the returned vector “eventIndicators” should be in the order of “one”). The event indicators are returned as a vector with “ni” elements.
-    fn get_event_indicators(&self, events: &mut Vec<f64>) -> Result<()>;
+    fn get_event_indicators(&self, events: &mut Vec<f64>) -> Result<FmiStatus>;
 
     /// Return the new (continuous) state vector x.
     /// This function has to be called directly after calling function `enter_continuous_time_mode`
     /// if it returns with eventInfo->valuesOfContinuousStatesChanged = true (indicating that the
     /// (continuous-time) state vector has changed).
-    fn get_continuous_states(&self, x: &mut Vec<f64>) -> Result<()>;
+    fn get_continuous_states(&self, x: &mut Vec<f64>) -> Result<FmiStatus>;
 
     /// Return the nominal values of the continuous states. This function should always be called
     /// after calling function new_discrete_states if it returns with
@@ -243,12 +253,32 @@ pub trait ModelExchange: Common {
 }
 
 pub trait CoSimulation: Common {
+    /// The computation of a time step is started.
+    ///
+    /// Depending on the internal state of the slave and the last call of `do_step(...)`, the slave
+    /// has to decide which action is to be done before the step is computed.
+    ///
+    /// # Arguments
+    /// * `current_communication_point` - the current communication point of the master.
+    /// * `communication_step_size` - the communication step size.
+    /// * `new_step` - If true, accept the last computed step, and start another.
     fn do_step(
         &self,
         current_communication_point: f64,
         communication_step_size: f64,
-        no_set_fmu_state_prior_to_current_point: bool,
-    ) -> Result<()>;
+        new_step: bool,
+    ) -> Result<FmiStatus>;
+
+    /// Cancel a running asynchronous step.
+    ///
+    /// Can be called if `do_step(...)` returned `Pending` in order to stop the current
+    /// asynchronous execution. The master calls this function if e.g. the co-simulation run is
+    /// stopped by the user or one of the slaves. Afterwards it is only allowed to call the
+    /// functions `terminate()` or `reset()`.
+    fn cancel_step(&self) -> Result<FmiStatus>;
+
+    /// Inquire into slave status during asynchronous step.
+    fn get_status(&self, kind: fmi::fmi2StatusKind) -> Result<FmiStatus>;
 }
 
 /// An Instance is templated around an FMU Api, and holds state for the API container,
@@ -329,14 +359,15 @@ impl InstanceME {
         check_consistency(&import, &me.common)?;
 
         let comp = unsafe {
-            let instance_name = std::ffi::CString::new(instance_name)?;
-            let guid = std::ffi::CString::new(import.descr().guid.as_bytes())?;
-            let resource_url = import.resource_url().and_then(|url| {
-                std::ffi::CString::new(url.as_str()).map_err(failure::Error::from)
-            })?;
+            let instance_name = CString::new(instance_name).expect("Error building CString");
+            let guid =
+                CString::new(import.descr().guid.as_bytes()).expect("Error building CString");
+            let resource_url =
+                CString::new(import.resource_url().as_str()).expect("Error building CString");
+
             me.common.instantiate(
                 instance_name.as_ptr(),
-                fmi::Type::ModelExchange as fmi::fmi2Type,
+                fmi::fmi2Type::ModelExchange,
                 guid.as_ptr(),                  /* guid */
                 resource_url.as_ptr(),          /* fmu_resource_location */
                 &*callbacks,                    /* functions */
@@ -345,16 +376,15 @@ impl InstanceME {
             )
         };
         if comp.is_null() {
-            //return FmiError::Instantiation;
-            return Err(format_err!("FMU instantiation failed"));
+            return Err(FmiError::Instantiation);
         }
         trace!("Created ME component {:?}", comp);
 
         let instance = Rc::new(Instance {
             name: instance_name.to_owned(),
-            import: import,
+            import,
             container: me,
-            callbacks: callbacks,
+            callbacks,
             component: comp,
         });
 
@@ -394,20 +424,21 @@ impl InstanceME {
 }
 
 impl ModelExchange for InstanceME {
-    fn enter_event_mode(&self) -> Result<()> {
-        handle_status_u32(unsafe { self.container.me.enter_event_mode(self.component) })
+    fn enter_event_mode(&self) -> Result<FmiStatus> {
+        unsafe { self.container.me.enter_event_mode(self.component) }.into()
     }
 
-    fn new_discrete_states(&self, event_info: &mut fmi::EventInfo) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn new_discrete_states(&self, event_info: &mut fmi::EventInfo) -> Result<FmiStatus> {
+        unsafe {
             self.container
                 .me
                 .new_discrete_states(self.component, event_info)
-        })
+        }
+        .into()
     }
 
-    fn enter_continuous_time_mode(&self) -> Result<()> {
-        handle_status_u32(unsafe { self.container.me.enter_continuous_time_mode(self.component) })
+    fn enter_continuous_time_mode(&self) -> Result<FmiStatus> {
+        unsafe { self.container.me.enter_continuous_time_mode(self.component) }.into()
     }
 
     fn completed_integrator_step(
@@ -417,57 +448,62 @@ impl ModelExchange for InstanceME {
         // The returned tuple are the flags (enter_event_mode, terminate_simulation)
         let mut enter_event_mode = fmi::fmi2False;
         let mut terminate_simulation = fmi::fmi2False;
-        handle_status_u32(unsafe {
+        let res: Result<FmiStatus> = unsafe {
             self.container.me.completed_integrator_step(
                 self.component,
                 no_set_fmu_state_prior_to_current_point as fmi::fmi2Boolean,
                 &mut enter_event_mode,
                 &mut terminate_simulation,
             )
-        })
-        .and(Ok((
+        }
+        .into();
+        res.and(Ok((
             enter_event_mode == fmi::fmi2True,
             terminate_simulation == fmi::fmi2True,
         )))
     }
 
-    fn set_time(&self, time: f64) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn set_time(&self, time: f64) -> Result<FmiStatus> {
+        unsafe {
             self.container
                 .me
                 .set_time(self.component, time as fmi::fmi2Real)
-        })
+        }
+        .into()
     }
 
-    fn set_continuous_states(&self, states: &[f64]) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn set_continuous_states(&self, states: &[f64]) -> Result<FmiStatus> {
+        unsafe {
             self.container.me.set_continuous_states(
                 self.component,
                 states.as_ptr() as *const fmi::fmi2Real,
                 states.len(),
             )
-        })
+        }
+        .into()
     }
 
-    fn get_derivatives(&self, dx: &mut Vec<f64>) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn get_derivatives(&self, dx: &mut Vec<f64>) -> Result<FmiStatus> {
+        unsafe {
             self.container
                 .me
                 .get_derivatives(self.component, dx.as_mut_ptr(), dx.capacity())
-        })
+        }
+        .into()
     }
 
-    fn get_event_indicators(&self, events: &mut Vec<f64>) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn get_event_indicators(&self, events: &mut Vec<f64>) -> Result<FmiStatus> {
+        unsafe {
             self.container.me.get_event_indicators(
                 self.component,
                 events.as_mut_ptr(),
                 events.capacity(),
             )
-        })
+        }
+        .into()
     }
 
-    fn get_continuous_states(&self, x: &mut Vec<f64>) -> Result<()> {
+    fn get_continuous_states(&self, x: &mut Vec<f64>) -> Result<FmiStatus> {
         let num_states = self.import.descr().num_states();
         if x.len() != num_states {
             warn!(
@@ -475,15 +511,16 @@ impl ModelExchange for InstanceME {
                 num_states
             );
         }
-        handle_status_u32(unsafe {
+        unsafe {
             self.container
                 .me
                 .get_continuous_states(self.component, x.as_mut_ptr(), x.capacity())
-        })
+        }
+        .into()
     }
 
     fn get_nominals_of_continuous_states(&self) -> Result<&[f64]> {
-        Err(format_err!("Unimplemented"))
+        unimplemented!();
     }
 }
 
@@ -501,14 +538,14 @@ impl InstanceCS {
         check_consistency(&import, &cs.common)?;
 
         let comp = unsafe {
-            let instance_name = std::ffi::CString::new(instance_name)?;
-            let guid = std::ffi::CString::new(import.descr().guid.as_bytes())?;
-            let resource_url = import.resource_url().and_then(|url| {
-                std::ffi::CString::new(url.as_str()).map_err(failure::Error::from)
-            })?;
+            let instance_name = CString::new(instance_name).expect("Error building CString");
+            let guid =
+                CString::new(import.descr().guid.as_bytes()).expect("Error building CString");
+            let resource_url =
+                CString::new(import.resource_url().as_str()).expect("Error building CString");
             cs.common.instantiate(
                 instance_name.as_ptr(),
-                fmi::Type::CoSimulation as fmi::fmi2Type,
+                fmi::fmi2Type::CoSimulation,
                 guid.as_ptr(),                  /* guid */
                 resource_url.as_ptr(),          /* fmu_resource_location */
                 &*callbacks,                    /* functions */
@@ -517,16 +554,15 @@ impl InstanceCS {
             )
         };
         if comp.is_null() {
-            //return FmiError::Instantiation;
-            return Err(format_err!("FMU instantiation failed"));
+            return Err(FmiError::Instantiation);
         }
         trace!("Created CS component {:?}", comp);
 
         let instance = Rc::new(Instance {
             name: instance_name.to_owned(),
-            import: import,
+            import,
             container: cs,
-            callbacks: callbacks,
+            callbacks,
             component: comp,
         });
 
@@ -539,24 +575,35 @@ impl CoSimulation for InstanceCS {
         &self,
         current_communication_point: f64,
         communication_step_size: f64,
-        no_set_fmu_state_prior_to_current_point: bool,
-    ) -> Result<()> {
-        handle_status_u32(unsafe {
+        new_step: bool,
+    ) -> Result<FmiStatus> {
+        unsafe {
             self.container.cs.do_step(
                 self.component,
                 current_communication_point,
                 communication_step_size,
-                no_set_fmu_state_prior_to_current_point as fmi::fmi2Boolean,
+                new_step as fmi::fmi2Boolean,
             )
-        })
+        }
+        .into()
+    }
+
+    fn cancel_step(&self) -> Result<FmiStatus> {
+        unsafe { self.container.cs.cancel_step(self.component) }.into()
+    }
+
+    fn get_status(&self, kind: fmi::fmi2StatusKind) -> Result<FmiStatus> {
+        let mut ret = fmi::fmi2Status::OK;
+        let _ = Result::<FmiStatus>::from(unsafe {
+            self.container.cs.get_status(self.component, kind, &mut ret)
+        })?;
+        ret.into()
     }
 }
 impl<A> Common for Instance<A>
 where
     A: fmi::FmiApi,
 {
-    //type Api = A;
-
     fn name(&self) -> &str {
         &self.name
     }
@@ -567,25 +614,26 @@ where
 
     fn version(&self) -> Result<&str> {
         unsafe { std::ffi::CStr::from_ptr(self.container.common().get_version()).to_str() }
-            .map_err(failure::Error::from)
+            .map_err(FmiError::from)
     }
 
-    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Result<()> {
+    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Result<FmiStatus> {
         let category_cstr = categories
             .iter()
-            .map(|c| std::ffi::CString::new(*c).unwrap())
+            .map(|c| CString::new(*c).unwrap())
             .collect::<Vec<_>>();
 
         let category_ptrs: Vec<_> = category_cstr.iter().map(|c| c.as_ptr()).collect();
 
-        handle_status_u32(unsafe {
+        unsafe {
             self.container.common().set_debug_logging(
                 self.component,
                 logging_on as fmi::fmi2Boolean,
                 category_ptrs.len(),
                 category_ptrs.as_ptr(),
             )
-        })
+        }
+        .into()
     }
 
     fn setup_experiment(
@@ -593,8 +641,8 @@ where
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> Result<()> {
-        handle_status_u32(unsafe {
+    ) -> Result<FmiStatus> {
+        unsafe {
             self.container.common().setup_experiment(
                 self.component,
                 tolerance.is_some() as fmi::fmi2Boolean,
@@ -603,76 +651,87 @@ where
                 stop_time.is_some() as fmi::fmi2Boolean,
                 stop_time.unwrap_or(0.0),
             )
-        })
+        }
+        .into()
     }
 
-    fn enter_initialization_mode(&self) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn enter_initialization_mode(&self) -> Result<FmiStatus> {
+        unsafe {
             self.container
                 .common()
                 .enter_initialization_mode(self.component)
-        })
+        }
+        .into()
     }
 
-    fn exit_initialization_mode(&self) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn exit_initialization_mode(&self) -> Result<FmiStatus> {
+        unsafe {
             self.container
                 .common()
                 .exit_initialization_mode(self.component)
-        })
+        }
+        .into()
     }
 
-    fn terminate(&self) -> Result<()> {
-        handle_status_u32(unsafe { self.container.common().terminate(self.component) })
+    fn terminate(&self) -> Result<FmiStatus> {
+        unsafe { self.container.common().terminate(self.component) }.into()
     }
 
-    fn reset(&self) -> Result<()> {
-        handle_status_u32(unsafe { self.container.common().reset(self.component) })
+    fn reset(&self) -> Result<FmiStatus> {
+        unsafe { self.container.common().reset(self.component) }.into()
     }
 
     fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real> {
         let mut ret: fmi::fmi2Real = 0.0;
-        handle_status_u32(unsafe {
+        let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
                 .get_real(self.component, &sv.value_reference, 1, &mut ret)
-        })
-        .and(Ok(ret as f64))
+        }
+        .into();
+        res.and(Ok(ret as f64))
     }
 
     fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer> {
         let mut ret: fmi::fmi2Integer = 0;
-        handle_status_u32(unsafe {
+        let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
                 .get_integer(self.component, &sv.value_reference, 1, &mut ret)
-        })
-        .and(Ok(ret))
+        }
+        .into();
+        res.and(Ok(ret))
     }
 
     fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Boolean> {
         let mut ret: fmi::fmi2Boolean = 0;
-        handle_status_u32(unsafe {
+        let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
                 .get_boolean(self.component, &sv.value_reference, 1, &mut ret)
-        })
-        .and(Ok(ret))
+        }
+        .into();
+        res.and(Ok(ret))
     }
 
     fn get_string(&self, _sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2String> {
         unimplemented!()
     }
 
-    fn set_real(&self, vrs: &[fmi::fmi2ValueReference], values: &[fmi::fmi2Real]) -> Result<()> {
-        handle_status_u32(unsafe {
+    fn set_real(
+        &self,
+        vrs: &[fmi::fmi2ValueReference],
+        values: &[fmi::fmi2Real],
+    ) -> Result<FmiStatus> {
+        unsafe {
             self.container.common().set_real(
                 self.component,
                 vrs.as_ptr(),
                 values.len(),
                 values.as_ptr(),
             )
-        })
+        }
+        .into()
     }
 
     /*
@@ -691,37 +750,39 @@ where
         &self,
         vrs: &[fmi::fmi2ValueReference],
         values: &[fmi::fmi2Integer],
-    ) -> Result<()> {
-        handle_status_u32(unsafe {
+    ) -> Result<FmiStatus> {
+        unsafe {
             self.container.common().set_integer(
                 self.component,
                 vrs.as_ptr(),
                 values.len(),
                 values.as_ptr(),
             )
-        })
+        }
+        .into()
     }
 
     fn set_boolean(
         &self,
         vrs: &[fmi::fmi2ValueReference],
         values: &[fmi::fmi2Boolean],
-    ) -> Result<()> {
-        handle_status_u32(unsafe {
+    ) -> Result<FmiStatus> {
+        unsafe {
             self.container.common().set_boolean(
                 self.component,
                 vrs.as_ptr(),
                 values.len(),
                 values.as_ptr(),
             )
-        })
+        }
+        .into()
     }
 
     fn set_string(
         &self,
         _vrs: &[fmi::fmi2ValueReference],
         _values: &[fmi::fmi2String],
-    ) -> Result<()> {
+    ) -> Result<FmiStatus> {
         unimplemented!()
     }
 
@@ -757,6 +818,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::model_descr::ModelDescriptionError;
+
     use super::*;
 
     //TODO Make this work on other targets
@@ -797,10 +860,31 @@ mod tests {
         instance1.reset().expect("reset");
     }
 
+    /// Tests on variable module requiring an instance.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_variable() {
+        use crate::{model_descr::ModelDescriptionError, Var};
+        let import = Import::new(std::path::Path::new(
+            "data/Modelica_Blocks_Sources_Sine.fmu",
+        ))
+        .unwrap();
+
+        let inst = InstanceME::new(&import, "inst1", false, true).unwrap();
+
+        let mut vars = import.descr().model_variables();
+        let _ = Var::from_scalar_variable(&inst, vars.next().unwrap().1);
+
+        assert!(matches!(
+            Var::from_name(&inst, "false"),
+            Err(FmiError::ModelDescr(ModelDescriptionError::VariableNotFound { .. }))
+        ));
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn test_instance_cs() {
-        use super::super::variable::{Value, Var};
+        use crate::{Value, Var};
         use assert_approx_eq::assert_approx_eq;
 
         let import = Import::new(std::path::Path::new(

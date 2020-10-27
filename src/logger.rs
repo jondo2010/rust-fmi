@@ -9,19 +9,16 @@ extern "C" fn callback_log(
     category: fmi::fmi2String,
     message: fmi::fmi2String,
 ) {
-    use num_traits::cast::FromPrimitive;
-
     let instance_name = unsafe { std::ffi::CStr::from_ptr(instance_name) }
         .to_str()
         .unwrap();
-    let status = match fmi::Status::from_u32(status) {
-        Some(fmi::Status::OK) => log::Level::Info,
-        Some(fmi::Status::Warning) => log::Level::Warn,
-        Some(fmi::Status::Discard) => log::Level::Trace,
-        Some(fmi::Status::Error) => log::Level::Error,
-        Some(fmi::Status::Fatal) => log::Level::Error,
-        Some(fmi::Status::Pending) => log::Level::Info,
-        None => log::Level::Info,
+    let level = match status {
+        fmi::fmi2Status::OK => log::Level::Info,
+        fmi::fmi2Status::Warning => log::Level::Warn,
+        fmi::fmi2Status::Discard => log::Level::Trace,
+        fmi::fmi2Status::Error => log::Level::Error,
+        fmi::fmi2Status::Fatal => log::Level::Error,
+        fmi::fmi2Status::Pending => log::Level::Info,
     };
 
     let _category = unsafe { std::ffi::CStr::from_ptr(category) }
@@ -35,7 +32,7 @@ extern "C" fn callback_log(
     log::logger().log(
         &log::Record::builder()
             .args(format_args!("{}", message))
-            .level(status)
+            .level(level)
             .module_path(Some("logger"))
             .file(Some("logger.rs"))
             .line(Some(0))
@@ -47,7 +44,7 @@ extern "C" fn callback_log(
 /// This function is implemented in logger.c
 #[link(name = "logger", kind = "static")]
 extern "C" {
-    pub fn callback_logger_handler(
+    pub(crate) fn callback_logger_handler(
         componentEnvironment: fmi::fmi2ComponentEnvironment,
         instanceName: fmi::fmi2String,
         status: fmi::fmi2Status,
@@ -56,6 +53,3 @@ extern "C" {
         ...
     );
 }
-
-#[test]
-pub fn test_logger() {}

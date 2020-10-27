@@ -1,11 +1,12 @@
+use crate::FmiStatus;
+
 use super::{fmi, instance, model_descr, Result};
 use derive_more::Display;
-use failure::{bail, format_err};
 use std::cmp::Ordering;
 use std::rc::Rc;
 
 // Re-exports
-pub use super::model_descr::{Causality, Initial, Variability};
+pub use super::model_descr::{Causality, Initial, ScalarVariableElementBase, Variability};
 
 #[derive(Display, Debug)]
 pub enum Value {
@@ -14,6 +15,18 @@ pub enum Value {
     Boolean(fmi::fmi2Boolean),
     String(String),
     Enumeration(fmi::fmi2Integer),
+}
+
+impl From<&Value> for ScalarVariableElementBase {
+    fn from(value: &Value) -> Self {
+        match value {
+            Value::Real(_) => Self::Real,
+            Value::Integer(_) => Self::Integer,
+            Value::Boolean(_) => Self::Boolean,
+            Value::String(_) => Self::String,
+            Value::Enumeration(_) => Self::Enumeration,
+        }
+    }
 }
 
 /// Var wraps access to an underlying ScalarVariable on an Instance
@@ -62,23 +75,22 @@ impl<I: instance::Common> Var<I> {
     }
 
     /// Create a new Var from an Instance given a variable name
-    pub fn from_name(instance: &Rc<I>, name: &str) -> Result<Self> {
+    pub fn from_name<S: AsRef<str>>(instance: &Rc<I>, name: S) -> Result<Self> {
         let sv: &model_descr::ScalarVariable = instance
             .import()
             .descr()
             .model_variables()
-            .find(|(n, _)| n == &name)
+            .find(|(n, _)| *n == name.as_ref())
             .map(|(_, sv)| sv)
-            .ok_or(format_err!(
-                "Variable {} not found in model {:?}",
-                name,
-                instance.import().descr().model_name()
-            ))?;
+            .ok_or_else(|| model_descr::ModelDescriptionError::VariableNotFound {
+                model: instance.import().descr().model_name().to_owned(),
+                name: name.as_ref().into(),
+            })?;
 
         let instance = instance.clone();
 
         Ok(Var {
-            instance: instance,
+            instance,
             sv: sv.clone(),
         })
     }
@@ -97,29 +109,25 @@ impl<I: instance::Common> Var<I> {
 
     pub fn get(&self) -> Result<Value> {
         match self.sv.elem {
-            model_descr::ScalarVariableElement::Real { .. } => self
-                .instance
-                .get_real(&self.sv)
-                .map(|value| Value::Real(value)),
-            model_descr::ScalarVariableElement::Integer { .. } => self
-                .instance
-                .get_integer(&self.sv)
-                .map(|value| Value::Integer(value)),
-            model_descr::ScalarVariableElement::Boolean { .. } => self
-                .instance
-                .get_boolean(&self.sv)
-                .map(|value| Value::Boolean(value)),
-            model_descr::ScalarVariableElement::String { .. } => {
-                bail!("String variables not supported yet.")
+            model_descr::ScalarVariableElement::Real { .. } => {
+                self.instance.get_real(&self.sv).map(Value::Real)
             }
-            model_descr::ScalarVariableElement::Enumeration { .. } => self
-                .instance
-                .get_integer(&self.sv)
-                .map(|value| Value::Enumeration(value)),
+            model_descr::ScalarVariableElement::Integer { .. } => {
+                self.instance.get_integer(&self.sv).map(Value::Integer)
+            }
+            model_descr::ScalarVariableElement::Boolean { .. } => {
+                self.instance.get_boolean(&self.sv).map(Value::Boolean)
+            }
+            model_descr::ScalarVariableElement::String { .. } => {
+                unimplemented!("String variables not supported yet.")
+            }
+            model_descr::ScalarVariableElement::Enumeration { .. } => {
+                self.instance.get_integer(&self.sv).map(Value::Enumeration)
+            }
         }
     }
 
-    pub fn set(&self, value: &Value) -> Result<()> {
+    pub fn set(&self, value: &Value) -> Result<FmiStatus> {
         match (&self.sv.elem, value) {
             (model_descr::ScalarVariableElement::Real { .. }, Value::Real(x)) => {
                 self.instance.set_real(&[self.sv.value_reference], &[*x])
@@ -131,12 +139,16 @@ impl<I: instance::Common> Var<I> {
                 self.instance.set_boolean(&[self.sv.value_reference], &[*x])
             }
             (model_descr::ScalarVariableElement::String { .. }, Value::String(_x)) => {
-                bail!("String variables not supported yet.")
+                unimplemented!("String variables not supported yet.")
             }
             (model_descr::ScalarVariableElement::Enumeration { .. }, Value::Enumeration(x)) => {
                 self.instance.set_integer(&[self.sv.value_reference], &[*x])
             }
-            _ => Err(format_err!("Type mismatch")),
+            _ => Err(model_descr::ModelDescriptionError::VariableTypeMismatch(
+                value.into(),
+                ScalarVariableElementBase::from(&self.sv.elem),
+            )
+            .into()),
         }
     }
 }

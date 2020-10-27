@@ -18,22 +18,19 @@ pub mod model_descr;
 pub mod variable;
 
 // Re-exports
-pub use self::fmi::FmiApi;
 pub use self::import::Import;
 pub use self::instance::{CoSimulation, Common, InstanceCS, InstanceME, ModelExchange};
-pub use self::variable::Var;
+pub use self::variable::{Var, Value};
 
-use failure::{Error, Fail};
+use derive_more::Display;
+use thiserror::Error;
 
-/// Crate-wide Result type
-pub type Result<T> = std::result::Result<T, failure::Error>;
-
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum FmiError {
-    #[fail(display = "error instantiating import")]
+    #[error("Error instantiating import")]
     Instantiation,
 
-    #[fail(display = "Invalid fmi2Status {}", status)]
+    #[error("Invalid fmi2Status {}", status)]
     InvalidStatus { status: u32 },
 
     /// For ME: It is recommended to perform a smaller step size and evaluate the model equations
@@ -43,7 +40,7 @@ pub enum FmiError {
     ///
     /// For CS: fmi2Discard is returned also if the slave is not able to return the required status
     /// information. The master has to decide if the simulation run can be continued.
-    #[fail(display = "fmi2Discard")]
+    #[error("fmi2Discard")]
     FmiStatusDiscard,
 
     /// The FMU encountered an error.
@@ -53,38 +50,82 @@ pub enum FmiError {
     /// flag canGetAndSetFMUstate is true and fmu2GetFMUstate was called before in non-erroneous
     /// state. If not, the simulation cannot be continued and fmi2FreeInstance or fmi2Reset must
     /// be called afterwards.
-    #[fail(display = "fmi2Error")]
+    #[error("fmi2Error")]
     FmiStatusError,
 
     /// The model computations are irreparably corrupted for all FMU instances.
     /// [For example, due to a run-time exception such as access violation or integer division by
     /// zero during the execution of an fmi function].
     /// It is not possible to call any other function for any of the FMU instances.
-    #[fail(display = "fmi2Fatal")]
+    #[error("fmi2Fatal")]
     FmiStatusFatal,
 
-    #[fail(display = "Unknown variable: {}", name)]
+    #[error("Unknown variable: {}", name)]
     UnknownVariable { name: String },
 
-    #[fail(display = "unknown toolchain version: {}", version)]
+    #[error("unknown toolchain version: {}", version)]
     UnknownToolchainVersion { version: String },
+
+    #[error("Model type {} not supported by this FMU", .0)]
+    UnsupportedFmuType(fmi::fmi2Type),
+
+    #[error(
+        "TypesPlatform of loaded API ({:?}) doesn't match expected ({:?})",
+        found,
+        fmi::fmi2TypesPlatform
+    )]
+    TypesPlatformMismatch { found: Box<[u8]> },
+
+    #[error(
+        "FMI version of loaded API ({:?}) doesn't match expected ({:?})",
+        found,
+        expected
+    )]
+    FmiVersionMismatch {
+        found: Box<[u8]>,
+        expected: Box<[u8]>,
+    },
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Zip(#[from] zip::result::ZipError),
+
+    #[error(transparent)]
+    Xml(#[from] serde_xml_rs::Error),
+
+    #[error(transparent)]
+    Dlopen(#[from] dlopen::Error),
+
+    #[error(transparent)]
+    ModelDescr(#[from] model_descr::ModelDescriptionError),
+
+    #[error(transparent)]
+    Utf8Error(#[from] std::str::Utf8Error),
 }
 
-/// Helper function to handle returned fmi2Status values
-fn handle_status_u32(status: u32) -> Result<()> {
-    use num_traits::cast::FromPrimitive;
-    if let Some(status) = fmi::Status::from_u32(status) {
-        match status {
-            fmi::Status::OK => Ok(()),
-            fmi::Status::Warning => Ok(()),
-            fmi::Status::Discard => Err(FmiError::FmiStatusDiscard),
-            fmi::Status::Error => Err(FmiError::FmiStatusError),
-            fmi::Status::Fatal => Err(FmiError::FmiStatusFatal),
-            fmi::Status::Pending => Ok(()),
+/// Ok Status returned by wrapped FMI functions.
+#[derive(Debug, PartialEq, Display)]
+pub enum FmiStatus {
+    Ok,
+    Warning,
+    Pending,
+}
+
+/// Crate-wide Result type
+pub type Result<T> = std::result::Result<T, FmiError>;
+
+impl From<fmi::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
+    fn from(fmi_status: fmi::fmi2Status) -> Self {
+        match fmi_status {
+            fmi::fmi2Status::OK => Ok(FmiStatus::Ok),
+            fmi::fmi2Status::Warning => Ok(FmiStatus::Warning),
+            fmi::fmi2Status::Discard => Err(FmiError::FmiStatusDiscard),
+            fmi::fmi2Status::Error => Err(FmiError::FmiStatusError),
+            fmi::fmi2Status::Fatal => Err(FmiError::FmiStatusFatal),
+            fmi::fmi2Status::Pending => Ok(FmiStatus::Pending),
         }
-        .map_err(Error::from)
-    } else {
-        Err(FmiError::InvalidStatus { status })?
     }
 }
 
