@@ -3,6 +3,7 @@
 [![pipeline status](https://gitlab.com/jondo2010/rust-fmi/badges/master/pipeline.svg)](https://gitlab.com/jondo2010/rust-fmi/commits/master)
 [![Build status](https://ci.appveyor.com/api/projects/status/xqvigxmc2tk0bkvm/branch/master?svg=true)](https://ci.appveyor.com/project/jondo2010/rust-fmi/branch/master)
 [![codecov](https://codecov.io/gl/jondo2010/rust-fmi/branch/master/graph/badge.svg)](https://codecov.io/gl/jondo2010/rust-fmi)
+[![coverage report](https://gitlab.com/jondo2010/rust-fmi/badges/master/coverage.svg)](https://gitlab.com/jondo2010/rust-fmi/-/commits/master)
 
 A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/
 

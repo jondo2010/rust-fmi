@@ -1,28 +1,10 @@
 variables:
-  CARGO_HOME: $CI_PROJECT_DIR/cargo
-  APT_CACHE_DIR: $CI_PROJECT_DIR/apt
-
-.cargo_build_template: &cargo_build
-  stage: build
-  script:
-    - cargo build --release --all
-  artifacts:
-    paths:
-      - target/release
-
-.cargo_test_template: &cargo_test
-  stage: test
-  script:
-    - cargo test --verbose --jobs 1 --all
-
-before_script:
-  - apt-get update -yq
-  - apt-get install -o dir::cache::archives="$APT_CACHE_DIR" -yqq --no-install-recommends libgfortran4 libblas3 liblapack3 libgcc1
+  #CARGO_HOME: $CI_PROJECT_DIR/cargo
+  #APT_CACHE_DIR: $CI_PROJECT_DIR/apt
 
 cache:
-  untracked: true
+  untracked: false
   paths:
-    - apt/
     - cargo/
     - target/
 
@@ -32,27 +14,43 @@ stages:
   - docs
 
 build:stable:cargo:
+  image: registry.gitlab.com/jondo2010/rust-fmi/build-image
+  stage: build
   cache:
     key: stable
-  image: rust
-  <<: *cargo_build
+  before_script:
+    - rustup update stable
+  script:
+    - cargo +stable build --release --all
+  artifacts:
+    paths:
+      - target/release
 
 test:stable:cargo:
-  image: registry.gitlab.com/starshell/docker/rust-codecov:stable
-  <<: *cargo_test
-  after_script:
-    - |
-      for file in target/debug/fmi-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
-      bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN &&
-      echo "Uploaded code coverage"
-
-test:beta:cargo:
-  image: registry.gitlab.com/starshell/docker/rust-codecov:beta
-  <<: *cargo_test
+  image: registry.gitlab.com/jondo2010/rust-fmi/build-image
+  stage: test
+  cache:
+    key: stable
+  before_script:
+    - rustup update stable
+  script:
+    - cargo +stable suity
+  artifacts:
+    reports:
+      junit:
+        - test-results/default.xml
 
 test:nightly:cargo:
-  image: registry.gitlab.com/starshell/docker/rust-codecov:nightly
-  <<: *cargo_test
+  image: registry.gitlab.com/jondo2010/rust-fmi/build-image
+  stage: test
+  before_script:
+    - rustup toolchain add nightly
+  script:
+    - cargo +nightly tarpaulin --verbose --out Xml --output-dir target/tarpaulin --all 
+  artifacts:
+    reports:
+      cobertura:
+        - target/tarpaulin/cobertura.xml
 
 pages:
   image: rust

@@ -455,10 +455,6 @@ fn main() -> CliResult {
 
 #[test]
 fn tester() {
-    let v = nalgebra::DVector::<f64>::zeros(10);
-
-    v.len();
-    v.norm();
-
-    nalgebra::Matrix::angle(&v, &v);
+    let a = 1;
+    assert_eq!(a, 1);
 }
