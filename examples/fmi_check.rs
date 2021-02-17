@@ -1,12 +1,13 @@
+use exitfailure::ExitFailure;
+use failure::Error;
 use fmi::model_descr::UnknownsTuple;
+use log::{info, trace};
 use prettytable::{cell, row, table, Row, Table};
-use quicli::prelude::*;
 use std::rc::Rc;
 use structopt::StructOpt;
 
 /// Query/Validate/Simulate an FMU
 #[derive(Debug, StructOpt)]
-#[structopt(raw(setting = "structopt::clap::AppSettings::ColoredHelp"))]
 struct FmiCheckOptions {
     /// Name of the CSV file name with input data.
     #[structopt(short = "i", parse(from_os_str))]
@@ -69,10 +70,6 @@ struct FmiCheckOptions {
     /// The FMU model to read
     #[structopt(name = "model.fmu", parse(from_os_str))]
     model: std::path::PathBuf,
-
-    // Quick and easy logging setup you get for free with quicli
-    #[structopt(flatten)]
-    verbosity: Verbosity,
 }
 
 fn print_info(import: &Rc<fmi::Import>) {
@@ -407,12 +404,12 @@ fn sim_me(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Resul
     Ok(data_table)
 }
 
-fn main() -> CliResult {
+fn main() -> Result<(), ExitFailure> {
     let args: FmiCheckOptions = FmiCheckOptions::from_args();
 
     //args.verbosity.setup_env_logger("fmi_check")?;
 
-    let level_filter = args.verbosity.log_level().to_level_filter();
+    let level_filter = log::LevelFilter::Info;
     pretty_env_logger::formatted_builder()
         .filter(Some("fmi_check"), level_filter)
         .filter(Some("fmi"), level_filter)
@@ -423,7 +420,7 @@ fn main() -> CliResult {
     let import = fmi::Import::new(std::path::Path::new(&args.model))?;
 
     if import.descr().fmi_version != "2.0" {
-        return Err(format_err!("Unsupported FMI Version").into());
+        return Err(failure::err_msg("Unsupported FMI Version").into());
     }
 
     print_info(&import);
