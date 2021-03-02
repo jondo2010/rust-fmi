@@ -20,7 +20,7 @@ pub mod variable;
 // Re-exports
 pub use self::import::Import;
 pub use self::instance::{CoSimulation, Common, InstanceCS, InstanceME, ModelExchange};
-pub use self::variable::{Var, Value};
+pub use self::variable::{Value, Var};
 
 use derive_more::Display;
 use thiserror::Error;

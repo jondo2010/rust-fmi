@@ -18,7 +18,7 @@ impl Default for fmi::CallbackFunctions {
 
 /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
 /// from the library and the Model Description XML
-fn check_consistency(import: &Rc<Import>, common: &fmi::Common) -> Result<()> {
+fn check_consistency(import: &Import, common: &fmi::Common) -> Result<()> {
     let types_platform =
         unsafe { std::ffi::CStr::from_ptr(common.get_types_platform()) }.to_bytes_with_nul();
 
@@ -41,7 +41,7 @@ fn check_consistency(import: &Rc<Import>, common: &fmi::Common) -> Result<()> {
 
 /// Interface common to both ModelExchange and CoSimulation
 pub trait Common: std::hash::Hash {
-    //type Api;
+    // type Api;
 
     /// The instance name
     fn name(&self) -> &str;
@@ -58,15 +58,15 @@ pub trait Common: std::hash::Hash {
     ///
     /// ## Tolerance control
     /// * Under ModelExchange: If tolerance = Some(..) then the model is called with a numerical
-    ///     integration scheme where the step size is controlled by using `tolerance` for error
-    ///     estimation (usually as relative tolerance). In such a case, all numerical algorithms
-    ///     used inside the model (for example to solve non-linear algebraic equations) should
-    ///     also operate with an error estimation of an appropriate smaller relative tolerance.
+    ///   integration scheme where the step size is controlled by using `tolerance` for error
+    ///   estimation (usually as relative tolerance). In such a case, all numerical algorithms used
+    ///   inside the model (for example to solve non-linear algebraic equations) should also operate
+    ///   with an error estimation of an appropriate smaller relative tolerance.
     /// * Under CoSimulation: If tolerance = Some(..) then the communication interval of the slave
-    ///     is controlled by error estimation. In case the slave utilizes a numerical integrator
-    ///     with variable step size and error estimation, it is suggested to use `tolerance` for
-    ///     the error estimation of the internal integrator (usually as relative tolerance). An
-    ///     FMU for Co-Simulation might ignore this argument.
+    ///   is controlled by error estimation. In case the slave utilizes a numerical integrator with
+    ///   variable step size and error estimation, it is suggested to use `tolerance` for the error
+    ///   estimation of the internal integrator (usually as relative tolerance). An FMU for
+    ///   Co-Simulation might ignore this argument.
     ///
     /// ## Start and Stop times
     /// The arguments `start_time` and `stop_time can be used to check whether the model is valid
@@ -153,22 +153,33 @@ pub trait Common: std::hash::Hash {
         values: &[fmi::fmi2String],
     ) -> Result<FmiStatus>;
 
-    /*
-    fn get_fmu_state(&self) -> Result<FmuState>;
-    fn set_fmu_state(&self, state: &FmuState<Self::Api>) -> Result<()>;
-    fn free_fmu_state(&self, state: FmuState<Self::Api>) -> Result<()>;
+    // fn get_fmu_state(&self) -> Result<FmuState>;
+    // fn set_fmu_state(&self, state: &FmuState<Self::Api>) -> Result<()>;
+    // fn free_fmu_state(&self, state: FmuState<Self::Api>) -> Result<()>;
+    //
+    // Serializes the data which is referenced by pointer FMUstate and copies this data in to the
+    // byte slice of length size, that must be provided by the environment.
+    // fn serialize_fmu_state(&self, state: &FmuState<Self::Api>) -> Result<Vec<u8>>;
+    //
+    // Deserializes the byte vector data into an FmuState
+    // fn deserialize_fmu_state(&self, data: &Vec<u8>) -> Result<FmuState<Self::Api>>;
 
-    /// Serializes the data which is referenced by pointer FMUstate and copies this data in to the
-    /// byte slice of length size, that must be provided by the environment.
-    fn serialize_fmu_state(&self, state: &FmuState<Self::Api>) -> Result<Vec<u8>>;
-
-    /// Deserializes the byte vector data into an FmuState
-    fn deserialize_fmu_state(&self, data: &Vec<u8>) -> Result<FmuState<Self::Api>>;
-    */
+    /// It is optionally possible to provide evaluation of partial derivatives for an FMU. For Model
+    /// Exchange, this means computing the partial derivatives at a particular time instant. For
+    /// Co-Simulation, this means to compute the partial derivatives at a particular communication
+    /// point. One function is provided to compute directional derivatives. This function can be
+    /// used to construct the desired partial derivative matrices.
+    fn get_directional_derivative(
+        &self,
+        unknown_vrs: &[fmi::fmi2ValueReference],
+        known_vrs: &[fmi::fmi2ValueReference],
+        dv_known_values: &[fmi::fmi2Real],
+        dv_unknown_values: &mut [fmi::fmi2Real],
+    ) -> Result<FmiStatus>;
 }
 
 pub trait ModelExchange: Common {
-    //fn set_fmu_state(&self, state: fmi2FMUstate) -> Result<()>;
+    // fn set_fmu_state(&self, state: fmi2FMUstate) -> Result<()>;
 
     /// The model enters Event Mode from the Continuous-Time Mode and discrete-time equations may
     /// become active (and relations are not "frozen").
@@ -183,7 +194,8 @@ pub trait ModelExchange: Common {
     /// get the outputs (get_XXX on outputs) and to call `new_discrete_states` again.
     /// Depending on the connection with other FMUs, the environment shall
     ///     * call `terminate`, if `terminate_simulation` = true is returned by at least one FMU,
-    ///     * call `enter_continuous_time_mode` if all FMUs return `new_discrete_states_needed` = false.
+    ///     * call `enter_continuous_time_mode` if all FMUs return `new_discrete_states_needed` =
+    ///       false.
     ///     * stay in Event Mode otherwise.
     fn new_discrete_states(&self, event_info: &mut fmi::EventInfo) -> Result<FmiStatus>;
 
@@ -223,12 +235,15 @@ pub trait ModelExchange: Common {
     /// Note: fmi2Status = fmi2Discard is possible.
     fn set_continuous_states(&self, states: &[f64]) -> Result<FmiStatus>;
 
-    /// Compute state derivatives and event indicators at the current time instant and for the current states.
-    /// The derivatives are returned as a vector with “nx” elements.
+    /// Compute state derivatives and event indicators at the current time instant and for the
+    /// current states. The derivatives are returned as a vector with “nx” elements.
     fn get_derivatives(&self, dx: &mut Vec<f64>) -> Result<FmiStatus>;
 
-    /// A state event is triggered when the domain of an event indicator changes from zj > 0 to zj ≤ 0 or vice versa.
-    /// The FMU must guarantee that at an event restart zj ≠ 0, for example by shifting zj with a small value. Furthermore, zj should be scaled in the FMU with its nominal value (so all elements of the returned vector “eventIndicators” should be in the order of “one”). The event indicators are returned as a vector with “ni” elements.
+    /// A state event is triggered when the domain of an event indicator changes from zj > 0 to zj ≤
+    /// 0 or vice versa. The FMU must guarantee that at an event restart zj ≠ 0, for example by
+    /// shifting zj with a small value. Furthermore, zj should be scaled in the FMU with its nominal
+    /// value (so all elements of the returned vector “eventIndicators” should be in the order of
+    /// “one”). The event indicators are returned as a vector with “ni” elements.
     fn get_event_indicators(&self, events: &mut Vec<f64>) -> Result<FmiStatus>;
 
     /// Return the new (continuous) state vector x.
@@ -368,11 +383,11 @@ impl InstanceME {
             me.common.instantiate(
                 instance_name.as_ptr(),
                 fmi::fmi2Type::ModelExchange,
-                guid.as_ptr(),                  /* guid */
-                resource_url.as_ptr(),          /* fmu_resource_location */
-                &*callbacks,                    /* functions */
-                visible as fmi::fmi2Boolean,    /* visible */
-                logging_on as fmi::fmi2Boolean, /* logging_on */
+                guid.as_ptr(),                  // guid
+                resource_url.as_ptr(),          // fmu_resource_location
+                &*callbacks,                    // functions
+                visible as fmi::fmi2Boolean,    // visible
+                logging_on as fmi::fmi2Boolean, // logging_on
             )
         };
         if comp.is_null() {
@@ -392,7 +407,8 @@ impl InstanceME {
     }
 
     /// Helper for event iteration
-    /// Returned tuple is (nominals_of_continuous_states_changed, values_of_continuous_states_changed)
+    /// Returned tuple is (nominals_of_continuous_states_changed,
+    /// values_of_continuous_states_changed)
     pub fn do_event_iteration(&self) -> Result<(bool, bool)> {
         let mut event_info = fmi::EventInfo {
             new_discrete_states_needed: fmi::fmi2True,
@@ -546,11 +562,11 @@ impl InstanceCS {
             cs.common.instantiate(
                 instance_name.as_ptr(),
                 fmi::fmi2Type::CoSimulation,
-                guid.as_ptr(),                  /* guid */
-                resource_url.as_ptr(),          /* fmu_resource_location */
-                &*callbacks,                    /* functions */
-                visible as fmi::fmi2Boolean,    /* visible */
-                logging_on as fmi::fmi2Boolean, /* logging_on */
+                guid.as_ptr(),                  // guid
+                resource_url.as_ptr(),          // fmu_resource_location
+                &*callbacks,                    // functions
+                visible as fmi::fmi2Boolean,    // visible
+                logging_on as fmi::fmi2Boolean, // logging_on
             )
         };
         if comp.is_null() {
@@ -723,6 +739,7 @@ where
         vrs: &[fmi::fmi2ValueReference],
         values: &[fmi::fmi2Real],
     ) -> Result<FmiStatus> {
+        assert!(vrs.len() == values.len());
         unsafe {
             self.container.common().set_real(
                 self.component,
@@ -786,9 +803,32 @@ where
         unimplemented!()
     }
 
-    //fn get_fmu_state(&self, state: *mut fmi2FMUstate) -> Result<()> {}
+    // fn get_fmu_state(&self, state: *mut fmi2FMUstate) -> Result<()> {}
 
-    //fn set_fmu_state(&self, state: &[u8]) -> Result<()> {}
+    // fn set_fmu_state(&self, state: &[u8]) -> Result<()> {}
+
+    fn get_directional_derivative(
+        &self,
+        unknown_vrs: &[fmi::fmi2ValueReference],
+        known_vrs: &[fmi::fmi2ValueReference],
+        dv_known_values: &[fmi::fmi2Real],
+        dv_unknown_values: &mut [fmi::fmi2Real],
+    ) -> Result<FmiStatus> {
+        assert!(unknown_vrs.len() == dv_unknown_values.len());
+        assert!(known_vrs.len() == dv_unknown_values.len());
+        unsafe {
+            self.container.common().get_directional_derivative(
+                self.component,
+                unknown_vrs.as_ptr(),
+                unknown_vrs.len(),
+                known_vrs.as_ptr(),
+                known_vrs.len(),
+                dv_known_values.as_ptr(),
+                dv_unknown_values.as_mut_ptr(),
+            )
+        }
+        .into()
+    }
 }
 
 impl<A> Drop for Instance<A>
@@ -822,7 +862,7 @@ mod tests {
 
     use super::*;
 
-    //TODO Make this work on other targets
+    // TODO Make this work on other targets
     #[cfg(target_os = "linux")]
     #[test]
     fn test_instance_me() {
@@ -877,7 +917,9 @@ mod tests {
 
         assert!(matches!(
             Var::from_name(&inst, "false"),
-            Err(FmiError::ModelDescr(ModelDescriptionError::VariableNotFound { .. }))
+            Err(FmiError::ModelDescr(
+                ModelDescriptionError::VariableNotFound { .. }
+            ))
         ));
     }
 

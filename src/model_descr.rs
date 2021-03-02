@@ -64,7 +64,7 @@ pub enum ModelDescriptionError {
     VariableDerivativeMissing(String),
 }
 
-/* fmiModelDescription */
+// fmiModelDescription
 #[derive(Debug, Deserialize)]
 #[serde(rename = "fmiModelDescription", rename_all = "camelCase")]
 pub struct ModelDescription {
@@ -78,9 +78,7 @@ pub struct ModelDescription {
     #[serde(default)]
     pub version: String,
 
-    /*
-    #[serde(with = "parse_util::odr_dateformat", default = "Header::default_date")]
-    */
+    // #[serde(with = "parse_util::odr_dateformat", default = "Header::default_date")]
     /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
     #[serde(deserialize_with = "dtparse_from_str")]
     pub generation_date_and_time: chrono::DateTime<chrono::Utc>,
@@ -145,11 +143,9 @@ impl ModelDescription {
         &self.model_name
     }
 
-    /*
-    pub fn model_identifier(&self) -> &str {
-        &self.model_exchange
-    }
-    */
+    // pub fn model_identifier(&self) -> &str {
+    // &self.model_exchange
+    // }
 
     /// Collect counts of variables in the model
     pub fn model_counts(&self) -> Counts {
@@ -340,7 +336,8 @@ pub struct ModelExchange {
     pub model_identifier: String,
 
     #[serde(default)]
-    // If true, a tool is needed to execute the model and the FMU just contains the communication to this tool.
+    // If true, a tool is needed to execute the model and the FMU just contains the communication
+    // to this tool.
     pub needs_execution_tool: bool,
 
     #[serde(default)]
@@ -359,7 +356,8 @@ pub struct ModelExchange {
     pub can_serialize_fmu_state: bool,
 
     #[serde(default)]
-    // If true, the directional derivative of the equations can be computed with fmi2GetDirectionalDerivative
+    // If true, the directional derivative of the equations can be computed with
+    // fmi2GetDirectionalDerivative
     pub provides_directional_derivative: bool,
 }
 
@@ -782,7 +780,7 @@ mod tests {
         assert_eq!(x.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}");
         assert_eq!(x.description, "Rotational Spring Mass Damper System");
         assert_eq!(x.version, "1.0");
-        //assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
+        // assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
         assert_eq!(x.variable_naming_convention, "structured");
         assert_eq!(x.number_of_event_indicators, 2);
         assert_eq!(x.model_variables.variables.len(), 4);
@@ -816,13 +814,11 @@ mod tests {
         );
     }
 
-    /*
-    #[test]
-    fn test_file() {
-        let file = std::fs::File::open("modelDescription.xml").unwrap();
-        let file = std::io::BufReader::new(file);
-        let x: ModelDescription = serde_xml_rs::deserialize(file).unwrap();
-        println!("{:#?}", x);
-    }
-    */
+    // #[test]
+    // fn test_file() {
+    // let file = std::fs::File::open("modelDescription.xml").unwrap();
+    // let file = std::io::BufReader::new(file);
+    // let x: ModelDescription = serde_xml_rs::deserialize(file).unwrap();
+    // println!("{:#?}", x);
+    // }
 }

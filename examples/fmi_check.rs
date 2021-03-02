@@ -21,7 +21,8 @@ struct FmiCheckOptions {
     #[structopt(short = "e", parse(from_os_str))]
     error_log: Option<std::path::PathBuf>,
 
-    /// Temporary dir to use for unpacking the FMU. Default is to use system-wide directory, e.g., C:\Temp or /tmp.
+    /// Temporary dir to use for unpacking the FMU. Default is to use system-wide directory, e.g.,
+    /// C:\Temp or /tmp.
     #[structopt(short = "t", parse(from_os_str))]
     temp_dir: Option<std::path::PathBuf>,
 
@@ -29,7 +30,8 @@ struct FmiCheckOptions {
     #[structopt(short = "c", default_value = ",")]
     separator: String,
 
-    /// Print also left limit values at event points to the output file to investigate event behaviour. Default is to only print values after event handling.
+    /// Print also left limit values at event points to the output file to investigate event
+    /// behaviour. Default is to only print values after event handling.
     #[structopt(short = "d")]
     print_left_limit: bool,
 
@@ -37,21 +39,27 @@ struct FmiCheckOptions {
     #[structopt(short = "f")]
     print_all_variables: bool,
 
-    /// Mangle variable names to avoid quoting (needed for some CSV importing applications, but not according to the CrossCheck rules).
+    /// Mangle variable names to avoid quoting (needed for some CSV importing applications, but not
+    /// according to the CrossCheck rules).
     #[structopt(short = "m")]
     mangle_names: bool,
 
     /// For ME simulation: Decides step size to use in forward Euler.
     /// For CS simulation: Decides communication step size for the stepping.
-    /// Observe that if a small stepSize is used the number of saved outputs will still be limited by the number of output points. Default is to calculated a step size from the number of output points. See the -n option for how the number of outputs is set.
+    /// Observe that if a small stepSize is used the number of saved outputs will still be limited
+    /// by the number of output points. Default is to calculated a step size from the number of
+    /// output points. See the -n option for how the number of outputs is set.
     #[structopt(short = "h")]
     step_size: Option<f64>,
 
-    /// Maximum number of output points. "-n 0" means output at every step and the number of outputs are decided by the -h option. Observe that no interpolation is used, output points are taken at the steps.
+    /// Maximum number of output points. "-n 0" means output at every step and the number of
+    /// outputs are decided by the -h option. Observe that no interpolation is used, output points
+    /// are taken at the steps.
     #[structopt(short = "n", default_value = "500")]
     num_steps: u32,
 
-    /// Simulation stop time, default is to use information from 'DefaultExperiment' as specified in the model description XML.
+    /// Simulation stop time, default is to use information from 'DefaultExperiment' as specified
+    /// in the model description XML.
     #[structopt(short = "s")]
     stop_time: Option<f64>,
 
@@ -108,22 +116,20 @@ fn print_info(import: &Rc<fmi::Import>) {
     ]);
     table.printstd();
 
-    /*
-        table.add_row(Row::new(vec![
-            Cell::new("foobar")
-                .with_style(Attr::Bold)
-                .with_style(Attr::ForegroundColor(color::GREEN)),
-            Cell::new("bar")
-                .with_style(Attr::BackgroundColor(color::RED))
-                .with_style(Attr::Italic(true))
-                .with_hspan(2),
-            Cell::new("foo"),
-        ]));
-    */
+    // table.add_row(Row::new(vec![
+    // Cell::new("foobar")
+    // .with_style(Attr::Bold)
+    // .with_style(Attr::ForegroundColor(color::GREEN)),
+    // Cell::new("bar")
+    // .with_style(Attr::BackgroundColor(color::RED))
+    // .with_style(Attr::Italic(true))
+    // .with_hspan(2),
+    // Cell::new("foo"),
+    // ]));
 }
 
 struct FmiCheckState {
-    //import: Rc<fmi::Import>,
+    // import: Rc<fmi::Import>,
     pub tolerance: Option<f64>,
     pub start_time: f64,
     pub stop_time: f64,
@@ -150,16 +156,14 @@ impl FmiCheckState {
             .step_size
             .unwrap_or_else(|| stop_time / options.num_steps as f64);
 
-        //TODO: better error handling
-        /*
-        let writer: Box<std::io::Write> = options.output_file.as_ref().map_or_else(
-            || Box::new(std::io::stdout()) as Box<std::io::Write>,
-            |output_path| {
-                Box::new(std::fs::File::create(output_path).unwrap()) as Box<std::io::Write>
-            },
-        );
-        let csv_out = csv::WriterBuilder::new().from_writer(writer);
-        */
+        // TODO: better error handling
+        // let writer: Box<std::io::Write> = options.output_file.as_ref().map_or_else(
+        // || Box::new(std::io::stdout()) as Box<std::io::Write>,
+        // |output_path| {
+        // Box::new(std::fs::File::create(output_path).unwrap()) as Box<std::io::Write>
+        // },
+        // );
+        // let csv_out = csv::WriterBuilder::new().from_writer(writer);
 
         Ok(FmiCheckState {
             tolerance,
@@ -302,16 +306,14 @@ fn sim_me(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Resul
         }
 
         // Check for eternal events
-        //fmi2_check_external_events(tcur,tnext, &eventInfo, &cdata->fmu2_inputData);
+        // fmi2_check_external_events(tcur,tnext, &eventInfo, &cdata->fmu2_inputData);
 
         // adjust for time events
         let time_event = false;
-        /*
-        if (eventInfo.nextEventTimeDefined && (tnext >= eventInfo.nextEventTime)) {
-            tnext = eventInfo.nextEventTime;
-            time_event = 1;
-        }
-        */
+        // if (eventInfo.nextEventTimeDefined && (tnext >= eventInfo.nextEventTime)) {
+        // tnext = eventInfo.nextEventTime;
+        // time_event = 1;
+        // }
         let current_step = next_time - current_time;
         current_time = next_time;
 
@@ -321,7 +323,7 @@ fn sim_me(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Resul
 
         // Set inputs
         // During continuous-time mode, only Continuous, Real, Inputs can be set.
-        //if(!fmi2_status_ok_or_warning(fmistatus = fmi2_set_inputs(cdata, tcur)))
+        // if(!fmi2_status_ok_or_warning(fmistatus = fmi2_set_inputs(cdata, tcur)))
 
         // Integrate for next states
         for (x, dx) in states.iter_mut().zip(states_der.iter()) {
@@ -393,11 +395,13 @@ fn sim_me(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Resul
         }
     }
 
-    //TODO check for discard:
-    //"Simulation loop terminated at time %g since FMU returned fmiDiscard. Running with shorter time step may help.", tcur);
+    // TODO check for discard:
+    //"Simulation loop terminated at time %g since FMU returned fmiDiscard. Running with shorter
+    //"Simulation time step may help.", tcur);
 
-    //TODO check for error:
-    //"Simulation loop terminated at time %g since FMU returned status: %s", tcur, fmi2_status_to_string(fmistatus));
+    // TODO check for error:
+    //"Simulation loop terminated at time %g since FMU returned status: %s", tcur,
+    //"Simulation fmi2_status_to_string(fmistatus));
 
     info!("Simulation finished successfully at time {}", current_time);
     instance.terminate()?;
@@ -407,7 +411,7 @@ fn sim_me(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Resul
 fn main() -> Result<(), ExitFailure> {
     let args: FmiCheckOptions = FmiCheckOptions::from_args();
 
-    //args.verbosity.setup_env_logger("fmi_check")?;
+    // args.verbosity.setup_env_logger("fmi_check")?;
 
     let level_filter = log::LevelFilter::Info;
     pretty_env_logger::formatted_builder()
