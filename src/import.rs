@@ -1,7 +1,6 @@
 use super::{fmi, model_descr, FmiError, Result};
 use dlopen::wrapper::Container;
 use log::trace;
-use std::rc::Rc;
 
 const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 
@@ -37,10 +36,11 @@ fn extract_archive(archive: &std::path::Path, outdir: &std::path::Path) -> Resul
         let mut file = archive.by_index(i)?;
         let outpath = outdir.join(file.name());
         if file.is_dir() {
-            //trace!( "File {} extracted to \"{}\"", i, outpath.as_path().display());
+            // trace!( "File {} extracted to \"{}\"", i, outpath.as_path().display());
             std::fs::create_dir_all(&outpath)?;
         } else {
-            //trace!( "File {} extracted to \"{}\" ({} bytes)", i, outpath.as_path().display(), file.size());
+            // trace!( "File {} extracted to \"{}\" ({} bytes)", i, outpath.as_path().display(),
+            // file.size());
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
                     std::fs::create_dir_all(&p)?;
@@ -60,7 +60,7 @@ pub struct Import {
 }
 
 /// Implement Deserialize
-/*
+#[cfg(feature = "deserialize")]
 impl<'de> serde::Deserialize<'de> for Import {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -97,7 +97,9 @@ impl<'de> serde::Deserialize<'de> for Import {
                         }
                         Field::EnableFmiLogging => {
                             if enable_fmi_logging.is_some() {
-                                return Err(serde::de::Error::duplicate_field("enable_fmi_logging"));
+                                return Err(serde::de::Error::duplicate_field(
+                                    "enable_fmi_logging",
+                                ));
                             }
                             enable_fmi_logging = Some(map.next_value()?);
                         }
@@ -114,7 +116,6 @@ impl<'de> serde::Deserialize<'de> for Import {
         deserializer.deserialize_struct("Import", FIELDS, ImportVisitor)
     }
 }
-*/
 
 impl std::fmt::Debug for Import {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -130,7 +131,7 @@ impl std::fmt::Debug for Import {
 
 impl Import {
     /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
-    pub fn new(path: &std::path::Path) -> Result<Rc<Import>> {
+    pub fn new(path: &std::path::Path) -> Result<Import> {
         // First create a temp directory
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
         extract_archive(path, temp_dir.path())?;
@@ -161,10 +162,10 @@ impl Import {
             cap_string
         );
 
-        Ok(Rc::new(Import {
+        Ok(Import {
             dir: temp_dir,
             descr,
-        }))
+        })
     }
 
     /// Create a ModelExchange API container if supported
@@ -223,7 +224,7 @@ impl Import {
 mod tests {
     use super::*;
 
-    //TODO Make this work on other targets
+    // TODO Make this work on other targets
     #[cfg(target_os = "linux")]
     #[test]
     fn test_import_me() {
@@ -233,7 +234,7 @@ mod tests {
         .unwrap();
         assert_eq!(import.descr().fmi_version, "2.0");
 
-        let me = import.container_me().unwrap();
+        let _me = import.container_me().unwrap();
     }
 
     #[cfg(target_os = "linux")]

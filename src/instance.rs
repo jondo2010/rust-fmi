@@ -2,7 +2,7 @@ use crate::FmiStatus;
 
 use super::{fmi, logger, model_descr, FmiError, Import, Result};
 use log::{trace, warn};
-use std::{ffi::CString, rc::Rc};
+use std::ffi::CString;
 
 impl Default for fmi::CallbackFunctions {
     fn default() -> Self {
@@ -41,12 +41,10 @@ fn check_consistency(import: &Import, common: &fmi::Common) -> Result<()> {
 
 /// Interface common to both ModelExchange and CoSimulation
 pub trait Common: std::hash::Hash {
-    // type Api;
-
     /// The instance name
     fn name(&self) -> &str;
 
-    fn import(&self) -> &Rc<Import>;
+    fn import(&self) -> &Import;
 
     /// The FMI-standard version string
     fn version(&self) -> Result<&str>;
@@ -237,20 +235,20 @@ pub trait ModelExchange: Common {
 
     /// Compute state derivatives and event indicators at the current time instant and for the
     /// current states. The derivatives are returned as a vector with “nx” elements.
-    fn get_derivatives(&self, dx: &mut Vec<f64>) -> Result<FmiStatus>;
+    fn get_derivatives(&self, dx: &mut [f64]) -> Result<FmiStatus>;
 
     /// A state event is triggered when the domain of an event indicator changes from zj > 0 to zj ≤
     /// 0 or vice versa. The FMU must guarantee that at an event restart zj ≠ 0, for example by
     /// shifting zj with a small value. Furthermore, zj should be scaled in the FMU with its nominal
     /// value (so all elements of the returned vector “eventIndicators” should be in the order of
     /// “one”). The event indicators are returned as a vector with “ni” elements.
-    fn get_event_indicators(&self, events: &mut Vec<f64>) -> Result<FmiStatus>;
+    fn get_event_indicators(&self, events: &mut [f64]) -> Result<FmiStatus>;
 
     /// Return the new (continuous) state vector x.
     /// This function has to be called directly after calling function `enter_continuous_time_mode`
     /// if it returns with eventInfo->valuesOfContinuousStatesChanged = true (indicating that the
     /// (continuous-time) state vector has changed).
-    fn get_continuous_states(&self, x: &mut Vec<f64>) -> Result<FmiStatus>;
+    fn get_continuous_states(&self, x: &mut [f64]) -> Result<FmiStatus>;
 
     /// Return the nominal values of the continuous states. This function should always be called
     /// after calling function new_discrete_states if it returns with
@@ -298,12 +296,12 @@ pub trait CoSimulation: Common {
 
 /// An Instance is templated around an FMU Api, and holds state for the API container,
 /// callbacks struct, and the internal instantiated component.
-pub struct Instance<A: fmi::FmiApi> {
+pub struct Instance<'imp, A: fmi::FmiApi> {
     /// Instance name
     name: String,
 
     /// Import
-    import: Rc<Import>,
+    import: &'imp Import,
 
     /// API Container
     container: dlopen::wrapper::Container<A>,
@@ -337,21 +335,21 @@ impl<'a, A: fmi::FmiApi> Drop for FmuState<'a, A> {
     }
 }
 
-pub type InstanceME = Instance<fmi::Fmi2ME>;
-pub type InstanceCS = Instance<fmi::Fmi2CS>;
+pub type InstanceME<'imp> = Instance<'imp, fmi::Fmi2ME>;
+pub type InstanceCS<'imp> = Instance<'imp, fmi::Fmi2CS>;
 
-impl<A> PartialEq for Instance<A>
+impl<'imp, A> PartialEq for Instance<'imp, A>
 where
     A: fmi::FmiApi,
 {
-    fn eq(&self, other: &Instance<A>) -> bool {
+    fn eq(&self, other: &Instance<'imp, A>) -> bool {
         self.name() == other.name()
     }
 }
 
-impl<A> Eq for Instance<A> where A: fmi::FmiApi {}
+impl<'imp, A> Eq for Instance<'imp, A> where A: fmi::FmiApi {}
 
-impl<A> std::hash::Hash for Instance<A>
+impl<'imp, A> std::hash::Hash for Instance<'imp, A>
 where
     A: fmi::FmiApi,
 {
@@ -360,15 +358,14 @@ where
     }
 }
 
-impl InstanceME {
+impl<'imp> InstanceME<'imp> {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &Rc<Import>,
+        import: &'imp Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> Result<Rc<InstanceME>> {
-        let import = import.clone();
+    ) -> Result<InstanceME<'imp>> {
         let callbacks = Box::new(fmi::CallbackFunctions::default());
         let me = import.container_me()?;
         check_consistency(&import, &me.common)?;
@@ -395,15 +392,13 @@ impl InstanceME {
         }
         trace!("Created ME component {:?}", comp);
 
-        let instance = Rc::new(Instance {
+        Ok(Instance {
             name: instance_name.to_owned(),
             import,
             container: me,
             callbacks,
             component: comp,
-        });
-
-        Ok(instance)
+        })
     }
 
     /// Helper for event iteration
@@ -439,7 +434,7 @@ impl InstanceME {
     }
 }
 
-impl ModelExchange for InstanceME {
+impl<'imp> ModelExchange for InstanceME<'imp> {
     fn enter_event_mode(&self) -> Result<FmiStatus> {
         unsafe { self.container.me.enter_event_mode(self.component) }.into()
     }
@@ -489,48 +484,45 @@ impl ModelExchange for InstanceME {
     }
 
     fn set_continuous_states(&self, states: &[f64]) -> Result<FmiStatus> {
+        assert!(states.len() == self.import.descr().num_states());
         unsafe {
             self.container.me.set_continuous_states(
                 self.component,
-                states.as_ptr() as *const fmi::fmi2Real,
+                states.as_ptr(),
                 states.len(),
             )
         }
         .into()
     }
 
-    fn get_derivatives(&self, dx: &mut Vec<f64>) -> Result<FmiStatus> {
+    fn get_derivatives(&self, dx: &mut [f64]) -> Result<FmiStatus> {
+        assert!(dx.len() == self.import.descr().num_states());
         unsafe {
             self.container
                 .me
-                .get_derivatives(self.component, dx.as_mut_ptr(), dx.capacity())
+                .get_derivatives(self.component, dx.as_mut_ptr(), dx.len())
         }
         .into()
     }
 
-    fn get_event_indicators(&self, events: &mut Vec<f64>) -> Result<FmiStatus> {
+    fn get_event_indicators(&self, events: &mut [f64]) -> Result<FmiStatus> {
+        assert!(events.len() == self.import.descr().num_event_indicators());
         unsafe {
             self.container.me.get_event_indicators(
                 self.component,
                 events.as_mut_ptr(),
-                events.capacity(),
+                events.len(),
             )
         }
         .into()
     }
 
-    fn get_continuous_states(&self, x: &mut Vec<f64>) -> Result<FmiStatus> {
-        let num_states = self.import.descr().num_states();
-        if x.len() != num_states {
-            warn!(
-                "get_continuous_states() called with a mismatched state vector, should be len {}",
-                num_states
-            );
-        }
+    fn get_continuous_states(&self, states: &mut [f64]) -> Result<FmiStatus> {
+        assert!(states.len() == self.import.descr().num_states());
         unsafe {
             self.container
                 .me
-                .get_continuous_states(self.component, x.as_mut_ptr(), x.capacity())
+                .get_continuous_states(self.component, states.as_mut_ptr(), states.len())
         }
         .into()
     }
@@ -540,15 +532,14 @@ impl ModelExchange for InstanceME {
     }
 }
 
-impl InstanceCS {
+impl<'imp> InstanceCS<'imp> {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &Rc<Import>,
+        import: &'imp Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> Result<Rc<InstanceCS>> {
-        let import = import.clone();
+    ) -> Result<InstanceCS<'imp>> {
         let callbacks = Box::new(fmi::CallbackFunctions::default());
         let cs = import.container_cs()?;
         check_consistency(&import, &cs.common)?;
@@ -574,19 +565,19 @@ impl InstanceCS {
         }
         trace!("Created CS component {:?}", comp);
 
-        let instance = Rc::new(Instance {
+        let instance = Instance {
             name: instance_name.to_owned(),
             import,
             container: cs,
             callbacks,
             component: comp,
-        });
+        };
 
         Ok(instance)
     }
 }
 
-impl CoSimulation for InstanceCS {
+impl<'imp> CoSimulation for InstanceCS<'imp> {
     fn do_step(
         &self,
         current_communication_point: f64,
@@ -616,7 +607,7 @@ impl CoSimulation for InstanceCS {
         ret.into()
     }
 }
-impl<A> Common for Instance<A>
+impl<'imp, A> Common for Instance<'imp, A>
 where
     A: fmi::FmiApi,
 {
@@ -624,7 +615,7 @@ where
         &self.name
     }
 
-    fn import(&self) -> &Rc<Import> {
+    fn import(&self) -> &Import {
         &self.import
     }
 
@@ -751,17 +742,15 @@ where
         .into()
     }
 
-    /*
-    fn set_real(&self, sv: &model_descr::ScalarVariable, value: f64) -> Result<()> {
-        let vr = sv.value_reference as fmi::fmi2ValueReference;
-        let vr = &vr as *const fmi::fmi2ValueReference;
-        handle_status_u32(unsafe {
-            self.container
-                .common()
-                .set_real(self.component, vr, 1, &value as *const fmi::fmi2Real)
-        })
-    }
-    */
+    // fn set_real(&self, sv: &model_descr::ScalarVariable, value: f64) -> Result<()> {
+    // let vr = sv.value_reference as fmi::fmi2ValueReference;
+    // let vr = &vr as *const fmi::fmi2ValueReference;
+    // handle_status_u32(unsafe {
+    // self.container
+    // .common()
+    // .set_real(self.component, vr, 1, &value as *const fmi::fmi2Real)
+    // })
+    // }
 
     fn set_integer(
         &self,
@@ -831,7 +820,7 @@ where
     }
 }
 
-impl<A> Drop for Instance<A>
+impl<'imp, A> Drop for Instance<'imp, A>
 where
     A: fmi::FmiApi,
 {
@@ -841,7 +830,7 @@ where
     }
 }
 
-impl<A> std::fmt::Debug for Instance<A>
+impl<'imp, A> std::fmt::Debug for Instance<'imp, A>
 where
     A: fmi::FmiApi,
 {
@@ -858,8 +847,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::model_descr::ModelDescriptionError;
-
     use super::*;
 
     // TODO Make this work on other targets
