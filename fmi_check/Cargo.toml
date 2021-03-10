@@ -1,0 +1,16 @@
+[package]
+name = "fmi_check"
+version = "0.1.0"
+authors = ["John Hughes <jondo2010@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.38"
+csv = "1.0.5"
+fmi = { path = ".." }
+log = "0.4.8"
+pretty_env_logger = "0.4.0"
+prettytable-rs = "0.8.0"
+structopt = { version = "0.3.21", features = ["paw"] }

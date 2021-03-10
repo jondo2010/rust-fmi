@@ -74,13 +74,14 @@ impl<'inst, I: instance::Common> Var<'inst, I> {
     }
 
     /// Create a new Var from an Instance given a variable name
+    #[cfg(feature = "disable")]
     pub fn from_name<S: AsRef<str>>(instance: &'inst I, name: S) -> Result<Self> {
         let sv: &model_descr::ScalarVariable = instance
             .import()
             .descr()
-            .model_variables()
-            .find(|(n, _)| *n == name.as_ref())
-            .map(|(_, sv)| sv)
+            .get_model_variables()
+            .find(|(_vr, sv)| sv.name == name.as_ref())
+            .map(|(_vr, sv)| sv)
             .ok_or_else(|| model_descr::ModelDescriptionError::VariableNotFound {
                 model: instance.import().descr().model_name().to_owned(),
                 name: name.as_ref().into(),
@@ -134,9 +135,9 @@ impl<'inst, I: instance::Common> Var<'inst, I> {
             (model_descr::ScalarVariableElement::Integer { .. }, Value::Integer(x)) => {
                 self.instance.set_integer(&[self.sv.value_reference], &[*x])
             }
-            (model_descr::ScalarVariableElement::Boolean { .. }, Value::Boolean(x)) => {
-                self.instance.set_boolean(&[self.sv.value_reference], &[*x])
-            }
+            (model_descr::ScalarVariableElement::Boolean { .. }, Value::Boolean(x)) => self
+                .instance
+                .set_boolean(&[self.sv.value_reference.0], &[*x]),
             (model_descr::ScalarVariableElement::String { .. }, Value::String(_x)) => {
                 unimplemented!("String variables not supported yet.")
             }

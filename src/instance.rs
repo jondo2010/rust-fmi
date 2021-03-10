@@ -44,8 +44,6 @@ pub trait Common: std::hash::Hash {
     /// The instance name
     fn name(&self) -> &str;
 
-    fn import(&self) -> &Import;
-
     /// The FMI-standard version string
     fn version(&self) -> Result<&str>;
 
@@ -124,7 +122,7 @@ pub trait Common: std::hash::Hash {
     /// * `values` - a slice of `fmi::fmi2Real` values to set
     fn set_real(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
+        vrs: &[model_descr::ValueReference],
         values: &[fmi::fmi2Real],
     ) -> Result<FmiStatus>;
 
@@ -135,7 +133,7 @@ pub trait Common: std::hash::Hash {
     /// * `values` - a slice of `fmi::fmi2Integer` values to set
     fn set_integer(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
+        vrs: &[model_descr::ValueReference],
         values: &[fmi::fmi2Integer],
     ) -> Result<FmiStatus>;
 
@@ -296,23 +294,30 @@ pub trait CoSimulation: Common {
 
 /// An Instance is templated around an FMU Api, and holds state for the API container,
 /// callbacks struct, and the internal instantiated component.
-pub struct Instance<'imp, A: fmi::FmiApi> {
+pub struct Instance<A: fmi::FmiApi> {
     /// Instance name
     name: String,
 
-    /// Import
-    import: &'imp Import,
+    // self.import().descr().model_name,
+    model_name: String,
 
     /// API Container
     container: dlopen::wrapper::Container<A>,
 
-    #[allow(dead_code)]
     /// Callbacks struct
+    #[allow(dead_code)]
     callbacks: Box<fmi::CallbackFunctions>,
 
     /// Instantiated component
     component: fmi::fmi2Component,
+
+    num_states: usize,
+    num_event_indicators: usize,
 }
+
+// We assume here that the exported FMUs are thread-safe (true for OpenModelica)
+unsafe impl<A: fmi::FmiApi> Send for Instance<A> {}
+unsafe impl<A: fmi::FmiApi> Sync for Instance<A> {}
 
 /// FmuState wraps the FMUstate pointer and is used for managing FMU state
 pub struct FmuState<'a, A: fmi::FmiApi> {
@@ -335,21 +340,21 @@ impl<'a, A: fmi::FmiApi> Drop for FmuState<'a, A> {
     }
 }
 
-pub type InstanceME<'imp> = Instance<'imp, fmi::Fmi2ME>;
-pub type InstanceCS<'imp> = Instance<'imp, fmi::Fmi2CS>;
+pub type InstanceME = Instance<fmi::Fmi2ME>;
+pub type InstanceCS = Instance<fmi::Fmi2CS>;
 
-impl<'imp, A> PartialEq for Instance<'imp, A>
+impl<A> PartialEq for Instance<A>
 where
     A: fmi::FmiApi,
 {
-    fn eq(&self, other: &Instance<'imp, A>) -> bool {
+    fn eq(&self, other: &Instance<A>) -> bool {
         self.name() == other.name()
     }
 }
 
-impl<'imp, A> Eq for Instance<'imp, A> where A: fmi::FmiApi {}
+impl<A> Eq for Instance<A> where A: fmi::FmiApi {}
 
-impl<'imp, A> std::hash::Hash for Instance<'imp, A>
+impl<A> std::hash::Hash for Instance<A>
 where
     A: fmi::FmiApi,
 {
@@ -358,14 +363,14 @@ where
     }
 }
 
-impl<'imp> InstanceME<'imp> {
+impl InstanceME {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &'imp Import,
+        import: &Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> Result<InstanceME<'imp>> {
+    ) -> Result<InstanceME> {
         let callbacks = Box::new(fmi::CallbackFunctions::default());
         let me = import.container_me()?;
         check_consistency(&import, &me.common)?;
@@ -394,10 +399,12 @@ impl<'imp> InstanceME<'imp> {
 
         Ok(Instance {
             name: instance_name.to_owned(),
-            import,
+            model_name: import.descr().model_name.clone(),
             container: me,
             callbacks,
             component: comp,
+            num_states: import.descr().num_states(),
+            num_event_indicators: import.descr().num_event_indicators(),
         })
     }
 
@@ -434,7 +441,7 @@ impl<'imp> InstanceME<'imp> {
     }
 }
 
-impl<'imp> ModelExchange for InstanceME<'imp> {
+impl ModelExchange for InstanceME {
     fn enter_event_mode(&self) -> Result<FmiStatus> {
         unsafe { self.container.me.enter_event_mode(self.component) }.into()
     }
@@ -484,19 +491,17 @@ impl<'imp> ModelExchange for InstanceME<'imp> {
     }
 
     fn set_continuous_states(&self, states: &[f64]) -> Result<FmiStatus> {
-        assert!(states.len() == self.import.descr().num_states());
+        assert!(states.len() == self.num_states);
         unsafe {
-            self.container.me.set_continuous_states(
-                self.component,
-                states.as_ptr(),
-                states.len(),
-            )
+            self.container
+                .me
+                .set_continuous_states(self.component, states.as_ptr(), states.len())
         }
         .into()
     }
 
     fn get_derivatives(&self, dx: &mut [f64]) -> Result<FmiStatus> {
-        assert!(dx.len() == self.import.descr().num_states());
+        assert!(dx.len() == self.num_states);
         unsafe {
             self.container
                 .me
@@ -506,7 +511,7 @@ impl<'imp> ModelExchange for InstanceME<'imp> {
     }
 
     fn get_event_indicators(&self, events: &mut [f64]) -> Result<FmiStatus> {
-        assert!(events.len() == self.import.descr().num_event_indicators());
+        assert!(events.len() == self.num_event_indicators);
         unsafe {
             self.container.me.get_event_indicators(
                 self.component,
@@ -518,11 +523,13 @@ impl<'imp> ModelExchange for InstanceME<'imp> {
     }
 
     fn get_continuous_states(&self, states: &mut [f64]) -> Result<FmiStatus> {
-        assert!(states.len() == self.import.descr().num_states());
+        assert!(states.len() == self.num_states);
         unsafe {
-            self.container
-                .me
-                .get_continuous_states(self.component, states.as_mut_ptr(), states.len())
+            self.container.me.get_continuous_states(
+                self.component,
+                states.as_mut_ptr(),
+                states.len(),
+            )
         }
         .into()
     }
@@ -532,14 +539,14 @@ impl<'imp> ModelExchange for InstanceME<'imp> {
     }
 }
 
-impl<'imp> InstanceCS<'imp> {
+impl InstanceCS {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &'imp Import,
+        import: &Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> Result<InstanceCS<'imp>> {
+    ) -> Result<InstanceCS> {
         let callbacks = Box::new(fmi::CallbackFunctions::default());
         let cs = import.container_cs()?;
         check_consistency(&import, &cs.common)?;
@@ -567,17 +574,19 @@ impl<'imp> InstanceCS<'imp> {
 
         let instance = Instance {
             name: instance_name.to_owned(),
-            import,
+            model_name: import.descr().model_name.clone(),
             container: cs,
             callbacks,
             component: comp,
+            num_states: import.descr().num_states(),
+            num_event_indicators: import.descr().num_event_indicators(),
         };
 
         Ok(instance)
     }
 }
 
-impl<'imp> CoSimulation for InstanceCS<'imp> {
+impl CoSimulation for InstanceCS {
     fn do_step(
         &self,
         current_communication_point: f64,
@@ -607,16 +616,12 @@ impl<'imp> CoSimulation for InstanceCS<'imp> {
         ret.into()
     }
 }
-impl<'imp, A> Common for Instance<'imp, A>
+impl<A> Common for Instance<A>
 where
     A: fmi::FmiApi,
 {
     fn name(&self) -> &str {
         &self.name
-    }
-
-    fn import(&self) -> &Import {
-        &self.import
     }
 
     fn version(&self) -> Result<&str> {
@@ -693,7 +698,7 @@ where
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
-                .get_real(self.component, &sv.value_reference, 1, &mut ret)
+                .get_real(self.component, &sv.value_reference.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret as f64))
@@ -704,7 +709,7 @@ where
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
-                .get_integer(self.component, &sv.value_reference, 1, &mut ret)
+                .get_integer(self.component, &sv.value_reference.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret))
@@ -715,7 +720,7 @@ where
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
-                .get_boolean(self.component, &sv.value_reference, 1, &mut ret)
+                .get_boolean(self.component, &sv.value_reference.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret))
@@ -727,14 +732,14 @@ where
 
     fn set_real(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
+        vrs: &[model_descr::ValueReference],
         values: &[fmi::fmi2Real],
     ) -> Result<FmiStatus> {
         assert!(vrs.len() == values.len());
         unsafe {
             self.container.common().set_real(
                 self.component,
-                vrs.as_ptr(),
+                vrs.as_ptr() as *const u32,
                 values.len(),
                 values.as_ptr(),
             )
@@ -754,13 +759,13 @@ where
 
     fn set_integer(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
+        vrs: &[model_descr::ValueReference],
         values: &[fmi::fmi2Integer],
     ) -> Result<FmiStatus> {
         unsafe {
             self.container.common().set_integer(
                 self.component,
-                vrs.as_ptr(),
+                vrs.as_ptr() as *const u32,
                 values.len(),
                 values.as_ptr(),
             )
@@ -820,7 +825,7 @@ where
     }
 }
 
-impl<'imp, A> Drop for Instance<'imp, A>
+impl<A> Drop for Instance<A>
 where
     A: fmi::FmiApi,
 {
@@ -830,7 +835,7 @@ where
     }
 }
 
-impl<'imp, A> std::fmt::Debug for Instance<'imp, A>
+impl<A> std::fmt::Debug for Instance<A>
 where
     A: fmi::FmiApi,
 {
@@ -839,7 +844,7 @@ where
             f,
             "Instance {} {{Import {}, {:?}}}",
             self.name(),
-            self.import().descr().model_name,
+            self.model_name,
             self.component,
         )
     }
@@ -889,6 +894,7 @@ mod tests {
 
     /// Tests on variable module requiring an instance.
     #[cfg(target_os = "linux")]
+    #[cfg(feature = "disable")]
     #[test]
     fn test_variable() {
         use crate::{model_descr::ModelDescriptionError, Var};
@@ -899,7 +905,7 @@ mod tests {
 
         let inst = InstanceME::new(&import, "inst1", false, true).unwrap();
 
-        let mut vars = import.descr().model_variables();
+        let mut vars = import.descr().get_model_variables();
         let _ = Var::from_scalar_variable(&inst, vars.next().unwrap().1);
 
         assert!(matches!(
@@ -911,6 +917,7 @@ mod tests {
     }
 
     #[cfg(target_os = "linux")]
+    #[cfg(feature = "disable")]
     #[test]
     fn test_instance_cs() {
         use crate::{Value, Var};

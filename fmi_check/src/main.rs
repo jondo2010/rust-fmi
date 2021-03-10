@@ -1,9 +1,7 @@
-use exitfailure::ExitFailure;
-use failure::Error;
-use fmi::model_descr::UnknownsTuple;
+use anyhow::anyhow;
+use fmi::{model_descr::UnknownsTuple, Import};
 use log::{info, trace};
 use prettytable::{cell, row, table, Row, Table};
-use std::rc::Rc;
 use structopt::StructOpt;
 
 /// Query/Validate/Simulate an FMU
@@ -80,7 +78,7 @@ struct FmiCheckOptions {
     model: std::path::PathBuf,
 }
 
-fn print_info(import: &Rc<fmi::Import>) {
+fn print_info(import: &fmi::Import) {
     let mut table = table!(
         [br -> "Model name:", import.descr().model_name],
         [br -> "Model GUID:", import.descr().guid],
@@ -115,17 +113,6 @@ fn print_info(import: &Rc<fmi::Import>) {
         ),
     ]);
     table.printstd();
-
-    // table.add_row(Row::new(vec![
-    // Cell::new("foobar")
-    // .with_style(Attr::Bold)
-    // .with_style(Attr::ForegroundColor(color::GREEN)),
-    // Cell::new("bar")
-    // .with_style(Attr::BackgroundColor(color::RED))
-    // .with_style(Attr::Italic(true))
-    // .with_hspan(2),
-    // Cell::new("foo"),
-    // ]));
 }
 
 struct FmiCheckState {
@@ -140,7 +127,7 @@ impl FmiCheckState {
     pub fn from_options_and_experiment(
         options: &FmiCheckOptions,
         default_experiment: &Option<&fmi::model_descr::DefaultExperiment>,
-    ) -> Result<Self, Error> {
+    ) -> anyhow::Result<Self> {
         let tolerance = default_experiment.and_then(|ref de| Some(de.tolerance));
 
         let start_time = default_experiment
@@ -174,9 +161,12 @@ impl FmiCheckState {
     }
 }
 
-fn setup_debug_logging<I: fmi::Common>(instance: &Rc<I>, logging_on: bool) -> fmi::Result<()> {
-    let categories = &instance
-        .import()
+fn setup_debug_logging<I: fmi::Common>(
+    import: &fmi::Import,
+    instance: &I,
+    logging_on: bool,
+) -> fmi::Result<()> {
+    let categories = &import
         .descr()
         .log_categories
         .as_ref()
@@ -195,10 +185,11 @@ fn setup_debug_logging<I: fmi::Common>(instance: &Rc<I>, logging_on: bool) -> fm
 }
 
 fn sim_prelude<'a, I: fmi::Common>(
-    instance: &'a Rc<I>,
+    import: &'a fmi::Import,
+    instance: &'a I,
     fmi_check: &FmiCheckState,
 ) -> fmi::Result<(Vec<UnknownsTuple<'a>>, Table)> {
-    let outputs = instance.import().descr().outputs()?;
+    let outputs = import.descr().outputs()?;
 
     // Set data table headers
     let mut data_table = Table::new();
@@ -209,7 +200,7 @@ fn sim_prelude<'a, I: fmi::Common>(
             .chain(outputs.iter().map(|(sv, _)| &sv.name)),
     ));
 
-    setup_debug_logging(&instance, true)?;
+    setup_debug_logging(import, instance, true)?;
 
     info!(
         "Preparing simulation from t=[{},{}], dt={}, tol={}",
@@ -238,10 +229,10 @@ fn sim_prelude<'a, I: fmi::Common>(
     Ok((outputs, data_table))
 }
 
-fn sim_cs(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Result<Table> {
+fn sim_cs(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Table> {
     use fmi::instance::{CoSimulation, Common};
-    let instance = fmi::InstanceCS::new(&import, "inst1", false, true)?;
-    let (outputs, mut data_table) = sim_prelude(&instance, fmi_check)?;
+    let instance = fmi::InstanceCS::new(import, "inst1", false, true)?;
+    let (outputs, mut data_table) = sim_prelude(import, &instance, fmi_check)?;
 
     info!(
         "Initialized FMU for CS simulation starting at time {}.",
@@ -269,10 +260,10 @@ fn sim_cs(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Resul
 }
 
 /// Run a simple ModelExchange simulation
-fn sim_me(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Result<Table> {
+fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Table> {
     use fmi::instance::{Common, ModelExchange};
-    let instance = fmi::InstanceME::new(&import, "inst1", false, true)?;
-    let (outputs, mut data_table) = sim_prelude(&instance, fmi_check)?;
+    let instance = fmi::InstanceME::new(import, "inst1", false, true)?;
+    let (outputs, mut data_table) = sim_prelude(import, &instance, fmi_check)?;
 
     // fmiExitInitializationMode leaves FMU in event mode
     let _ = instance.do_event_iteration()?;
@@ -408,7 +399,7 @@ fn sim_me(import: &Rc<fmi::Import>, fmi_check: &mut FmiCheckState) -> fmi::Resul
     Ok(data_table)
 }
 
-fn main() -> Result<(), ExitFailure> {
+fn main() -> anyhow::Result<()> {
     let args: FmiCheckOptions = FmiCheckOptions::from_args();
 
     // args.verbosity.setup_env_logger("fmi_check")?;
@@ -424,7 +415,7 @@ fn main() -> Result<(), ExitFailure> {
     let import = fmi::Import::new(std::path::Path::new(&args.model))?;
 
     if import.descr().fmi_version != "2.0" {
-        return Err(failure::err_msg("Unsupported FMI Version").into());
+        return Err(anyhow!("Unsupported FMI Version"));
     }
 
     print_info(&import);
@@ -452,14 +443,4 @@ fn main() -> Result<(), ExitFailure> {
     }
 
     Ok(())
-}
-
-#[test]
-fn tester() {
-    let v = nalgebra::DVector::<f64>::zeros(10);
-
-    v.len();
-    v.norm();
-
-    nalgebra::Matrix::angle(&v, &v);
 }

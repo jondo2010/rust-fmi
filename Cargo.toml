@@ -28,7 +28,7 @@ cc = "1.0.61"
 built = "0.4.3"
 
 [dependencies]
-serde = {version = "1.0.107", features = ["derive"] }
+serde = {version = "1.0.124", features = ["derive"] }
 serde-xml-rs = "0.4.0"
 dtparse = "1.0.3"
 num-traits = "0.2.12"
@@ -40,14 +40,13 @@ url = "2.2.0"
 tempfile = "3.1.0"
 chrono = { version = "0.4.6", features = ["serde"] }
 libc = { version = "0.2.79", features = ["align"] }
-log = { version = "0.4.6", features = ["std", "serde"] }
+log = { version = "0.4.8", features = ["std", "serde"] }
 thiserror = "1.0.21"
 
 [dev-dependencies]
-structopt = "0.3.21"
-prettytable-rs = "0.8.0"
 pretty_env_logger = "0.4.0"
 csv = "1.0.5"
 assert_approx_eq = "1.1.0"
-exitfailure = "0.5.1"
-failure = "0.1.8"
+
+[workspace]
+members = ["fmi_check"]

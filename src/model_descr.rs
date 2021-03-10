@@ -3,7 +3,10 @@ use super::fmi;
 /// attributes to serde_xml_rs to generate an XML deserializer.
 use derive_more::Display;
 use serde::{de, Deserialize, Deserializer};
-use std::str::FromStr;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 use thiserror::Error;
 
 // Re-exports
@@ -150,8 +153,8 @@ impl ModelDescription {
     /// Collect counts of variables in the model
     pub fn model_counts(&self) -> Counts {
         self.model_variables
-            .variables
-            .iter()
+            .map
+            .values()
             .fold(Counts::default(), |mut cts, ref sv| {
                 match sv.variability {
                     Variability::Constant => {
@@ -209,7 +212,7 @@ impl ModelDescription {
 
     /// Total number of variables
     pub fn num_variables(&self) -> usize {
-        self.model_variables.variables.len()
+        self.model_variables.map.len()
     }
 
     /// Get the number of continuous states (and derivatives)
@@ -221,13 +224,16 @@ impl ModelDescription {
         self.number_of_event_indicators as usize
     }
 
-    /// Get a reference to the Map of SalarVariables
-    pub fn model_variables(&self) -> impl Iterator<Item = (&str, &ScalarVariable)> {
-        self.model_variables
-            .variables
-            .iter()
-            .map(|row| (row.name.as_ref(), row))
+    /// Get a iterator of the SalarVariables
+    pub fn get_model_variables(&self) -> impl Iterator<Item = (&ValueReference, &ScalarVariable)> {
+        self.model_variables.map.iter()
     }
+
+    pub fn get_model_variable_by_vr(&self, vr: ValueReference) -> Option<&ScalarVariable> {
+        self.model_variables.map.get(&vr)
+    }
+
+    // pub fn model_variable_by
 
     /// Turns an UnknownList into a nested Vector of ScalarVariables and their Dependencies
     fn map_unknowns(
@@ -238,9 +244,10 @@ impl ModelDescription {
             .iter()
             .map(|unknown| {
                 self.model_variables
-                    .variables
+                    .by_index
                     // Variable indices start at 1 in the modelDescription
                     .get(unknown.index as usize - 1)
+                    .map(|vr| &self.model_variables.map[vr])
                     .ok_or_else(|| {
                         ModelDescriptionError::VariableAtIndexNotFound(
                             self.model_name.clone(),
@@ -253,8 +260,9 @@ impl ModelDescription {
                             .iter()
                             .map(|dep| {
                                 self.model_variables
-                                    .variables
+                                    .by_index
                                     .get(*dep as usize - 1)
+                                    .map(|vr| &self.model_variables.map[vr])
                                     .ok_or_else(|| {
                                         ModelDescriptionError::VariableAtIndexNotFound(
                                             self.model_name.clone(),
@@ -285,13 +293,22 @@ impl ModelDescription {
         self.map_unknowns(&self.model_structure.initial_unknowns)
     }
 
+    /// This private function is used to de-reference variable indices from the UnknownList and
+    /// Real{derivative}
     fn model_variable_by_index(
         &self,
         idx: usize,
     ) -> Result<&ScalarVariable, ModelDescriptionError> {
-        self.model_variables.variables.get(idx - 1).ok_or_else(|| {
-            ModelDescriptionError::VariableAtIndexNotFound(self.model_name.clone(), idx as usize)
-        })
+        self.model_variables
+            .by_index
+            .get(idx - 1)
+            .map(|vr| &self.model_variables.map[vr])
+            .ok_or_else(|| {
+                ModelDescriptionError::VariableAtIndexNotFound(
+                    self.model_name.clone(),
+                    idx as usize,
+                )
+            })
     }
 
     /// Return a vector of tuples `(&ScalarVariable, &ScalarVariabel)`, where the 1st is a
@@ -478,6 +495,12 @@ impl Default for Initial {
     }
 }
 
+#[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[serde(transparent)]
+pub struct ValueReference(
+    #[serde(deserialize_with = "t_from_str")] pub(crate) fmi::fmi2ValueReference,
+);
+
 #[derive(Debug, Deserialize, Display, Clone)]
 #[serde(rename_all = "camelCase")]
 #[display(
@@ -492,8 +515,8 @@ pub struct ScalarVariable {
     pub name: String,
 
     /// A handle of the variable to efficiently identify the variable value in the model interface.
-    #[serde(deserialize_with = "t_from_str")]
-    pub value_reference: fmi::fmi2ValueReference,
+    //#[serde(deserialize_with = "t_from_str")]
+    pub value_reference: ValueReference,
 
     /// An optional description string describing the meaning of the variable.
     #[serde(default)]
@@ -524,10 +547,19 @@ impl PartialEq for ScalarVariable {
 }
 
 impl Eq for ScalarVariable {}
-
 impl std::hash::Hash for ScalarVariable {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.value_reference.hash(state);
+    }
+}
+impl PartialOrd for ScalarVariable {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.value_reference.partial_cmp(&other.value_reference)
+    }
+}
+impl Ord for ScalarVariable {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.value_reference.cmp(&other.value_reference)
     }
 }
 
@@ -612,9 +644,35 @@ impl From<&ScalarVariableElement> for ScalarVariableElementBase {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ModelVariables {
+struct ModelVariablesRaw {
     #[serde(default, rename = "$value")]
     variables: Vec<ScalarVariable>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(from = "ModelVariablesRaw")]
+pub struct ModelVariables {
+    /// A Vec of the ValueReferences in the order they appeared, for index lookup.
+    by_index: Vec<ValueReference>,
+    /// A Map of ValueReference to ScalarVariable
+    map: BTreeMap<ValueReference, ScalarVariable>,
+}
+
+impl From<ModelVariablesRaw> for ModelVariables {
+    fn from(raw: ModelVariablesRaw) -> Self {
+        Self {
+            by_index: raw
+                .variables
+                .iter()
+                .map(|variable| variable.value_reference.clone())
+                .collect(),
+            map: raw
+                .variables
+                .into_iter()
+                .map(|variable| (variable.value_reference.clone(), variable))
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -688,7 +746,7 @@ mod tests {
         "##;
         let x: ScalarVariable = serde_xml_rs::from_reader(s.as_bytes()).unwrap();
         assert_eq!(x.name, "inertia1.J");
-        assert_eq!(x.value_reference, 1073741824);
+        assert_eq!(x.value_reference, ValueReference(1073741824));
         assert_eq!(x.description, "Moment of load inertia");
         assert_eq!(x.causality, Causality::Parameter);
         assert_eq!(x.variability, Variability::Fixed);
@@ -714,10 +772,10 @@ mod tests {
             </ModelVariables>
         "##;
         let x: ModelVariables = serde_xml_rs::from_reader(s.as_bytes()).unwrap();
-        assert_eq!(x.variables.len(), 4);
+        assert_eq!(x.map.len(), 4);
         assert!(x
-            .variables
-            .iter()
+            .map
+            .values()
             .map(|v| &v.name)
             .zip(["x[1]", "x[2]", "der(x[1])", "der(x[2])"].iter())
             .all(|(a, b)| a == b));
@@ -783,7 +841,7 @@ mod tests {
         // assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
         assert_eq!(x.variable_naming_convention, "structured");
         assert_eq!(x.number_of_event_indicators, 2);
-        assert_eq!(x.model_variables.variables.len(), 4);
+        assert_eq!(x.model_variables.map.len(), 4);
 
         let outputs = x.outputs().unwrap();
         assert_eq!(outputs[0].0.name, "x[1]");
