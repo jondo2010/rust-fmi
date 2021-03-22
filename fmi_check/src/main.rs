@@ -221,7 +221,7 @@ fn sim_prelude<'a, I: fmi::Common>(
     // Write initial outputs
     data_table.add_row(Row::from([fmi_check.start_time].iter().cloned().chain(
         outputs.iter().map(|(sv, _)| match sv.elem {
-            fmi::model_descr::ScalarVariableElement::Real { .. } => instance.get_real(&sv).unwrap(),
+            fmi::model_descr::ScalarVariableElement::Real { .. } => instance.get_real(sv.value_reference).unwrap(),
             _ => 0.0,
         }),
     )));
@@ -247,7 +247,7 @@ fn sim_cs(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
         data_table.add_row(Row::from([current_time].iter().cloned().chain(
             outputs.iter().map(|(sv, _)| match sv.elem {
                 fmi::model_descr::ScalarVariableElement::Real { .. } => {
-                    instance.get_real(&sv).unwrap()
+                    instance.get_real(sv.value_reference).unwrap()
                 }
                 _ => 0.0,
             }),
@@ -374,7 +374,7 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
         data_table.add_row(Row::from([current_time].iter().cloned().chain(
             outputs.iter().map(|(sv, _)| match sv.elem {
                 fmi::model_descr::ScalarVariableElement::Real { .. } => {
-                    instance.get_real(&sv).unwrap()
+                    instance.get_real(sv.value_reference).unwrap()
                 }
                 _ => 0.0,
             }),

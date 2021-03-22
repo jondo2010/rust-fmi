@@ -110,19 +110,19 @@ impl<'inst, I: instance::Common> Var<'inst, I> {
     pub fn get(&self) -> Result<Value> {
         match self.sv.elem {
             model_descr::ScalarVariableElement::Real { .. } => {
-                self.instance.get_real(&self.sv).map(Value::Real)
+                self.instance.get_real(self.sv.value_reference).map(Value::Real)
             }
             model_descr::ScalarVariableElement::Integer { .. } => {
-                self.instance.get_integer(&self.sv).map(Value::Integer)
+                self.instance.get_integer(self.sv.value_reference).map(Value::Integer)
             }
             model_descr::ScalarVariableElement::Boolean { .. } => {
-                self.instance.get_boolean(&self.sv).map(Value::Boolean)
+                self.instance.get_boolean(self.sv.value_reference).map(Value::Boolean)
             }
             model_descr::ScalarVariableElement::String { .. } => {
                 unimplemented!("String variables not supported yet.")
             }
             model_descr::ScalarVariableElement::Enumeration { .. } => {
-                self.instance.get_integer(&self.sv).map(Value::Enumeration)
+                self.instance.get_integer(self.sv.value_reference).map(Value::Enumeration)
             }
         }
     }
@@ -135,9 +135,9 @@ impl<'inst, I: instance::Common> Var<'inst, I> {
             (model_descr::ScalarVariableElement::Integer { .. }, Value::Integer(x)) => {
                 self.instance.set_integer(&[self.sv.value_reference], &[*x])
             }
-            (model_descr::ScalarVariableElement::Boolean { .. }, Value::Boolean(x)) => self
-                .instance
-                .set_boolean(&[self.sv.value_reference.0], &[*x]),
+            (model_descr::ScalarVariableElement::Boolean { .. }, Value::Boolean(x)) => {
+                self.instance.set_boolean(&[self.sv.value_reference], &[*x])
+            }
             (model_descr::ScalarVariableElement::String { .. }, Value::String(_x)) => {
                 unimplemented!("String variables not supported yet.")
             }

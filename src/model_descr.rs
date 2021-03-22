@@ -233,7 +233,57 @@ impl ModelDescription {
         self.model_variables.map.get(&vr)
     }
 
-    // pub fn model_variable_by
+    pub fn get_model_variable_by_name(&self, name: &str) -> Option<&ScalarVariable> {
+        self.model_variables
+            .map
+            .values()
+            .find(|&sv| sv.name == name)
+    }
+
+    /// This private function is used to de-reference variable indices from the UnknownList and
+    /// Real{derivative}
+    fn get_model_variable_by_index(
+        &self,
+        idx: usize,
+    ) -> Result<&ScalarVariable, ModelDescriptionError> {
+        self.model_variables
+            .by_index
+            // Variable indices start at 1 in the modelDescription
+            .get(idx - 1)
+            .map(|vr| &self.model_variables.map[vr])
+            .ok_or_else(|| {
+                ModelDescriptionError::VariableAtIndexNotFound(
+                    self.model_name.clone(),
+                    idx as usize,
+                )
+            })
+    }
+
+    fn iter_unknowns<'a>(
+        &'a self,
+        list: &'a UnknownList,
+    ) -> impl Iterator<Item = &'a ScalarVariable> {
+        list.unknowns.iter().map(move |unknown| {
+            self.get_model_variable_by_index(unknown.index as usize)
+                .expect("Index")
+        })
+    }
+
+    /// Build an iterator of dependency edges from an UnknownList
+    fn iter_unknown_dependencies<'a>(
+        &'a self,
+        list: &'a UnknownList,
+    ) -> impl Iterator<Item = (&'a ScalarVariable, &'a ScalarVariable)> {
+        list.unknowns.iter().flat_map(move |unknown| {
+            let var = self
+                .get_model_variable_by_index(unknown.index as usize)
+                .expect("Index");
+            unknown.dependencies.iter().map(move |&dep_idx| {
+                let dep = self.get_model_variable_by_index(dep_idx as usize).unwrap();
+                (var, dep)
+            })
+        })
+    }
 
     /// Turns an UnknownList into a nested Vector of ScalarVariables and their Dependencies
     fn map_unknowns(
@@ -243,39 +293,40 @@ impl ModelDescription {
         list.unknowns
             .iter()
             .map(|unknown| {
-                self.model_variables
-                    .by_index
-                    // Variable indices start at 1 in the modelDescription
-                    .get(unknown.index as usize - 1)
-                    .map(|vr| &self.model_variables.map[vr])
-                    .ok_or_else(|| {
-                        ModelDescriptionError::VariableAtIndexNotFound(
-                            self.model_name.clone(),
-                            unknown.index as usize,
-                        )
-                    })
+                self.get_model_variable_by_index(unknown.index as usize)
                     .and_then(|var| {
                         let deps = unknown
                             .dependencies
                             .iter()
-                            .map(|dep| {
-                                self.model_variables
-                                    .by_index
-                                    .get(*dep as usize - 1)
-                                    .map(|vr| &self.model_variables.map[vr])
-                                    .ok_or_else(|| {
-                                        ModelDescriptionError::VariableAtIndexNotFound(
-                                            self.model_name.clone(),
-                                            *dep as usize,
-                                        )
-                                    })
-                            })
+                            .map(|dep| self.get_model_variable_by_index(*dep as usize))
                             .collect::<Result<Vec<_>, ModelDescriptionError>>()?;
 
                         Ok((var, deps))
                     })
             })
             .collect()
+    }
+
+    /// Get an iterator over the dependency edges for outputs
+    pub fn output_dependencies<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a ScalarVariable, &'a ScalarVariable)> {
+        self.iter_unknown_dependencies(&self.model_structure.outputs)
+    }
+
+    /// Get an iterator over the dependency edges for derivatives
+    pub fn derivative_dependencies<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a ScalarVariable, &'a ScalarVariable)> {
+        self.iter_unknown_dependencies(&self.model_structure.derivatives)
+    }
+
+    pub fn iter_outputs(&self) -> impl Iterator<Item = &ScalarVariable> {
+        self.iter_unknowns(&self.model_structure.outputs)
+    }
+
+    pub fn iter_derivatives(&self) -> impl Iterator<Item = &ScalarVariable> {
+        self.iter_unknowns(&self.model_structure.derivatives)
     }
 
     /// Get a reference to the vector of Unknowns marked as outputs
@@ -293,56 +344,52 @@ impl ModelDescription {
         self.map_unknowns(&self.model_structure.initial_unknowns)
     }
 
-    /// This private function is used to de-reference variable indices from the UnknownList and
-    /// Real{derivative}
-    fn model_variable_by_index(
-        &self,
-        idx: usize,
-    ) -> Result<&ScalarVariable, ModelDescriptionError> {
-        self.model_variables
-            .by_index
-            .get(idx - 1)
-            .map(|vr| &self.model_variables.map[vr])
-            .ok_or_else(|| {
-                ModelDescriptionError::VariableAtIndexNotFound(
-                    self.model_name.clone(),
-                    idx as usize,
-                )
+    /// Get an iterator over continuous states and their derivatives as a tuple `(&ScalarVariable, &ScalarVariable)`.
+    /// The 1st item is a continuous-time state, and the 2nd is its derivative.
+    pub fn iter_continuous_states<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&'a ScalarVariable, &'a ScalarVariable)> {
+        self.iter_derivatives()
+            .filter_map(move |der| match der.elem {
+                ScalarVariableElement::Real {
+                    // This is a misnomer in the ModelDescription. `derivative` actually refers to the state-variable.
+                    derivative: Some(state),
+                    ..
+                } => Some((
+                    self.get_model_variable_by_index(state as usize)
+                        .expect("Index"),
+                    der,
+                )),
+                _ => None,
             })
-    }
 
-    /// Return a vector of tuples `(&ScalarVariable, &ScalarVariabel)`, where the 1st is a
-    /// continuous-time state, and the 2nd is its derivative.
-    pub fn continuous_states(
-        &self,
-    ) -> Result<Vec<(&ScalarVariable, &ScalarVariable)>, ModelDescriptionError> {
-        self.model_structure
-            .derivatives
-            .unknowns
-            .iter()
-            .map(|unknown| {
-                self.model_variable_by_index(unknown.index as usize)
-                    .and_then(|der| {
-                        if let ScalarVariableElement::Real { derivative, .. } = der.elem {
-                            derivative
-                                .ok_or_else(|| {
-                                    ModelDescriptionError::VariableDerivativeMissing(
-                                        der.name.clone(),
-                                    )
-                                })
-                                .and_then(|der_idx| {
-                                    self.model_variable_by_index(der_idx as usize)
-                                        .map(|state| (state, der))
-                                })
-                        } else {
-                            Err(ModelDescriptionError::VariableTypeMismatch(
-                                ScalarVariableElementBase::Real,
-                                ScalarVariableElementBase::from(&der.elem),
-                            ))
-                        }
-                    })
-            })
-            .collect()
+        // self.model_structure
+        // .derivatives
+        // .unknowns
+        // .iter()
+        // .map(|unknown| {
+        // self.get_model_variable_by_index(unknown.index as usize)
+        // .and_then(|der| {
+        // if let ScalarVariableElement::Real { derivative, .. } = der.elem {
+        // derivative
+        // .ok_or_else(|| {
+        // ModelDescriptionError::VariableDerivativeMissing(
+        // der.name.clone(),
+        // )
+        // })
+        // .and_then(|der_idx| {
+        // self.get_model_variable_by_index(der_idx as usize)
+        // .map(|state| (state, der))
+        // })
+        // } else {
+        // Err(ModelDescriptionError::VariableTypeMismatch(
+        // ScalarVariableElementBase::Real,
+        // ScalarVariableElementBase::from(&der.elem),
+        // ))
+        // }
+        // })
+        // })
+        // .collect()
     }
 }
 
@@ -495,7 +542,7 @@ impl Default for Initial {
     }
 }
 
-#[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Display, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 pub struct ValueReference(
     #[serde(deserialize_with = "t_from_str")] pub(crate) fmi::fmi2ValueReference,
@@ -862,10 +909,8 @@ mod tests {
             }
         );
 
-        let states = x.continuous_states().unwrap();
         assert_eq!(
-            states
-                .iter()
+            x.iter_continuous_states()
                 .map(|(der, state)| (der.name.as_str(), state.name.as_str()))
                 .collect::<Vec<(_, _)>>(),
             vec![("PI.x", "der(PI.x)")]

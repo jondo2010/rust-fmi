@@ -1,7 +1,7 @@
 use crate::FmiStatus;
 
 use super::{fmi, logger, model_descr, FmiError, Import, Result};
-use log::{trace, warn};
+use log::{trace};
 use std::ffi::CString;
 
 impl Default for fmi::CallbackFunctions {
@@ -110,15 +110,15 @@ pub trait Common: std::hash::Hash {
     /// fmi2EnterInitializationMode have to be called.
     fn reset(&self) -> Result<FmiStatus>;
 
-    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real>;
-    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer>;
-    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Boolean>;
-    fn get_string(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2String>;
+    fn get_real(&self, sv: model_descr::ValueReference) -> Result<fmi::fmi2Real>;
+    fn get_integer(&self, sv: model_descr::ValueReference) -> Result<fmi::fmi2Integer>;
+    fn get_boolean(&self, sv: model_descr::ValueReference) -> Result<fmi::fmi2Boolean>;
+    fn get_string(&self, sv: model_descr::ValueReference) -> Result<fmi::fmi2String>;
 
     /// Set real values
     ///
     /// # Arguments
-    /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
+    /// * `vrs` - a slice of `ValueReference` ValueReferences
     /// * `values` - a slice of `fmi::fmi2Real` values to set
     fn set_real(
         &self,
@@ -129,7 +129,7 @@ pub trait Common: std::hash::Hash {
     /// Set integer values
     ///
     /// # Arguments
-    /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
+    /// * `vrs` - a slice of `ValueReference` ValueReferences
     /// * `values` - a slice of `fmi::fmi2Integer` values to set
     fn set_integer(
         &self,
@@ -137,15 +137,25 @@ pub trait Common: std::hash::Hash {
         values: &[fmi::fmi2Integer],
     ) -> Result<FmiStatus>;
 
+    /// Set boolean values
+    ///
+    /// # Arguments
+    /// * `vrs` - a slice of `ValueReference` ValueReferences
+    /// * `values` - a slice of `fmi::fmi2Boolean` values to set
     fn set_boolean(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
+        vrs: &[model_descr::ValueReference],
         values: &[fmi::fmi2Boolean],
     ) -> Result<FmiStatus>;
 
+    /// Set boolean values
+    ///
+    /// # Arguments
+    /// * `vrs` - a slice of `ValueReference` ValueReferences
+    /// * `values` - a slice of `fmi::fmi2Integer` values to set
     fn set_string(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
+        vrs: &[model_descr::ValueReference],
         values: &[fmi::fmi2String],
     ) -> Result<FmiStatus>;
 
@@ -693,40 +703,40 @@ where
         unsafe { self.container.common().reset(self.component) }.into()
     }
 
-    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real> {
+    fn get_real(&self, vr: model_descr::ValueReference) -> Result<fmi::fmi2Real> {
         let mut ret: fmi::fmi2Real = 0.0;
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
-                .get_real(self.component, &sv.value_reference.0, 1, &mut ret)
+                .get_real(self.component, &vr.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret as f64))
     }
 
-    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer> {
+    fn get_integer(&self, vr: model_descr::ValueReference) -> Result<fmi::fmi2Integer> {
         let mut ret: fmi::fmi2Integer = 0;
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
-                .get_integer(self.component, &sv.value_reference.0, 1, &mut ret)
+                .get_integer(self.component, &vr.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret))
     }
 
-    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Boolean> {
+    fn get_boolean(&self, vr: model_descr::ValueReference) -> Result<fmi::fmi2Boolean> {
         let mut ret: fmi::fmi2Boolean = 0;
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
-                .get_boolean(self.component, &sv.value_reference.0, 1, &mut ret)
+                .get_boolean(self.component, &vr.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret))
     }
 
-    fn get_string(&self, _sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2String> {
+    fn get_string(&self, _vr: model_descr::ValueReference) -> Result<fmi::fmi2String> {
         unimplemented!()
     }
 
@@ -739,23 +749,13 @@ where
         unsafe {
             self.container.common().set_real(
                 self.component,
-                vrs.as_ptr() as *const u32,
+                vrs.as_ptr() as *const fmi::fmi2ValueReference,
                 values.len(),
                 values.as_ptr(),
             )
         }
         .into()
     }
-
-    // fn set_real(&self, sv: &model_descr::ScalarVariable, value: f64) -> Result<()> {
-    // let vr = sv.value_reference as fmi::fmi2ValueReference;
-    // let vr = &vr as *const fmi::fmi2ValueReference;
-    // handle_status_u32(unsafe {
-    // self.container
-    // .common()
-    // .set_real(self.component, vr, 1, &value as *const fmi::fmi2Real)
-    // })
-    // }
 
     fn set_integer(
         &self,
@@ -765,7 +765,7 @@ where
         unsafe {
             self.container.common().set_integer(
                 self.component,
-                vrs.as_ptr() as *const u32,
+                vrs.as_ptr() as *const fmi::fmi2ValueReference,
                 values.len(),
                 values.as_ptr(),
             )
@@ -775,13 +775,13 @@ where
 
     fn set_boolean(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
+        vrs: &[model_descr::ValueReference],
         values: &[fmi::fmi2Boolean],
     ) -> Result<FmiStatus> {
         unsafe {
             self.container.common().set_boolean(
                 self.component,
-                vrs.as_ptr(),
+                vrs.as_ptr() as *const fmi::fmi2ValueReference,
                 values.len(),
                 values.as_ptr(),
             )
@@ -791,10 +791,18 @@ where
 
     fn set_string(
         &self,
-        _vrs: &[fmi::fmi2ValueReference],
-        _values: &[fmi::fmi2String],
+        vrs: &[model_descr::ValueReference],
+        values: &[fmi::fmi2String],
     ) -> Result<FmiStatus> {
-        unimplemented!()
+        unsafe {
+            self.container.common().set_string(
+                self.component,
+                vrs.as_ptr() as *const fmi::fmi2ValueReference,
+                values.len(),
+                values.as_ptr(),
+            )
+        }
+        .into()
     }
 
     // fn get_fmu_state(&self, state: *mut fmi2FMUstate) -> Result<()> {}
