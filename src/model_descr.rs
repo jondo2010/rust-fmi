@@ -1,6 +1,6 @@
 //! This module implements the ModelDescription data model and provides attributes to `serde_xml_rs` to generate an XML deserializer.
 
-use super::fmi;
+use super::fmi2;
 use derive_more::Display;
 use serde::{de, Deserialize, Deserializer};
 use std::{collections::BTreeMap, str::FromStr};
@@ -477,7 +477,7 @@ pub enum Initial {
 #[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
 pub struct ValueReference(
-    #[serde(deserialize_with = "t_from_str")] pub(crate) fmi::fmi2ValueReference,
+    #[serde(deserialize_with = "t_from_str")] pub(crate) fmi2::fmi2ValueReference,
 );
 
 #[derive(Debug, Deserialize, Display, Clone)]

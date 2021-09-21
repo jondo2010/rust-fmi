@@ -1,6 +1,6 @@
 use crate::FmiStatus;
 
-use super::{fmi, instance, model_descr, Result};
+use super::{fmi2, instance, model_descr, Result};
 use derive_more::Display;
 use std::cmp::Ordering;
 
@@ -9,11 +9,11 @@ pub use super::model_descr::{Causality, Initial, ScalarVariableElementBase, Vari
 
 #[derive(Display, Debug)]
 pub enum Value {
-    Real(fmi::fmi2Real),
-    Integer(fmi::fmi2Integer),
-    Boolean(fmi::fmi2Boolean),
+    Real(fmi2::fmi2Real),
+    Integer(fmi2::fmi2Integer),
+    Boolean(fmi2::fmi2Boolean),
     String(String),
-    Enumeration(fmi::fmi2Integer),
+    Enumeration(fmi2::fmi2Integer),
 }
 
 impl From<&Value> for ScalarVariableElementBase {

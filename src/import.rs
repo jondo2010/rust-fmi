@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use super::{fmi, model_descr, FmiError, Result};
+use super::{fmi2, model_descr, FmiError, Result};
 use dlopen::wrapper::Container;
 use log::trace;
 
@@ -179,12 +179,12 @@ impl Import {
     }
 
     /// Create a ModelExchange API container if supported
-    pub fn container_me(&self) -> Result<Container<fmi::Fmi2ME>> {
+    pub fn container_me(&self) -> Result<Container<fmi2::Fmi2ME>> {
         let me = self
             .descr
             .model_exchange
             .as_ref()
-            .ok_or(FmiError::UnsupportedFmuType(fmi::fmi2Type::ModelExchange))?;
+            .ok_or(FmiError::UnsupportedFmuType(fmi2::fmi2Type::ModelExchange))?;
         trace!("Found ModelExchange model \"{}\"", me.model_identifier);
 
         let lib_path = self
@@ -197,12 +197,12 @@ impl Import {
     }
 
     /// Create a CoSimulation API container if supported
-    pub fn container_cs(&self) -> Result<Container<fmi::Fmi2CS>> {
+    pub fn container_cs(&self) -> Result<Container<fmi2::Fmi2CS>> {
         let cs = self
             .descr
             .co_simulation
             .as_ref()
-            .ok_or(FmiError::UnsupportedFmuType(fmi::fmi2Type::CoSimulation))?;
+            .ok_or(FmiError::UnsupportedFmuType(fmi2::fmi2Type::CoSimulation))?;
         trace!("Found CoSimulation model \"{}\"", cs.model_identifier);
 
         let lib_path = self

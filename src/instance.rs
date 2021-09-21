@@ -1,12 +1,12 @@
 use crate::FmiStatus;
 
-use super::{fmi, logger, model_descr, FmiError, Import, Result};
+use super::{fmi2, logger, model_descr, FmiError, Import, Result};
 use log::trace;
 use std::{ffi::CString, sync::Arc};
 
-impl Default for fmi::CallbackFunctions {
+impl Default for fmi2::CallbackFunctions {
     fn default() -> Self {
-        fmi::CallbackFunctions {
+        fmi2::CallbackFunctions {
             logger: Some(logger::callback_logger_handler),
             allocate_memory: Some(libc::calloc),
             free_memory: Some(libc::free),
@@ -18,11 +18,11 @@ impl Default for fmi::CallbackFunctions {
 
 /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
 /// from the library and the Model Description XML
-fn check_consistency(import: &Import, common: &fmi::Common) -> Result<()> {
+fn check_consistency(import: &Import, common: &fmi2::Common) -> Result<()> {
     let types_platform =
         unsafe { std::ffi::CStr::from_ptr(common.get_types_platform()) }.to_bytes_with_nul();
 
-    if types_platform != fmi::fmi2TypesPlatform {
+    if types_platform != fmi2::fmi2TypesPlatform {
         return Err(FmiError::TypesPlatformMismatch {
             found: types_platform.into(),
         });
@@ -110,10 +110,10 @@ pub trait Common: std::hash::Hash {
     /// fmi2EnterInitializationMode have to be called.
     fn reset(&self) -> Result<FmiStatus>;
 
-    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real>;
-    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer>;
-    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Boolean>;
-    fn get_string(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2String>;
+    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2Real>;
+    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2Integer>;
+    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2Boolean>;
+    fn get_string(&self, sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2String>;
 
     /// Set real values
     ///
@@ -123,7 +123,7 @@ pub trait Common: std::hash::Hash {
     fn set_real(
         &self,
         vrs: &[model_descr::ValueReference],
-        values: &[fmi::fmi2Real],
+        values: &[fmi2::fmi2Real],
     ) -> Result<FmiStatus>;
 
     /// Set integer values
@@ -134,19 +134,19 @@ pub trait Common: std::hash::Hash {
     fn set_integer(
         &self,
         vrs: &[model_descr::ValueReference],
-        values: &[fmi::fmi2Integer],
+        values: &[fmi2::fmi2Integer],
     ) -> Result<FmiStatus>;
 
     fn set_boolean(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
-        values: &[fmi::fmi2Boolean],
+        vrs: &[fmi2::fmi2ValueReference],
+        values: &[fmi2::fmi2Boolean],
     ) -> Result<FmiStatus>;
 
     fn set_string(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
-        values: &[fmi::fmi2String],
+        vrs: &[fmi2::fmi2ValueReference],
+        values: &[fmi2::fmi2String],
     ) -> Result<FmiStatus>;
 
     // fn get_fmu_state(&self) -> Result<FmuState>;
@@ -167,10 +167,10 @@ pub trait Common: std::hash::Hash {
     /// used to construct the desired partial derivative matrices.
     fn get_directional_derivative(
         &self,
-        unknown_vrs: &[fmi::fmi2ValueReference],
-        known_vrs: &[fmi::fmi2ValueReference],
-        dv_known_values: &[fmi::fmi2Real],
-        dv_unknown_values: &mut [fmi::fmi2Real],
+        unknown_vrs: &[fmi2::fmi2ValueReference],
+        known_vrs: &[fmi2::fmi2ValueReference],
+        dv_known_values: &[fmi2::fmi2Real],
+        dv_unknown_values: &mut [fmi2::fmi2Real],
     ) -> Result<FmiStatus>;
 }
 
@@ -193,7 +193,7 @@ pub trait ModelExchange: Common {
     ///     * call `enter_continuous_time_mode` if all FMUs return `new_discrete_states_needed` =
     ///       false.
     ///     * stay in Event Mode otherwise.
-    fn new_discrete_states(&self, event_info: &mut fmi::EventInfo) -> Result<FmiStatus>;
+    fn new_discrete_states(&self, event_info: &mut fmi2::EventInfo) -> Result<FmiStatus>;
 
     /// The model enters Continuous-Time Mode and all discrete-time equations become inactive and
     /// all relations are "frozen".
@@ -289,12 +289,12 @@ pub trait CoSimulation: Common {
     fn cancel_step(&self) -> Result<FmiStatus>;
 
     /// Inquire into slave status during asynchronous step.
-    fn get_status(&self, kind: fmi::fmi2StatusKind) -> Result<FmiStatus>;
+    fn get_status(&self, kind: fmi2::fmi2StatusKind) -> Result<FmiStatus>;
 }
 
 /// An Instance is templated around an FMU Api, and holds state for the API container,
 /// callbacks struct, and the internal instantiated component.
-pub struct Instance<A: fmi::FmiApi> {
+pub struct Instance<A: fmi2::FmiApi> {
     /// Instance name
     name: String,
 
@@ -306,26 +306,26 @@ pub struct Instance<A: fmi::FmiApi> {
 
     /// Callbacks struct
     #[allow(dead_code)]
-    callbacks: Box<fmi::CallbackFunctions>,
+    callbacks: Box<fmi2::CallbackFunctions>,
 
     /// Instantiated component
-    component: fmi::fmi2Component,
+    component: fmi2::fmi2Component,
 }
 
 // We assume here that the exported FMUs are thread-safe (true for OpenModelica)
-unsafe impl<A: fmi::FmiApi> Send for Instance<A> {}
-unsafe impl<A: fmi::FmiApi> Sync for Instance<A> {}
+unsafe impl<A: fmi2::FmiApi> Send for Instance<A> {}
+unsafe impl<A: fmi2::FmiApi> Sync for Instance<A> {}
 
 /// FmuState wraps the FMUstate pointer and is used for managing FMU state
-pub struct FmuState<'a, A: fmi::FmiApi> {
-    state: fmi::fmi2FMUstate,
+pub struct FmuState<'a, A: fmi2::FmiApi> {
+    state: fmi2::fmi2FMUstate,
     container: &'a dlopen::wrapper::Container<A>,
-    component: &'a fmi::fmi2Component,
+    component: &'a fmi2::fmi2Component,
 }
 
-impl<'a, A: fmi::FmiApi> FmuState<'a, A> {}
+impl<'a, A: fmi2::FmiApi> FmuState<'a, A> {}
 
-impl<'a, A: fmi::FmiApi> Drop for FmuState<'a, A> {
+impl<'a, A: fmi2::FmiApi> Drop for FmuState<'a, A> {
     fn drop(&mut self) {
         trace!("Freeing FmuState");
         unsafe {
@@ -337,23 +337,23 @@ impl<'a, A: fmi::FmiApi> Drop for FmuState<'a, A> {
     }
 }
 
-pub type InstanceME = Instance<fmi::Fmi2ME>;
-pub type InstanceCS = Instance<fmi::Fmi2CS>;
+pub type InstanceME = Instance<fmi2::Fmi2ME>;
+pub type InstanceCS = Instance<fmi2::Fmi2CS>;
 
 impl<A> PartialEq for Instance<A>
 where
-    A: fmi::FmiApi,
+    A: fmi2::FmiApi,
 {
     fn eq(&self, other: &Instance<A>) -> bool {
         self.name() == other.name()
     }
 }
 
-impl<A> Eq for Instance<A> where A: fmi::FmiApi {}
+impl<A> Eq for Instance<A> where A: fmi2::FmiApi {}
 
 impl<A> std::hash::Hash for Instance<A>
 where
-    A: fmi::FmiApi,
+    A: fmi2::FmiApi,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name().hash(state);
@@ -380,7 +380,7 @@ impl InstanceME {
         visible: bool,
         logging_on: bool,
     ) -> Result<InstanceME> {
-        let callbacks = Box::<fmi::CallbackFunctions>::default();
+        let callbacks = Box::<fmi2::CallbackFunctions>::default();
         let me = import.container_me()?;
         check_consistency(import, &me.common)?;
 
@@ -392,12 +392,12 @@ impl InstanceME {
 
             me.common.instantiate(
                 instance_name.as_ptr(),
-                fmi::fmi2Type::ModelExchange,
-                guid.as_ptr(),                  // guid
-                resource_url.as_ptr(),          // fmu_resource_location
-                &*callbacks,                    // functions
-                visible as fmi::fmi2Boolean,    // visible
-                logging_on as fmi::fmi2Boolean, // logging_on
+                fmi2::fmi2Type::ModelExchange,
+                guid.as_ptr(),                   // guid
+                resource_url.as_ptr(),           // fmu_resource_location
+                &*callbacks,                     // functions
+                visible as fmi2::fmi2Boolean,    // visible
+                logging_on as fmi2::fmi2Boolean, // logging_on
             )
         };
         if comp.is_null() {
@@ -418,17 +418,17 @@ impl InstanceME {
     /// Returned tuple is (nominals_of_continuous_states_changed,
     /// values_of_continuous_states_changed)
     pub fn do_event_iteration(&self) -> Result<(bool, bool)> {
-        let mut event_info = fmi::EventInfo {
-            new_discrete_states_needed: fmi::fmi2True,
-            terminate_simulation: fmi::fmi2False,
-            nominals_of_continuous_states_changed: fmi::fmi2False,
-            values_of_continuous_states_changed: fmi::fmi2False,
-            next_event_time_defined: fmi::fmi2False,
+        let mut event_info = fmi2::EventInfo {
+            new_discrete_states_needed: fmi2::fmi2True,
+            terminate_simulation: fmi2::fmi2False,
+            nominals_of_continuous_states_changed: fmi2::fmi2False,
+            values_of_continuous_states_changed: fmi2::fmi2False,
+            next_event_time_defined: fmi2::fmi2False,
             next_event_time: 0.0,
         };
 
-        while (event_info.new_discrete_states_needed == fmi::fmi2True)
-            && (event_info.terminate_simulation == fmi::fmi2False)
+        while (event_info.new_discrete_states_needed == fmi2::fmi2True)
+            && (event_info.terminate_simulation == fmi2::fmi2False)
         {
             trace!("Iterating while new_discrete_states_needed=true");
             self.new_discrete_states(&mut event_info)?;
@@ -436,13 +436,13 @@ impl InstanceME {
 
         assert_eq!(
             event_info.terminate_simulation,
-            fmi::fmi2False,
+            fmi2::fmi2False,
             "terminate_simulation in=true do_event_iteration!"
         );
 
         Ok((
-            event_info.nominals_of_continuous_states_changed == fmi::fmi2True,
-            event_info.values_of_continuous_states_changed == fmi::fmi2True,
+            event_info.nominals_of_continuous_states_changed == fmi2::fmi2True,
+            event_info.values_of_continuous_states_changed == fmi2::fmi2True,
         ))
     }
 }
@@ -452,7 +452,7 @@ impl ModelExchange for InstanceME {
         unsafe { self.container.me.enter_event_mode(self.component) }.into()
     }
 
-    fn new_discrete_states(&self, event_info: &mut fmi::EventInfo) -> Result<FmiStatus> {
+    fn new_discrete_states(&self, event_info: &mut fmi2::EventInfo) -> Result<FmiStatus> {
         unsafe {
             self.container
                 .me
@@ -470,20 +470,20 @@ impl ModelExchange for InstanceME {
         no_set_fmu_state_prior_to_current_point: bool,
     ) -> Result<(bool, bool)> {
         // The returned tuple are the flags (enter_event_mode, terminate_simulation)
-        let mut enter_event_mode = fmi::fmi2False;
-        let mut terminate_simulation = fmi::fmi2False;
+        let mut enter_event_mode = fmi2::fmi2False;
+        let mut terminate_simulation = fmi2::fmi2False;
         let res: Result<FmiStatus> = unsafe {
             self.container.me.completed_integrator_step(
                 self.component,
-                no_set_fmu_state_prior_to_current_point as fmi::fmi2Boolean,
+                no_set_fmu_state_prior_to_current_point as fmi2::fmi2Boolean,
                 &mut enter_event_mode,
                 &mut terminate_simulation,
             )
         }
         .into();
         res.and(Ok((
-            enter_event_mode == fmi::fmi2True,
-            terminate_simulation == fmi::fmi2True,
+            enter_event_mode == fmi2::fmi2True,
+            terminate_simulation == fmi2::fmi2True,
         )))
     }
 
@@ -491,7 +491,7 @@ impl ModelExchange for InstanceME {
         unsafe {
             self.container
                 .me
-                .set_time(self.component, time as fmi::fmi2Real)
+                .set_time(self.component, time as fmi2::fmi2Real)
         }
         .into()
     }
@@ -556,7 +556,7 @@ impl InstanceCS {
         visible: bool,
         logging_on: bool,
     ) -> Result<InstanceCS> {
-        let callbacks = Box::<fmi::CallbackFunctions>::default();
+        let callbacks = Box::<fmi2::CallbackFunctions>::default();
         let cs = import.container_cs()?;
         check_consistency(import, &cs.common)?;
 
@@ -567,12 +567,12 @@ impl InstanceCS {
                 CString::new(import.resource_url().as_str()).expect("Error building CString");
             cs.common.instantiate(
                 instance_name.as_ptr(),
-                fmi::fmi2Type::CoSimulation,
-                guid.as_ptr(),                  // guid
-                resource_url.as_ptr(),          // fmu_resource_location
-                &*callbacks,                    // functions
-                visible as fmi::fmi2Boolean,    // visible
-                logging_on as fmi::fmi2Boolean, // logging_on
+                fmi2::fmi2Type::CoSimulation,
+                guid.as_ptr(),                   // guid
+                resource_url.as_ptr(),           // fmu_resource_location
+                &*callbacks,                     // functions
+                visible as fmi2::fmi2Boolean,    // visible
+                logging_on as fmi2::fmi2Boolean, // logging_on
             )
         };
         if comp.is_null() {
@@ -604,7 +604,7 @@ impl CoSimulation for InstanceCS {
                 self.component,
                 current_communication_point,
                 communication_step_size,
-                new_step as fmi::fmi2Boolean,
+                new_step as fmi2::fmi2Boolean,
             )
         }
         .into()
@@ -614,8 +614,8 @@ impl CoSimulation for InstanceCS {
         unsafe { self.container.cs.cancel_step(self.component) }.into()
     }
 
-    fn get_status(&self, kind: fmi::fmi2StatusKind) -> Result<FmiStatus> {
-        let mut ret = fmi::fmi2Status::OK;
+    fn get_status(&self, kind: fmi2::fmi2StatusKind) -> Result<FmiStatus> {
+        let mut ret = fmi2::fmi2Status::OK;
         let _ = Result::<FmiStatus>::from(unsafe {
             self.container.cs.get_status(self.component, kind, &mut ret)
         })?;
@@ -625,7 +625,7 @@ impl CoSimulation for InstanceCS {
 
 impl<A> Common for Instance<A>
 where
-    A: fmi::FmiApi,
+    A: fmi2::FmiApi,
 {
     fn name(&self) -> &str {
         &self.name
@@ -647,7 +647,7 @@ where
         unsafe {
             self.container.common().set_debug_logging(
                 self.component,
-                logging_on as fmi::fmi2Boolean,
+                logging_on as fmi2::fmi2Boolean,
                 category_ptrs.len(),
                 category_ptrs.as_ptr(),
             )
@@ -664,10 +664,10 @@ where
         unsafe {
             self.container.common().setup_experiment(
                 self.component,
-                tolerance.is_some() as fmi::fmi2Boolean,
+                tolerance.is_some() as fmi2::fmi2Boolean,
                 tolerance.unwrap_or(0.0),
                 start_time,
-                stop_time.is_some() as fmi::fmi2Boolean,
+                stop_time.is_some() as fmi2::fmi2Boolean,
                 stop_time.unwrap_or(0.0),
             )
         }
@@ -700,8 +700,8 @@ where
         unsafe { self.container.common().reset(self.component) }.into()
     }
 
-    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Real> {
-        let mut ret: fmi::fmi2Real = 0.0;
+    fn get_real(&self, sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2Real> {
+        let mut ret: fmi2::fmi2Real = 0.0;
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
@@ -711,8 +711,8 @@ where
         res.and(Ok(ret))
     }
 
-    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer> {
-        let mut ret: fmi::fmi2Integer = 0;
+    fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2Integer> {
+        let mut ret: fmi2::fmi2Integer = 0;
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
@@ -722,8 +722,8 @@ where
         res.and(Ok(ret))
     }
 
-    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Boolean> {
-        let mut ret: fmi::fmi2Boolean = 0;
+    fn get_boolean(&self, sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2Boolean> {
+        let mut ret: fmi2::fmi2Boolean = 0;
         let res: Result<FmiStatus> = unsafe {
             self.container
                 .common()
@@ -733,14 +733,14 @@ where
         res.and(Ok(ret))
     }
 
-    fn get_string(&self, _sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2String> {
+    fn get_string(&self, _sv: &model_descr::ScalarVariable) -> Result<fmi2::fmi2String> {
         unimplemented!()
     }
 
     fn set_real(
         &self,
         vrs: &[model_descr::ValueReference],
-        values: &[fmi::fmi2Real],
+        values: &[fmi2::fmi2Real],
     ) -> Result<FmiStatus> {
         assert!(vrs.len() == values.len());
         unsafe {
@@ -767,7 +767,7 @@ where
     fn set_integer(
         &self,
         vrs: &[model_descr::ValueReference],
-        values: &[fmi::fmi2Integer],
+        values: &[fmi2::fmi2Integer],
     ) -> Result<FmiStatus> {
         unsafe {
             self.container.common().set_integer(
@@ -782,8 +782,8 @@ where
 
     fn set_boolean(
         &self,
-        vrs: &[fmi::fmi2ValueReference],
-        values: &[fmi::fmi2Boolean],
+        vrs: &[fmi2::fmi2ValueReference],
+        values: &[fmi2::fmi2Boolean],
     ) -> Result<FmiStatus> {
         unsafe {
             self.container.common().set_boolean(
@@ -798,8 +798,8 @@ where
 
     fn set_string(
         &self,
-        _vrs: &[fmi::fmi2ValueReference],
-        _values: &[fmi::fmi2String],
+        _vrs: &[fmi2::fmi2ValueReference],
+        _values: &[fmi2::fmi2String],
     ) -> Result<FmiStatus> {
         unimplemented!()
     }
@@ -810,10 +810,10 @@ where
 
     fn get_directional_derivative(
         &self,
-        unknown_vrs: &[fmi::fmi2ValueReference],
-        known_vrs: &[fmi::fmi2ValueReference],
-        dv_known_values: &[fmi::fmi2Real],
-        dv_unknown_values: &mut [fmi::fmi2Real],
+        unknown_vrs: &[fmi2::fmi2ValueReference],
+        known_vrs: &[fmi2::fmi2ValueReference],
+        dv_known_values: &[fmi2::fmi2Real],
+        dv_unknown_values: &mut [fmi2::fmi2Real],
     ) -> Result<FmiStatus> {
         assert!(unknown_vrs.len() == dv_unknown_values.len());
         assert!(known_vrs.len() == dv_unknown_values.len());
@@ -834,7 +834,7 @@ where
 
 impl<A> Drop for Instance<A>
 where
-    A: fmi::FmiApi,
+    A: fmi2::FmiApi,
 {
     fn drop(&mut self) {
         trace!("Freeing component {:?}", self.component);
@@ -844,7 +844,7 @@ where
 
 impl<A> std::fmt::Debug for Instance<A>
 where
-    A: fmi::FmiApi,
+    A: fmi2::FmiApi,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(

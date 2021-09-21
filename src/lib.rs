@@ -10,7 +10,7 @@
 //! }
 //! ```
 
-pub mod fmi;
+pub mod fmi2;
 pub mod import;
 pub mod instance;
 pub mod logger;
@@ -67,7 +67,7 @@ pub enum FmiError {
     UnknownToolchainVersion { version: String },
 
     #[error("Model type {} not supported by this FMU", .0)]
-    UnsupportedFmuType(fmi::fmi2Type),
+    UnsupportedFmuType(fmi2::fmi2Type),
 
     #[error("Unsupported platform {os}/{arch}")]
     UnsupportedPlatform { os: String, arch: String },
@@ -75,7 +75,7 @@ pub enum FmiError {
     #[error(
         "TypesPlatform of loaded API ({:?}) doesn't match expected ({:?})",
         found,
-        fmi::fmi2TypesPlatform
+        fmi2::fmi2TypesPlatform
     )]
     TypesPlatformMismatch { found: Box<[u8]> },
 
@@ -119,15 +119,15 @@ pub enum FmiStatus {
 /// Crate-wide Result type
 pub type Result<T> = std::result::Result<T, FmiError>;
 
-impl From<fmi::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
-    fn from(fmi_status: fmi::fmi2Status) -> Self {
+impl From<fmi2::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
+    fn from(fmi_status: fmi2::fmi2Status) -> Self {
         match fmi_status {
-            fmi::fmi2Status::OK => Ok(FmiStatus::Ok),
-            fmi::fmi2Status::Warning => Ok(FmiStatus::Warning),
-            fmi::fmi2Status::Discard => Err(FmiError::FmiStatusDiscard),
-            fmi::fmi2Status::Error => Err(FmiError::FmiStatusError),
-            fmi::fmi2Status::Fatal => Err(FmiError::FmiStatusFatal),
-            fmi::fmi2Status::Pending => Ok(FmiStatus::Pending),
+            fmi2::fmi2Status::OK => Ok(FmiStatus::Ok),
+            fmi2::fmi2Status::Warning => Ok(FmiStatus::Warning),
+            fmi2::fmi2Status::Discard => Err(FmiError::FmiStatusDiscard),
+            fmi2::fmi2Status::Error => Err(FmiError::FmiStatusError),
+            fmi2::fmi2Status::Fatal => Err(FmiError::FmiStatusFatal),
+            fmi2::fmi2Status::Pending => Ok(FmiStatus::Pending),
         }
     }
 }
