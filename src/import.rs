@@ -3,7 +3,8 @@ use std::{
     sync::Arc,
 };
 
-use super::{fmi2, model_descr, FmiError, Result};
+use super::fmi2;
+use super::{FmiError, FmiResult};
 use dlopen::wrapper::Container;
 use log::trace;
 
@@ -38,7 +39,7 @@ fn construct_so_path(model_identifier: &str) -> Result<PathBuf> {
         .join(fname))
 }
 
-fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> Result<()> {
+fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> FmiResult<()> {
     let archive = archive.as_ref();
     let outdir = outdir.as_ref();
     trace!("Extracting {} into {}", archive.display(), outdir.display());
@@ -66,7 +67,7 @@ fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> Resul
 pub struct Import {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
-    pub descr: Arc<model_descr::ModelDescription>,
+    pub descr: Arc<fmi2::meta::ModelDescription>,
 }
 
 /// Implement Deserialize
@@ -141,7 +142,7 @@ impl std::fmt::Debug for Import {
 
 impl Import {
     /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
-    pub fn new(path: impl Into<std::path::PathBuf>) -> Result<Import> {
+    pub fn new(path: impl Into<std::path::PathBuf>) -> FmiResult<Import> {
         // First create a temp directory
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
         extract_archive(path.into(), temp_dir.path())?;
@@ -153,8 +154,8 @@ impl Import {
         let descr_file = std::fs::File::open(descr_file_path)?;
         //.context(format!("{}", descr_file_path.as_path().display()))?;
 
-        let descr: model_descr::ModelDescription =
-            model_descr::from_reader(std::io::BufReader::new(descr_file))?;
+        let descr: fmi2::meta::ModelDescription =
+            fmi2::meta::from_reader(std::io::BufReader::new(descr_file))?;
 
         let cap_string = if descr.model_exchange.is_some() && descr.co_simulation.is_some() {
             "ME+CS".to_owned()
@@ -179,7 +180,7 @@ impl Import {
     }
 
     /// Create a ModelExchange API container if supported
-    pub fn container_me(&self) -> Result<Container<fmi2::Fmi2ME>> {
+    pub fn container_me(&self) -> FmiResult<Container<fmi2::Fmi2ME>> {
         let me = self
             .descr
             .model_exchange
@@ -197,7 +198,7 @@ impl Import {
     }
 
     /// Create a CoSimulation API container if supported
-    pub fn container_cs(&self) -> Result<Container<fmi2::Fmi2CS>> {
+    pub fn container_cs(&self) -> FmiResult<Container<fmi2::Fmi2CS>> {
         let cs = self
             .descr
             .co_simulation
@@ -217,6 +218,11 @@ impl Import {
     /// Return the path to the extracted FMU
     pub fn path(&self) -> &std::path::Path {
         self.dir.path()
+    }
+
+    /// Get a reference to the ModelDescription
+    pub fn descr(&self) -> &fmi2::meta::ModelDescription {
+        &self.descr
     }
 
     pub fn resource_url(&self) -> url::Url {

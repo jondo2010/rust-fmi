@@ -12,16 +12,12 @@
 
 pub mod fmi2;
 pub mod import;
-pub mod instance;
-pub mod logger;
-pub mod model_descr;
 pub mod variable;
 
 pub mod fmi3;
 
 // Re-exports
 pub use self::import::Import;
-pub use self::instance::{CoSimulation, Common, InstanceCS, InstanceME, ModelExchange};
 pub use self::variable::{Value, Var};
 
 use derive_more::Display;
@@ -103,8 +99,8 @@ pub enum FmiError {
     #[error(transparent)]
     Dlopen(#[from] dlopen::Error),
 
-    #[error(transparent)]
-    ModelDescr(#[from] model_descr::ModelDescriptionError),
+    //#[error(transparent)]
+    //ModelDescr(#[from] model_descr::ModelDescriptionError),
 
     #[error(transparent)]
     Utf8Error(#[from] std::str::Utf8Error),
@@ -119,7 +115,7 @@ pub enum FmiStatus {
 }
 
 /// Crate-wide Result type
-pub type Result<T> = std::result::Result<T, FmiError>;
+pub type FmiResult<T> = std::result::Result<T, FmiError>;
 
 impl From<fmi2::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
     fn from(fmi_status: fmi2::fmi2Status) -> Self {

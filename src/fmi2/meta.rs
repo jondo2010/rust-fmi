@@ -1,13 +1,17 @@
-//! This module implements the ModelDescription data model and provides attributes to `serde_xml_rs` to generate an XML deserializer.
-
-use super::fmi2;
+/// This module implements the ModelDescription datamodel and provides
+/// attributes to serde_xml_rs to generate an XML deserializer.
 use derive_more::Display;
 use serde::{de, Deserialize, Deserializer};
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 use thiserror::Error;
 
 // Re-exports
 pub use serde_xml_rs::from_reader;
+
+use super::fmi2ValueReference;
 
 /// Generic parsing function
 fn t_from_str<'de, T, D>(deser: D) -> Result<T, D::Error>
@@ -32,7 +36,7 @@ where
         return Ok(Vec::<T>::new());
     }
     s.split(' ')
-        .map(|i| T::from_str(i).map_err(de::Error::custom))
+        .map(|i| T::from_str(&i).map_err(de::Error::custom))
         .collect()
 }
 
@@ -154,7 +158,7 @@ impl ModelDescription {
         self.model_variables
             .map
             .values()
-            .fold(Counts::default(), |mut cts, sv| {
+            .fold(Counts::default(), |mut cts, ref sv| {
                 match sv.variability {
                     Variability::Constant => {
                         cts.num_constants += 1;
@@ -303,7 +307,10 @@ impl ModelDescription {
             .get(idx - 1)
             .map(|vr| &self.model_variables.map[vr])
             .ok_or_else(|| {
-                ModelDescriptionError::VariableAtIndexNotFound(self.model_name.clone(), idx)
+                ModelDescriptionError::VariableAtIndexNotFound(
+                    self.model_name.clone(),
+                    idx as usize,
+                )
             })
     }
 
@@ -441,7 +448,7 @@ fn default_tolerance() -> f64 {
     1e-3
 }
 
-#[derive(Debug, Display, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Display, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Causality {
     Parameter,
@@ -450,12 +457,17 @@ pub enum Causality {
     Output,
     Local,
     Independent,
-    #[default]
     Unknown,
 }
 
+impl Default for Causality {
+    fn default() -> Causality {
+        Causality::Unknown
+    }
+}
+
 /// Enumeration that defines the time dependency of the variable
-#[derive(Debug, Display, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, Display, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Variability {
     Constant,
@@ -463,24 +475,32 @@ pub enum Variability {
     Tunable,
     Discrete,
     Continuous,
-    #[default]
     Unknown,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Clone, Default)]
+impl Default for Variability {
+    fn default() -> Variability {
+        Variability::Unknown
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Initial {
-    #[default]
     Exact,
     Approx,
     Calculated,
 }
 
+impl Default for Initial {
+    fn default() -> Initial {
+        Initial::Exact
+    }
+}
+
 #[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
-pub struct ValueReference(
-    #[serde(deserialize_with = "t_from_str")] pub(crate) fmi2::fmi2ValueReference,
-);
+pub struct ValueReference(#[serde(deserialize_with = "t_from_str")] pub(crate) fmi2ValueReference);
 
 #[derive(Debug, Deserialize, Display, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -645,12 +665,12 @@ impl From<ModelVariablesRaw> for ModelVariables {
             by_index: raw
                 .variables
                 .iter()
-                .map(|variable| variable.value_reference)
+                .map(|variable| variable.value_reference.clone())
                 .collect(),
             map: raw
                 .variables
                 .into_iter()
-                .map(|variable| (variable.value_reference, variable))
+                .map(|variable| (variable.value_reference.clone(), variable))
                 .collect(),
         }
     }
@@ -665,10 +685,17 @@ pub struct Unknown {
     pub dependencies: Vec<u32>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct UnknownList {
     #[serde(default, rename = "$value")]
     pub unknowns: Vec<Unknown>,
+}
+impl Default for UnknownList {
+    fn default() -> UnknownList {
+        UnknownList {
+            unknowns: Vec::<Unknown>::new(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -813,7 +840,7 @@ mod tests {
         assert_eq!(x.description, "Rotational Spring Mass Damper System");
         assert_eq!(x.version, "1.0");
         // assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
-        assert_eq!(x.variable_naming_convention, "structured");
+        assert_eq!(x.variable_naming_convention.unwrap(), "structured");
         assert_eq!(x.number_of_event_indicators, 2);
         assert_eq!(x.model_variables.map.len(), 4);
 

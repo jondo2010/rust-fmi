@@ -3,6 +3,10 @@
 #![allow(non_snake_case)]
 #![allow(clippy::too_many_arguments)]
 
+pub mod meta;
+pub mod instance;
+pub mod logger;
+
 use derive_more::Display;
 /// Internal private low-level FMI types
 use dlopen::wrapper::{WrapperApi, WrapperMultiApi};
