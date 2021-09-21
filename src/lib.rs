@@ -17,6 +17,8 @@ pub mod logger;
 pub mod model_descr;
 pub mod variable;
 
+pub mod fmi3;
+
 // Re-exports
 pub use self::import::Import;
 pub use self::instance::{CoSimulation, Common, InstanceCS, InstanceME, ModelExchange};

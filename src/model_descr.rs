@@ -36,7 +36,7 @@ where
         .collect()
 }
 
-fn dtparse_from_str<'de, D>(deser: D) -> Result<chrono::DateTime<chrono::Utc>, D::Error>
+fn dtparse_from_str<'de, D>(deser: D) -> Result<Option<chrono::DateTime<chrono::Utc>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -45,7 +45,7 @@ where
     let s = <String>::deserialize(deser)?;
     dtparse::parse(&s)
         .map_err(|e| de::Error::custom(format!("{:?}", e)))
-        .map(|dt| DateTime::<Utc>::from_utc(dt.0, Utc))
+        .map(|dt| Some(DateTime::<Utc>::from_utc(dt.0, Utc)))
     //( chrono::naive::NaiveDateTime, Option<chrono::offset::FixedOffset>,)
 }
 
@@ -80,13 +80,15 @@ pub struct ModelDescription {
 
     // #[serde(with = "parse_util::odr_dateformat", default = "Header::default_date")]
     /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
+    #[serde(default)]
     #[serde(deserialize_with = "dtparse_from_str")]
-    pub generation_date_and_time: chrono::DateTime<chrono::Utc>,
+    pub generation_date_and_time: Option<chrono::DateTime<chrono::Utc>>,
 
     #[serde(default)]
     pub generation_tool: String,
 
-    pub variable_naming_convention: String,
+    #[serde(default)]
+    pub variable_naming_convention: Option<String>,
 
     #[serde(deserialize_with = "t_from_str")]
     pub number_of_event_indicators: u32,

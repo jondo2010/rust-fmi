@@ -362,7 +362,7 @@ where
 
 impl<A> Instance<A>
 where
-    A: fmi::FmiApi,
+    A: fmi2::FmiApi,
 {
     pub fn num_states(&self) -> usize {
         self.descr.num_states()
