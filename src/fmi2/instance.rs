@@ -18,7 +18,7 @@ impl Default for CallbackFunctions {
 
 /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
 /// from the library and the Model Description XML
-fn check_consistency(import: &Import, common: &Common) -> FmiResult<()> {
+fn check_consistency(import: &Import, common: &FmiCommon) -> FmiResult<()> {
     let types_platform =
         unsafe { std::ffi::CStr::from_ptr(common.get_types_platform()) }.to_bytes_with_nul();
 

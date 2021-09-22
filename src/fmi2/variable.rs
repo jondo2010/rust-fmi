@@ -1,6 +1,6 @@
 use crate::FmiStatus;
 
-use super::{fmi2, FmiResult};
+use super::FmiResult;
 use derive_more::Display;
 use std::cmp::Ordering;
 

@@ -6,19 +6,17 @@
 //! ```
 //! #[cfg(target_os = "linux")] {
 //!     let import = fmi::Import::new(std::path::Path::new("data/Modelica_Blocks_Sources_Sine.fmu")).unwrap();
-//!     let instance1 = fmi::InstanceME::new(&import, "inst1", false, true).unwrap();
+//!     let instance1 = fmi::fmi2::InstanceME::new(&import, "inst1", false, true).unwrap();
 //! }
 //! ```
 
 pub mod fmi2;
 pub mod import;
-pub mod variable;
 
 pub mod fmi3;
 
 // Re-exports
 pub use self::import::Import;
-pub use self::variable::{Value, Var};
 
 use derive_more::Display;
 use thiserror::Error;

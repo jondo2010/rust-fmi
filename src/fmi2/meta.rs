@@ -840,7 +840,7 @@ mod tests {
         assert_eq!(x.description, "Rotational Spring Mass Damper System");
         assert_eq!(x.version, "1.0");
         // assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
-        assert_eq!(x.variable_naming_convention.unwrap(), "structured");
+        assert_eq!(x.variable_naming_convention, Some("structured".to_owned()));
         assert_eq!(x.number_of_event_indicators, 2);
         assert_eq!(x.model_variables.map.len(), 4);
 

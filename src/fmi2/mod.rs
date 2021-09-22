@@ -7,6 +7,8 @@ pub mod meta;
 pub mod instance;
 pub mod logger;
 
+pub use instance::{InstanceME, InstanceCS};
+
 use derive_more::Display;
 /// Internal private low-level FMI types
 use dlopen::wrapper::{WrapperApi, WrapperMultiApi};
@@ -116,7 +118,7 @@ pub struct EventInfo {
 
 /// Common API between ME and CS
 #[derive(WrapperApi)]
-pub struct Common {
+pub struct FmiCommon {
     #[dlopen_name = "fmi2GetTypesPlatform"]
     get_types_platform: unsafe extern "C" fn() -> *const std::os::raw::c_char,
 
@@ -450,29 +452,29 @@ pub(crate) struct CS {
 }
 
 pub trait FmiApi: WrapperApi {
-    fn common(&self) -> &Common;
+    fn common(&self) -> &FmiCommon;
 }
 
 #[derive(WrapperMultiApi)]
 pub struct Fmi2ME {
-    pub(crate) common: Common,
+    pub(crate) common: FmiCommon,
     pub(crate) me: ME,
 }
 
 impl FmiApi for Fmi2ME {
-    fn common(&self) -> &Common {
+    fn common(&self) -> &FmiCommon {
         &self.common
     }
 }
 
 #[derive(WrapperMultiApi)]
 pub struct Fmi2CS {
-    pub(crate) common: Common,
+    pub(crate) common: FmiCommon,
     pub(crate) cs: CS,
 }
 
 impl FmiApi for Fmi2CS {
-    fn common(&self) -> &Common {
+    fn common(&self) -> &FmiCommon {
         &self.common
     }
 }
