@@ -1,43 +1,36 @@
-use std::io::Read;
-
 use fmi::fmi3;
-use strong_xml::XmlRead;
+use yaserde_derive::YaDeserialize;
 
-#[derive(Debug)]
-pub enum FmiMeta {
-    None,
-    Fmi1,
-    Fmi2,
-    Fmi3(fmi3::meta::ModelDescription),
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
+#[yaserde(rename = "fmiModelDescription")]
+pub struct ModelDescriptionVersionOnly {
+    /// Version of FMI that was used to generate the XML file.
+    #[yaserde(attribute, rename = "fmiVersion")]
+    pub fmi_version: String,
 }
 
-fn fun_name(test_file: std::fs::File) -> FmiMeta {
-    let mut reader = std::io::BufReader::new(test_file);
-    let mut buf = String::new();
-    reader.read_to_string(&mut buf).unwrap();
-    let mut xml = strong_xml::XmlReader::new(&buf);
-    xml.read_till_element_start("fmiModelDescription").unwrap();
-    while let Ok(attr) = xml.find_attribute() {
-        match attr {
-            Some((attr, val)) if attr == "fmiVersion" && val == "3.0-beta.2" => {
-                return FmiMeta::Fmi3(fmi3::meta::ModelDescription::from_str(&buf).unwrap());
-            }
-            Some((attr, val)) if attr == "fmiVersion" && val == "2.0" => {
-                //let md: fmi::model_descr::ModelDescription = fmi::model_descr::from_reader(reader).unwrap();
-            }
-            _ => {}
-        }
-    }
-    FmiMeta::None
+/// Check the FMI Version reported in the ModelDescription XML
+fn check_meta_version(meta_content: &str) -> String {
+    let meta: ModelDescriptionVersionOnly = yaserde::de::from_str(meta_content).unwrap();
+    meta.fmi_version
 }
 
 #[test]
 fn test_model_descr() {
-    let test_file = std::env::current_dir()
+    let meta_content = std::env::current_dir()
         .map(|path| path.join("tests/data/FMI3.xml"))
-        .and_then(std::fs::File::open)
+        .and_then(std::fs::read_to_string)
         .unwrap();
 
-    let meta = fun_name(test_file);
-    dbg!(meta);
+    match check_meta_version(&meta_content).as_str() {
+        "3.0-beta.2" => {
+            let meta: fmi3::meta::ModelDescription = yaserde::de::from_str(&meta_content).unwrap();
+            dbg!(meta);
+        }
+        "2.0" => {
+            //let meta: fmi::model_descr::ModelDescription =
+                //fmi::model_descr::from_reader(reader).unwrap();
+        }
+        _ => {}
+    }
 }

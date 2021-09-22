@@ -1,122 +1,121 @@
-use strong_xml::XmlRead;
+use yaserde_derive::YaDeserialize;
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "fmiModelDescription")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
+#[yaserde(rename = "fmiModelDescription")]
 pub struct ModelDescription {
     /// Version of FMI that was used to generate the XML file.
-    #[xml(attr = "fmiVersion")]
+    #[yaserde(attribute, rename = "fmiVersion")]
     pub fmi_version: String,
     /// The name of the model as used in the modeling environment that generated the XML file, such as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
-    #[xml(attr = "modelName")]
+    #[yaserde(attribute, rename = "modelName")]
     pub model_name: String,
     /// Optional string with a brief description of the model.
-    #[xml(attr = "description")]
+    #[yaserde(attribute)]
     pub description: String,
     /// The instantiationToken is a string that can be used by the FMU to check that the XML file is compatible with the implementation of the FMU.
-    #[xml(attr = "instantiationToken")]
+    #[yaserde(attribute, rename = "instantiationToken")]
     pub instantiation_token: String,
     /// If present, the FMU is based on FMI for Model Exchange
-    #[xml(child = "ModelExchange")]
+    #[yaserde(child, rename = "ModelExchange")]
     pub model_exchange: Option<ModelExchange>,
     /// If present, the FMU is based on FMI for Co-Simulation
-    #[xml(child = "CoSimulation")]
+    #[yaserde(child, rename = "CoSimulation")]
     pub co_simulation: Option<CoSimulation>,
     /// If present, the FMU is based on FMI for Scheduled Execution
-    #[xml(child = "ScheduledExecution")]
+    #[yaserde(child, rename = "ScheduledExecution")]
     pub scheduled_execution: Option<ScheduledExecution>,
     /// Providing default settings for the integrator, such as stop time and relative tolerance.
-    #[xml(child = "DefaultExperiment")]
+    #[yaserde(child, rename = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
     /// A global list of unit and display unit definitions
-    #[xml(child = "UnitDefinitions")]
+    #[yaserde(child, rename = "UnitDefinitions")]
     pub unit_definitions: Option<UnitDefinitions>,
     /// A global list of type definitions that are utilized in `ModelVariables`
-    #[xml(child = "TypeDefinitions")]
+    #[yaserde(child, rename = "TypeDefinitions")]
     pub type_definitions: Option<TypeDefinitions>,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "ModelExchange")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct ModelExchange {
-    #[xml(attr = "modelIdentifier")]
+    #[yaserde(attribute, rename = "modelIdentifier")]
     pub model_identifier: String,
-    #[xml(attr = "canGetAndSetFMUState")]
+    #[yaserde(attribute, rename = "canGetAndSetFMUState")]
     pub can_get_and_set_fmu_state: bool,
-    #[xml(attr = "canSerializeFMUState")]
+    #[yaserde(attribute, rename = "canSerializeFMUState")]
     pub can_serialize_fmu_state: bool,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "CoSimulation")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct CoSimulation {
-    #[xml(attr = "modelIdentifier")]
+    #[yaserde(attribute, rename = "modelIdentifier")]
     pub model_identifier: String,
-    #[xml(attr = "canGetAndSetFMUState")]
+    #[yaserde(attribute, rename = "canGetAndSetFMUState")]
     pub can_get_and_set_fmu_state: bool,
-    #[xml(attr = "canSerializeFMUState")]
+    #[yaserde(attribute, rename = "canSerializeFMUState")]
     pub can_serialize_fmu_state: bool,
-    #[xml(attr = "canHandleVariableCommunicationStepSize")]
+    #[yaserde(attribute, rename = "canHandleVariableCommunicationStepSize")]
     pub can_handle_variable_communication_step_size: bool,
-    #[xml(attr = "providesIntermediateUpdate")]
+    #[yaserde(attribute, rename = "providesIntermediateUpdate")]
     pub provides_intermediate_update: bool,
-    #[xml(attr = "canReturnEarlyAfterIntermediateUpdate")]
+    #[yaserde(attribute, rename = "canReturnEarlyAfterIntermediateUpdate")]
     pub can_return_early_after_intermediate_update: bool,
-    #[xml(attr = "fixedInternalStepSize")]
+    #[yaserde(attribute, rename = "fixedInternalStepSize")]
     pub fixed_internal_step_size: f64,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "ScheduledExecution")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct ScheduledExecution {
-    #[xml(attr = "modelIdentifier")]
+    #[yaserde(attr = "modelIdentifier")]
     pub model_identifier: String,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "DefaultExperiment")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct DefaultExperiment {
-    #[xml(attr = "startTime")]
+    #[yaserde(attribute, rename = "startTime")]
     pub start_time: Option<f64>,
-    #[xml(attr = "stopTime")]
+    #[yaserde(attribute, rename = "stopTime")]
     pub stop_time: Option<f64>,
-    #[xml(attr = "tolerance")]
+    #[yaserde(attribute, rename = "tolerance")]
     pub tolerange: Option<f64>,
-    #[xml(attr = "stepSize")]
+    #[yaserde(attribute, rename = "stepSize")]
     pub step_size: Option<f64>,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "UnitDefinitions")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct UnitDefinitions {
-    #[xml(child = "Unit")]
+    #[yaserde(child, rename = "Unit")]
     pub units: Vec<Unit>,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "Unit")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct Unit {
-    #[xml(attr = "name")]
+    #[yaserde(attribute)]
     pub name: String,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
-#[xml(tag = "TypeDefinitions")]
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct TypeDefinitions {
-    #[xml(child = "Float64Type")]
+    #[yaserde(child = "Float64Type")]
     pub types: Vec<Type>,
 }
 
-#[derive(XmlRead, PartialEq, Debug)]
+#[derive(PartialEq, Debug, YaDeserialize)]
 pub enum Type {
-    #[xml(tag = "Float64Type")]
+    #[yaserde(tag = "Float64Type")]
     Float64Type {
-        #[xml(attr = "name")]
+        #[yaserde(attr = "name")]
         name: String,
-        #[xml(attr = "description")]
+        #[yaserde(attr = "description")]
         description: Option<String>,
-        #[xml(attr = "quantity")]
+        #[yaserde(attr = "quantity")]
         quantity: Option<String>,
-        #[xml(attr = "unit")]
+        #[yaserde(attr = "unit")]
         unit: Option<String>,
     },
+}
+
+impl Default for Type {
+    fn default() -> Self {
+        todo!()
+    }
 }

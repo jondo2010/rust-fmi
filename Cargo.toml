@@ -38,7 +38,9 @@ chrono = { version = "0.4", features = ["serde"] }
 libc = { version = "0.2", features = ["align"] }
 log = { version = "0.4", features = ["std", "serde"] }
 thiserror = "1.0"
-strong-xml = "0.6.3"
+
+yaserde = "0.7.1"
+yaserde_derive = "0.7.1"
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
