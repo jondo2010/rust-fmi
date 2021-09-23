@@ -1,4 +1,42 @@
+use std::collections::BTreeMap;
+
+use libc::size_t;
+use slotmap::SlotMap;
 use yaserde_derive::YaDeserialize;
+
+pub struct Model {}
+
+impl From<ModelDescription> for Model {
+    fn from(model_description: ModelDescription) -> Self {
+        let mut units = SlotMap::new();
+
+        let unit_map: BTreeMap<_, _> = model_description
+            .unit_definitions
+            .map(|unit_definitions| {
+                unit_definitions
+                    .units
+                    .into_iter()
+                    .map(|unit| {
+                        (unit.name.clone(), units.insert(unit))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let type_map: BTreeMap<_, _> = model_description
+            .type_definitions
+            .map(|type_definition| {
+                type_definition
+                    .types
+                    .into_iter()
+                    .map(|ty| (ty.name().to_owned(), ty))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Model {}
+    }
+}
 
 #[derive(Default, PartialEq, Debug, YaDeserialize)]
 #[yaserde(rename = "fmiModelDescription")]
@@ -81,6 +119,7 @@ pub struct DefaultExperiment {
     pub step_size: Option<f64>,
 }
 
+/// https://fmi-standard.org/docs/3.0-dev/#_definition_of_units
 #[derive(Default, PartialEq, Debug, YaDeserialize)]
 pub struct UnitDefinitions {
     #[yaserde(child, rename = "Unit")]
@@ -91,6 +130,37 @@ pub struct UnitDefinitions {
 pub struct Unit {
     #[yaserde(attribute)]
     pub name: String,
+    #[yaserde(child, rename = "BaseUnit")]
+    pub base_unit: BaseUnit,
+}
+
+fn default_factor() -> f64 {
+    1.0
+}
+
+/// The Unit definition consists of the exponents of the 7 SI base units kg, m, s, A, K, mol, cd, the exponent of the SI derived unit rad, and optionally a factor and an offset.
+#[derive(Default, PartialEq, Debug, YaDeserialize)]
+pub struct BaseUnit {
+    #[yaserde(attribute)]
+    pub kg: i32,
+    #[yaserde(attribute)]
+    pub m: i32,
+    #[yaserde(attribute)]
+    pub s: i32,
+    #[yaserde(attribute)]
+    pub A: i32,
+    #[yaserde(attribute)]
+    pub K: i32,
+    #[yaserde(attribute)]
+    pub mol: i32,
+    #[yaserde(attribute)]
+    pub cd: i32,
+    #[yaserde(attribute)]
+    pub rad: i32,
+    #[yaserde(attribute, default = "default_factor")]
+    pub factor: f64,
+    #[yaserde(attribute)]
+    pub offset: f64,
 }
 
 #[derive(Default, PartialEq, Debug, YaDeserialize)]
@@ -112,6 +182,14 @@ pub enum Type {
         #[yaserde(attr = "unit")]
         unit: Option<String>,
     },
+}
+
+impl Type {
+    pub fn name(&self) -> &str {
+        match self {
+            Type::Float64Type { name, .. } => &name,
+        }
+    }
 }
 
 impl Default for Type {

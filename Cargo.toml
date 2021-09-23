@@ -41,6 +41,7 @@ thiserror = "1.0"
 
 yaserde = "0.7.1"
 yaserde_derive = "0.7.1"
+slotmap = "1.0.6"
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
