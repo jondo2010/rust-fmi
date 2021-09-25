@@ -32,7 +32,7 @@ const FMI_PLATFORM: &str = "darwin64";
 #[cfg(all(macos, target_arch = "x86"))]
 const FMI_PLATFORM: &str = "darwin32";
 
-fn construct_so_path(model_identifier: &str) -> Result<PathBuf> {
+fn construct_so_path(model_identifier: &str) -> FmiResult<PathBuf> {
     let fname = model_identifier.to_owned() + std::env::consts::DLL_SUFFIX;
     Ok(std::path::PathBuf::from("binaries")
         .join(FMI_PLATFORM)
