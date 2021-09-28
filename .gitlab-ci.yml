@@ -71,3 +71,12 @@ pages:
   only:
     - master
     - tags
+
+# Run fmi-check against the reference FMUs
+fmi-check:on-schedule:
+  variables:
+    ZIP_URL: "https://github.com/modelica/Reference-FMUs/releases/download/v$REF_FMUS_REL/Reference-FMUs-$REF_FMUS_REL.zip"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - wget "$ZIP_URL" -O data/temp.zip && unzip data/temp.zip -d data
