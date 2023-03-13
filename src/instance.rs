@@ -1,8 +1,8 @@
 use crate::FmiStatus;
 
 use super::{fmi, logger, model_descr, FmiError, Import, Result};
-use log::{trace, warn};
-use std::ffi::CString;
+use log::trace;
+use std::{ffi::CString, sync::Arc};
 
 impl Default for fmi::CallbackFunctions {
     fn default() -> Self {
@@ -29,10 +29,10 @@ fn check_consistency(import: &Import, common: &fmi::Common) -> Result<()> {
     }
 
     let fmi_version = unsafe { std::ffi::CStr::from_ptr(common.get_version()) }.to_bytes();
-    if fmi_version != import.descr().fmi_version.as_bytes() {
+    if fmi_version != import.descr.fmi_version.as_bytes() {
         return Err(FmiError::FmiVersionMismatch {
             found: fmi_version.into(),
-            expected: import.descr().fmi_version.as_bytes().into(),
+            expected: import.descr.fmi_version.as_bytes().into(),
         });
     }
 
@@ -298,8 +298,8 @@ pub struct Instance<A: fmi::FmiApi> {
     /// Instance name
     name: String,
 
-    // self.import().descr().model_name,
-    model_name: String,
+    /// The model description
+    descr: Arc<model_descr::ModelDescription>,
 
     /// API Container
     container: dlopen::wrapper::Container<A>,
@@ -310,9 +310,6 @@ pub struct Instance<A: fmi::FmiApi> {
 
     /// Instantiated component
     component: fmi::fmi2Component,
-
-    num_states: usize,
-    num_event_indicators: usize,
 }
 
 // We assume here that the exported FMUs are thread-safe (true for OpenModelica)
@@ -363,6 +360,18 @@ where
     }
 }
 
+impl<A> Instance<A>
+where
+    A: fmi::FmiApi,
+{
+    pub fn num_states(&self) -> usize {
+        self.descr.num_states()
+    }
+    pub fn num_event_indicators(&self) -> usize {
+        self.descr.num_event_indicators()
+    }
+}
+
 impl InstanceME {
     /// Initialize a new Instance from an Import
     pub fn new(
@@ -371,14 +380,13 @@ impl InstanceME {
         visible: bool,
         logging_on: bool,
     ) -> Result<InstanceME> {
-        let callbacks = Box::new(fmi::CallbackFunctions::default());
+        let callbacks = Box::<fmi::CallbackFunctions>::default();
         let me = import.container_me()?;
-        check_consistency(&import, &me.common)?;
+        check_consistency(import, &me.common)?;
 
         let comp = unsafe {
             let instance_name = CString::new(instance_name).expect("Error building CString");
-            let guid =
-                CString::new(import.descr().guid.as_bytes()).expect("Error building CString");
+            let guid = CString::new(import.descr.guid.as_bytes()).expect("Error building CString");
             let resource_url =
                 CString::new(import.resource_url().as_str()).expect("Error building CString");
 
@@ -399,12 +407,10 @@ impl InstanceME {
 
         Ok(Instance {
             name: instance_name.to_owned(),
-            model_name: import.descr().model_name.clone(),
+            descr: import.descr.clone(),
             container: me,
             callbacks,
             component: comp,
-            num_states: import.descr().num_states(),
-            num_event_indicators: import.descr().num_event_indicators(),
         })
     }
 
@@ -491,7 +497,7 @@ impl ModelExchange for InstanceME {
     }
 
     fn set_continuous_states(&self, states: &[f64]) -> Result<FmiStatus> {
-        assert!(states.len() == self.num_states);
+        assert!(states.len() == self.descr.num_states());
         unsafe {
             self.container
                 .me
@@ -501,7 +507,10 @@ impl ModelExchange for InstanceME {
     }
 
     fn get_derivatives(&self, dx: &mut [f64]) -> Result<FmiStatus> {
-        assert!(dx.len() == self.num_states);
+        assert!(
+            dx.len() == self.descr.num_states(),
+            "Out slice `dx` should have the same length as the number of states!"
+        );
         unsafe {
             self.container
                 .me
@@ -511,7 +520,7 @@ impl ModelExchange for InstanceME {
     }
 
     fn get_event_indicators(&self, events: &mut [f64]) -> Result<FmiStatus> {
-        assert!(events.len() == self.num_event_indicators);
+        assert!(events.len() == self.descr.num_event_indicators());
         unsafe {
             self.container.me.get_event_indicators(
                 self.component,
@@ -523,7 +532,7 @@ impl ModelExchange for InstanceME {
     }
 
     fn get_continuous_states(&self, states: &mut [f64]) -> Result<FmiStatus> {
-        assert!(states.len() == self.num_states);
+        assert!(states.len() == self.descr.num_states());
         unsafe {
             self.container.me.get_continuous_states(
                 self.component,
@@ -547,14 +556,13 @@ impl InstanceCS {
         visible: bool,
         logging_on: bool,
     ) -> Result<InstanceCS> {
-        let callbacks = Box::new(fmi::CallbackFunctions::default());
+        let callbacks = Box::<fmi::CallbackFunctions>::default();
         let cs = import.container_cs()?;
-        check_consistency(&import, &cs.common)?;
+        check_consistency(import, &cs.common)?;
 
         let comp = unsafe {
             let instance_name = CString::new(instance_name).expect("Error building CString");
-            let guid =
-                CString::new(import.descr().guid.as_bytes()).expect("Error building CString");
+            let guid = CString::new(import.descr.guid.as_bytes()).expect("Error building CString");
             let resource_url =
                 CString::new(import.resource_url().as_str()).expect("Error building CString");
             cs.common.instantiate(
@@ -574,12 +582,10 @@ impl InstanceCS {
 
         let instance = Instance {
             name: instance_name.to_owned(),
-            model_name: import.descr().model_name.clone(),
+            descr: import.descr.clone(),
             container: cs,
             callbacks,
             component: comp,
-            num_states: import.descr().num_states(),
-            num_event_indicators: import.descr().num_event_indicators(),
         };
 
         Ok(instance)
@@ -616,6 +622,7 @@ impl CoSimulation for InstanceCS {
         ret.into()
     }
 }
+
 impl<A> Common for Instance<A>
 where
     A: fmi::FmiApi,
@@ -701,7 +708,7 @@ where
                 .get_real(self.component, &sv.value_reference.0, 1, &mut ret)
         }
         .into();
-        res.and(Ok(ret as f64))
+        res.and(Ok(ret))
     }
 
     fn get_integer(&self, sv: &model_descr::ScalarVariable) -> Result<fmi::fmi2Integer> {
@@ -844,18 +851,18 @@ where
             f,
             "Instance {} {{Import {}, {:?}}}",
             self.name(),
-            self.model_name,
+            self.descr.model_name,
             self.component,
         )
     }
 }
 
+// TODO Make this work on other targets
+#[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // TODO Make this work on other targets
-    #[cfg(target_os = "linux")]
     #[test]
     fn test_instance_me() {
         let import = Import::new(std::path::Path::new(
@@ -867,7 +874,7 @@ mod tests {
         assert_eq!(instance1.version().unwrap(), "2.0");
 
         let categories = &import
-            .descr()
+            .descr
             .log_categories
             .as_ref()
             .unwrap()
@@ -893,7 +900,6 @@ mod tests {
     }
 
     /// Tests on variable module requiring an instance.
-    #[cfg(target_os = "linux")]
     #[cfg(feature = "disable")]
     #[test]
     fn test_variable() {
@@ -916,7 +922,6 @@ mod tests {
         ));
     }
 
-    #[cfg(target_os = "linux")]
     #[cfg(feature = "disable")]
     #[test]
     fn test_instance_cs() {
