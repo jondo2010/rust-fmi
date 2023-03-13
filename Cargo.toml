@@ -2,7 +2,7 @@
 name = "fmi"
 version = "0.2.1"
 authors = ["John Hughes <jondo2010@gmail.com>"]
-edition = "2018"
+edition = "2021"
 include = [
     "/Cargo.toml",
     "/LICENSE-APACHE",
@@ -24,29 +24,29 @@ gitlab = { repository = "jondo2010/rust-fmi", branch = "master" }
 codecov = { repository = "jondo2010/rust-fmi", branch = "master", service = "gitlab" }
 
 [build-dependencies]
-cc = "1.0.61"
-built = "0.4.3"
+cc = "1.0"
+built = "0.6"
 
 [dependencies]
-serde = {version = "1.0.124", features = ["derive"] }
-serde-xml-rs = "0.4.0"
-dtparse = "1.0.3"
-num-traits = "0.2.12"
-derive_more = "0.99.11"
-dlopen = "0.1.8"
-dlopen_derive = "0.1.4"
-zip = "0.5.8"
-url = "2.2.0"
-tempfile = "3.1.0"
-chrono = { version = "0.4.6", features = ["serde"] }
-libc = { version = "0.2.79", features = ["align"] }
-log = { version = "0.4.8", features = ["std", "serde"] }
-thiserror = "1.0.21"
+serde = {version = "1.0", features = ["derive"] }
+serde-xml-rs = "0.6"
+dtparse = "1.0"
+num-traits = "0.2"
+derive_more = "0.99"
+dlopen = "0.1"
+dlopen_derive = "0.1"
+zip = "0.6"
+url = "2.2"
+tempfile = "3.1"
+chrono = { version = "0.4", features = ["serde"] }
+libc = { version = "0.2", features = ["align"] }
+log = { version = "0.4", features = ["std", "serde"] }
+thiserror = "1.0"
 
 [dev-dependencies]
-pretty_env_logger = "0.4.0"
-csv = "1.0.5"
-assert_approx_eq = "1.1.0"
+pretty_env_logger = "0.4"
+csv = "1.0"
+assert_approx_eq = "1.1"
 
 [workspace]
 members = ["fmi_check"]

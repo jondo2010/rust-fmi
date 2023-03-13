@@ -69,6 +69,9 @@ pub enum FmiError {
     #[error("Model type {} not supported by this FMU", .0)]
     UnsupportedFmuType(fmi::fmi2Type),
 
+    #[error("Unsupported platform {os}/{arch}")]
+    UnsupportedPlatform { os: String, arch: String },
+
     #[error(
         "TypesPlatform of loaded API ({:?}) doesn't match expected ({:?})",
         found,

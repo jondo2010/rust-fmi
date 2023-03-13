@@ -1,7 +1,7 @@
 use anyhow::anyhow;
-use fmi::{model_descr::UnknownsTuple, Import};
+use fmi::model_descr::UnknownsTuple;
 use log::{info, trace};
-use prettytable::{cell, row, table, Row, Table};
+use prettytable::{row, table, Row, Table};
 use structopt::StructOpt;
 
 /// Query/Validate/Simulate an FMU
@@ -80,17 +80,17 @@ struct FmiCheckOptions {
 
 fn print_info(import: &fmi::Import) {
     let mut table = table!(
-        [br -> "Model name:", import.descr().model_name],
-        [br -> "Model GUID:", import.descr().guid],
-        [br -> "Model version:", import.descr().version],
-        [br -> "Description:", import.descr().description],
-        [br -> "Generation Tool:", import.descr().generation_tool],
-        [br -> "Generation Date:", import.descr().generation_date_and_time]
+        [br -> "Model name:", import.descr.model_name],
+        [br -> "Model GUID:", import.descr.guid],
+        [br -> "Model version:", import.descr.version],
+        [br -> "Description:", import.descr.description],
+        [br -> "Generation Tool:", import.descr.generation_tool],
+        [br -> "Generation Date:", import.descr.generation_date_and_time]
     );
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.printstd();
 
-    let counts = import.descr().model_counts();
+    let counts = import.descr.model_counts();
     let mut table = Table::new();
     table.set_titles(row!["By Variability", "By Causality", "By DataType"]);
     table.add_row(row![
@@ -128,20 +128,18 @@ impl FmiCheckState {
         options: &FmiCheckOptions,
         default_experiment: &Option<&fmi::model_descr::DefaultExperiment>,
     ) -> anyhow::Result<Self> {
-        let tolerance = default_experiment.and_then(|ref de| Some(de.tolerance));
+        let tolerance = default_experiment.and_then(|de| Some(de.tolerance));
 
-        let start_time = default_experiment
-            .map(|ref de| de.start_time)
-            .unwrap_or(0.0);
+        let start_time = default_experiment.map(|de| de.start_time).unwrap_or(0.0);
 
         let stop_time = options
             .stop_time
-            .or_else(|| default_experiment.and_then(|ref de| Some(de.stop_time)))
+            .or_else(|| default_experiment.and_then(|de| Some(de.stop_time)))
             .unwrap_or(10.0);
 
         let step_size = options
             .step_size
-            .unwrap_or_else(|| stop_time / options.num_steps as f64);
+            .unwrap_or(stop_time / options.num_steps as f64);
 
         // TODO: better error handling
         // let writer: Box<std::io::Write> = options.output_file.as_ref().map_or_else(
@@ -167,7 +165,7 @@ fn setup_debug_logging<I: fmi::Common>(
     logging_on: bool,
 ) -> fmi::Result<()> {
     let categories = &import
-        .descr()
+        .descr
         .log_categories
         .as_ref()
         .map(|log_categories| {
@@ -189,7 +187,7 @@ fn sim_prelude<'a, I: fmi::Common>(
     instance: &'a I,
     fmi_check: &FmiCheckState,
 ) -> fmi::Result<(Vec<UnknownsTuple<'a>>, Table)> {
-    let outputs = import.descr().outputs()?;
+    let outputs = import.descr.outputs()?;
 
     // Set data table headers
     let mut data_table = Table::new();
@@ -221,7 +219,7 @@ fn sim_prelude<'a, I: fmi::Common>(
     // Write initial outputs
     data_table.add_row(Row::from([fmi_check.start_time].iter().cloned().chain(
         outputs.iter().map(|(sv, _)| match sv.elem {
-            fmi::model_descr::ScalarVariableElement::Real { .. } => instance.get_real(&sv).unwrap(),
+            fmi::model_descr::ScalarVariableElement::Real { .. } => instance.get_real(sv).unwrap(),
             _ => 0.0,
         }),
     )));
@@ -247,7 +245,7 @@ fn sim_cs(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
         data_table.add_row(Row::from([current_time].iter().cloned().chain(
             outputs.iter().map(|(sv, _)| match sv.elem {
                 fmi::model_descr::ScalarVariableElement::Real { .. } => {
-                    instance.get_real(&sv).unwrap()
+                    instance.get_real(sv).unwrap()
                 }
                 _ => 0.0,
             }),
@@ -269,10 +267,10 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
     let _ = instance.do_event_iteration()?;
     instance.enter_continuous_time_mode()?;
 
-    let mut states = vec![0.0; import.descr().num_states()];
-    let mut states_der = vec![0.0; import.descr().num_states()];
-    let mut events = vec![0.0; import.descr().num_event_indicators()];
-    let mut events_prev = vec![0.0; import.descr().num_event_indicators()];
+    let mut states = vec![0.0; import.descr.num_states()];
+    let mut states_der = vec![0.0; import.descr.num_states()];
+    let mut events = vec![0.0; import.descr.num_event_indicators()];
+    let mut events_prev = vec![0.0; import.descr.num_event_indicators()];
 
     instance.get_continuous_states(&mut states)?;
     instance.get_event_indicators(&mut events_prev)?;
@@ -374,7 +372,7 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
         data_table.add_row(Row::from([current_time].iter().cloned().chain(
             outputs.iter().map(|(sv, _)| match sv.elem {
                 fmi::model_descr::ScalarVariableElement::Real { .. } => {
-                    instance.get_real(&sv).unwrap()
+                    instance.get_real(sv).unwrap()
                 }
                 _ => 0.0,
             }),
@@ -402,25 +400,17 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
 fn main() -> anyhow::Result<()> {
     let args: FmiCheckOptions = FmiCheckOptions::from_args();
 
-    // args.verbosity.setup_env_logger("fmi_check")?;
-
-    let level_filter = log::LevelFilter::Info;
-    pretty_env_logger::formatted_builder()
-        .filter(Some("fmi_check"), level_filter)
-        .filter(Some("fmi"), level_filter)
-        .filter(Some("inst1"), level_filter)
-        .filter(None, log::Level::Warn.to_level_filter())
-        .try_init()?;
+    sensible_env_logger::init!();
 
     let import = fmi::Import::new(std::path::Path::new(&args.model))?;
 
-    if import.descr().fmi_version != "2.0" {
+    if import.descr.fmi_version != "2.0" {
         return Err(anyhow!("Unsupported FMI Version"));
     }
 
     print_info(&import);
 
-    let default_experiment = &import.descr().default_experiment.as_ref();
+    let default_experiment = &import.descr.default_experiment.as_ref();
     let mut fmi_check = FmiCheckState::from_options_and_experiment(&args, default_experiment)?;
 
     if args.sim_me || args.sim_cs || args.check_xml {

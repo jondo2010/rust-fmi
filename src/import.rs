@@ -1,35 +1,46 @@
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
 use super::{fmi, model_descr, FmiError, Result};
 use dlopen::wrapper::Container;
 use log::trace;
 
 const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 
-fn construct_so_path(model_identifier: &str) -> std::path::PathBuf {
-    let os = match std::env::consts::OS {
-        "linux" => "linux",
-        "macos" => "darwin",
-        "windows" => "win",
-        &_ => "Unsupported",
+fn construct_so_path(model_identifier: &str) -> Result<PathBuf> {
+    let os_plat = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("windows", "x86_64") => "win64",
+        ("windows", "x86") => "win32",
+
+        ("linux", "x86_64") => "linux64",
+        ("linux", "x86") => "linux32",
+        ("linux", "aarch64") => "aarch64-linux",
+
+        ("macos", "x86_64") => "darwin64",
+        ("macos", "x86") => "darwin32",
+        ("macos", "aarch64") => "aarch64-darwin",
+
+        (os, arch) => {
+            return Err(FmiError::UnsupportedPlatform {
+                os: os.to_string(),
+                arch: arch.to_string(),
+            })
+        }
     };
-    let platform = match std::env::consts::ARCH {
-        "x86_64" | "aarch64" | "mips64" | "powerpc64" | "sparc64" => "64",
-        "x86" | "arm" | "mips" | "powerpc" | "s390x" => "32",
-        &_ => "_Unknown",
-    };
-    let os_plat = os.to_owned() + platform;
+
     let fname = model_identifier.to_owned() + std::env::consts::DLL_SUFFIX;
-    std::path::PathBuf::from("binaries")
+    Ok(std::path::PathBuf::from("binaries")
         .join(os_plat)
-        .join(fname)
+        .join(fname))
 }
 
-fn extract_archive(archive: &std::path::Path, outdir: &std::path::Path) -> Result<()> {
-    trace!(
-        "Extracting {:?} into {:?}",
-        archive.display(),
-        outdir.display()
-    );
-    let file = std::fs::File::open(&archive)?;
+fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> Result<()> {
+    let archive = archive.as_ref();
+    let outdir = outdir.as_ref();
+    trace!("Extracting {} into {}", archive.display(), outdir.display());
+    let file = std::fs::File::open(archive)?;
     let mut archive = zip::ZipArchive::new(file)?;
 
     for i in 0..archive.len() {
@@ -43,7 +54,7 @@ fn extract_archive(archive: &std::path::Path, outdir: &std::path::Path) -> Resul
             // file.size());
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
-                    std::fs::create_dir_all(&p)?;
+                    std::fs::create_dir_all(p)?;
                 }
             }
             let mut outfile = std::fs::File::create(&outpath)?;
@@ -56,7 +67,7 @@ fn extract_archive(archive: &std::path::Path, outdir: &std::path::Path) -> Resul
 pub struct Import {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
-    descr: model_descr::ModelDescription,
+    pub descr: Arc<model_descr::ModelDescription>,
 }
 
 /// Implement Deserialize
@@ -124,17 +135,17 @@ impl std::fmt::Debug for Import {
             "Import {} {{FMI{}, {} variables}}",
             self.descr.model_name(),
             self.descr.fmi_version,
-            self.descr().num_variables()
+            self.descr.num_variables()
         )
     }
 }
 
 impl Import {
     /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
-    pub fn new(path: &std::path::Path) -> Result<Import> {
+    pub fn new(path: impl Into<std::path::PathBuf>) -> Result<Import> {
         // First create a temp directory
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
-        extract_archive(path, temp_dir.path())?;
+        extract_archive(path.into(), temp_dir.path())?;
         //.context("extraction")?;
 
         // Open and parse the model description
@@ -164,7 +175,7 @@ impl Import {
 
         Ok(Import {
             dir: temp_dir,
-            descr,
+            descr: Arc::new(descr),
         })
     }
 
@@ -180,7 +191,7 @@ impl Import {
         let lib_path = self
             .dir
             .path()
-            .join(construct_so_path(&me.model_identifier));
+            .join(construct_so_path(&me.model_identifier)?);
         trace!("Loading shared library {:?}", lib_path);
 
         unsafe { Container::load(lib_path) }.map_err(FmiError::from)
@@ -198,7 +209,7 @@ impl Import {
         let lib_path = self
             .dir
             .path()
-            .join(construct_so_path(&cs.model_identifier));
+            .join(construct_so_path(&cs.model_identifier)?);
         trace!("Loading shared library {:?}", lib_path);
 
         unsafe { Container::load(lib_path) }.map_err(FmiError::from)
@@ -209,42 +220,36 @@ impl Import {
         self.dir.path()
     }
 
-    /// Get a reference to the ModelDescription
-    pub fn descr(&self) -> &model_descr::ModelDescription {
-        &self.descr
-    }
-
     pub fn resource_url(&self) -> url::Url {
         url::Url::from_file_path(self.path().join("resources"))
             .expect("Error forming resource location URL")
     }
 }
 
+// TODO Make this work on other targets
+#[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // TODO Make this work on other targets
-    #[cfg(target_os = "linux")]
     #[test]
     fn test_import_me() {
         let import = Import::new(std::path::Path::new(
             "data/Modelica_Blocks_Sources_Sine.fmu",
         ))
         .unwrap();
-        assert_eq!(import.descr().fmi_version, "2.0");
+        assert_eq!(import.descr.fmi_version, "2.0");
 
         let _me = import.container_me().unwrap();
     }
 
-    #[cfg(target_os = "linux")]
     #[test]
     fn test_import_cs() {
         let import = Import::new(std::path::Path::new(
             "data/Modelica_Blocks_Sources_Sine.fmu",
         ))
         .unwrap();
-        assert_eq!(import.descr().fmi_version, "2.0");
+        assert_eq!(import.descr.fmi_version, "2.0");
 
         let _cs = import.container_cs().unwrap();
     }

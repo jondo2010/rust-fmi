@@ -41,11 +41,11 @@ extern "C" fn callback_log(
     );
 }
 
-/// This function is implemented in logger.c
-/// Note: This can be re-implemented in pure Rust once the `c_variadics` feature stabilizes.
-/// See: https://doc.rust-lang.org/beta/unstable-book/language-features/c-variadic.html
 #[link(name = "logger", kind = "static")]
 extern "C" {
+    /// This function is implemented in logger.c
+    /// Note: This can be re-implemented in pure Rust once the `c_variadics` feature stabilizes.
+    /// See: https://doc.rust-lang.org/beta/unstable-book/language-features/c-variadic.html
     pub(crate) fn callback_logger_handler(
         componentEnvironment: fmi::fmi2ComponentEnvironment,
         instanceName: fmi::fmi2String,
