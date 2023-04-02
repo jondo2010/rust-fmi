@@ -9,30 +9,32 @@ use log::trace;
 
 const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 
+#[cfg(all(
+    target_os = "windows",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+const FMI_PLATFORM: &str = "win64";
+#[cfg(all(target_os = "windows", target_arch = "x86"))]
+const FMI_PLATFORM: &str = "win32";
+#[cfg(all(
+    target_os = "linux",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+const FMI_PLATFORM: &str = "linux64";
+#[cfg(all(linux, target_arch = "x86"))]
+const FMI_PLATFORM: &str = "linux32";
+#[cfg(all(
+    target_os = "macos",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+const FMI_PLATFORM: &str = "darwin64";
+#[cfg(all(macos, target_arch = "x86"))]
+const FMI_PLATFORM: &str = "darwin32";
+
 fn construct_so_path(model_identifier: &str) -> Result<PathBuf> {
-    let os_plat = match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("windows", "x86_64") => "win64",
-        ("windows", "x86") => "win32",
-
-        ("linux", "x86_64") => "linux64",
-        ("linux", "x86") => "linux32",
-        ("linux", "aarch64") => "aarch64-linux",
-
-        ("macos", "x86_64") => "darwin64",
-        ("macos", "x86") => "darwin32",
-        ("macos", "aarch64") => "aarch64-darwin",
-
-        (os, arch) => {
-            return Err(FmiError::UnsupportedPlatform {
-                os: os.to_string(),
-                arch: arch.to_string(),
-            })
-        }
-    };
-
     let fname = model_identifier.to_owned() + std::env::consts::DLL_SUFFIX;
     Ok(std::path::PathBuf::from("binaries")
-        .join(os_plat)
+        .join(FMI_PLATFORM)
         .join(fname))
 }
 
@@ -47,11 +49,8 @@ fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> Resul
         let mut file = archive.by_index(i)?;
         let outpath = outdir.join(file.name());
         if file.is_dir() {
-            // trace!( "File {} extracted to \"{}\"", i, outpath.as_path().display());
             std::fs::create_dir_all(&outpath)?;
         } else {
-            // trace!( "File {} extracted to \"{}\" ({} bytes)", i, outpath.as_path().display(),
-            // file.size());
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
                     std::fs::create_dir_all(p)?;

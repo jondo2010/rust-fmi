@@ -11,7 +11,7 @@ extern "C" fn callback_log(
 ) {
     let instance_name = unsafe { std::ffi::CStr::from_ptr(instance_name) }
         .to_str()
-        .unwrap();
+        .unwrap_or("NULL");
     let level = match status {
         fmi::fmi2Status::OK => log::Level::Info,
         fmi::fmi2Status::Warning => log::Level::Warn,
@@ -23,11 +23,11 @@ extern "C" fn callback_log(
 
     let _category = unsafe { std::ffi::CStr::from_ptr(category) }
         .to_str()
-        .unwrap();
+        .unwrap_or("NULL");
 
     let message = unsafe { std::ffi::CStr::from_ptr(message) }
         .to_str()
-        .unwrap();
+        .unwrap_or("NULL");
 
     log::logger().log(
         &log::Record::builder()
