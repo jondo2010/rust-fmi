@@ -1,0 +1,25 @@
+{
+	"image": "mcr.microsoft.com/devcontainers/universal:2",
+	"features": {
+		"ghcr.io/devcontainers/features/rust:1": {}
+	},
+	"hostRequirements": {
+		"cpus": 4
+	},
+	"waitFor": "onCreateCommand",
+	"updateContentCommand": "sudo apt udpate && sudo apt install liblapack3",
+	"postCreateCommand": "rustc --version",
+	"postAttachCommand": {},
+	"customizations": {
+		"codespaces": {
+			"openFiles": [
+				"src/lib.rs"
+			]
+		},
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer"
+			]
+		}
+	}
+}
