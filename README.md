@@ -1,11 +1,18 @@
 # fmi
 
-[![pipeline status](https://gitlab.com/jondo2010/rust-fmi/badges/master/pipeline.svg)](https://gitlab.com/jondo2010/rust-fmi/commits/master)
-[![Build status](https://ci.appveyor.com/api/projects/status/xqvigxmc2tk0bkvm/branch/master?svg=true)](https://ci.appveyor.com/project/jondo2010/rust-fmi/branch/master)
+[<img alt="github" src="https://img.shields.io/github/license/jondo2010/rust-fmi?style=for-the-badge&logo=github" height="20">](https://github.com/jondo2010/rust-fmi)
+[<img alt="crates.io" src="https://img.shields.io/crates/v/fmi.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/fmi)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-fmi-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/fmi)
+[<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/jondo2010/rust-fmi/ci.yml?branch=develop&style=for-the-badge" height="20">](https://github.com/jondo2010/rust-fmi/actions?query=branch%3Adevelop)
+
+<!--
 [![codecov](https://codecov.io/gl/jondo2010/rust-fmi/branch/master/graph/badge.svg)](https://codecov.io/gl/jondo2010/rust-fmi)
 [![coverage report](https://gitlab.com/jondo2010/rust-fmi/badges/master/coverage.svg)](https://gitlab.com/jondo2010/rust-fmi/-/commits/master)
+-->
 
-A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/
+A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard.
+
+See http://www.fmi-standard.org/
 
 ## License
 
