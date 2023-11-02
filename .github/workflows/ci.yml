@@ -30,6 +30,12 @@ jobs:
       - name: toolchain version
         run: cargo -vV
 
+      - name: install deps
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: liblapack3
+          version: 1.0
+
       - name: build
         run: cargo build --verbose
 
