@@ -13,24 +13,20 @@ include = [
     "/src/**",
 ]
 description = "A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/"
-repository = "https://gitlab.com/jondo2010/rust-fmi"
+repository = "https://github.com/jondo2010/rust-fmi"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 keywords = ["model", "ode", "modelica"]
 categories = ["science", "simulation"]
 
-[badges]
-gitlab = { repository = "jondo2010/rust-fmi", branch = "master" }
-codecov = { repository = "jondo2010/rust-fmi", branch = "master", service = "gitlab" }
-
 [build-dependencies]
 cc = "1.0"
-built = "0.6"
+built = "0.7"
 
 [dependencies]
-serde = {version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 serde-xml-rs = "0.6"
-dtparse = "1.0"
+dtparse = "2.0"
 num-traits = "0.2"
 derive_more = "0.99"
 dlopen = "0.1"
@@ -44,9 +40,31 @@ log = { version = "0.4", features = ["std", "serde"] }
 thiserror = "1.0"
 
 [dev-dependencies]
-pretty_env_logger = "0.4"
+pretty_env_logger = "0.5"
 csv = "1.0"
 assert_approx_eq = "1.1"
 
 [workspace]
 members = ["fmi_check"]
+
+# Config for 'cargo dist'
+[workspace.metadata.dist]
+# The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.4.2"
+# CI backends to support
+ci = ["github"]
+# The installers to generate for each app
+installers = []
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+# Publish jobs to run in CI
+pr-run-mode = "plan"
+
+# The profile that 'cargo dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
