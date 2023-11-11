@@ -1,6 +1,6 @@
 [package]
 name = "fmi"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["John Hughes <jondo2010@gmail.com>"]
 edition = "2021"
 include = [
@@ -39,9 +39,11 @@ libc = { version = "0.2", features = ["align"] }
 log = { version = "0.4", features = ["std", "serde"] }
 thiserror = "1.0"
 
-yaserde = "0.7.1"
-yaserde_derive = "0.7.1"
-slotmap = "1.0.6"
+yaserde = "0.8"
+yaserde_derive = "0.8"
+slotmap = "1.0"
+#xml-schema-derive = { version = "0.2.0" }
+#xsd-types = { git = "https://github.com/lumeohq/xsd-parser-rs.git" }
 
 [dev-dependencies]
 pretty_env_logger = "0.5"

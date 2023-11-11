@@ -24,8 +24,12 @@ fn test_model_descr() {
 
     match check_meta_version(&meta_content).as_str() {
         "3.0-beta.2" => {
-            let meta: fmi3::meta::ModelDescription = yaserde::de::from_str(&meta_content).unwrap();
-            dbg!(meta);
+            let m: fmi3::schema::FmiModelDescription = yaserde::de::from_str(&meta_content).unwrap();
+            dbg!(&m.unit_definitions);
+
+            let model= fmi3::model::ModelDescription::try_from(&m).unwrap();
+
+            dbg!(&model.model_variables);
         }
         "2.0" => {
             //let meta: fmi::model_descr::ModelDescription =
