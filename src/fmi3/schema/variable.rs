@@ -28,8 +28,8 @@ pub trait InitializableVariableTrait: TypedArrayableariableTrait {
     fn initial(&self) -> Option<Initial>;
 }
 
-macro_rules! impl_type {
-    ($name:ident) => {
+macro_rules! impl_float_type {
+    ($name:ident, $type:ty) => {
         impl AbstractVariableTrait for $name {
             fn name(&self) -> &str {
                 &self
@@ -98,6 +98,20 @@ macro_rules! impl_type {
         impl InitializableVariableTrait for $name {
             fn initial(&self) -> Option<Initial> {
                 self.init_var.initial
+            }
+        }
+
+        impl $name {
+            pub fn start(&self) -> $type {
+                self.start
+            }
+
+            pub fn derivative(&self) -> Option<u32> {
+                self.real_var_attr.derivative
+            }
+
+            pub fn reinit(&self) -> bool {
+                self.real_var_attr.reinit
             }
         }
     };
@@ -226,8 +240,8 @@ pub struct FmiFloat64 {
     real_var_attr: RealVariableAttributes,
 }
 
-impl_type!(FmiFloat32);
-impl_type!(FmiFloat64);
+impl_float_type!(FmiFloat32, f32);
+impl_float_type!(FmiFloat64, f64);
 
 #[test]
 fn test_float64() {

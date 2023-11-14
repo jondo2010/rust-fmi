@@ -10,10 +10,11 @@
 //! }
 //! ```
 
+#[cfg(feature = "fmi2")]
 pub mod fmi2;
-pub mod import;
-
+#[cfg(feature = "fmi3")]
 pub mod fmi3;
+pub mod import;
 
 // Re-exports
 pub use self::import::Import;
@@ -62,19 +63,24 @@ pub enum FmiError {
     #[error("unknown toolchain version: {}", version)]
     UnknownToolchainVersion { version: String },
 
+    /*
     #[error("Model type {} not supported by this FMU", .0)]
     UnsupportedFmuType(fmi2::fmi2Type),
-
+    */
     #[error("Unsupported platform {os}/{arch}")]
     UnsupportedPlatform { os: String, arch: String },
 
+    #[error("Unsupported FMI version: {0}")]
+    UnsupportedFmiVersion(String),
+
+    /*
     #[error(
         "TypesPlatform of loaded API ({:?}) doesn't match expected ({:?})",
         found,
         fmi2::fmi2TypesPlatform
     )]
     TypesPlatformMismatch { found: Box<[u8]> },
-
+    */
     #[error(
         "FMI version of loaded API ({:?}) doesn't match expected ({:?})",
         found,
@@ -94,14 +100,23 @@ pub enum FmiError {
     #[error(transparent)]
     Xml(#[from] serde_xml_rs::Error),
 
-    #[error(transparent)]
-    Dlopen(#[from] dlopen::Error),
+    #[error("Error parsing XML: {0}")]
+    Parse(String),
+
+    //#[error(transparent)]
+    //Dlopen(#[from] dlopen::Error),
 
     //#[error(transparent)]
     //ModelDescr(#[from] model_descr::ModelDescriptionError),
-
     #[error(transparent)]
     Utf8Error(#[from] std::str::Utf8Error),
+
+    #[cfg(feature = "fmi3")]
+    #[error(transparent)]
+    Fmi3ModelError(#[from] fmi3::model::ModelError),
+
+    #[error(transparent)]
+    LibLoading(#[from] libloading::Error),
 }
 
 /// Ok Status returned by wrapped FMI functions.
@@ -115,6 +130,7 @@ pub enum FmiStatus {
 /// Crate-wide Result type
 pub type FmiResult<T> = std::result::Result<T, FmiError>;
 
+/*
 impl From<fmi2::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
     fn from(fmi_status: fmi2::fmi2Status) -> Self {
         match fmi_status {
@@ -127,6 +143,7 @@ impl From<fmi2::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
         }
     }
 }
+*/
 
 pub mod built_info {
     // The file has been placed there by the build script.

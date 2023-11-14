@@ -19,9 +19,18 @@ license = "MIT OR Apache-2.0"
 keywords = ["model", "ode", "modelica"]
 categories = ["science", "simulation"]
 
+[features]
+default = [
+    "fmi2",
+    "fmi3"
+]
+fmi2 = []
+fmi3 = []
+
 [build-dependencies]
 cc = "1.0"
 built = "0.7"
+bindgen = "0.69"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -29,8 +38,6 @@ serde-xml-rs = "0.6"
 dtparse = "2.0"
 num-traits = "0.2"
 derive_more = "0.99"
-dlopen = "0.1"
-dlopen_derive = "0.1"
 zip = "0.6"
 url = "2.2"
 tempfile = "3.1"
@@ -44,6 +51,8 @@ yaserde_derive = "0.8"
 slotmap = "1.0"
 #xml-schema-derive = { version = "0.2.0" }
 #xsd-types = { git = "https://github.com/lumeohq/xsd-parser-rs.git" }
+itertools = "0.11"
+libloading = "0.8"
 
 [dev-dependencies]
 pretty_env_logger = "0.5"

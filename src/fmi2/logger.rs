@@ -1,4 +1,4 @@
-use super::{fmi2String, fmi2ComponentEnvironment, fmi2Status};
+use super::{binding::fmi2String, binding::fmi2ComponentEnvironment, fmi2Status};
 
 /// This function gets called from logger.c
 #[no_mangle]

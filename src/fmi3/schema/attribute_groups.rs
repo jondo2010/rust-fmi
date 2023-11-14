@@ -14,20 +14,20 @@ pub struct RealBaseAttributes {
     pub unbounded: bool,
 }
 
-macro_rules! float_attributes {
-    ($name:ident, $type:ty) => {
-        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-        pub struct $name {
-            #[yaserde(attribute)]
-            pub min: Option<$type>,
-            #[yaserde(attribute)]
-            pub max: Option<$type>,
-            #[yaserde(attribute)]
-            pub nominal: Option<$type>,
-        }
-    };
-}
-
+//macro_rules! float_attributes {
+//    ($name:ident, $type:ty) => {
+//        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+//        pub struct $name {
+//            #[yaserde(attribute)]
+//            pub min: Option<$type>,
+//            #[yaserde(attribute)]
+//            pub max: Option<$type>,
+//            #[yaserde(attribute)]
+//            pub nominal: Option<$type>,
+//        }
+//    };
+//}
+//
 //float_attributes!(Float32Attributes, f32);
 //float_attributes!(Float64Attributes, f64);
 

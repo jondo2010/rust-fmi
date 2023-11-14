@@ -11,8 +11,6 @@ use thiserror::Error;
 // Re-exports
 pub use serde_xml_rs::from_reader;
 
-use super::fmi2ValueReference;
-
 /// Generic parsing function
 fn t_from_str<'de, T, D>(deser: D) -> Result<T, D::Error>
 where
@@ -500,7 +498,7 @@ impl Default for Initial {
 
 #[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
-pub struct ValueReference(#[serde(deserialize_with = "t_from_str")] pub(crate) fmi2ValueReference);
+pub struct ValueReference(#[serde(deserialize_with = "t_from_str")] pub(crate) super::binding::fmi2ValueReference);
 
 #[derive(Debug, Deserialize, Display, Clone)]
 #[serde(rename_all = "camelCase")]

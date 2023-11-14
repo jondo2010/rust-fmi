@@ -156,6 +156,13 @@ pub mod fmi_model_description {
         pub float64: Vec<FmiFloat64>,
     }
 
+    impl ModelVariablesType {
+        /// Returns the total number of variables in the model description
+        pub fn len(&self) -> usize {
+            self.float32.len() + self.float64.len()
+        }
+    }
+
     #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     pub struct ModelStructureType {
         #[yaserde(rename = "Output")]

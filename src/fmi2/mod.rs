@@ -4,30 +4,18 @@
 #![allow(clippy::too_many_arguments)]
 
 pub mod meta;
-pub mod instance;
+//pub mod instance;
 pub mod logger;
 
-pub use instance::{InstanceME, InstanceCS};
+pub mod binding {
+    #![allow(non_upper_case_globals)]
+    #![allow(non_camel_case_types)]
+    #![allow(non_snake_case)]
+
+    include!(concat!(env!("OUT_DIR"), "/fmi2_bindings.rs"));
+}
 
 use derive_more::Display;
-/// Internal private low-level FMI types
-use dlopen::wrapper::{WrapperApi, WrapperMultiApi};
-use dlopen_derive::{WrapperApi, WrapperMultiApi};
-
-pub const fmi2TypesPlatform: &[u8; 8usize] = b"default\0";
-pub const fmi2True: fmi2Boolean = 1;
-pub const fmi2False: fmi2Boolean = 0;
-
-pub type fmi2Component = *mut ::std::os::raw::c_void;
-pub type fmi2ComponentEnvironment = *mut ::std::os::raw::c_void;
-pub type fmi2FMUstate = *mut ::std::os::raw::c_void;
-pub type fmi2ValueReference = ::std::os::raw::c_uint;
-pub type fmi2Real = std::os::raw::c_double;
-pub type fmi2Integer = ::std::os::raw::c_long;
-pub type fmi2Boolean = ::std::os::raw::c_int;
-pub type fmi2Char = ::std::os::raw::c_char;
-pub type fmi2String = *const fmi2Char;
-pub type fmi2Byte = ::std::os::raw::c_char;
 
 #[repr(C)]
 #[derive(Debug, Display)]
@@ -76,47 +64,8 @@ pub enum fmi2Status {
     Pending = 5,
 }
 
-type fmi2CallbackLogger = Option<
-    unsafe extern "C" fn(
-        component_environment: fmi2ComponentEnvironment,
-        instance_name: fmi2String,
-        status: fmi2Status,
-        category: fmi2String,
-        message: fmi2String,
-        ...
-    ),
->;
-
-pub type fmi2CallbackAllocateMemory =
-    Option<unsafe extern "C" fn(arg1: usize, arg2: usize) -> *mut libc::c_void>;
-
-pub type fmi2CallbackFreeMemory = Option<unsafe extern "C" fn(arg1: *mut std::os::raw::c_void)>;
-
-pub type fmi2StepFinished =
-    Option<unsafe extern "C" fn(arg1: fmi2ComponentEnvironment, arg2: fmi2Status)>;
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct CallbackFunctions {
-    pub logger: fmi2CallbackLogger,
-    pub allocate_memory: fmi2CallbackAllocateMemory,
-    pub free_memory: fmi2CallbackFreeMemory,
-    pub step_finished: fmi2StepFinished,
-    pub component_environment: fmi2ComponentEnvironment,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct EventInfo {
-    pub new_discrete_states_needed: fmi2Boolean,
-    pub terminate_simulation: fmi2Boolean,
-    pub nominals_of_continuous_states_changed: fmi2Boolean,
-    pub values_of_continuous_states_changed: fmi2Boolean,
-    pub next_event_time_defined: fmi2Boolean,
-    pub next_event_time: fmi2Real,
-}
-
 /// Common API between ME and CS
+#[cfg(feature = "disabled")]
 #[derive(WrapperApi)]
 pub struct FmiCommon {
     #[dlopen_name = "fmi2GetTypesPlatform"]
@@ -183,7 +132,7 @@ pub struct FmiCommon {
         fmu_type: fmi2Type,
         fmu_guid: fmi2String,
         fmu_resource_location: fmi2String,
-        functions: *const CallbackFunctions,
+        functions: *const fmi2CallbackFunctions,
         visible: fmi2Boolean,
         logging_on: fmi2Boolean,
     ) -> fmi2Component,
@@ -319,6 +268,7 @@ pub struct FmiCommon {
 }
 
 /// Functions for FMI2 for Model Exchange
+#[cfg(feature = "disabled")]
 #[derive(WrapperApi)]
 pub(crate) struct ME {
     // Enter and exit the different modes
@@ -376,6 +326,7 @@ pub(crate) struct ME {
 }
 
 /// Functions for FMI2 for Co-Simulation
+#[cfg(feature = "disabled")]
 #[derive(WrapperApi)]
 pub(crate) struct CS {
     // Simulating the slave
@@ -451,28 +402,33 @@ pub(crate) struct CS {
     ) -> fmi2Status,
 }
 
+#[cfg(feature = "disabled")]
 pub trait FmiApi: WrapperApi {
     fn common(&self) -> &FmiCommon;
 }
 
+#[cfg(feature = "disabled")]
 #[derive(WrapperMultiApi)]
 pub struct Fmi2ME {
     pub(crate) common: FmiCommon,
     pub(crate) me: ME,
 }
 
+#[cfg(feature = "disabled")]
 impl FmiApi for Fmi2ME {
     fn common(&self) -> &FmiCommon {
         &self.common
     }
 }
 
+#[cfg(feature = "disabled")]
 #[derive(WrapperMultiApi)]
 pub struct Fmi2CS {
     pub(crate) common: FmiCommon,
     pub(crate) cs: CS,
 }
 
+#[cfg(feature = "disabled")]
 impl FmiApi for Fmi2CS {
     fn common(&self) -> &FmiCommon {
         &self.common
