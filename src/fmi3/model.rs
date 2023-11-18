@@ -1,8 +1,13 @@
+use std::str::FromStr;
+
 use itertools::Itertools;
-use slotmap::{new_key_type, SlotMap, SecondaryMap};
+use slotmap::{new_key_type, SecondaryMap, SlotMap};
 use thiserror::Error;
 
-use super::schema::{self, AbstractVariableTrait, TypedArrayableariableTrait};
+use super::{
+    schema::{self, AbstractVariableTrait, Fmi3Unit, TypedArrayableariableTrait},
+    DateTime,
+};
 
 #[derive(Debug, Error)]
 pub enum ModelError {
@@ -13,47 +18,56 @@ pub enum ModelError {
 new_key_type! { pub struct TypeKey; }
 new_key_type! { pub struct UnitKey; }
 new_key_type! { pub struct VariableKey; }
+new_key_type! { pub struct LogCategoryKey; }
 
 #[derive(Debug)]
-struct UnitDefinition<'a> {
-    name: &'a str,
+struct UnitDefinition {
+    //TODO
+    unit: Fmi3Unit,
 }
 
 #[derive(Debug)]
-pub enum TypeDefinition<'a> {
-    Float32 {
-        name: &'a str,
-    },
+pub enum TypeDefinition {
+    Float32(schema::Float32Type),
     Float64 {
-        name: &'a str,
-        quantity: Option<&'a str>,
+        r#type: schema::Float64Type,
         unit: Option<UnitKey>,
     },
 }
 
 #[derive(Debug)]
-pub enum ModelVariable<'a> {
+pub enum ModelVariable {
     Float32 {
-        name: &'a str,
-        value_reference: u32,
+        var: schema::FmiFloat32,
         declared_type: Option<TypeKey>,
         derivative: Option<VariableKey>,
     },
     Float64 {
-        name: &'a str,
-        value_reference: u32,
+        var: schema::FmiFloat64,
         declared_type: Option<TypeKey>,
         derivative: Option<VariableKey>,
     },
 }
 
 #[derive(Debug)]
-pub struct ModelDescription<'a> {
+pub struct ModelDescription {
+    /// Version of FMI the XML file complies with.
+    pub fmi_version: String,
+    /// The name of the model as used in the modeling environment that generated the XML file, such as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
+    pub model_name: String,
+    /// The instantiationToken is a string that may be used by the FMU to check that the XML file is compatible with the implementation of the FMU. For this purpose the importer must pass the instantiationToken from the modelDescription.xml to the fmi3InstantiateXXX function call.
+    pub instantiation_token: String,
+    /// Optional string with a brief description of the model.
+    pub description: Option<String>,
+    /// Optional date and time when the XML file was generated.
+    pub generation_date_and_time: Option<super::DateTime>,
+    /// A list of log categories that can be set to define the log information that is supported from the FMU.
+    pub log_categories: SlotMap<LogCategoryKey, schema::CategoryType>,
     /// A global list of unit and display unit definitions
-    unit_definitions: SlotMap<UnitKey, UnitDefinition<'a>>,
+    unit_definitions: SlotMap<UnitKey, UnitDefinition>,
     /// A global list of type definitions that are utilized in `ModelVariables`
-    type_definitions: SlotMap<TypeKey, TypeDefinition<'a>>,
-    pub model_variables: SlotMap<VariableKey, ModelVariable<'a>>,
+    type_definitions: SlotMap<TypeKey, TypeDefinition>,
+    pub model_variables: SlotMap<VariableKey, ModelVariable>,
 
     pub model_structure: ModelStructure,
 }
@@ -67,110 +81,96 @@ pub struct ModelStructure {
 }
 
 fn find_unit_definition_by_name<'a>(
-    mut unit_definitions: impl Iterator<Item = (UnitKey, &'a UnitDefinition<'a>)>,
+    mut unit_definitions: impl Iterator<Item = (UnitKey, &'a UnitDefinition)>,
     name: &str,
 ) -> Option<UnitKey> {
-    unit_definitions.find_map(
-        |(key, unit)| {
-            if unit.name == name {
-                Some(key)
-            } else {
-                None
-            }
-        },
-    )
+    unit_definitions.find_map(|(key, unit)| {
+        if unit.unit.name == name {
+            Some(key)
+        } else {
+            None
+        }
+    })
 }
 
 fn find_type_definition_by_name<'a>(
-    mut type_definitions: impl Iterator<Item = (TypeKey, &'a TypeDefinition<'a>)>,
+    mut type_definitions: impl Iterator<Item = (TypeKey, &'a TypeDefinition)>,
     name: &str,
 ) -> Option<TypeKey> {
     type_definitions.find_map(|(key, ty)| match ty {
-        TypeDefinition::Float32 { name: ty_name, .. } if ty_name == &name => Some(key),
-        TypeDefinition::Float64 { name: ty_name, .. } if ty_name == &name => Some(key),
+        TypeDefinition::Float32(inner_ty) if inner_ty.base.name == name => Some(key),
+        TypeDefinition::Float64 {
+            r#type: inner_ty, ..
+        } if inner_ty.base.name == name => Some(key),
         _ => None,
     })
 }
 
 fn find_variable_by_name<'a>(
-    mut model_variables: impl Iterator<Item = (VariableKey, &'a ModelVariable<'a>)>,
+    mut model_variables: impl Iterator<Item = (VariableKey, &'a ModelVariable)>,
     name: &str,
 ) -> Option<VariableKey> {
     model_variables.find_map(|(key, var)| match var {
-        ModelVariable::Float32 { name: var_name, .. } if var_name == &name => Some(key),
-        ModelVariable::Float64 { name: var_name, .. } if var_name == &name => Some(key),
+        ModelVariable::Float32 { var, .. } if var.name() == name => Some(key),
+        ModelVariable::Float64 { var, .. } if var.name() == name => Some(key),
         _ => None,
     })
 }
 
 fn find_variable_by_vr<'a>(
-    mut model_variables: impl Iterator<Item = (VariableKey, &'a ModelVariable<'a>)>,
+    mut model_variables: impl Iterator<Item = (VariableKey, &'a ModelVariable)>,
     vr: u32,
 ) -> Option<VariableKey> {
     model_variables.find_map(|(key, var)| match var {
-        ModelVariable::Float32 { value_reference, .. } if value_reference == &vr => Some(key),
-        ModelVariable::Float64 { value_reference, .. } if value_reference == &vr => Some(key),
+        ModelVariable::Float32 { var, .. } if var.value_reference() == vr => Some(key),
+        ModelVariable::Float64 { var, .. } if var.value_reference() == vr => Some(key),
         _ => None,
     })
 }
 
 fn build_unit_definitions<'a>(
-    md: &'a schema::FmiModelDescription,
-) -> Result<SlotMap<UnitKey, UnitDefinition<'a>>, ModelError> {
-    Ok(md.unit_definitions.as_ref().map_or_else(
-        || SlotMap::default(),
-        |defs| {
-            let mut map = SlotMap::with_key();
-            for unit in &defs.units {
-                map.insert(UnitDefinition { name: &unit.name });
-            }
-            map
-        },
-    ))
+    unit_definitions: schema::UnitDefinitionsType,
+) -> Result<SlotMap<UnitKey, UnitDefinition>, ModelError> {
+    let mut map = SlotMap::with_key();
+    for unit in unit_definitions.units {
+        map.insert(UnitDefinition { unit });
+    }
+    Ok(map)
+
+    //Ok(md.unit_definitions.as_ref().map_or_else( || SlotMap::default(), |defs| { },))
 }
 
 fn build_type_definitions<'a>(
-    md: &'a schema::FmiModelDescription,
-    unit_definitions: &SlotMap<UnitKey, UnitDefinition<'a>>,
-) -> Result<SlotMap<TypeKey, TypeDefinition<'a>>, ModelError> {
-    md.type_definitions.as_ref().map_or_else(
-        || Ok(SlotMap::default()),
-        |defs| {
-            let mut map = SlotMap::with_key();
-            for ty in &defs.float32_type {
-                map.insert(TypeDefinition::Float32 {
-                    name: &ty.base.name,
-                });
-            }
-            for ty in &defs.float64_type {
-                let unit = match &ty.base_attr.unit {
-                    Some(unit_name) => Some(
-                        find_unit_definition_by_name(unit_definitions.iter(), unit_name).ok_or(
-                            ModelError::ReferenceError(format!(
-                                "Unit '{}' not found in TypeDefinition '{}'",
-                                unit_name, ty.base.name,
-                            )),
-                        )?,
-                    ),
-                    None => None,
-                };
+    type_definitions: schema::TypeDefinitionsType,
+    unit_definitions: &SlotMap<UnitKey, UnitDefinition>,
+) -> Result<SlotMap<TypeKey, TypeDefinition>, ModelError> {
+    let mut map = SlotMap::with_key();
+    for ty in type_definitions.float32_type {
+        map.insert(TypeDefinition::Float32(ty));
+    }
+    for ty in type_definitions.float64_type {
+        let unit = match &ty.base_attr.unit {
+            Some(unit_name) => Some(
+                find_unit_definition_by_name(unit_definitions.iter(), unit_name).ok_or(
+                    ModelError::ReferenceError(format!(
+                        "Unit '{}' not found in TypeDefinition '{}'",
+                        unit_name, ty.base.name,
+                    )),
+                )?,
+            ),
+            None => None,
+        };
 
-                map.insert(TypeDefinition::Float64 {
-                    name: &ty.base.name,
-                    quantity: ty.base_attr.quantity.as_deref(),
-                    unit,
-                });
-            }
-            Ok(map)
-        },
-    )
+        map.insert(TypeDefinition::Float64 { r#type: ty, unit });
+    }
+    Ok(map)
 }
 
 fn build_model_variables<'a>(
-    md: &'a schema::FmiModelDescription,
-    type_definitions: &SlotMap<TypeKey, TypeDefinition<'a>>,
-) -> Result<SlotMap<VariableKey, ModelVariable<'a>>, ModelError> {
-    let mut model_variables = SlotMap::with_capacity_and_key(md.model_variables.len());
+    model_variables: schema::ModelVariablesType,
+    type_definitions: &SlotMap<TypeKey, TypeDefinition>,
+) -> Result<SlotMap<VariableKey, ModelVariable>, ModelError> {
+    let mut ret_map = SlotMap::with_capacity_and_key(model_variables.len());
 
     // Helper function to dereference a declared type
     let deref_declared_type =
@@ -182,18 +182,25 @@ fn build_model_variables<'a>(
                 )),
             )
         };
-    
+
     // Helper function to find a declared variable
-    let variable_by_vr = |model_variables: &SlotMap<VariableKey,_>, variable_vr: u32, var_name: &str| -> Result<VariableKey, ModelError> {
-        find_variable_by_vr(model_variables.iter(), variable_vr).ok_or(
-            ModelError::ReferenceError(format!(
+    let variable_by_vr = |model_variables: &SlotMap<VariableKey, _>,
+                          variable_vr: u32,
+                          var_name: &str|
+     -> Result<VariableKey, ModelError> {
+        find_variable_by_vr(model_variables.iter(), variable_vr).ok_or(ModelError::ReferenceError(
+            format!(
                 "Variable '{}' not found in ScalarVariable '{}'",
                 variable_vr, var_name
-            )),
-        )
+            ),
+        ))
     };
 
-    for var in &md.model_variables.float32 {
+    for var in model_variables
+        .float32
+        .into_iter()
+        .sorted_by_key(|var| var.derivative())
+    {
         let declared_type = if let Some(type_name) = var.declared_type() {
             Some(deref_declared_type(type_name, var.name())?)
         } else {
@@ -201,20 +208,27 @@ fn build_model_variables<'a>(
         };
 
         let derivative = if let Some(derivative) = var.derivative() {
-            Some(variable_by_vr(&model_variables, derivative, var.name())?)
+            Some(variable_by_vr(&ret_map, derivative, var.name())?)
         } else {
             None
         };
 
-        model_variables.insert(ModelVariable::Float32 {
-            name: var.name(),
-            value_reference: var.value_reference(),
+        ret_map.insert(ModelVariable::Float32 {
+            var,
             declared_type,
             derivative,
         });
     }
 
-    for var in md.model_variables.float64.iter().sorted_by_key(|var| var.derivative()) {
+    for var in model_variables
+        .float64
+        .into_iter()
+        .sorted_by_key(|var| var.derivative())
+    {
+        let x = var
+            .declared_type()
+            .map(|x| deref_declared_type(x, var.name()));
+
         let declared_type = if let Some(type_name) = var.declared_type() {
             Some(deref_declared_type(type_name, var.name())?)
         } else {
@@ -222,24 +236,23 @@ fn build_model_variables<'a>(
         };
 
         let derivative = if let Some(derivative) = var.derivative() {
-            Some(variable_by_vr(&model_variables, derivative, var.name())?)
+            Some(variable_by_vr(&ret_map, derivative, var.name())?)
         } else {
             None
         };
 
-        model_variables.insert(ModelVariable::Float64 {
-            name: var.name(),
-            value_reference: var.value_reference(),
+        ret_map.insert(ModelVariable::Float64 {
+            var,
             declared_type,
             derivative,
         });
     }
 
-    Ok(model_variables)
+    Ok(ret_map)
 }
 
 fn build_model_structure(
-    md: &schema::FmiModelDescription,
+    model_structure: schema::ModelStructureType,
     model_variables: &SlotMap<VariableKey, ModelVariable>,
 ) -> Result<ModelStructure, ModelError> {
     let mut outputs = Vec::new();
@@ -284,16 +297,42 @@ fn build_model_structure(
     })
 }
 
-impl<'a> TryFrom<&'a schema::FmiModelDescription> for ModelDescription<'a> {
+impl TryFrom<schema::FmiModelDescription> for ModelDescription {
     type Error = ModelError;
 
-    fn try_from(md: &'a schema::FmiModelDescription) -> Result<Self, ModelError> {
-        let unit_definitions = build_unit_definitions(md)?;
-        let type_definitions = build_type_definitions(md, &unit_definitions)?;
-        let model_variables = build_model_variables(md, &type_definitions)?;
-        let model_structure = build_model_structure(md, &model_variables)?;
+    fn try_from(md: schema::FmiModelDescription) -> Result<Self, ModelError> {
+        let generation_date_and_time = if let Some(s) = md.generation_date_and_time {
+            Some(DateTime::from_str(&s).expect("todo"))
+        } else {
+            None
+        };
+
+        let log_categories = md.log_categories.map_or(Ok(Default::default()), |cats| {
+            let mut map = SlotMap::with_key();
+            for c in cats.categories {
+                map.insert(c);
+            }
+            Ok(map)
+        })?;
+
+        let unit_definitions = md
+            .unit_definitions
+            .map_or(Ok(Default::default()), |defs| build_unit_definitions(defs))?;
+
+        let type_definitions = md.type_definitions.map_or(Ok(Default::default()), |defs| {
+            build_type_definitions(defs, &unit_definitions)
+        })?;
+
+        let model_variables = build_model_variables(md.model_variables, &type_definitions)?;
+        let model_structure = build_model_structure(md.model_structure, &model_variables)?;
 
         Ok(Self {
+            fmi_version: md.fmi_version,
+            model_name: md.model_name,
+            instantiation_token: md.instantiation_token,
+            description: md.description,
+            generation_date_and_time,
+            log_categories,
             unit_definitions,
             type_definitions,
             model_variables,

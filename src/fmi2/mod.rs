@@ -15,6 +15,8 @@ pub mod binding {
     include!(concat!(env!("OUT_DIR"), "/fmi2_bindings.rs"));
 }
 
+pub mod import;
+
 use derive_more::Display;
 
 #[repr(C)]
@@ -30,24 +32,24 @@ pub enum fmi2StatusKind {
     /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers
     /// fmi2Pending if the computation is not finished. Otherwise the function returns the result
     /// of the asynchronously executed fmi2DoStep call
-    DoStepStatus = 0,
+    DoStepStatus = binding::fmi2StatusKind_fmi2DoStepStatus as _,
     /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers a
     /// string which informs about the status of the currently running asynchronous fmi2DoStep
     /// computation.
-    PendingStatus = 1,
+    PendingStatus = binding::fmi2StatusKind_fmi2PendingStatus as _,
     /// Returns the end time of the last successfully completed communication step. Can be called
     /// after fmi2DoStep(...) returned fmi2Discard.
-    LastSuccessfulTime = 2,
+    LastSuccessfulTime = binding::fmi2StatusKind_fmi2LastSuccessfulTime as _,
     /// Returns true, if the slave wants to terminate the simulation. Can be called after
     /// fmi2DoStep(...) returned fmi2Discard. Use fmi2LastSuccessfulTime to determine the time
     /// instant at which the slave terminated
-    Terminated = 3,
+    Terminated = binding::fmi2StatusKind_fmi2Terminated as _,
 }
 
 #[repr(C)]
 pub enum fmi2Status {
     /// All well
-    OK = 0,
+    OK = binding::fmi2Status_fmi2OK as _,
     /// things are not quite right, but the computation can continue. Function “logger” was called
     /// in the model (see below) and it is expected that this function has shown the prepared
     /// information message to the user

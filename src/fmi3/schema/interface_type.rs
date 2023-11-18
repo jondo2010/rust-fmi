@@ -4,7 +4,6 @@ use super::Annotations;
 
 //use fmi3Annotation.xsd  ;
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde()]
 pub struct Fmi3InterfaceType {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
@@ -35,7 +34,6 @@ pub struct Fmi3InterfaceType {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde()]
 pub struct Fmi3ModelExchange {
     #[yaserde(attribute, rename = "needsCompletedIntegratorStep")]
     pub needs_completed_integrator_step: Option<bool>,
@@ -72,7 +70,6 @@ pub struct Fmi3ModelExchange {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde()]
 pub struct Fmi3CoSimulation {
     #[yaserde(attribute, rename = "canHandleVariableCommunicationStepSize")]
     pub can_handle_variable_communication_step_size: Option<bool>,
@@ -130,7 +127,6 @@ pub struct Fmi3CoSimulation {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde()]
 pub struct Fmi3ScheduledExecution {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
