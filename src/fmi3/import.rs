@@ -6,65 +6,11 @@ use crate::{import::FmiImport, FmiError, FmiResult};
 
 use self::instance::Instance;
 
-use super::{binding, instance, model, schema};
-
-#[derive(Debug)]
-#[repr(usize)]
-pub enum FmiStatus {
-    Ok = binding::fmi3Status_fmi3OK as _,
-    Warning = binding::fmi3Status_fmi3Warning as _,
-    Discard = binding::fmi3Status_fmi3Discard as _,
-    Error = binding::fmi3Status_fmi3Error as _,
-    Fatal = binding::fmi3Status_fmi3Fatal as _,
-}
-
-impl From<binding::fmi3Status> for FmiStatus {
-    fn from(status: binding::fmi3Status) -> Self {
-        match status {
-            binding::fmi3Status_fmi3OK => FmiStatus::Ok,
-            binding::fmi3Status_fmi3Warning => FmiStatus::Warning,
-            binding::fmi3Status_fmi3Discard => FmiStatus::Discard,
-            binding::fmi3Status_fmi3Error => FmiStatus::Error,
-            binding::fmi3Status_fmi3Fatal => FmiStatus::Fatal,
-            _ => unreachable!("Invalid status"),
-        }
-    }
-}
-
-/// Callback function for logging
-unsafe extern "C" fn log_callback(
-    _instance_environment: binding::fmi3InstanceEnvironment,
-    instance_name: binding::fmi3String,
-    status: binding::fmi3Status,
-    category: binding::fmi3String,
-    message: binding::fmi3String,
-) {
-    let instance_name = std::ffi::CStr::from_ptr(instance_name)
-        .to_str()
-        .unwrap_or("INVALID");
-    let status = FmiStatus::from(status);
-    let category = std::ffi::CStr::from_ptr(category)
-        .to_str()
-        .unwrap_or("INVALID");
-    let message = std::ffi::CStr::from_ptr(message)
-        .to_str()
-        .unwrap_or("INVALID");
-
-    log::log!(
-        match status {
-            FmiStatus::Ok => log::Level::Info,
-            FmiStatus::Warning => log::Level::Warn,
-            FmiStatus::Discard => log::Level::Warn,
-            FmiStatus::Error => log::Level::Error,
-            FmiStatus::Fatal => log::Level::Error,
-        },
-        "instanceName: {}, status: {:?}, category: {}, message: {}",
-        instance_name,
-        status,
-        category,
-        message
-    );
-}
+use super::{
+    binding,
+    instance::{self, ME},
+    model, schema,
+};
 
 /// FMU import for FMI 3.0
 ///
@@ -137,25 +83,7 @@ impl Fmi3 {
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> FmiResult<Instance<'_>> {
-        let binding = self.raw_bindings()?;
-
-        let instance_ptr = unsafe {
-            binding.fmi3InstantiateModelExchange(
-                instance_name.as_ptr() as binding::fmi3String,
-                self.model.instantiation_token.as_ptr() as binding::fmi3String,
-                self.model.instantiation_token.as_ptr() as binding::fmi3String,
-                visible,
-                logging_on,
-                std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
-                Some(log_callback),
-            )
-        };
-
-        if instance_ptr.is_null() {
-            return Err(FmiError::Instantiation);
-        }
-
-        Ok(instance::Instance::new(binding, instance_ptr, &self.model))
+    ) -> FmiResult<Instance<'_, ME>> {
+        instance::Instance::new(self, instance_name, visible, logging_on)
     }
 }

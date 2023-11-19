@@ -165,9 +165,11 @@ mod tests {
         assert_eq!(ver, "2.0");
     }
 
-    #[test]
+    #[test_log::test]
     #[cfg(feature = "fmi3")]
     fn test_import_fmi3() {
+        use crate::fmi3::instance::traits::{Common, ModelExchange};
+
         let import = Import::new("data/reference_fmus/3.0/BouncingBall.fmu")
             .unwrap()
             .as_fmi3()
@@ -182,9 +184,28 @@ mod tests {
         };
         assert_eq!(ver, "3.0");
 
-        let inst1 = import.instantiate_me("inst1", false, true).unwrap();
+        let mut inst1 = import.instantiate_me("inst1", true, true).unwrap();
+        inst1
+            .set_debug_logging(true, import.model().log_categories.keys())
+            .unwrap();
+        inst1.enter_initialization_mode(None, 0.0, None).unwrap();
+        inst1.exit_initialization_mode().unwrap();
+        inst1.set_time(1234.0).unwrap();
 
-        dbg!(inst1.get_version());
+        inst1.enter_continuous_time_mode().unwrap();
+
+        let states = (0..import
+            .model()
+            .model_structure
+            .continuous_state_derivatives
+            .len())
+            .map(|x| x as f64)
+            .collect::<Vec<_>>();
+        dbg!(&states);
+
+        inst1.set_continuous_states(&states).unwrap();
+        let ret = inst1.completed_integrator_step(false).unwrap();
+        dbg!(ret);
     }
 
     #[test]

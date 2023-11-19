@@ -260,6 +260,17 @@ fn build_model_structure(
     let mut derivatives = Vec::new();
     let mut initial_unknowns = Vec::new();
 
+    for var in model_structure.continuous_state_derivative {
+        continuous_state_derivatives.push(
+            find_variable_by_vr(model_variables.iter(), var.value_reference).ok_or(
+                ModelError::ReferenceError(format!(
+                    "Variable '{}' not found in ModelStructure",
+                    var.value_reference
+                )),
+            )?,
+        );
+    }
+
     /*
     for var in &md.model_structure.output {
         outputs.push(find_variable_by_name(model_variables.iter(), var).ok_or(
