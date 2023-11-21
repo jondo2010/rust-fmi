@@ -1,4 +1,4 @@
-use crate::{FmiError, FmiResult, FmiStatus, Import};
+use crate::{fmi2::instance::traits::Common, FmiError, FmiResult, FmiStatus, Import};
 
 use super::*;
 use std::ffi::CString;
@@ -49,6 +49,7 @@ impl Default for CallbackFunctions {
 
 /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
 /// from the library and the Model Description XML
+#[cfg(feature = "disable")]
 fn check_consistency(import: &Import, common: &FmiCommon) -> FmiResult<()> {
     let types_platform =
         unsafe { std::ffi::CStr::from_ptr(common.get_types_platform()) }.to_bytes_with_nul();
@@ -133,7 +134,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         stop_time: Option<f64>,
     ) -> FmiResult<FmiStatus> {
         unsafe {
-            self.container.common().setup_experiment(
+            self.binding.fmi2SetupExperiment(
                 self.component,
                 tolerance.is_some() as binding::fmi2Boolean,
                 tolerance.unwrap_or(0.0),
@@ -146,37 +147,26 @@ impl<'a, A> traits::Common for Instance<'a, A> {
     }
 
     fn enter_initialization_mode(&self) -> FmiResult<FmiStatus> {
-        unsafe {
-            self.container
-                .common()
-                .enter_initialization_mode(self.component)
-        }
-        .into()
+        unsafe { self.binding.fmi2EnterInitializationMode(self.component) }.into()
     }
 
     fn exit_initialization_mode(&self) -> FmiResult<FmiStatus> {
-        unsafe {
-            self.container
-                .common()
-                .exit_initialization_mode(self.component)
-        }
-        .into()
+        unsafe { self.binding.fmi2ExitInitializationMode(self.component) }.into()
     }
 
     fn terminate(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.container.common().terminate(self.component) }.into()
+        unsafe { self.binding.fmi2Terminate(self.component) }.into()
     }
 
     fn reset(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.container.common().reset(self.component) }.into()
+        unsafe { self.binding.fmi2Reset(self.component) }.into()
     }
 
     fn get_real(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Real> {
         let mut ret: binding::fmi2Real = 0.0;
         let res: FmiResult<FmiStatus> = unsafe {
-            self.container
-                .common()
-                .get_real(self.component, &sv.value_reference.0, 1, &mut ret)
+            self.binding
+                .fmi2GetReal(self.component, &sv.value_reference.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret as f64))
@@ -185,9 +175,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
     fn get_integer(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Integer> {
         let mut ret: binding::fmi2Integer = 0;
         let res: FmiResult<FmiStatus> = unsafe {
-            self.container
-                .common()
-                .get_integer(self.component, &sv.value_reference.0, 1, &mut ret)
+            self.binding
+                .fmi2GetInteger(self.component, &sv.value_reference.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret))
@@ -196,9 +185,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
     fn get_boolean(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Boolean> {
         let mut ret: binding::fmi2Boolean = 0;
         let res: FmiResult<FmiStatus> = unsafe {
-            self.container
-                .common()
-                .get_boolean(self.component, &sv.value_reference.0, 1, &mut ret)
+            self.binding
+                .fmi2GetBoolean(self.component, &sv.value_reference.0, 1, &mut ret)
         }
         .into();
         res.and(Ok(ret))
@@ -215,7 +203,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
     ) -> FmiResult<FmiStatus> {
         assert!(vrs.len() == values.len());
         unsafe {
-            self.container.common().set_real(
+            self.binding.fmi2SetReal(
                 self.component,
                 vrs.as_ptr() as *const u32,
                 values.len(),
@@ -241,7 +229,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         values: &[binding::fmi2Integer],
     ) -> FmiResult<FmiStatus> {
         unsafe {
-            self.container.common().set_integer(
+            self.binding.fmi2SetInteger(
                 self.component,
                 vrs.as_ptr() as *const u32,
                 values.len(),
@@ -257,12 +245,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         values: &[binding::fmi2Boolean],
     ) -> FmiResult<FmiStatus> {
         unsafe {
-            self.container.common().set_boolean(
-                self.component,
-                vrs.as_ptr(),
-                values.len(),
-                values.as_ptr(),
-            )
+            self.binding
+                .fmi2SetBoolean(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
         }
         .into()
     }
@@ -289,7 +273,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         assert!(unknown_vrs.len() == dv_unknown_values.len());
         assert!(known_vrs.len() == dv_unknown_values.len());
         unsafe {
-            self.container.common().get_directional_derivative(
+            self.binding.fmi2GetDirectionalDerivative(
                 self.component,
                 unknown_vrs.as_ptr(),
                 unknown_vrs.len(),
@@ -309,7 +293,7 @@ impl<'a, A> std::fmt::Debug for Instance<'a, A> {
             f,
             "Instance {} {{Import {}, {:?}}}",
             self.name(),
-            self.model.model_name,
+            self.schema.model_name,
             self.component,
         )
     }

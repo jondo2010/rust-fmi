@@ -1,5 +1,5 @@
 use crate::{
-    fmi2::{binding, meta},
+    fmi2::{binding, meta, EventInfo},
     FmiResult,
 };
 

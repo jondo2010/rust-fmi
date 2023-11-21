@@ -1,7 +1,7 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi2::{import, FmiStatus},
+    fmi2::{import, CallbackFunctions, FmiStatus},
     import::FmiImport,
     FmiError, FmiResult,
 };
@@ -34,7 +34,7 @@ impl<'a> Instance<'a, CS> {
                 binding::fmi2Type_fmi2CoSimulation,
                 guid.as_ptr(),                      // guid
                 resource_url.as_ptr(),              // fmu_resource_location
-                &*callbacks,                        // functions
+                callbacks,                          // functions
                 visible as binding::fmi2Boolean,    // visible
                 logging_on as binding::fmi2Boolean, // logging_on
             )
