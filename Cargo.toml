@@ -20,10 +20,7 @@ keywords = ["model", "ode", "modelica"]
 categories = ["science", "simulation"]
 
 [features]
-default = [
-    "fmi2",
-    "fmi3"
-]
+default = ["fmi2", "fmi3"]
 fmi2 = []
 fmi3 = []
 
@@ -37,7 +34,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde-xml-rs = "0.6"
 dtparse = "2.0"
 num-traits = "0.2"
-derive_more = "0.99"
 zip = "0.6"
 url = "2.2"
 tempfile = "3.1"
@@ -51,13 +47,14 @@ yaserde_derive = "0.8"
 slotmap = "1.0"
 #xml-schema-derive = { version = "0.2.0" }
 #xsd-types = { git = "https://github.com/lumeohq/xsd-parser-rs.git" }
-itertools = "0.11"
+itertools = "0.12"
 libloading = "0.8"
 
 [dev-dependencies]
-pretty_env_logger = "0.5"
+env_logger = "0.10"
 csv = "1.0"
 assert_approx_eq = "1.1"
+test-log = "0.2"
 
 [workspace]
 members = ["fmi_check"]

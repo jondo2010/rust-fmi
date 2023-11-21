@@ -1,6 +1,6 @@
 use crate::{
     fmi3::{binding, model, FmiStatus},
-    FmiError, FmiResult,
+    FmiResult,
 };
 
 mod co_simulation {}
@@ -68,18 +68,6 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         Ok(())
     }
 
-    fn reset(&mut self) -> FmiResult<()> {
-        let res: FmiStatus = unsafe { self.binding.fmi3Reset(self.instance) }.into();
-        match res {
-            FmiStatus::Ok => Ok(()),
-            FmiStatus::Error => Err(FmiError::FmiStatusError),
-            FmiStatus::Discard => Err(FmiError::FmiStatusDiscard),
-            FmiStatus::Fatal => Err(FmiError::FmiStatusFatal),
-            //FmiStatus::Warning => Err(FmiError::FmiStatusWarning),
-            _ => unreachable!("Invalid status"),
-        }
-    }
-
     fn enter_initialization_mode(
         &mut self,
         tolerance: Option<f64>,
@@ -103,6 +91,21 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     fn exit_initialization_mode(&mut self) -> FmiResult<()> {
         let res: FmiStatus =
             unsafe { self.binding.fmi3ExitInitializationMode(self.instance) }.into();
+        res.into()
+    }
+
+    fn enter_event_mode(&mut self) -> FmiResult<()> {
+        let res: FmiStatus = unsafe { self.binding.fmi3EnterEventMode(self.instance) }.into();
+        res.into()
+    }
+
+    fn terminate(&mut self) -> FmiResult<()> {
+        let res: FmiStatus = unsafe { self.binding.fmi3Terminate(self.instance) }.into();
+        res.into()
+    }
+
+    fn reset(&mut self) -> FmiResult<()> {
+        let res: FmiStatus = unsafe { self.binding.fmi3Reset(self.instance) }.into();
         res.into()
     }
 }

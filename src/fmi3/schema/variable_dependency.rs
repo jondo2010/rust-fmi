@@ -2,7 +2,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::Annotations;
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum DependenciesKind {
     #[yaserde(rename = "dependent")]
     #[default]
@@ -17,14 +17,13 @@ pub enum DependenciesKind {
     Discrete,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi3Unknown {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
 
     #[yaserde(attribute, rename = "valueReference")]
     pub value_reference: u32,
-
     //#[yaserde(attribute, rename = "dependencies")]
     //pub dependencies: Vec<u32>,
 

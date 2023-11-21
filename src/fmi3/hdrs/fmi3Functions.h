@@ -2,7 +2,7 @@
 #define fmi3Functions_h
 
 /*
-This header file declares the functions of FMI 3.0-beta.2.
+This header file declares the functions of FMI 3.0.
 It must be used when compiling an FMU.
 
 In order to have unique function names even if several FMUs
@@ -21,7 +21,7 @@ static link library. For FMUs compiled in a DLL/sharedObject, the "actual" funct
 names are used and "FMI3_FUNCTION_PREFIX" must not be defined.
 
 Copyright (C) 2008-2011 MODELISAR consortium,
-              2012-2021 Modelica Association Project "FMI"
+              2012-2023 Modelica Association Project "FMI"
               All rights reserved.
 
 This file is licensed by the copyright holders under the 2-Clause BSD License
@@ -61,13 +61,23 @@ extern "C" {
 #include <stdlib.h>
 
 /*
+Allow override of FMI3_FUNCTION_PREFIX: If FMI3_OVERRIDE_FUNCTION_PREFIX
+is defined, then FMI3_ACTUAL_FUNCTION_PREFIX will be used, if defined,
+or no prefix if undefined. Otherwise FMI3_FUNCTION_PREFIX will be used,
+if defined.
+*/
+#if !defined(FMI3_OVERRIDE_FUNCTION_PREFIX) && defined(FMI3_FUNCTION_PREFIX)
+  #define FMI3_ACTUAL_FUNCTION_PREFIX FMI3_FUNCTION_PREFIX
+#endif
+
+/*
 Export FMI3 API functions on Windows and under GCC.
 If custom linking is desired then the FMI3_Export must be
 defined before including this file. For instance,
 it may be set to __declspec(dllimport).
 */
 #if !defined(FMI3_Export)
-  #if !defined(FMI3_FUNCTION_PREFIX)
+  #if !defined(FMI3_ACTUAL_FUNCTION_PREFIX)
     #if defined _WIN32 || defined __CYGWIN__
      /* Note: both gcc & MSVC on Windows support this syntax. */
         #define FMI3_Export __declspec(dllexport)
@@ -84,16 +94,16 @@ it may be set to __declspec(dllimport).
 #endif
 
 /* Macros to construct the real function name (prepend function name by FMI3_FUNCTION_PREFIX) */
-#if defined(FMI3_FUNCTION_PREFIX)
+#if defined(FMI3_ACTUAL_FUNCTION_PREFIX)
   #define fmi3Paste(a,b)     a ## b
   #define fmi3PasteB(a,b)    fmi3Paste(a,b)
-  #define fmi3FullName(name) fmi3PasteB(FMI3_FUNCTION_PREFIX, name)
+  #define fmi3FullName(name) fmi3PasteB(FMI3_ACTUAL_FUNCTION_PREFIX, name)
 #else
   #define fmi3FullName(name) name
 #endif
 
 /* FMI version */
-#define fmi3Version "3.0-beta.2"
+#define fmi3Version "3.0"
 
 /***************************************************
 Common Functions
@@ -156,7 +166,7 @@ Common Functions
 #define fmi3FreeFMUState             fmi3FullName(fmi3FreeFMUState)
 #define fmi3SerializedFMUStateSize   fmi3FullName(fmi3SerializedFMUStateSize)
 #define fmi3SerializeFMUState        fmi3FullName(fmi3SerializeFMUState)
-#define fmi3DeSerializeFMUState      fmi3FullName(fmi3DeSerializeFMUState)
+#define fmi3DeserializeFMUState      fmi3FullName(fmi3DeserializeFMUState)
 
 /* Getting partial derivatives */
 #define fmi3GetDirectionalDerivative fmi3FullName(fmi3GetDirectionalDerivative)
@@ -173,6 +183,8 @@ Common Functions
 #define fmi3GetShiftFraction         fmi3FullName(fmi3GetShiftFraction)
 #define fmi3SetIntervalDecimal       fmi3FullName(fmi3SetIntervalDecimal)
 #define fmi3SetIntervalFraction      fmi3FullName(fmi3SetIntervalFraction)
+#define fmi3SetShiftDecimal          fmi3FullName(fmi3SetShiftDecimal)
+#define fmi3SetShiftFraction         fmi3FullName(fmi3SetShiftFraction)
 #define fmi3EvaluateDiscreteStates   fmi3FullName(fmi3EvaluateDiscreteStates)
 #define fmi3UpdateDiscreteStates     fmi3FullName(fmi3UpdateDiscreteStates)
 
@@ -266,7 +278,7 @@ FMI3_Export fmi3SetFMUStateTYPE            fmi3SetFMUState;
 FMI3_Export fmi3FreeFMUStateTYPE           fmi3FreeFMUState;
 FMI3_Export fmi3SerializedFMUStateSizeTYPE fmi3SerializedFMUStateSize;
 FMI3_Export fmi3SerializeFMUStateTYPE      fmi3SerializeFMUState;
-FMI3_Export fmi3DeSerializeFMUStateTYPE    fmi3DeSerializeFMUState;
+FMI3_Export fmi3DeserializeFMUStateTYPE    fmi3DeserializeFMUState;
 
 /* Getting partial derivatives */
 FMI3_Export fmi3GetDirectionalDerivativeTYPE fmi3GetDirectionalDerivative;
@@ -283,6 +295,8 @@ FMI3_Export fmi3GetShiftDecimalTYPE        fmi3GetShiftDecimal;
 FMI3_Export fmi3GetShiftFractionTYPE       fmi3GetShiftFraction;
 FMI3_Export fmi3SetIntervalDecimalTYPE     fmi3SetIntervalDecimal;
 FMI3_Export fmi3SetIntervalFractionTYPE    fmi3SetIntervalFraction;
+FMI3_Export fmi3SetShiftDecimalTYPE        fmi3SetShiftDecimal;
+FMI3_Export fmi3SetShiftFractionTYPE       fmi3SetShiftFraction;
 FMI3_Export fmi3EvaluateDiscreteStatesTYPE fmi3EvaluateDiscreteStates;
 FMI3_Export fmi3UpdateDiscreteStatesTYPE   fmi3UpdateDiscreteStates;
 
@@ -294,7 +308,9 @@ FMI3_Export fmi3EnterContinuousTimeModeTYPE fmi3EnterContinuousTimeMode;
 FMI3_Export fmi3CompletedIntegratorStepTYPE fmi3CompletedIntegratorStep;
 
 /* Providing independent variables and re-initialization of caching */
+/* tag::SetTimeTYPE[] */
 FMI3_Export fmi3SetTimeTYPE             fmi3SetTime;
+/* end::SetTimeTYPE[] */
 FMI3_Export fmi3SetContinuousStatesTYPE fmi3SetContinuousStates;
 
 /* Evaluation of the model equations */
@@ -310,10 +326,15 @@ Functions for Co-Simulation
 ****************************************************/
 
 /* Simulating the FMU */
-FMI3_Export fmi3EnterStepModeTYPE          fmi3EnterStepMode;
-FMI3_Export fmi3GetOutputDerivativesTYPE   fmi3GetOutputDerivatives;
+FMI3_Export fmi3EnterStepModeTYPE        fmi3EnterStepMode;
+FMI3_Export fmi3GetOutputDerivativesTYPE fmi3GetOutputDerivatives;
+FMI3_Export fmi3DoStepTYPE               fmi3DoStep;
+
+/***************************************************
+Functions for Scheduled Execution
+****************************************************/
+
 FMI3_Export fmi3ActivateModelPartitionTYPE fmi3ActivateModelPartition;
-FMI3_Export fmi3DoStepTYPE                 fmi3DoStep;
 
 #ifdef __cplusplus
 }  /* end of extern "C" { */

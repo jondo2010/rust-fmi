@@ -19,7 +19,6 @@ pub mod import;
 // Re-exports
 pub use self::import::Import;
 
-use derive_more::Display;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -120,7 +119,7 @@ pub enum FmiError {
 }
 
 /// Ok Status returned by wrapped FMI functions.
-#[derive(Debug, PartialEq, Display)]
+#[derive(Debug, PartialEq)]
 pub enum FmiStatus {
     Ok,
     Warning,

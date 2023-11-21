@@ -117,7 +117,7 @@ macro_rules! impl_float_type {
     };
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize, Clone, Copy)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize, Copy)]
 pub enum Causality {
     /// A data value that is constant during the simulation
     #[yaserde(rename = "parameter")]
@@ -143,7 +143,7 @@ pub enum Causality {
     StructuredParameter,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize, Clone, Copy)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize, Copy)]
 pub enum Variability {
     #[yaserde(rename = "constant")]
     Constant,
@@ -158,7 +158,7 @@ pub enum Variability {
     Continuous,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
 pub struct AbstractVariable {
     #[yaserde(attribute)]
     pub name: String,
@@ -174,7 +174,7 @@ pub struct AbstractVariable {
     pub can_handle_multiple_set_per_time_instant: bool,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
 pub struct ArrayableVariable {
     #[yaserde(flatten)]
     pub abstract_var: AbstractVariable,
@@ -184,7 +184,7 @@ pub struct ArrayableVariable {
     pub previous: u32,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
 pub struct TypedArrayableVariable {
     #[yaserde(flatten)]
     pub arrayable_var: ArrayableVariable,
@@ -192,7 +192,7 @@ pub struct TypedArrayableVariable {
     pub declared_type: Option<String>,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize, Clone, Copy)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize, Copy)]
 pub enum Initial {
     #[yaserde(rename = "exact")]
     #[default]
@@ -203,7 +203,7 @@ pub enum Initial {
     Calculated,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
 pub struct InitializableVariable {
     #[yaserde(flatten)]
     pub typed_arrayable_var: TypedArrayableVariable,
@@ -211,7 +211,7 @@ pub struct InitializableVariable {
     pub initial: Option<Initial>,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
 pub struct FmiFloat32 {
     #[yaserde(flatten)]
     base_attr: RealBaseAttributes,
@@ -225,8 +225,7 @@ pub struct FmiFloat32 {
     real_var_attr: RealVariableAttributes,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde()]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiFloat64 {
     #[yaserde(flatten)]
     base_attr: RealBaseAttributes,

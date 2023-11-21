@@ -1,9 +1,8 @@
+use super::Annotations;
 use yaserde_derive::{YaDeserialize, YaSerialize};
-use super::{Annotations};
 
 //use fmi3Annotation.xsd  ;
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde()]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi3Unit {
     #[yaserde(rename = "BaseUnit")]
     pub base_unit: Option<fmi_3_unit::BaseUnitType>,
@@ -20,9 +19,8 @@ pub struct Fmi3Unit {
 
 pub mod fmi_3_unit {
     use super::*;
-    
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-    #[yaserde()]
+
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     pub struct BaseUnitType {
         #[yaserde(attribute, rename = "kg")]
         pub kg: Option<i32>,
@@ -55,8 +53,7 @@ pub mod fmi_3_unit {
         pub offset: Option<f64>,
     }
 
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-    #[yaserde()]
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     pub struct DisplayUnitType {
         #[yaserde(rename = "Annotations")]
         pub annotations: Option<Annotations>,
@@ -74,4 +71,3 @@ pub mod fmi_3_unit {
         pub inverse: Option<bool>,
     }
 }
-

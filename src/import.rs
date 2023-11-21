@@ -61,16 +61,31 @@ fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> FmiRe
 }
 
 pub trait FmiImport: Sized {
+    /// The raw parsed XML schema type
+    type Schema;
+    /// The raw FMI bindings type
+    type Binding;
+
+    /// Create a new FMI import from a directory containing the unzipped FMU
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> FmiResult<Self>;
 
     /// Return the path to the extracted FMU
     fn path(&self) -> &std::path::Path;
+
+    /// Get the path to the shared library
+    fn shared_lib_path(&self) -> FmiResult<std::path::PathBuf>;
 
     /// Return the path to the resources directory
     fn resource_url(&self) -> url::Url {
         url::Url::from_file_path(self.path().join("resources"))
             .expect("Error forming resource location URL")
     }
+
+    /// Get a reference to the raw-schema model description
+    fn raw_schema(&self) -> &Self::Schema;
+
+    /// Load the plugin shared library and return the raw bindings.
+    fn raw_bindings(&self) -> FmiResult<Self::Binding>;
 }
 
 /// Import is responsible for extracting the FMU, parsing the modelDescription XML and loading the
@@ -206,6 +221,12 @@ mod tests {
         inst1.set_continuous_states(&states).unwrap();
         let ret = inst1.completed_integrator_step(false).unwrap();
         dbg!(ret);
+
+        let mut ders = vec![0.0; states.len()];
+        inst1
+            .get_continuous_state_derivatives(ders.as_mut_slice())
+            .unwrap();
+        dbg!(ders);
     }
 
     #[test]

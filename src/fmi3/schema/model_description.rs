@@ -5,7 +5,7 @@ use super::{
     Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64,
 };
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiModelDescription {
     /// If present, the FMU is based on FMI for Model Exchange
     #[yaserde(rename = "ModelExchange")]
@@ -92,13 +92,13 @@ pub mod fmi_model_description {
 
     use super::*;
 
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     pub struct UnitDefinitionsType {
         #[yaserde(rename = "Unit")]
         pub units: Vec<Fmi3Unit>,
     }
 
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     #[yaserde(flatten)]
     pub struct TypeDefinitionsType {
         #[yaserde(rename = "Float32Type")]
@@ -107,7 +107,7 @@ pub mod fmi_model_description {
         pub float64_type: Vec<Float64Type>,
     }
 
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     pub struct LogCategoriesType {
         #[yaserde(rename = "Category")]
         pub categories: Vec<log_categories_type::CategoryType>,
@@ -116,7 +116,7 @@ pub mod fmi_model_description {
     pub mod log_categories_type {
         use super::*;
 
-        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+        #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
         pub struct CategoryType {
             #[yaserde(rename = "Annotations")]
             pub annotations: Option<Annotations>,
@@ -129,7 +129,7 @@ pub mod fmi_model_description {
         }
     }
 
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     pub struct DefaultExperimentType {
         #[yaserde(rename = "Annotations")]
         pub annotations: Option<Annotations>,
@@ -147,7 +147,7 @@ pub mod fmi_model_description {
         pub step_size: Option<f64>,
     }
 
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     #[yaserde(flatten)]
     pub struct ModelVariablesType {
         #[yaserde(rename = "Float32")]
@@ -163,7 +163,7 @@ pub mod fmi_model_description {
         }
     }
 
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     pub struct ModelStructureType {
         #[yaserde(rename = "Output")]
         pub output: Vec<Fmi3Unknown>,

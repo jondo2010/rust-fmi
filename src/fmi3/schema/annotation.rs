@@ -1,7 +1,6 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde()]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi3Annotations {
     #[yaserde(rename = "Annotation")]
     pub annotation: fmi_3_annotations::AnnotationType,
@@ -9,8 +8,8 @@ pub struct Fmi3Annotations {
 
 pub mod fmi_3_annotations {
     use super::*;
-    
-    #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+
+    #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
     #[yaserde()]
     pub struct AnnotationType {
         #[yaserde(attribute, rename = "type")]

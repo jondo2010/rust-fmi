@@ -1,11 +1,7 @@
 /// This module implements the ModelDescription datamodel and provides
 /// attributes to serde_xml_rs to generate an XML deserializer.
-use derive_more::Display;
 use serde::{de, Deserialize, Deserializer};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    str::FromStr,
-};
+use std::{collections::BTreeMap, str::FromStr};
 use thiserror::Error;
 
 // Re-exports
@@ -59,7 +55,7 @@ pub enum ModelDescriptionError {
     #[error("ScalarVariable '{}' not found in Model '{}'.", name, model)]
     VariableNotFound { model: String, name: String },
 
-    #[error("Mismatched variable type: expected {} but found {}", .0, .1)]
+    #[error("Mismatched variable type: expected {0:?} but found {1:?}")]
     VariableTypeMismatch(ScalarVariableElementBase, ScalarVariableElementBase),
 
     #[error("ScalarVariable '{}' does not define a derivative.", .0)]
@@ -446,7 +442,7 @@ fn default_tolerance() -> f64 {
     1e-3
 }
 
-#[derive(Debug, Display, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Causality {
     Parameter,
@@ -465,7 +461,7 @@ impl Default for Causality {
 }
 
 /// Enumeration that defines the time dependency of the variable
-#[derive(Debug, Display, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Variability {
     Constant,
@@ -498,17 +494,12 @@ impl Default for Initial {
 
 #[derive(Debug, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(transparent)]
-pub struct ValueReference(#[serde(deserialize_with = "t_from_str")] pub(crate) super::binding::fmi2ValueReference);
+pub struct ValueReference(
+    #[serde(deserialize_with = "t_from_str")] pub(crate) super::binding::fmi2ValueReference,
+);
 
-#[derive(Debug, Deserialize, Display, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-#[display(
-    fmt = "ScalarVariable {} {{{}, {}, {}}}",
-    elem,
-    name,
-    causality,
-    variability
-)]
 pub struct ScalarVariable {
     /// The full, unique name of the variable.
     pub name: String,
@@ -571,10 +562,9 @@ impl ScalarVariable {
     }
 }
 
-#[derive(Debug, Deserialize, Display, PartialEq, Clone)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub enum ScalarVariableElement {
     #[serde(rename_all = "camelCase")]
-    #[display(fmt = "Real({:?},{})", declared_type, start)]
     Real {
         declared_type: Option<String>,
 
@@ -589,7 +579,6 @@ pub enum ScalarVariableElement {
         derivative: Option<u32>,
     },
     #[serde(rename_all = "camelCase")]
-    #[display(fmt = "Int({},{})", declared_type, start)]
     Integer {
         #[serde(default)]
         declared_type: String,
@@ -597,7 +586,6 @@ pub enum ScalarVariableElement {
         start: i64,
     },
     #[serde(rename_all = "camelCase")]
-    #[display(fmt = "Bool({},{})", declared_type, start)]
     Boolean {
         #[serde(default)]
         declared_type: String,
@@ -605,14 +593,12 @@ pub enum ScalarVariableElement {
         start: bool,
     },
     #[serde(rename_all = "camelCase")]
-    #[display(fmt = "String({},{})", declared_type, start)]
     String {
         #[serde(default)]
         declared_type: String,
         start: String,
     },
     #[serde(rename_all = "camelCase")]
-    #[display(fmt = "Enum({},{})", declared_type, start)]
     Enumeration {
         #[serde(default)]
         declared_type: String,
@@ -621,7 +607,7 @@ pub enum ScalarVariableElement {
     },
 }
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ScalarVariableElementBase {
     Real,
     Integer,

@@ -4,52 +4,40 @@ use tempfile::TempDir;
 
 use crate::{import::FmiImport, FmiError, FmiResult};
 
-use self::instance::Instance;
-
 use super::{
     binding,
-    instance::{self, ME},
+    instance::{Instance, ME},
     model, schema,
 };
 
 /// FMU import for FMI 3.0
-///
-///
 #[derive(Debug)]
 pub struct Fmi3 {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
+    /// Parsed raw-schema model description
+    schema: schema::FmiModelDescription,
     /// Derived model description
     model: model::ModelDescription,
 }
 
 impl FmiImport for Fmi3 {
+    type Schema = schema::FmiModelDescription;
+    type Binding = binding::Fmi3Binding;
+
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
     fn new(dir: TempDir, schema_xml: &str) -> FmiResult<Self> {
-        // Parsed raw-schema model description
         let schema: schema::FmiModelDescription =
             yaserde::de::from_str(schema_xml).map_err(|err| FmiError::Parse(err))?;
 
-        let model = model::ModelDescription::try_from(schema).map_err(FmiError::from)?;
+        let model = model::ModelDescription::try_from(schema.clone()).map_err(FmiError::from)?;
 
-        Ok(Self { dir, model })
+        Ok(Self { dir, schema, model })
     }
 
     #[inline]
     fn path(&self) -> &std::path::Path {
         self.dir.path()
-    }
-}
-
-impl Fmi3 {
-    /// Get a reference to the raw-schema model description
-    //pub fn raw_schema(&self) -> &schema::FmiModelDescription {
-    //    &self.schema
-    //}
-
-    /// Build a derived model description from the raw-schema model description
-    pub fn model(&self) -> &model::ModelDescription {
-        &self.model
     }
 
     /// Get the path to the shared library
@@ -70,11 +58,22 @@ impl Fmi3 {
             .join(fname))
     }
 
+    fn raw_schema(&self) -> &Self::Schema {
+        &self.schema
+    }
+
     /// Load the plugin shared library and return the raw bindings.
-    pub fn raw_bindings(&self) -> FmiResult<binding::Fmi3Binding> {
+    fn raw_bindings(&self) -> FmiResult<Self::Binding> {
         let lib_path = self.dir.path().join(self.shared_lib_path()?);
         log::trace!("Loading shared library {:?}", lib_path);
         unsafe { binding::Fmi3Binding::new(lib_path).map_err(FmiError::from) }
+    }
+}
+
+impl Fmi3 {
+    /// Build a derived model description from the raw-schema model description
+    pub fn model(&self) -> &model::ModelDescription {
+        &self.model
     }
 
     /// Create a new instance of the FMU for Model-Exchange
@@ -84,6 +83,6 @@ impl Fmi3 {
         visible: bool,
         logging_on: bool,
     ) -> FmiResult<Instance<'_, ME>> {
-        instance::Instance::new(self, instance_name, visible, logging_on)
+        Instance::new(self, instance_name, visible, logging_on)
     }
 }

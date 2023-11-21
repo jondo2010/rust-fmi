@@ -3,9 +3,9 @@
 #![allow(non_snake_case)]
 #![allow(clippy::too_many_arguments)]
 
-pub mod meta;
-//pub mod instance;
+pub mod instance;
 pub mod logger;
+pub mod meta;
 
 pub mod binding {
     #![allow(non_upper_case_globals)]
@@ -17,17 +17,15 @@ pub mod binding {
 
 pub mod import;
 
-use derive_more::Display;
-
 #[repr(C)]
-#[derive(Debug, Display)]
+#[derive(Debug)]
 pub enum fmi2Type {
     ModelExchange = 0,
     CoSimulation = 1,
 }
 
 #[repr(C)]
-#[derive(Debug, Display)]
+#[derive(Debug)]
 pub enum fmi2StatusKind {
     /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers
     /// fmi2Pending if the computation is not finished. Otherwise the function returns the result

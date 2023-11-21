@@ -1,7 +1,8 @@
-use libc::ENOTRECOVERABLE;
+use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger::callback_log, FmiStatus},
+    fmi3::{binding, import, logger::callback_log, model, FmiStatus},
+    import::FmiImport,
     FmiError, FmiResult,
 };
 
@@ -17,18 +18,23 @@ impl<'a> Instance<'a, ME> {
         let binding = import.raw_bindings()?;
         let model = import.model();
 
+        let instance_name = CString::new(instance_name).expect("Invalid instance name");
+        let instantiation_token = CString::new(model.instantiation_token.as_bytes())
+            .expect("Invalid instantiation token");
+        let resource_path =
+            CString::new(import.resource_url().as_str()).expect("Invalid resource path");
+
         let instance = unsafe {
             binding.fmi3InstantiateModelExchange(
                 instance_name.as_ptr() as binding::fmi3String,
-                model.instantiation_token.as_ptr() as binding::fmi3String,
-                model.instantiation_token.as_ptr() as binding::fmi3String,
+                instantiation_token.as_ptr() as binding::fmi3String,
+                resource_path.as_ptr() as binding::fmi3String,
                 visible,
                 logging_on,
                 std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
                 Some(callback_log),
             )
         };
-        dbg!(instance);
 
         if instance.is_null() {
             return Err(FmiError::Instantiation);
@@ -40,6 +46,37 @@ impl<'a> Instance<'a, ME> {
             model,
             _tag: std::marker::PhantomData,
         })
+    }
+
+    fn get_values(
+        &mut self,
+        variables: &[model::VariableKey],
+        //values: &mut [T],
+    ) -> FmiResult<()> {
+        variables.iter().map(|&key| {
+            let var = self
+                .model
+                .model_variables
+                .get(key)
+                .expect("Invalid variable key");
+        });
+
+        //assert_eq!(value_references.len(), values.len());
+
+        /*
+        let res: FmiStatus = unsafe {
+            self.binding.fmi3GetFloat32Real(
+                self.instance,
+                value_references.as_ptr(),
+                value_references.len(),
+                values.as_mut_ptr() as *mut f32,
+                values.len(),
+            )
+        }
+        .into();
+        res.into()
+        */
+        todo!()
     }
 }
 
@@ -82,7 +119,23 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
         res.into()
     }
 
-    fn get_continuous_state_derivatives(&mut self) -> FmiResult<Vec<f64>> {
-        todo!()
+    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> FmiResult<()> {
+        assert_eq!(
+            derivatives.len(),
+            self.model
+                .model_structure
+                .continuous_state_derivatives
+                .len()
+        );
+
+        let res: FmiStatus = unsafe {
+            self.binding.fmi3GetContinuousStateDerivatives(
+                self.instance,
+                derivatives.as_mut_ptr(),
+                derivatives.len(),
+            )
+        }
+        .into();
+        res.into()
     }
 }

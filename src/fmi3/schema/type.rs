@@ -1,8 +1,8 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use super::{RealBaseAttributes, Float32Attributes, Float64Attributes};
+use super::{Float32Attributes, Float64Attributes, RealBaseAttributes};
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct TypeDefinitionBase {
     #[yaserde(attribute)]
     pub name: String,
@@ -10,7 +10,7 @@ pub struct TypeDefinitionBase {
     pub description: Option<String>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float32Type {
     #[yaserde(flatten)]
     pub base: TypeDefinitionBase,
@@ -20,7 +20,7 @@ pub struct Float32Type {
     pub attr: Float32Attributes,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float64Type {
     #[yaserde(flatten)]
     pub base: TypeDefinitionBase,

@@ -35,7 +35,7 @@ pub enum TypeDefinition {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ModelVariable {
     Float32 {
         var: schema::FmiFloat32,

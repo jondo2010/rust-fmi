@@ -13,23 +13,18 @@ pub struct Fmi2 {
 }
 
 impl FmiImport for Fmi2 {
-    #[inline]
-    fn path(&self) -> &std::path::Path {
-        self.dir.path()
-    }
+    type Schema = meta::ModelDescription;
+    type Binding = binding::Fmi2Binding;
 
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> FmiResult<Self> {
         let schema: meta::ModelDescription =
             serde_xml_rs::from_str(schema_xml).map_err(FmiError::from)?;
         Ok(Self { dir, schema })
     }
-}
 
-#[cfg(feature = "fmi2")]
-impl Fmi2 {
-    /// Get a reference to the raw-schema model description
-    pub fn raw_schema(&self) -> &meta::ModelDescription {
-        &self.schema
+    #[inline]
+    fn path(&self) -> &std::path::Path {
+        self.dir.path()
     }
 
     /// Get the path to the shared library
@@ -50,8 +45,13 @@ impl Fmi2 {
             .join(fname))
     }
 
+    /// Get a reference to the raw-schema model description
+    fn raw_schema(&self) -> &Self::Schema {
+        &self.schema
+    }
+
     /// Load the plugin shared library and return the raw bindings.
-    pub fn raw_bindings(&self) -> FmiResult<binding::Fmi2Binding> {
+    fn raw_bindings(&self) -> FmiResult<Self::Binding> {
         let lib_path = self.dir.path().join(self.shared_lib_path()?);
         log::trace!("Loading shared library {:?}", lib_path);
         unsafe { binding::Fmi2Binding::new(lib_path).map_err(FmiError::from) }

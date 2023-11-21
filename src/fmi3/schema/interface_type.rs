@@ -3,7 +3,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 use super::Annotations;
 
 //use fmi3Annotation.xsd  ;
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi3InterfaceType {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
@@ -33,7 +33,7 @@ pub struct Fmi3InterfaceType {
     pub provides_per_element_dependencies: Option<bool>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi3ModelExchange {
     #[yaserde(attribute, rename = "needsCompletedIntegratorStep")]
     pub needs_completed_integrator_step: Option<bool>,
@@ -69,7 +69,7 @@ pub struct Fmi3ModelExchange {
     pub provides_per_element_dependencies: Option<bool>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi3CoSimulation {
     #[yaserde(attribute, rename = "canHandleVariableCommunicationStepSize")]
     pub can_handle_variable_communication_step_size: Option<bool>,
@@ -126,7 +126,7 @@ pub struct Fmi3CoSimulation {
     pub provides_per_element_dependencies: Option<bool>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi3ScheduledExecution {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
