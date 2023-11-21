@@ -1,11 +1,13 @@
+use std::ffi::CString;
+
 use crate::{
-    fmi2::{binding, import},
+    fmi2::{binding, import, FmiStatus},
     FmiResult,
 };
 
-use super::{traits::ModelExchange, Instance, ME};
+use super::{traits, Instance, ME};
 
-impl Instance<ME> {
+impl<'a> Instance<'a, ME> {
     /// Initialize a new Instance from an Import
     pub fn new(
         import: &import::Fmi2,
@@ -27,12 +29,12 @@ impl Instance<ME> {
         let comp = unsafe {
             binding.fmi2Instantiate(
                 instance_name.as_ptr(),
-                fmi2Type::ModelExchange,
-                guid.as_ptr(),             // guid
-                resource_url.as_ptr(),     // fmu_resource_location
-                &*callbacks,               // functions
-                visible as fmi2Boolean,    // visible
-                logging_on as fmi2Boolean, // logging_on
+                ModelExchange,
+                guid.as_ptr(),                      // guid
+                resource_url.as_ptr(),              // fmu_resource_location
+                &*callbacks,                        // functions
+                visible as binding::fmi2Boolean,    // visible
+                logging_on as binding::fmi2Boolean, // logging_on
             )
         };
         if comp.is_null() {
@@ -56,34 +58,34 @@ impl Instance<ME> {
     /// values_of_continuous_states_changed)
     pub fn do_event_iteration(&self) -> FmiResult<(bool, bool)> {
         let mut event_info = EventInfo {
-            new_discrete_states_needed: fmi2True,
-            terminate_simulation: fmi2False,
-            nominals_of_continuous_states_changed: fmi2False,
-            values_of_continuous_states_changed: fmi2False,
-            next_event_time_defined: fmi2False,
+            new_discrete_states_needed: true,
+            terminate_simulation: false,
+            nominals_of_continuous_states_changed: false,
+            values_of_continuous_states_changed: false,
+            next_event_time_defined: false,
             next_event_time: 0.0,
         };
 
-        while (event_info.new_discrete_states_needed == fmi2True)
-            && (event_info.terminate_simulation == fmi2False)
+        while (event_info.new_discrete_states_needed == true)
+            && (event_info.terminate_simulation == true)
         {
-            trace!("Iterating while new_discrete_states_needed=true");
+            log::trace!("Iterating while new_discrete_states_needed=true");
             self.new_discrete_states(&mut event_info)?;
         }
 
         assert_eq!(
-            event_info.terminate_simulation, fmi2False,
+            event_info.terminate_simulation, false,
             "terminate_simulation in=true do_event_iteration!"
         );
 
         Ok((
-            event_info.nominals_of_continuous_states_changed == fmi2True,
-            event_info.values_of_continuous_states_changed == fmi2True,
+            event_info.nominals_of_continuous_states_changed == true,
+            event_info.values_of_continuous_states_changed == true,
         ))
     }
 }
 
-impl ModelExchange for Instance<ME> {
+impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn enter_event_mode(&self) -> FmiResult<FmiStatus> {
         unsafe { self.container.me.enter_event_mode(self.component) }.into()
     }
@@ -106,25 +108,27 @@ impl ModelExchange for Instance<ME> {
         no_set_fmu_state_prior_to_current_point: bool,
     ) -> FmiResult<(bool, bool)> {
         // The returned tuple are the flags (enter_event_mode, terminate_simulation)
-        let mut enter_event_mode = fmi2False;
-        let mut terminate_simulation = fmi2False;
+        let mut enter_event_mode = false;
+        let mut terminate_simulation = false;
         let res: FmiResult<FmiStatus> = unsafe {
             self.container.me.completed_integrator_step(
                 self.component,
-                no_set_fmu_state_prior_to_current_point as fmi2Boolean,
+                no_set_fmu_state_prior_to_current_point as binding::fmi2Boolean,
                 &mut enter_event_mode,
                 &mut terminate_simulation,
             )
         }
         .into();
-        res.and(Ok((
-            enter_event_mode == fmi2True,
-            terminate_simulation == fmi2True,
-        )))
+        res.and(Ok((enter_event_mode == true, terminate_simulation == true)))
     }
 
     fn set_time(&self, time: f64) -> FmiResult<FmiStatus> {
-        unsafe { self.container.me.set_time(self.component, time as fmi2Real) }.into()
+        unsafe {
+            self.container
+                .me
+                .set_time(self.component, time as binding::fmi2Real)
+        }
+        .into()
     }
 
     fn set_continuous_states(&self, states: &[f64]) -> FmiResult<FmiStatus> {

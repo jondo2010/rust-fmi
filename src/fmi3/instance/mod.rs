@@ -29,6 +29,7 @@ pub struct Instance<'a, Tag> {
 impl<'a, Tag> Drop for Instance<'a, Tag> {
     fn drop(&mut self) {
         unsafe {
+            log::trace!("Freeing instance {:?}", self.instance);
             self.binding.fmi3FreeInstance(self.instance);
         }
     }

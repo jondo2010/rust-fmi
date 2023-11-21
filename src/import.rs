@@ -1,14 +1,18 @@
 use std::{io::Read, path::Path};
 
+use log::trace;
 use yaserde_derive::YaDeserialize;
 
-use crate::{fmi2, fmi3};
-
-use super::{FmiError, FmiResult};
-use log::trace;
+#[cfg(feature = "fmi2")]
+use crate::fmi2;
+#[cfg(feature = "fmi3")]
+use crate::fmi3;
+use crate::{FmiError, FmiResult};
 
 const MODEL_DESCRIPTION: &str = "modelDescription.xml";
+#[cfg(feature = "fmi2")]
 const FMI_MAJOR_VERSION_2: u32 = 2;
+#[cfg(feature = "fmi3")]
 const FMI_MAJOR_VERSION_3: u32 = 3;
 
 /// A minimal model description that only contains the FMI version
@@ -18,6 +22,7 @@ const FMI_MAJOR_VERSION_3: u32 = 3;
 struct ModelDescription {
     #[yaserde(attribute, rename = "fmiVersion")]
     fmi_version: String,
+
     #[yaserde(attribute, rename = "modelName")]
     model_name: String,
 }
@@ -63,6 +68,7 @@ fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> FmiRe
 pub trait FmiImport: Sized {
     /// The raw parsed XML schema type
     type Schema;
+
     /// The raw FMI bindings type
     type Binding;
 
@@ -157,7 +163,7 @@ impl Import {
 }
 
 // TODO Make this work on other targets
-#[cfg(target_os = "linux")]
+//#[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,6 +236,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fmi2")]
     fn test_import_me() {
         let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
             .unwrap()

@@ -26,7 +26,7 @@ pub enum fmi2Type {
 
 #[repr(C)]
 #[derive(Debug)]
-pub enum fmi2StatusKind {
+pub enum StatusKind {
     /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers
     /// fmi2Pending if the computation is not finished. Otherwise the function returns the result
     /// of the asynchronously executed fmi2DoStep call
@@ -44,24 +44,39 @@ pub enum fmi2StatusKind {
     Terminated = binding::fmi2StatusKind_fmi2Terminated as _,
 }
 
-#[repr(C)]
-pub enum fmi2Status {
+#[derive(Debug)]
+#[repr(usize)]
+pub enum FmiStatus {
     /// All well
     OK = binding::fmi2Status_fmi2OK as _,
     /// things are not quite right, but the computation can continue. Function “logger” was called
     /// in the model (see below) and it is expected that this function has shown the prepared
     /// information message to the user
-    Warning = 1,
+    Warning = binding::fmi2Status_fmi2Warning as _,
     ///
-    Discard = 2,
-    Error = 3,
-    Fatal = 4,
+    Discard = binding::fmi2Status_fmi2Discard as _,
+    Error = binding::fmi2Status_fmi2Error as _,
+    Fatal = binding::fmi2Status_fmi2Fatal as _,
     /// Pending is returned only from the co-simulation interface, if the slave executes the
     /// function in an asynchronous way. That means the slave starts to compute but returns
     /// immediately. The master has to call fmi2GetStatus(..., fmi2DoStepStatus) to determine, if
     /// the slave has finished the computation. Can be returned only by `do_step` and by
     /// `get_status`
-    Pending = 5,
+    Pending = binding::fmi2Status_fmi2Pending as _,
+}
+
+impl From<binding::fmi2Status> for FmiStatus {
+    fn from(status: binding::fmi2Status) -> Self {
+        match status {
+            binding::fmi2Status_fmi2OK => FmiStatus::OK,
+            binding::fmi2Status_fmi2Warning => FmiStatus::Warning,
+            binding::fmi2Status_fmi2Discard => FmiStatus::Discard,
+            binding::fmi2Status_fmi2Error => FmiStatus::Error,
+            binding::fmi2Status_fmi2Fatal => FmiStatus::Fatal,
+            binding::fmi2Status_fmi2Pending => FmiStatus::Pending,
+            _ => unreachable!("Invalid status"),
+        }
+    }
 }
 
 /// Common API between ME and CS
@@ -400,37 +415,4 @@ pub(crate) struct CS {
         s: fmi2StatusKind,
         value: *mut fmi2String,
     ) -> fmi2Status,
-}
-
-#[cfg(feature = "disabled")]
-pub trait FmiApi: WrapperApi {
-    fn common(&self) -> &FmiCommon;
-}
-
-#[cfg(feature = "disabled")]
-#[derive(WrapperMultiApi)]
-pub struct Fmi2ME {
-    pub(crate) common: FmiCommon,
-    pub(crate) me: ME,
-}
-
-#[cfg(feature = "disabled")]
-impl FmiApi for Fmi2ME {
-    fn common(&self) -> &FmiCommon {
-        &self.common
-    }
-}
-
-#[cfg(feature = "disabled")]
-#[derive(WrapperMultiApi)]
-pub struct Fmi2CS {
-    pub(crate) common: FmiCommon,
-    pub(crate) cs: CS,
-}
-
-#[cfg(feature = "disabled")]
-impl FmiApi for Fmi2CS {
-    fn common(&self) -> &FmiCommon {
-        &self.common
-    }
 }

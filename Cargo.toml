@@ -20,7 +20,10 @@ keywords = ["model", "ode", "modelica"]
 categories = ["science", "simulation"]
 
 [features]
-default = ["fmi2", "fmi3"]
+default = [
+    "fmi2",
+    #"fmi3",
+]
 fmi2 = []
 fmi3 = []
 

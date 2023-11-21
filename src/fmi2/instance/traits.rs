@@ -3,8 +3,10 @@ use crate::{
     FmiResult,
 };
 
+use super::FmiStatus;
+
 /// Interface common to both ModelExchange and CoSimulation
-pub trait Common: std::hash::Hash {
+pub trait Common {
     /// The instance name
     fn name(&self) -> &str;
 
@@ -131,10 +133,10 @@ pub trait Common: std::hash::Hash {
     /// used to construct the desired partial derivative matrices.
     fn get_directional_derivative(
         &self,
-        unknown_vrs: &[fmi2ValueReference],
-        known_vrs: &[fmi2ValueReference],
-        dv_known_values: &[fmi2Real],
-        dv_unknown_values: &mut [fmi2Real],
+        unknown_vrs: &[meta::ValueReference],
+        known_vrs: &[meta::ValueReference],
+        dv_known_values: &[binding::fmi2Real],
+        dv_unknown_values: &mut [binding::fmi2Real],
     ) -> FmiResult<FmiStatus>;
 }
 
@@ -253,5 +255,5 @@ pub trait CoSimulation: Common {
     fn cancel_step(&self) -> FmiResult<FmiStatus>;
 
     /// Inquire into slave status during asynchronous step.
-    fn get_status(&self, kind: fmi2StatusKind) -> FmiResult<FmiStatus>;
+    fn get_status(&self, kind: binding::fmi2StatusKind) -> FmiResult<FmiStatus>;
 }

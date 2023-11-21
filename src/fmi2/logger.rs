@@ -1,24 +1,25 @@
-use super::{binding::fmi2String, binding::fmi2ComponentEnvironment, fmi2Status};
+use super::{binding, binding::fmi2ComponentEnvironment, FmiStatus};
 
 /// This function gets called from logger.c
 #[no_mangle]
 extern "C" fn callback_log(
     _component_environment: fmi2ComponentEnvironment,
-    instance_name: fmi2String,
-    status: fmi2Status,
-    category: fmi2String,
-    message: fmi2String,
+    instance_name: binding::fmi2String,
+    status: binding::fmi2Status,
+    category: binding::fmi2String,
+    message: binding::fmi2String,
 ) {
     let instance_name = unsafe { std::ffi::CStr::from_ptr(instance_name) }
         .to_str()
         .unwrap_or("NULL");
+    let status = FmiStatus::from(status);
     let level = match status {
-        fmi2Status::OK => log::Level::Info,
-        fmi2Status::Warning => log::Level::Warn,
-        fmi2Status::Discard => log::Level::Trace,
-        fmi2Status::Error => log::Level::Error,
-        fmi2Status::Fatal => log::Level::Error,
-        fmi2Status::Pending => log::Level::Info,
+        FmiStatus::OK => log::Level::Info,
+        FmiStatus::Warning => log::Level::Warn,
+        FmiStatus::Discard => log::Level::Trace,
+        FmiStatus::Error => log::Level::Error,
+        FmiStatus::Fatal => log::Level::Error,
+        FmiStatus::Pending => log::Level::Info,
     };
 
     let _category = unsafe { std::ffi::CStr::from_ptr(category) }
@@ -48,10 +49,10 @@ extern "C" {
     /// See: https://doc.rust-lang.org/beta/unstable-book/language-features/c-variadic.html
     pub(crate) fn callback_logger_handler(
         componentEnvironment: fmi2ComponentEnvironment,
-        instanceName: fmi2String,
-        status: fmi2Status,
-        category: fmi2String,
-        message: fmi2String,
+        instanceName: binding::fmi2String,
+        status: binding::fmi2Status,
+        category: binding::fmi2String,
+        message: binding::fmi2String,
         ...
     );
 }

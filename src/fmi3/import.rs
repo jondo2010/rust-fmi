@@ -42,14 +42,16 @@ impl FmiImport for Fmi3 {
 
     /// Get the path to the shared library
     fn shared_lib_path(&self) -> FmiResult<PathBuf> {
-        let platform_folder = match (std::env::consts::OS, std::env::consts::ARCH) {
+        use std::env::consts::{ARCH, OS};
+        let platform_folder = match (OS, ARCH) {
             ("windows", "x86_64") => "x86_64-windows",
             ("windows", "x86") => "x86-windows",
             ("linux", "x86_64") => "x86_64-linux",
             ("linux", "x86") => "x86-linux",
             ("macos", "x86_64") => "x86-64-darwin",
             ("macos", "x86") => "x86-darwin",
-            _ => panic!("Unsupported platform"),
+            ("macos", "aarch64") => "aarch64-darwin",
+            _ => panic!("Unsupported platform: {OS} {ARCH}"),
         };
         let model_name = &self.model.model_name;
         let fname = format!("{model_name}{}", std::env::consts::DLL_SUFFIX);

@@ -1,11 +1,10 @@
 use crate::{FmiError, FmiResult, FmiStatus, Import};
 
 use super::*;
-use log::{trace, warn};
 use std::ffi::CString;
 
-mod model_exchange;
 mod co_simulation;
+mod model_exchange;
 pub mod traits;
 
 /// Tag for Model Exchange instances
@@ -13,19 +12,27 @@ pub struct ME;
 /// Tag for Co-Simulation instances
 pub struct CS;
 /// Tag for Scheduled Execution instances
-pub struct SE;
 
-pub struct Instance<Tag> {
+pub struct Instance<'a, Tag> {
     /// Raw FMI 2.0 bindings
     binding: binding::Fmi2Binding,
     /// Pointer to the raw FMI 2.0 instance
     component: binding::fmi2Component,
+
+    schema: &'a meta::ModelDescription,
 
     /// Callbacks struct
     #[allow(dead_code)]
     callbacks: Box<CallbackFunctions>,
 
     _tag: std::marker::PhantomData<Tag>,
+}
+
+impl<'a, A> Drop for Instance<'a, A> {
+    fn drop(&mut self) {
+        log::trace!("Freeing component {:?}", self.component);
+        unsafe { self.binding.fmi2FreeInstance(self.component) };
+    }
 }
 
 impl Default for CallbackFunctions {
@@ -65,97 +72,37 @@ fn check_consistency(import: &Import, common: &FmiCommon) -> FmiResult<()> {
 
 // We assume here that the exported FMUs are thread-safe (true for OpenModelica)
 //unsafe impl<A: FmiApi> Send for Instance<A> {}
-/unsafe impl<A: FmiApi> Sync for Instance<A> {}
+//unsafe impl<A: FmiApi> Sync for Instance<A> {}
 
 /// FmuState wraps the FMUstate pointer and is used for managing FMU state
-pub struct FmuState<'a, A: FmiApi> {
-    state: fmi2FMUstate,
-    container: &'a dlopen::wrapper::Container<A>,
-    component: &'a fmi2Component,
+pub struct FmuState<'a, Tag> {
+    component: &'a Instance<'a, Tag>,
+    state: binding::fmi2FMUstate,
+    //container: &'a dlopen::wrapper::Container<A>,
 }
 
-impl<'a, A: FmiApi> FmuState<'a, A> {}
+impl<'a, Tag> FmuState<'a, Tag> {}
 
-impl<'a, A: FmiApi> Drop for FmuState<'a, A> {
+impl<'a, Tag> Drop for FmuState<'a, Tag> {
     fn drop(&mut self) {
-        trace!("Freeing FmuState");
-        unsafe {
-            self.container.common().free_fmu_state(
-                *self.component,
-                &mut self.state as *mut *mut core::ffi::c_void,
-            );
-        }
+        log::trace!("Freeing FmuState");
+        let ret = unsafe {
+            self.component
+                .binding
+                .fmi2FreeFMUstate(self.component.component, self.state)
+        };
+        todo!();
     }
 }
 
-pub type InstanceME = Instance<Fmi2ME>;
-pub type InstanceCS = Instance<Fmi2CS>;
-
-impl<A> PartialEq for Instance<A>
-where
-    A: FmiApi,
-{
-    fn eq(&self, other: &Instance<A>) -> bool {
-        self.name() == other.name()
-    }
-}
-
-impl<A> Eq for Instance<A> where A: FmiApi {}
-
-impl<A> std::hash::Hash for Instance<A>
-where
-    A: FmiApi,
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name().hash(state);
-    }
-}
-
-impl InstanceME {
-}
-
-
-
-impl CoSimulation for InstanceCS {
-    fn do_step(
-        &self,
-        current_communication_point: f64,
-        communication_step_size: f64,
-        new_step: bool,
-    ) -> FmiResult<FmiStatus> {
-        unsafe {
-            self.container.cs.do_step(
-                self.component,
-                current_communication_point,
-                communication_step_size,
-                new_step as fmi2Boolean,
-            )
-        }
-        .into()
-    }
-
-    fn cancel_step(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.container.cs.cancel_step(self.component) }.into()
-    }
-
-    fn get_status(&self, kind: fmi2StatusKind) -> FmiResult<FmiStatus> {
-        let mut ret = fmi2Status::OK;
-        let _ = FmiResult::<FmiStatus>::from(unsafe {
-            self.container.cs.get_status(self.component, kind, &mut ret)
-        })?;
-        ret.into()
-    }
-}
-impl<A> Common for Instance<A>
-where
-    A: FmiApi,
-{
+impl<'a, A> traits::Common for Instance<'a, A> {
     fn name(&self) -> &str {
-        &self.name
+        &self.schema.model_name
     }
 
     fn version(&self) -> FmiResult<&str> {
-        unsafe { std::ffi::CStr::from_ptr(self.container.common().get_version()).to_str() }
+        unsafe { std::ffi::CStr::from_ptr(self.binding.fmi2GetVersion()) }
+            .to_str()
             .map_err(FmiError::from)
     }
 
@@ -167,15 +114,16 @@ where
 
         let category_ptrs: Vec<_> = category_cstr.iter().map(|c| c.as_ptr()).collect();
 
-        unsafe {
-            self.container.common().set_debug_logging(
+        let ret: FmiStatus = unsafe {
+            self.binding.fmi2SetDebugLogging(
                 self.component,
-                logging_on as fmi2Boolean,
+                logging_on as binding::fmi2Boolean,
                 category_ptrs.len(),
                 category_ptrs.as_ptr(),
             )
         }
-        .into()
+        .into();
+        ret.into()
     }
 
     fn setup_experiment(
@@ -187,10 +135,10 @@ where
         unsafe {
             self.container.common().setup_experiment(
                 self.component,
-                tolerance.is_some() as fmi2Boolean,
+                tolerance.is_some() as binding::fmi2Boolean,
                 tolerance.unwrap_or(0.0),
                 start_time,
-                stop_time.is_some() as fmi2Boolean,
+                stop_time.is_some() as binding::fmi2Boolean,
                 stop_time.unwrap_or(0.0),
             )
         }
@@ -223,8 +171,8 @@ where
         unsafe { self.container.common().reset(self.component) }.into()
     }
 
-    fn get_real(&self, sv: &meta::ScalarVariable) -> FmiResult<fmi2Real> {
-        let mut ret: fmi2Real = 0.0;
+    fn get_real(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Real> {
+        let mut ret: binding::fmi2Real = 0.0;
         let res: FmiResult<FmiStatus> = unsafe {
             self.container
                 .common()
@@ -234,8 +182,8 @@ where
         res.and(Ok(ret as f64))
     }
 
-    fn get_integer(&self, sv: &meta::ScalarVariable) -> FmiResult<fmi2Integer> {
-        let mut ret: fmi2Integer = 0;
+    fn get_integer(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Integer> {
+        let mut ret: binding::fmi2Integer = 0;
         let res: FmiResult<FmiStatus> = unsafe {
             self.container
                 .common()
@@ -245,8 +193,8 @@ where
         res.and(Ok(ret))
     }
 
-    fn get_boolean(&self, sv: &meta::ScalarVariable) -> FmiResult<fmi2Boolean> {
-        let mut ret: fmi2Boolean = 0;
+    fn get_boolean(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Boolean> {
+        let mut ret: binding::fmi2Boolean = 0;
         let res: FmiResult<FmiStatus> = unsafe {
             self.container
                 .common()
@@ -256,11 +204,15 @@ where
         res.and(Ok(ret))
     }
 
-    fn get_string(&self, _sv: &meta::ScalarVariable) -> FmiResult<fmi2String> {
+    fn get_string(&self, _sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2String> {
         unimplemented!()
     }
 
-    fn set_real(&self, vrs: &[meta::ValueReference], values: &[fmi2Real]) -> FmiResult<FmiStatus> {
+    fn set_real(
+        &self,
+        vrs: &[meta::ValueReference],
+        values: &[binding::fmi2Real],
+    ) -> FmiResult<FmiStatus> {
         assert!(vrs.len() == values.len());
         unsafe {
             self.container.common().set_real(
@@ -286,7 +238,7 @@ where
     fn set_integer(
         &self,
         vrs: &[meta::ValueReference],
-        values: &[fmi2Integer],
+        values: &[binding::fmi2Integer],
     ) -> FmiResult<FmiStatus> {
         unsafe {
             self.container.common().set_integer(
@@ -301,8 +253,8 @@ where
 
     fn set_boolean(
         &self,
-        vrs: &[fmi2ValueReference],
-        values: &[fmi2Boolean],
+        vrs: &[binding::fmi2ValueReference],
+        values: &[binding::fmi2Boolean],
     ) -> FmiResult<FmiStatus> {
         unsafe {
             self.container.common().set_boolean(
@@ -317,8 +269,8 @@ where
 
     fn set_string(
         &self,
-        _vrs: &[fmi2ValueReference],
-        _values: &[fmi2String],
+        _vrs: &[binding::fmi2ValueReference],
+        _values: &[binding::fmi2String],
     ) -> FmiResult<FmiStatus> {
         unimplemented!()
     }
@@ -329,10 +281,10 @@ where
 
     fn get_directional_derivative(
         &self,
-        unknown_vrs: &[fmi2ValueReference],
-        known_vrs: &[fmi2ValueReference],
-        dv_known_values: &[fmi2Real],
-        dv_unknown_values: &mut [fmi2Real],
+        unknown_vrs: &[binding::fmi2ValueReference],
+        known_vrs: &[binding::fmi2ValueReference],
+        dv_known_values: &[binding::fmi2Real],
+        dv_unknown_values: &mut [binding::fmi2Real],
     ) -> FmiResult<FmiStatus> {
         assert!(unknown_vrs.len() == dv_unknown_values.len());
         assert!(known_vrs.len() == dv_unknown_values.len());
@@ -351,26 +303,13 @@ where
     }
 }
 
-impl<A> Drop for Instance<A>
-where
-    A: FmiApi,
-{
-    fn drop(&mut self) {
-        trace!("Freeing component {:?}", self.component);
-        unsafe { self.container.common().free_instance(self.component) };
-    }
-}
-
-impl<A> std::fmt::Debug for Instance<A>
-where
-    A: FmiApi,
-{
+impl<'a, A> std::fmt::Debug for Instance<'a, A> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
             "Instance {} {{Import {}, {:?}}}",
             self.name(),
-            self.model_name,
+            self.model.model_name,
             self.component,
         )
     }
