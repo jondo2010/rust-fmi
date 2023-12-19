@@ -5,7 +5,7 @@ use slotmap::{new_key_type, SecondaryMap, SlotMap};
 use thiserror::Error;
 
 use super::{
-    schema::{self, AbstractVariableTrait, Fmi3Unit, TypedArrayableariableTrait},
+    schema::{self, AbstractVariableTrait, Category, Fmi3Unit, TypedArrayableariableTrait},
     DateTime,
 };
 
@@ -21,9 +21,9 @@ new_key_type! { pub struct VariableKey; }
 new_key_type! { pub struct LogCategoryKey; }
 
 #[derive(Debug)]
-struct UnitDefinition {
+struct UnitDefinition<'a> {
     //TODO
-    unit: Fmi3Unit,
+    unit: Fmi3Unit<'a>,
 }
 
 #[derive(Debug)]
@@ -62,7 +62,7 @@ pub struct ModelDescription {
     /// Optional date and time when the XML file was generated.
     pub generation_date_and_time: Option<super::DateTime>,
     /// A list of log categories that can be set to define the log information that is supported from the FMU.
-    pub log_categories: SlotMap<LogCategoryKey, schema::CategoryType>,
+    pub log_categories: SlotMap<LogCategoryKey, Category>,
     /// A global list of unit and display unit definitions
     unit_definitions: SlotMap<UnitKey, UnitDefinition>,
     /// A global list of type definitions that are utilized in `ModelVariables`
@@ -129,7 +129,7 @@ fn find_variable_by_vr<'a>(
 }
 
 fn build_unit_definitions<'a>(
-    unit_definitions: schema::UnitDefinitionsType,
+    unit_definitions: schema::UnitDefinitions,
 ) -> Result<SlotMap<UnitKey, UnitDefinition>, ModelError> {
     let mut map = SlotMap::with_key();
     for unit in unit_definitions.units {
@@ -141,7 +141,7 @@ fn build_unit_definitions<'a>(
 }
 
 fn build_type_definitions<'a>(
-    type_definitions: schema::TypeDefinitionsType,
+    type_definitions: schema::TypeDefinitions,
     unit_definitions: &SlotMap<UnitKey, UnitDefinition>,
 ) -> Result<SlotMap<TypeKey, TypeDefinition>, ModelError> {
     let mut map = SlotMap::with_key();
@@ -167,7 +167,7 @@ fn build_type_definitions<'a>(
 }
 
 fn build_model_variables<'a>(
-    model_variables: schema::ModelVariablesType,
+    model_variables: schema::ModelVariables,
     type_definitions: &SlotMap<TypeKey, TypeDefinition>,
 ) -> Result<SlotMap<VariableKey, ModelVariable>, ModelError> {
     let mut ret_map = SlotMap::with_capacity_and_key(model_variables.len());
@@ -252,7 +252,7 @@ fn build_model_variables<'a>(
 }
 
 fn build_model_structure(
-    model_structure: schema::ModelStructureType,
+    model_structure: schema::ModelStructure,
     model_variables: &SlotMap<VariableKey, ModelVariable>,
 ) -> Result<ModelStructure, ModelError> {
     let mut outputs = Vec::new();

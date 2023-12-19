@@ -2,7 +2,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::Annotations;
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum DependenciesKind {
     #[yaserde(rename = "dependent")]
     #[default]
@@ -17,16 +17,15 @@ pub enum DependenciesKind {
     Discrete,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(tag = "Fmi3Unknown")]
 pub struct Fmi3Unknown {
-    #[yaserde(rename = "Annotations")]
+    #[yaserde(child = "Annotations")]
     pub annotations: Option<Annotations>,
-
     #[yaserde(attribute, rename = "valueReference")]
     pub value_reference: u32,
-    //#[yaserde(attribute, rename = "dependencies")]
+    //#[yaserde(attribute)]
     //pub dependencies: Vec<u32>,
-
     //#[yaserde(attribute, rename = "dependenciesKind")]
     //pub dependencies_kind: Option<DependenciesKind>,
 }
@@ -34,9 +33,9 @@ pub struct Fmi3Unknown {
 #[test]
 fn test_dependencies_kind() {
     let xml = r#"
-    <Fmi3Unknown valueReference="0" dependencies="0 1 2" dependenciesKind="dependent" />
+    <Fmi3Unknown valueReference="1" dependencies="0 1 2" dependenciesKind="dependent" />
     "#;
 
-    let dependencies_kind: Fmi3Unknown = yaserde::de::from_str(xml).unwrap();
-    dbg!(dependencies_kind);
+    let x: Fmi3Unknown = yaserde::de::from_str(xml).unwrap();
+    dbg!(x);
 }

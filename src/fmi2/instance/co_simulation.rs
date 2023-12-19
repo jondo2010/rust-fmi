@@ -1,7 +1,7 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi2::{import, CallbackFunctions, FmiStatus},
+    fmi2::{import, CallbackFunctions, FmiStatus, StatusKind},
     import::FmiImport,
     FmiError, FmiResult,
 };
@@ -11,7 +11,7 @@ use super::{binding, traits, Instance, CS};
 impl<'a> Instance<'a, CS> {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &import::Fmi2,
+        import: &'a import::Fmi2,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -20,7 +20,6 @@ impl<'a> Instance<'a, CS> {
         let schema = import.raw_schema();
 
         let callbacks = Box::new(CallbackFunctions::default());
-        //let cs = import.container_cs()?;
         //check_consistency(&import, &cs.common)?;
 
         let instance_name = CString::new(instance_name).expect("Error building CString");
@@ -29,12 +28,13 @@ impl<'a> Instance<'a, CS> {
             CString::new(import.resource_url().as_str()).expect("Error building CString");
 
         let component = unsafe {
+            let callback_functions = &*callbacks as *const CallbackFunctions;
             binding.fmi2Instantiate(
                 instance_name.as_ptr(),
                 binding::fmi2Type_fmi2CoSimulation,
                 guid.as_ptr(),                      // guid
                 resource_url.as_ptr(),              // fmu_resource_location
-                callbacks,                          // functions
+                callback_functions as _,            // functions
                 visible as binding::fmi2Boolean,    // visible
                 logging_on as binding::fmi2Boolean, // logging_on
             )
@@ -60,27 +60,27 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
         current_communication_point: f64,
         communication_step_size: f64,
         new_step: bool,
-    ) -> FmiResult<FmiStatus> {
-        unsafe {
-            self.container.cs.do_step(
+    ) -> FmiStatus {
+        FmiStatus(unsafe {
+            self.binding.fmi2DoStep(
                 self.component,
                 current_communication_point,
                 communication_step_size,
-                new_step as fmi2Boolean,
+                new_step as _,
             )
-        }
-        .into()
+        })
     }
 
-    fn cancel_step(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.container.cs.cancel_step(self.component) }.into()
+    fn cancel_step(&self) -> FmiStatus {
+        FmiStatus(unsafe { self.binding.fmi2CancelStep(self.component) })
     }
 
-    fn get_status(&self, kind: fmi2StatusKind) -> FmiResult<FmiStatus> {
-        let mut ret = fmi2Status::OK;
-        let _ = FmiResult::<FmiStatus>::from(unsafe {
-            self.container.cs.get_status(self.component, kind, &mut ret)
-        })?;
-        ret.into()
+    fn get_status(&self, kind: StatusKind) -> FmiStatus {
+        let mut ret: binding::fmi2Status = binding::fmi2Status_fmi2OK;
+        FmiStatus(unsafe {
+            self.binding
+                .fmi2GetStatus(self.component, kind as _, &mut ret)
+        });
+        todo!();
     }
 }

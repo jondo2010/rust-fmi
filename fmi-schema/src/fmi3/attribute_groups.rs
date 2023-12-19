@@ -1,6 +1,6 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct RealBaseAttributes {
     #[yaserde(attribute)]
     pub quantity: Option<String>,
@@ -10,28 +10,28 @@ pub struct RealBaseAttributes {
     pub display_unit: Option<String>,
     #[yaserde(attribute, rename = "relativeQuantity")]
     pub relative_quantity: bool,
-    #[yaserde(attribute)]
+    #[yaserde(attribute, rename = "unbounded")]
     pub unbounded: bool,
 }
 
-//macro_rules! float_attributes {
+//macro_rules! float_attrs {
 //    ($name:ident, $type:ty) => {
 //        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 //        pub struct $name {
-//            #[yaserde(attribute)]
+//            #[yaserde(attr)]
 //            pub min: Option<$type>,
-//            #[yaserde(attribute)]
+//            #[yaserde(attr)]
 //            pub max: Option<$type>,
-//            #[yaserde(attribute)]
+//            #[yaserde(attr)]
 //            pub nominal: Option<$type>,
 //        }
 //    };
 //}
 //
-//float_attributes!(Float32Attributes, f32);
-//float_attributes!(Float64Attributes, f64);
+//float_attrs!(Float32Attributes, f32);
+//float_attrs!(Float64Attributes, f64);
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float32Attributes {
     #[yaserde(attribute)]
     pub min: Option<f32>,
@@ -41,7 +41,7 @@ pub struct Float32Attributes {
     pub nominal: Option<f32>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float64Attributes {
     #[yaserde(attribute)]
     pub min: Option<f64>,
@@ -51,14 +51,16 @@ pub struct Float64Attributes {
     pub nominal: Option<f64>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 struct IntegerBaseAttributes {
+    #[yaserde(attribute)]
     quantity: String,
 }
 
-macro_rules! integer_attributes {
+macro_rules! integer_attrs {
     ($name:ident, $type:ty) => {
-        #[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+        #[yaserde(rename = "$name")]
         pub struct $name {
             #[yaserde(attribute)]
             pub min: $type,
@@ -68,16 +70,16 @@ macro_rules! integer_attributes {
     };
 }
 
-integer_attributes!(Int8Attributes, i8);
-integer_attributes!(UInt8Attributes, u8);
-integer_attributes!(Int16Attributes, i16);
-integer_attributes!(UInt16Attributes, u16);
-integer_attributes!(Int32Attributes, i32);
-integer_attributes!(UInt32Attributes, u32);
-integer_attributes!(Int64Attributes, i64);
-integer_attributes!(UInt64Attributes, u64);
+integer_attrs!(Int8Attributes, i8);
+integer_attrs!(UInt8Attributes, u8);
+integer_attrs!(Int16Attributes, i16);
+integer_attrs!(UInt16Attributes, u16);
+integer_attrs!(Int32Attributes, i32);
+integer_attrs!(UInt32Attributes, u32);
+integer_attrs!(Int64Attributes, i64);
+integer_attrs!(UInt64Attributes, u64);
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct RealVariableAttributes {
     #[yaserde(attribute)]
     pub derivative: Option<u32>,
@@ -85,7 +87,7 @@ pub struct RealVariableAttributes {
     pub reinit: bool,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 struct EnumerationAttributes {
     #[yaserde(attribute)]
     pub min: i64,

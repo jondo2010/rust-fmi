@@ -1,7 +1,9 @@
 use crate::{
-    fmi3::{binding, model, FmiStatus},
-    FmiResult,
+    fmi3::{binding, FmiStatus},
+    Error,
 };
+
+use super::schema;
 
 mod co_simulation {}
 mod scheduled_execution {}
@@ -21,9 +23,9 @@ pub struct Instance<'a, Tag> {
     /// Pointer to the raw FMI 3.0 instance
     instance: binding::fmi3Instance,
     /// Derived model description
-    model: &'a model::ModelDescription,
-
-    _tag: std::marker::PhantomData<Tag>,
+    model: &'a schema::FmiModelDescription,
+    //model: &'a model::ModelDescription,
+    _tag: std::marker::PhantomData<&'a Tag>,
 }
 
 impl<'a, Tag> Drop for Instance<'a, Tag> {
@@ -46,6 +48,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
             .expect("Invalid version string")
     }
 
+    #[cfg(feature = "disabled")]
     fn set_debug_logging(
         &mut self,
         logging_on: bool,
@@ -53,7 +56,10 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         categories: impl Iterator<Item = model::LogCategoryKey>,
     ) -> FmiResult<()> {
         let cats_vec = categories
-            .map(|cat| self.model.log_categories[cat].name.as_str().as_ptr())
+            .map(|cat| {
+                let cat_name = &self.model.log_categories[cat].name;
+                std::ffi::CString::new(cat_name.as_bytes()).expect("Error building CString")
+            })
             .collect::<Vec<_>>();
 
         let res: FmiStatus = unsafe {
@@ -61,7 +67,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
                 self.instance,
                 logging_on,
                 cats_vec.len() as _,
-                cats_vec.as_slice().as_ptr() as _,
+                cats_vec.as_ptr() as _,
             )
         }
         .into();
@@ -74,7 +80,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> FmiResult<()> {
+    ) -> Result<(), Error> {
         let res: FmiStatus = unsafe {
             self.binding.fmi3EnterInitializationMode(
                 self.instance,
@@ -89,23 +95,23 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         res.into()
     }
 
-    fn exit_initialization_mode(&mut self) -> FmiResult<()> {
+    fn exit_initialization_mode(&mut self) -> Result<(), Error> {
         let res: FmiStatus =
             unsafe { self.binding.fmi3ExitInitializationMode(self.instance) }.into();
         res.into()
     }
 
-    fn enter_event_mode(&mut self) -> FmiResult<()> {
+    fn enter_event_mode(&mut self) -> Result<(), Error> {
         let res: FmiStatus = unsafe { self.binding.fmi3EnterEventMode(self.instance) }.into();
         res.into()
     }
 
-    fn terminate(&mut self) -> FmiResult<()> {
+    fn terminate(&mut self) -> Result<(), Error> {
         let res: FmiStatus = unsafe { self.binding.fmi3Terminate(self.instance) }.into();
         res.into()
     }
 
-    fn reset(&mut self) -> FmiResult<()> {
+    fn reset(&mut self) -> Result<(), Error> {
         let res: FmiStatus = unsafe { self.binding.fmi3Reset(self.instance) }.into();
         res.into()
     }

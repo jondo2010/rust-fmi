@@ -1,11 +1,6 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(clippy::too_many_arguments)]
-
 pub mod instance;
 pub mod logger;
-pub mod meta;
+pub mod schema;
 
 pub mod binding {
     #![allow(non_upper_case_globals)]
@@ -58,19 +53,12 @@ pub enum StatusKind {
     Terminated = binding::fmi2StatusKind_fmi2Terminated as _,
 }
 
+//impl From<StatusKind> for binding::fmi2StatusKind
+
+/*
 #[derive(Debug)]
 #[repr(usize)]
 pub enum FmiStatus {
-    /// All well
-    OK = binding::fmi2Status_fmi2OK as _,
-    /// things are not quite right, but the computation can continue. Function “logger” was called
-    /// in the model (see below) and it is expected that this function has shown the prepared
-    /// information message to the user
-    Warning = binding::fmi2Status_fmi2Warning as _,
-    ///
-    Discard = binding::fmi2Status_fmi2Discard as _,
-    Error = binding::fmi2Status_fmi2Error as _,
-    Fatal = binding::fmi2Status_fmi2Fatal as _,
     /// Pending is returned only from the co-simulation interface, if the slave executes the
     /// function in an asynchronous way. That means the slave starts to compute but returns
     /// immediately. The master has to call fmi2GetStatus(..., fmi2DoStepStatus) to determine, if
@@ -78,16 +66,42 @@ pub enum FmiStatus {
     /// `get_status`
     Pending = binding::fmi2Status_fmi2Pending as _,
 }
+*/
+
+#[derive(Debug)]
+pub struct FmiStatus(binding::fmi2Status);
+
+#[derive(Debug)]
+pub enum FmiRes {
+    /// All well
+    OK,
+    /// things are not quite right, but the computation can continue. Function “logger” was called
+    /// in the model (see below) and it is expected that this function has shown the prepared
+    /// information message to the user
+    Warning,
+}
+
+#[derive(Debug)]
+pub enum FmiErr {
+    Discard,
+    Error,
+    Fatal,
+}
 
 impl From<binding::fmi2Status> for FmiStatus {
     fn from(status: binding::fmi2Status) -> Self {
+        Self(status)
+    }
+}
+
+impl From<FmiStatus> for std::result::Result<FmiRes, FmiErr> {
+    fn from(FmiStatus(status): FmiStatus) -> Self {
         match status {
-            binding::fmi2Status_fmi2OK => FmiStatus::OK,
-            binding::fmi2Status_fmi2Warning => FmiStatus::Warning,
-            binding::fmi2Status_fmi2Discard => FmiStatus::Discard,
-            binding::fmi2Status_fmi2Error => FmiStatus::Error,
-            binding::fmi2Status_fmi2Fatal => FmiStatus::Fatal,
-            binding::fmi2Status_fmi2Pending => FmiStatus::Pending,
+            binding::fmi2Status_fmi2OK => Ok(FmiRes::OK),
+            binding::fmi2Status_fmi2Warning => Ok(FmiRes::Warning),
+            binding::fmi2Status_fmi2Discard => Err(FmiErr::Discard),
+            binding::fmi2Status_fmi2Error => Err(FmiErr::Error),
+            binding::fmi2Status_fmi2Fatal => Err(FmiErr::Fatal),
             _ => unreachable!("Invalid status"),
         }
     }

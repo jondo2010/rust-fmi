@@ -2,23 +2,23 @@ use std::path::PathBuf;
 
 use crate::{import::FmiImport, FmiError, FmiResult};
 
-use super::{binding, meta};
+use super::{binding, schema};
 
 #[derive(Debug)]
 pub struct Fmi2 {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
-    schema: meta::ModelDescription,
+    schema: schema::FmiModelDescription,
 }
 
 impl FmiImport for Fmi2 {
-    type Schema = meta::ModelDescription;
+    type Schema = schema::FmiModelDescription;
     type Binding = binding::Fmi2Binding;
 
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> FmiResult<Self> {
-        let schema: meta::ModelDescription =
-            serde_xml_rs::from_str(schema_xml).map_err(FmiError::from)?;
+        let schema: schema::FmiModelDescription =
+            yaserde::de::from_str(schema_xml).map_err(FmiError::Parse)?;
         Ok(Self { dir, schema })
     }
 

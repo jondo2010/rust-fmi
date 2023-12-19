@@ -2,8 +2,8 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::Annotations;
 
-//use fmi3Annotation.xsd  ;
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(rename = "InterfaceType")]
 pub struct Fmi3InterfaceType {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
@@ -33,7 +33,8 @@ pub struct Fmi3InterfaceType {
     pub provides_per_element_dependencies: Option<bool>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(rename = "ModelExchange")]
 pub struct Fmi3ModelExchange {
     #[yaserde(attribute, rename = "needsCompletedIntegratorStep")]
     pub needs_completed_integrator_step: Option<bool>,
@@ -41,7 +42,7 @@ pub struct Fmi3ModelExchange {
     #[yaserde(attribute, rename = "providesEvaluateDiscreteStates")]
     pub provides_evaluate_discrete_states: Option<bool>,
 
-    #[yaserde(rename = "Annotations")]
+    #[yaserde(child = "Annotations")]
     pub annotations: Option<Annotations>,
 
     #[yaserde(attribute, rename = "modelIdentifier")]
@@ -69,7 +70,8 @@ pub struct Fmi3ModelExchange {
     pub provides_per_element_dependencies: Option<bool>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(rename = "CoSimulation")]
 pub struct Fmi3CoSimulation {
     #[yaserde(attribute, rename = "canHandleVariableCommunicationStepSize")]
     pub can_handle_variable_communication_step_size: Option<bool>,
@@ -98,7 +100,7 @@ pub struct Fmi3CoSimulation {
     #[yaserde(attribute, rename = "providesEvaluateDiscreteStates")]
     pub provides_evaluate_discrete_states: Option<bool>,
 
-    #[yaserde(rename = "Annotations")]
+    #[yaserde(child = "Annotations")]
     pub annotations: Option<Annotations>,
 
     #[yaserde(attribute, rename = "modelIdentifier")]
@@ -126,9 +128,10 @@ pub struct Fmi3CoSimulation {
     pub provides_per_element_dependencies: Option<bool>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(rename = "ScheduledExecution")]
 pub struct Fmi3ScheduledExecution {
-    #[yaserde(rename = "Annotations")]
+    #[yaserde(child = "Annotations")]
     pub annotations: Option<Annotations>,
 
     #[yaserde(attribute, rename = "modelIdentifier")]

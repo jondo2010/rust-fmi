@@ -1,4 +1,4 @@
-use crate::{fmi2::instance::traits::Common, FmiError, FmiResult, FmiStatus, Import};
+use crate::fmi2::instance::traits::Common;
 
 use super::*;
 use std::ffi::CString;
@@ -19,7 +19,7 @@ pub struct Instance<'a, Tag> {
     /// Pointer to the raw FMI 2.0 instance
     component: binding::fmi2Component,
 
-    schema: &'a meta::ModelDescription,
+    schema: &'a schema::ModelDescription,
 
     /// Callbacks struct
     #[allow(dead_code)]
@@ -84,6 +84,7 @@ pub struct FmuState<'a, Tag> {
 
 impl<'a, Tag> FmuState<'a, Tag> {}
 
+#[cfg(feature = "disable")]
 impl<'a, Tag> Drop for FmuState<'a, Tag> {
     fn drop(&mut self) {
         log::trace!("Freeing FmuState");
@@ -101,13 +102,13 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self.schema.model_name
     }
 
-    fn version(&self) -> FmiResult<&str> {
+    fn version(&self) -> &str {
         unsafe { std::ffi::CStr::from_ptr(self.binding.fmi2GetVersion()) }
             .to_str()
-            .map_err(FmiError::from)
+            .expect("Error converting string")
     }
 
-    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> FmiResult<FmiStatus> {
+    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> FmiStatus {
         let category_cstr = categories
             .iter()
             .map(|c| CString::new(*c).unwrap())
@@ -115,16 +116,14 @@ impl<'a, A> traits::Common for Instance<'a, A> {
 
         let category_ptrs: Vec<_> = category_cstr.iter().map(|c| c.as_ptr()).collect();
 
-        let ret: FmiStatus = unsafe {
+        FmiStatus(unsafe {
             self.binding.fmi2SetDebugLogging(
                 self.component,
                 logging_on as binding::fmi2Boolean,
                 category_ptrs.len(),
                 category_ptrs.as_ptr(),
             )
-        }
-        .into();
-        ret.into()
+        })
     }
 
     fn setup_experiment(
@@ -132,8 +131,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> FmiResult<FmiStatus> {
-        unsafe {
+    ) -> FmiStatus {
+        FmiStatus(unsafe {
             self.binding.fmi2SetupExperiment(
                 self.component,
                 tolerance.is_some() as binding::fmi2Boolean,
@@ -142,120 +141,119 @@ impl<'a, A> traits::Common for Instance<'a, A> {
                 stop_time.is_some() as binding::fmi2Boolean,
                 stop_time.unwrap_or(0.0),
             )
-        }
-        .into()
+        })
     }
 
-    fn enter_initialization_mode(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.binding.fmi2EnterInitializationMode(self.component) }.into()
+    fn enter_initialization_mode(&self) -> FmiStatus {
+        FmiStatus(unsafe { self.binding.fmi2EnterInitializationMode(self.component) })
     }
 
-    fn exit_initialization_mode(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.binding.fmi2ExitInitializationMode(self.component) }.into()
+    fn exit_initialization_mode(&self) -> FmiStatus {
+        FmiStatus(unsafe { self.binding.fmi2ExitInitializationMode(self.component) })
     }
 
-    fn terminate(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.binding.fmi2Terminate(self.component) }.into()
+    fn terminate(&self) -> FmiStatus {
+        FmiStatus(unsafe { self.binding.fmi2Terminate(self.component) })
     }
 
-    fn reset(&self) -> FmiResult<FmiStatus> {
-        unsafe { self.binding.fmi2Reset(self.component) }.into()
+    fn reset(&self) -> FmiStatus {
+        FmiStatus(unsafe { self.binding.fmi2Reset(self.component) })
     }
 
-    fn get_real(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Real> {
-        let mut ret: binding::fmi2Real = 0.0;
-        let res: FmiResult<FmiStatus> = unsafe {
+    fn get_real(
+        &self,
+        vrs: &[binding::fmi2ValueReference],
+        values: &mut [binding::fmi2Real],
+    ) -> FmiStatus {
+        assert_eq!(vrs.len(), values.len());
+        FmiStatus(unsafe {
             self.binding
-                .fmi2GetReal(self.component, &sv.value_reference.0, 1, &mut ret)
-        }
-        .into();
-        res.and(Ok(ret as f64))
+                .fmi2GetReal(self.component, vrs.as_ptr(), vrs.len(), values.as_mut_ptr())
+        })
     }
 
-    fn get_integer(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Integer> {
-        let mut ret: binding::fmi2Integer = 0;
-        let res: FmiResult<FmiStatus> = unsafe {
+    fn get_integer(
+        &self,
+        vrs: &[binding::fmi2ValueReference],
+        values: &mut [binding::fmi2Integer],
+    ) -> FmiStatus {
+        FmiStatus(unsafe {
+            self.binding.fmi2GetInteger(
+                self.component,
+                vrs.as_ptr(),
+                vrs.len(),
+                values.as_mut_ptr(),
+            )
+        })
+    }
+
+    fn get_boolean(
+        &self,
+        sv: &[binding::fmi2ValueReference],
+        v: &mut [binding::fmi2Boolean],
+    ) -> FmiStatus {
+        FmiStatus(unsafe {
             self.binding
-                .fmi2GetInteger(self.component, &sv.value_reference.0, 1, &mut ret)
-        }
-        .into();
-        res.and(Ok(ret))
+                .fmi2GetBoolean(self.component, sv.as_ptr(), sv.len(), v.as_mut_ptr())
+        })
     }
 
-    fn get_boolean(&self, sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2Boolean> {
-        let mut ret: binding::fmi2Boolean = 0;
-        let res: FmiResult<FmiStatus> = unsafe {
+    fn get_string(
+        &self,
+        sv: &[binding::fmi2ValueReference],
+        v: &mut [binding::fmi2String],
+    ) -> FmiStatus {
+        FmiStatus(unsafe {
             self.binding
-                .fmi2GetBoolean(self.component, &sv.value_reference.0, 1, &mut ret)
-        }
-        .into();
-        res.and(Ok(ret))
-    }
-
-    fn get_string(&self, _sv: &meta::ScalarVariable) -> FmiResult<binding::fmi2String> {
-        unimplemented!()
+                .fmi2GetString(self.component, sv.as_ptr(), sv.len(), v.as_mut_ptr())
+        })
     }
 
     fn set_real(
         &self,
-        vrs: &[meta::ValueReference],
+        vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Real],
-    ) -> FmiResult<FmiStatus> {
-        assert!(vrs.len() == values.len());
-        unsafe {
+    ) -> FmiStatus {
+        assert_eq!(vrs.len(), values.len());
+        FmiStatus(unsafe {
             self.binding.fmi2SetReal(
                 self.component,
                 vrs.as_ptr() as *const u32,
                 values.len(),
                 values.as_ptr(),
             )
-        }
-        .into()
+        })
     }
-
-    // fn set_real(&self, sv: &model_descr::ScalarVariable, value: f64) -> Result<()> {
-    // let vr = sv.value_reference as fmi::fmi2ValueReference;
-    // let vr = &vr as *const fmi::fmi2ValueReference;
-    // handle_status_u32(unsafe {
-    // self.container
-    // .common()
-    // .set_real(self.component, vr, 1, &value as *const fmi::fmi2Real)
-    // })
-    // }
 
     fn set_integer(
         &self,
-        vrs: &[meta::ValueReference],
+        vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Integer],
-    ) -> FmiResult<FmiStatus> {
-        unsafe {
-            self.binding.fmi2SetInteger(
-                self.component,
-                vrs.as_ptr() as *const u32,
-                values.len(),
-                values.as_ptr(),
-            )
-        }
-        .into()
+    ) -> FmiStatus {
+        assert_eq!(vrs.len(), values.len());
+        FmiStatus(unsafe {
+            self.binding
+                .fmi2SetInteger(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
+        })
     }
 
     fn set_boolean(
         &self,
         vrs: &[binding::fmi2ValueReference],
-        values: &[binding::fmi2Boolean],
-    ) -> FmiResult<FmiStatus> {
-        unsafe {
+        values: &mut [binding::fmi2Boolean],
+    ) -> FmiStatus {
+        assert_eq!(vrs.len(), values.len());
+        FmiStatus(unsafe {
             self.binding
                 .fmi2SetBoolean(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
-        }
-        .into()
+        })
     }
 
     fn set_string(
         &self,
         _vrs: &[binding::fmi2ValueReference],
         _values: &[binding::fmi2String],
-    ) -> FmiResult<FmiStatus> {
+    ) -> FmiStatus {
         unimplemented!()
     }
 
@@ -269,10 +267,10 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         known_vrs: &[binding::fmi2ValueReference],
         dv_known_values: &[binding::fmi2Real],
         dv_unknown_values: &mut [binding::fmi2Real],
-    ) -> FmiResult<FmiStatus> {
+    ) -> FmiStatus {
         assert!(unknown_vrs.len() == dv_unknown_values.len());
         assert!(known_vrs.len() == dv_unknown_values.len());
-        unsafe {
+        FmiStatus(unsafe {
             self.binding.fmi2GetDirectionalDerivative(
                 self.component,
                 unknown_vrs.as_ptr(),
@@ -282,8 +280,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
                 dv_known_values.as_ptr(),
                 dv_unknown_values.as_mut_ptr(),
             )
-        }
-        .into()
+        })
     }
 }
 

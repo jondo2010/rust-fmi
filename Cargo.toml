@@ -1,8 +1,14 @@
+[workspace]
+members = ["fmi_check", "fmi-schema"]
+package.version = "0.3.0"
+package.edition = "2021"
+package.authors = ["John Hughes <jondo2010@gmail.com>"]
+
 [package]
 name = "fmi"
-version = "0.3.0"
-authors = ["John Hughes <jondo2010@gmail.com>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 include = [
     "/Cargo.toml",
     "/LICENSE-APACHE",
@@ -21,10 +27,10 @@ categories = ["science", "simulation"]
 
 [features]
 default = [
-    "fmi2",
-    #"fmi3",
+    #"fmi2",
+    "fmi3",
 ]
-fmi2 = []
+fmi2 = ["libc"]
 fmi3 = []
 
 [build-dependencies]
@@ -33,23 +39,13 @@ built = "0.7"
 bindgen = "0.69"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde-xml-rs = "0.6"
-dtparse = "2.0"
-num-traits = "0.2"
+fmi-schema = { path = "fmi-schema" }
 zip = "0.6"
 url = "2.2"
 tempfile = "3.1"
-chrono = { version = "0.4", features = ["serde"] }
-libc = { version = "0.2", features = ["align"] }
+libc = { version = "0.2", features = ["align"], optional = true }
 log = { version = "0.4", features = ["std", "serde"] }
 thiserror = "1.0"
-
-yaserde = "0.8"
-yaserde_derive = "0.8"
-slotmap = "1.0"
-#xml-schema-derive = { version = "0.2.0" }
-#xsd-types = { git = "https://github.com/lumeohq/xsd-parser-rs.git" }
 itertools = "0.12"
 libloading = "0.8"
 
@@ -59,8 +55,8 @@ csv = "1.0"
 assert_approx_eq = "1.1"
 test-log = "0.2"
 
-[workspace]
-members = ["fmi_check"]
+ndarray = { version = "*" }
+ndarray-linalg = { version = "*" }
 
 # Config for 'cargo dist'
 [workspace.metadata.dist]

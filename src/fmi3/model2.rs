@@ -98,7 +98,7 @@ impl From<raw::ModelDescription> for ModelDescription {
             model_exchange,
             co_simulation,
             scheduled_execution,
-            default_experiment
+            default_experiment,
         } = model_description;
 
         let mut units: SlotMap<UnitKey, _> = SlotMap::with_key();
@@ -247,7 +247,7 @@ mod raw {
 
     #[derive(Default, PartialEq, Debug, YaDeserialize)]
     pub struct ScheduledExecution {
-        #[yaserde(attr = "modelIdentifier")]
+        #[yaserde(attribute, rename = "modelIdentifier")]
         pub model_identifier: String,
     }
 
@@ -354,7 +354,7 @@ mod raw {
             todo!()
         }
     }
-    
+
     #[derive(PartialEq, Debug, YaDeserialize)]
     struct ModelVariables {
         pub variables: Vec<Variable>,
@@ -376,12 +376,12 @@ mod raw {
         StructuralParameter,
     }
 
-impl Default for Causality {
-    /// The default of causality is local.
-    fn default() -> Self {
-        Self::Local
+    impl Default for Causality {
+        /// The default of causality is local.
+        fn default() -> Self {
+            Self::Local
+        }
     }
-}
 
     struct Poo {
         /// The full, unique name of the variable.
@@ -394,11 +394,10 @@ impl Default for Causality {
         causality: Causality,
     }
 
-
     #[derive(PartialEq, Debug, YaDeserialize)]
     enum Variable {
-        Float32 { },
-        Float64 { },
+        Float32 {},
+        Float64 {},
         Int8,
         UInt8,
         Int16,

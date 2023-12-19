@@ -1,13 +1,13 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 use tempfile::TempDir;
 
-use crate::{import::FmiImport, FmiError, FmiResult};
+use crate::{import::FmiImport, Error};
 
 use super::{
     binding,
     instance::{Instance, ME},
-    model, schema,
+    schema,
 };
 
 /// FMU import for FMI 3.0
@@ -18,30 +18,27 @@ pub struct Fmi3 {
     /// Parsed raw-schema model description
     schema: schema::FmiModelDescription,
     /// Derived model description
+    #[cfg(feature = "disabled")]
     model: model::ModelDescription,
 }
 
-impl FmiImport for Fmi3 {
+impl<'a> FmiImport<'a> for Fmi3 {
     type Schema = schema::FmiModelDescription;
     type Binding = binding::Fmi3Binding;
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
-    fn new(dir: TempDir, schema_xml: &str) -> FmiResult<Self> {
-        let schema: schema::FmiModelDescription =
-            yaserde::de::from_str(schema_xml).map_err(|err| FmiError::Parse(err))?;
-
-        let model = model::ModelDescription::try_from(schema.clone()).map_err(FmiError::from)?;
-
-        Ok(Self { dir, schema, model })
+    fn new(dir: TempDir, schema_xml: String) -> Result<Self, Error> {
+        let schema = schema::FmiModelDescription::from_str(&schema_xml)?;
+        Ok(Self { dir, schema })
     }
 
     #[inline]
-    fn path(&self) -> &std::path::Path {
+    fn archive_path(&self) -> &std::path::Path {
         self.dir.path()
     }
 
     /// Get the path to the shared library
-    fn shared_lib_path(&self) -> FmiResult<PathBuf> {
+    fn shared_lib_path(&self) -> Result<PathBuf, Error> {
         use std::env::consts::{ARCH, OS};
         let platform_folder = match (OS, ARCH) {
             ("windows", "x86_64") => "x86_64-windows",
@@ -53,27 +50,29 @@ impl FmiImport for Fmi3 {
             ("macos", "aarch64") => "aarch64-darwin",
             _ => panic!("Unsupported platform: {OS} {ARCH}"),
         };
-        let model_name = &self.model.model_name;
+        let model_name = &self.schema.model_name;
         let fname = format!("{model_name}{}", std::env::consts::DLL_SUFFIX);
         Ok(std::path::PathBuf::from("binaries")
             .join(platform_folder)
             .join(fname))
     }
 
-    fn raw_schema(&self) -> &Self::Schema {
+    /// Get the parsed raw-schema model description
+    fn model_description(&self) -> &Self::Schema {
         &self.schema
     }
 
     /// Load the plugin shared library and return the raw bindings.
-    fn raw_bindings(&self) -> FmiResult<Self::Binding> {
+    fn binding(&self) -> Result<Self::Binding, Error> {
         let lib_path = self.dir.path().join(self.shared_lib_path()?);
         log::trace!("Loading shared library {:?}", lib_path);
-        unsafe { binding::Fmi3Binding::new(lib_path).map_err(FmiError::from) }
+        unsafe { binding::Fmi3Binding::new(lib_path).map_err(Error::from) }
     }
 }
 
 impl Fmi3 {
     /// Build a derived model description from the raw-schema model description
+    #[cfg(feature = "disabled")]
     pub fn model(&self) -> &model::ModelDescription {
         &self.model
     }
@@ -84,7 +83,7 @@ impl Fmi3 {
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> FmiResult<Instance<'_, ME>> {
+    ) -> Result<Instance<'_, ME>, Error> {
         Instance::new(self, instance_name, visible, logging_on)
     }
 }

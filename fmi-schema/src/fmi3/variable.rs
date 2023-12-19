@@ -117,10 +117,11 @@ macro_rules! impl_float_type {
     };
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize, Copy)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Causality {
     /// A data value that is constant during the simulation
     #[yaserde(rename = "parameter")]
+    #[default]
     Parameter,
     /// A data value that is constant during the simulation and is computed during initialization or when tunable parameters change.
     #[yaserde(rename = "calculatedParameter")]
@@ -131,7 +132,6 @@ pub enum Causality {
     #[yaserde(rename = "output")]
     Output,
     #[yaserde(rename = "local")]
-    #[default]
     Local,
     /// The independent variable (usually time [but could also be, for example, angle]).
     #[yaserde(rename = "independent")]
@@ -139,13 +139,14 @@ pub enum Causality {
     #[yaserde(rename = "dependent")]
     Dependent,
     /// The variable value can only be changed in Configuration Mode or Reconfiguration Mode.
-    #[yaserde(rename = "structuralParameter")]
+    #[yaserde(rename = "structuredParameter")]
     StructuredParameter,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize, Copy)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Variability {
     #[yaserde(rename = "constant")]
+    #[default]
     Constant,
     #[yaserde(rename = "fixed")]
     Fixed,
@@ -154,11 +155,10 @@ pub enum Variability {
     #[yaserde(rename = "discrete")]
     Discrete,
     #[yaserde(rename = "continuous")]
-    #[default]
     Continuous,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct AbstractVariable {
     #[yaserde(attribute)]
     pub name: String,
@@ -174,17 +174,17 @@ pub struct AbstractVariable {
     pub can_handle_multiple_set_per_time_instant: bool,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct ArrayableVariable {
     #[yaserde(flatten)]
     pub abstract_var: AbstractVariable,
     #[yaserde(attribute, rename = "intermediateUpdate")]
     pub intermediate_update: bool,
-    #[yaserde(attribute)]
+    #[yaserde(attribute, rename = "previous")]
     pub previous: u32,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct TypedArrayableVariable {
     #[yaserde(flatten)]
     pub arrayable_var: ArrayableVariable,
@@ -192,7 +192,7 @@ pub struct TypedArrayableVariable {
     pub declared_type: Option<String>,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize, Copy)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Initial {
     #[yaserde(rename = "exact")]
     #[default]
@@ -203,7 +203,7 @@ pub enum Initial {
     Calculated,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct InitializableVariable {
     #[yaserde(flatten)]
     pub typed_arrayable_var: TypedArrayableVariable,
@@ -211,7 +211,8 @@ pub struct InitializableVariable {
     pub initial: Option<Initial>,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "FmiFloat32")]
 pub struct FmiFloat32 {
     #[yaserde(flatten)]
     base_attr: RealBaseAttributes,
@@ -225,7 +226,8 @@ pub struct FmiFloat32 {
     real_var_attr: RealVariableAttributes,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "FmiFloat32")]
 pub struct FmiFloat64 {
     #[yaserde(flatten)]
     base_attr: RealBaseAttributes,
@@ -244,7 +246,7 @@ impl_float_type!(FmiFloat64, f64);
 
 #[test]
 fn test_float64() {
-    let s = r#"<Float64
+    let xml = r#"<Float64
         name="g"
         valueReference="5"
         causality="parameter"
@@ -253,44 +255,19 @@ fn test_float64() {
         declaredType="Acceleration"
         start="-9.81"
         derivative="1"
-        description="Gravity acting on the ball"/>"#;
-    let var = yaserde::de::from_str::<FmiFloat64>(s).unwrap();
-    assert_eq!(
-        FmiFloat64 {
-            base_attr: RealBaseAttributes::default(),
-            attr: Float64Attributes::default(),
-            init_var: InitializableVariable {
-                typed_arrayable_var: TypedArrayableVariable {
-                    arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name: "g".to_owned(),
-                            value_reference: 5,
-                            description: Some("Gravity acting on the ball".to_owned()),
-                            causality: Causality::Parameter,
-                            variability: Some(Variability::Fixed),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    },
-                    declared_type: Some("Acceleration".to_owned()),
-                },
-                initial: Some(Initial::Exact),
-            },
-            start: -9.81,
-            real_var_attr: RealVariableAttributes {
-                derivative: Some(1),
-                ..Default::default()
-            },
-        },
-        var
-    );
+        description="Gravity acting on the ball"
+    />"#;
+    let var: FmiFloat64 = yaserde::de::from_str(xml).unwrap();
 
     assert_eq!(var.name(), "g");
     assert_eq!(var.value_reference(), 5);
-    assert_eq!(var.description(), Some("Gravity acting on the ball"));
-    assert_eq!(var.causality(), Causality::Parameter);
     assert_eq!(var.variability(), Some(Variability::Fixed));
+    assert_eq!(var.initial(), Some(Initial::Exact));
+    assert_eq!(var.causality(), Causality::Parameter);
+    assert_eq!(var.declared_type(), Some("Acceleration"));
+    assert_eq!(var.start(), -9.81);
+    assert_eq!(var.derivative(), Some(1));
+    assert_eq!(var.description(), Some("Gravity acting on the ball"));
     assert_eq!(var.can_handle_multiple_set_per_time_instant(), false);
     assert_eq!(var.intermediate_update(), false);
-    assert_eq!(var.start, -9.81);
 }

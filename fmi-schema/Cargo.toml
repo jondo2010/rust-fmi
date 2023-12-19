@@ -1,0 +1,21 @@
+[package]
+name = "fmi-schema"
+version = "0.1.0"
+edition = "2021"
+description = "XML schema support for FMI 2.0 and 3.0"
+
+[features]
+default = [
+    #"fmi2",
+    "fmi3",
+]
+fmi2 = []
+fmi3 = []
+
+[dependencies]
+chrono = { version = "0.4" }
+thiserror = "1.0"
+yaserde = "0.8"
+yaserde_derive = "0.8"
+lenient_semver = "0.4"
+semver = "1.0"

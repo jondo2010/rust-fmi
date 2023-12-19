@@ -1,9 +1,9 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger::callback_log, model, FmiStatus},
+    fmi3::{binding, import, logger::callback_log, FmiStatus},
     import::FmiImport,
-    FmiError, FmiResult,
+    Error,
 };
 
 use super::{traits, Instance, ME};
@@ -14,12 +14,13 @@ impl<'a> Instance<'a, ME> {
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> FmiResult<Self> {
-        let binding = import.raw_bindings()?;
-        let model = import.model();
+    ) -> Result<Self, Error> {
+        let binding = import.binding()?;
+        let schema = import.model_description();
+        //let model = import.model();
 
         let instance_name = CString::new(instance_name).expect("Invalid instance name");
-        let instantiation_token = CString::new(model.instantiation_token.as_bytes())
+        let instantiation_token = CString::new(schema.instantiation_token.as_bytes())
             .expect("Invalid instantiation token");
         let resource_path =
             CString::new(import.resource_url().as_str()).expect("Invalid resource path");
@@ -37,17 +38,18 @@ impl<'a> Instance<'a, ME> {
         };
 
         if instance.is_null() {
-            return Err(FmiError::Instantiation);
+            return Err(Error::Instantiation);
         }
 
         Ok(Self {
             binding,
             instance,
-            model,
+            model: schema,
             _tag: std::marker::PhantomData,
         })
     }
 
+    #[cfg(feature = "disabled")]
     fn get_values(
         &mut self,
         variables: &[model::VariableKey],
@@ -81,7 +83,7 @@ impl<'a> Instance<'a, ME> {
 }
 
 impl<'a> traits::ModelExchange for Instance<'a, ME> {
-    fn enter_continuous_time_mode(&mut self) -> FmiResult<()> {
+    fn enter_continuous_time_mode(&mut self) -> Result<(), Error> {
         let res: FmiStatus =
             unsafe { self.binding.fmi3EnterContinuousTimeMode(self.instance) }.into();
         res.into()
@@ -90,7 +92,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
-    ) -> FmiResult<(bool, bool)> {
+    ) -> Result<(bool, bool), Error> {
         let mut enter_event_mode = false;
         let mut terminate_simulation = false;
         let res: FmiStatus = unsafe {
@@ -102,15 +104,15 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
             )
         }
         .into();
-        FmiResult::from(res).map(|_| (enter_event_mode, terminate_simulation))
+        Result::from(res).map(|_| (enter_event_mode, terminate_simulation))
     }
 
-    fn set_time(&mut self, time: f64) -> FmiResult<()> {
+    fn set_time(&mut self, time: f64) -> Result<(), Error> {
         let res: FmiStatus = unsafe { self.binding.fmi3SetTime(self.instance, time) }.into();
         res.into()
     }
 
-    fn set_continuous_states(&mut self, states: &[f64]) -> FmiResult<()> {
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<(), Error> {
         let res: FmiStatus = unsafe {
             self.binding
                 .fmi3SetContinuousStates(self.instance, states.as_ptr(), states.len())
@@ -119,7 +121,8 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
         res.into()
     }
 
-    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> FmiResult<()> {
+    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Result<(), Error> {
+        #[cfg(feature = "disabled")]
         assert_eq!(
             derivatives.len(),
             self.model

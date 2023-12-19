@@ -1,4 +1,4 @@
-use super::{binding, binding::fmi2ComponentEnvironment, FmiStatus};
+use super::{binding, binding::fmi2ComponentEnvironment, FmiErr, FmiRes, FmiStatus};
 
 /// This function gets called from logger.c
 #[no_mangle]
@@ -12,14 +12,14 @@ extern "C" fn callback_log(
     let instance_name = unsafe { std::ffi::CStr::from_ptr(instance_name) }
         .to_str()
         .unwrap_or("NULL");
-    let status = FmiStatus::from(status);
+    let status = Result::<FmiRes, FmiErr>::from(FmiStatus(status));
     let level = match status {
-        FmiStatus::OK => log::Level::Info,
-        FmiStatus::Warning => log::Level::Warn,
-        FmiStatus::Discard => log::Level::Trace,
-        FmiStatus::Error => log::Level::Error,
-        FmiStatus::Fatal => log::Level::Error,
-        FmiStatus::Pending => log::Level::Info,
+        Ok(FmiRes::OK) => log::Level::Info,
+        Ok(FmiRes::Warning) => log::Level::Warn,
+        Err(FmiErr::Discard) => log::Level::Trace,
+        Err(FmiErr::Error) => log::Level::Error,
+        Err(FmiErr::Fatal) => log::Level::Error,
+        //Err(FmiErr::Pending) => log::Level::Info,
     };
 
     let _category = unsafe { std::ffi::CStr::from_ptr(category) }

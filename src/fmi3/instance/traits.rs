@@ -1,6 +1,6 @@
 //! Traits for the different instance types.
 
-use crate::{fmi3::model::LogCategoryKey, FmiResult};
+use crate::Error;
 
 /// Interface common to all instance types
 pub trait Common {
@@ -11,11 +11,12 @@ pub trait Common {
     fn get_version(&self) -> &str;
 
     /// The function controls the debug logging that is output by the FMU
+    #[cfg(feature = "disabled")]
     fn set_debug_logging(
         &mut self,
         logging_on: bool,
         //categories: &[LogCategoryKey],
-        categories: impl Iterator<Item = LogCategoryKey>,
+        categories: impl Iterator<Item = fmi3::model::LogCategoryKey>,
     ) -> FmiResult<()>;
 
     /// Changes state to `Initialization Mode`.
@@ -36,7 +37,7 @@ pub trait Common {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> FmiResult<()>;
+    ) -> Result<(), Error>;
 
     /// Changes the state, depending on the instance type:
     /// * Model Exchange: Event Mode
@@ -44,7 +45,7 @@ pub trait Common {
     ///     event_mode_used = true: Event Mode
     ///     event_mode_used = false: Step Mode
     /// * Scheduled Execution: Clock Activation Mode.
-    fn exit_initialization_mode(&mut self) -> FmiResult<()>;
+    fn exit_initialization_mode(&mut self) -> Result<(), Error>;
 
     /// This function changes the state to Event Mode.
     ///
@@ -55,25 +56,25 @@ pub trait Common {
     /// * the importer plans discrete changes to inputs, or an input Clock needs to be set.
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3EnterEventMode]
-    fn enter_event_mode(&mut self) -> FmiResult<()>;
+    fn enter_event_mode(&mut self) -> Result<(), Error>;
 
     /// Changes state to [`Terminated`](https://fmi-standard.org/docs/3.0.1/#Terminated).
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3Terminate]
-    fn terminate(&mut self) -> FmiResult<()>;
+    fn terminate(&mut self) -> Result<(), Error>;
 
     /// Is called by the environment to reset the FMU after a simulation run.
     /// The FMU goes into the same state as if newly created. All variables have their default
     /// values. Before starting a new run [`enter_initialization_mode()`] has to be called.
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3Reset]
-    fn reset(&mut self) -> FmiResult<()>;
+    fn reset(&mut self) -> Result<(), Error>;
 }
 
 /// Interface for Model Exchange instances
 pub trait ModelExchange: Common {
     /// This function must be called to change from Event Mode into Continuous-Time Mode in Model Exchange.
-    fn enter_continuous_time_mode(&mut self) -> FmiResult<()>;
+    fn enter_continuous_time_mode(&mut self) -> Result<(), Error>;
 
     /// This function is called after every completed step of the integrator provided the capability flag
     /// [`schema::interface_type::Fmi3ModelExchange::needs_completed_integrator_step`] = true.
@@ -95,10 +96,10 @@ pub trait ModelExchange: Common {
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
-    ) -> FmiResult<(bool, bool)>;
+    ) -> Result<(bool, bool), Error>;
 
     /// Set a new value for the independent variable (typically a time instant).
-    fn set_time(&mut self, time: f64) -> FmiResult<()>;
+    fn set_time(&mut self, time: f64) -> Result<(), Error>;
 
     /// Set new continuous state values.
     ///
@@ -107,7 +108,7 @@ pub trait ModelExchange: Common {
     /// * `states`: the new values for each continuous state. The order of the continuousStates
     ///             vector must be the same as the ordered list of elements in
     ///             [`model::ModelStructure::continuous_state_derivatives`].
-    fn set_continuous_states(&mut self, states: &[f64]) -> FmiResult<()>;
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<(), Error>;
 
     /// Fetch the first-order derivatives with respect to the independent variable (usually
     /// time) of the continuous states.
@@ -115,7 +116,7 @@ pub trait ModelExchange: Common {
     /// Returns:
     /// [`FmiResult::Discard`] if the FMU was not able to compute the derivatives according to
     /// 𝐟cont because, for example, a numerical issue, such as division by zero, occurred.
-    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> FmiResult<()>;
+    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Result<(), Error>;
 }
 
 /// Interface for Co-Simulation instances

@@ -22,7 +22,7 @@ pub use self::import::Import;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum FmiError {
+pub enum Error {
     #[error("Error instantiating import")]
     Instantiation,
 
@@ -97,37 +97,25 @@ pub enum FmiError {
     Zip(#[from] zip::result::ZipError),
 
     #[error(transparent)]
-    Xml(#[from] serde_xml_rs::Error),
+    Schema(#[from] fmi_schema::Error),
 
-    #[error("Error parsing XML: {0}")]
-    Parse(String),
-
-    //#[error(transparent)]
-    //Dlopen(#[from] dlopen::Error),
-
-    //#[error(transparent)]
-    //ModelDescr(#[from] model_descr::ModelDescriptionError),
     #[error(transparent)]
     Utf8Error(#[from] std::str::Utf8Error),
 
-    #[cfg(feature = "fmi3")]
-    #[error(transparent)]
-    Fmi3ModelError(#[from] fmi3::model::ModelError),
-
+    //#[cfg(feature = "fmi3")]
+    //#[error(transparent)]
+    //Fmi3ModelError(#[from] fmi3::model::ModelError),
     #[error(transparent)]
     LibLoading(#[from] libloading::Error),
 }
 
 /// Ok Status returned by wrapped FMI functions.
-#[derive(Debug, PartialEq)]
-pub enum FmiStatus {
-    Ok,
-    Warning,
-    Pending,
-}
-
-/// Crate-wide Result type
-pub type FmiResult<T> = std::result::Result<T, FmiError>;
+//#[derive(Debug, PartialEq)]
+//pub enum FmiStatus {
+//    Ok,
+//    Warning,
+//    Pending,
+//}
 
 /*
 impl From<fmi2::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
