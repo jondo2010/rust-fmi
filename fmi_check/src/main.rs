@@ -1,6 +1,4 @@
 use anyhow::anyhow;
-use fmi::model_descr::UnknownsTuple;
-use log::{info, trace};
 use prettytable::{row, table, Row, Table};
 use structopt::StructOpt;
 
@@ -128,6 +126,9 @@ impl FmiCheckState {
         options: &FmiCheckOptions,
         default_experiment: &Option<&fmi::model_descr::DefaultExperiment>,
     ) -> anyhow::Result<Self> {
+
+        fmi::fmi3::schema::DefaultExperiment
+
         let tolerance = default_experiment.and_then(|de| Some(de.tolerance));
 
         let start_time = default_experiment.map(|de| de.start_time).unwrap_or(0.0);
@@ -200,7 +201,7 @@ fn sim_prelude<'a, I: fmi::Common>(
 
     setup_debug_logging(import, instance, true)?;
 
-    info!(
+    log::info!(
         "Preparing simulation from t=[{},{}], dt={}, tol={}",
         fmi_check.start_time,
         fmi_check.stop_time,
@@ -232,7 +233,7 @@ fn sim_cs(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
     let instance = fmi::InstanceCS::new(import, "inst1", false, true)?;
     let (outputs, mut data_table) = sim_prelude(import, &instance, fmi_check)?;
 
-    info!(
+    log::info!(
         "Initialized FMU for CS simulation starting at time {}.",
         fmi_check.start_time
     );
@@ -274,7 +275,7 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
 
     instance.get_continuous_states(&mut states)?;
     instance.get_event_indicators(&mut events_prev)?;
-    info!(
+    log::info!(
         "Initialized FMU for ME simulation starting at time {}: {:?}",
         fmi_check.start_time, states
     );
@@ -307,7 +308,7 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
         current_time = next_time;
 
         // Set time
-        trace!("Simulation time: {}", current_time);
+        log::trace!("Simulation time: {}", current_time);
         instance.set_time(current_time)?;
 
         // Set inputs
@@ -344,7 +345,7 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
             } else {
                 "time"
             };
-            trace!("Handling a {} event", event_kind);
+            log::trace!("Handling a {} event", event_kind);
 
             /*
             if(cdata->print_all_event_vars){
@@ -379,7 +380,7 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
         )));
 
         if terminate_simulation {
-            info!("FMU requested simulation termination");
+            log::info!("FMU requested simulation termination");
             break;
         }
     }
@@ -392,7 +393,7 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
     //"Simulation loop terminated at time %g since FMU returned status: %s", tcur,
     //"Simulation fmi2_status_to_string(fmistatus));
 
-    info!("Simulation finished successfully at time {}", current_time);
+    log::info!("Simulation finished successfully at time {}", current_time);
     instance.terminate()?;
     Ok(data_table)
 }
@@ -418,7 +419,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if !args.sim_me && !args.sim_cs {
-        info!("Simulation was not requested");
+        log::info!("Simulation was not requested");
         return Ok(());
     }
 

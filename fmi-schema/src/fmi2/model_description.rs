@@ -1,8 +1,12 @@
+use std::str::FromStr;
+
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use super::{Causality, CoSimulation, ModelExchange, ScalarVariableElement, Variability};
+use crate::Error;
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+use super::{CoSimulation, Fmi2Unit, ModelExchange, ScalarVariable, SimpleType, UnknownList};
+
+#[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiModelDescription {
     /// Version of FMI that was used to generate the XML file.
     #[yaserde(attribute, rename = "fmiVersion")]
@@ -16,10 +20,10 @@ pub struct FmiModelDescription {
     pub guid: String,
 
     #[yaserde(attribute)]
-    pub description: String,
+    pub description: Option<String>,
 
     #[yaserde(attribute)]
-    pub version: String,
+    pub version: Option<String>,
 
     /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
     /// Date and time when the XML file was generated. The format is a subset of dateTime and should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
@@ -38,51 +42,40 @@ pub struct FmiModelDescription {
     pub number_of_event_indicators: u32,
 
     /// If present, the FMU is based on FMI for Model Exchange
-    #[yaserde(rename = "ModelExchange")]
+    #[yaserde(child, rename = "ModelExchange")]
     pub model_exchange: Option<ModelExchange>,
 
     /// If present, the FMU is based on FMI for Co-Simulation
-    #[yaserde(rename = "CoSimulation")]
+    #[yaserde(child, rename = "CoSimulation")]
     pub co_simulation: Option<CoSimulation>,
 
-    #[yaserde(rename = "LogCategories")]
+    #[yaserde(child, rename = "LogCategories")]
     pub log_categories: Option<LogCategories>,
 
-    #[yaserde(rename = "DefaultExperiment")]
+    #[yaserde(child, rename = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
 
-    #[yaserde(rename = "UnitDefinitions")]
+    #[yaserde(child, rename = "UnitDefinitions")]
     pub unit_definitions: Option<UnitDefinitions>,
 
-    #[yaserde(rename = "TypeDefinitions")]
+    #[yaserde(child, rename = "TypeDefinitions")]
     pub type_definitions: Option<TypeDefinitions>,
 
-    #[yaserde(rename = "ModelVariables")]
-    model_variables: ModelVariables,
+    #[yaserde(child, rename = "ModelVariables")]
+    pub model_variables: ModelVariables,
 
-    #[yaserde(rename = "ModelStructure")]
-    model_structure: ModelStructure,
+    #[yaserde(child, rename = "ModelStructure")]
+    pub model_structure: ModelStructure,
 }
 
-#[derive(Debug, Default)]
-pub struct Counts {
-    pub num_constants: usize,
-    pub num_parameters: usize,
-    pub num_discrete: usize,
-    pub num_continuous: usize,
-    pub num_inputs: usize,
-    pub num_outputs: usize,
-    pub num_local: usize,
-    pub num_independent: usize,
-    pub num_calculated_parameters: usize,
-    pub num_real_vars: usize,
-    pub num_integer_vars: usize,
-    pub num_enum_vars: usize,
-    pub num_bool_vars: usize,
-    pub num_string_vars: usize,
+impl FromStr for FmiModelDescription {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        yaserde::de::from_str(s).map_err(|e| Error::XmlParse(e))
+    }
 }
 
-#[cfg(feature = "disabled")]
 impl FmiModelDescription {
     /// The model name
     pub fn model_name(&self) -> &str {
@@ -93,70 +86,9 @@ impl FmiModelDescription {
     // &self.model_exchange
     // }
 
-    /// Collect counts of variables in the model
-    pub fn model_counts(&self) -> Counts {
-        self.model_variables
-            .variables
-            .map
-            .values()
-            .fold(Counts::default(), |mut cts, ref sv| {
-                match sv.variability {
-                    Variability::Constant => {
-                        cts.num_constants += 1;
-                    }
-                    Variability::Continuous => {
-                        cts.num_continuous += 1;
-                    }
-                    Variability::Discrete => {
-                        cts.num_discrete += 1;
-                    }
-                    _ => {}
-                }
-                match sv.causality {
-                    Causality::CalculatedParameter => {
-                        cts.num_calculated_parameters += 1;
-                    }
-                    Causality::Parameter => {
-                        cts.num_parameters += 1;
-                    }
-                    Causality::Input => {
-                        cts.num_inputs += 1;
-                    }
-                    Causality::Output => {
-                        cts.num_outputs += 1;
-                    }
-                    Causality::Local => {
-                        cts.num_local += 1;
-                    }
-                    Causality::Independent => {
-                        cts.num_independent += 1;
-                    }
-                    _ => {}
-                }
-                match sv.elem {
-                    ScalarVariableElement::Real { .. } => {
-                        cts.num_real_vars += 1;
-                    }
-                    ScalarVariableElement::Integer { .. } => {
-                        cts.num_integer_vars += 1;
-                    }
-                    ScalarVariableElement::Enumeration { .. } => {
-                        cts.num_enum_vars += 1;
-                    }
-                    ScalarVariableElement::Boolean { .. } => {
-                        cts.num_bool_vars += 1;
-                    }
-                    ScalarVariableElement::String { .. } => {
-                        cts.num_string_vars += 1;
-                    }
-                }
-                cts
-            })
-    }
-
     /// Total number of variables
     pub fn num_variables(&self) -> usize {
-        self.model_variables.map.len()
+        self.model_variables.variables.len()
     }
 
     /// Get the number of continuous states (and derivatives)
@@ -169,22 +101,19 @@ impl FmiModelDescription {
     }
 
     /// Get a iterator of the SalarVariables
-    pub fn get_model_variables(
-        &self,
-    ) -> impl Iterator<Item = (&binding::fmi2ValueReference, &ScalarVariable)> {
-        self.model_variables.map.iter()
+    pub fn get_model_variables(&self) -> impl Iterator<Item = &ScalarVariable> {
+        self.model_variables.variables.iter()
     }
 
-    pub fn get_model_variable_by_vr(
-        &self,
-        vr: binding::fmi2ValueReference,
-    ) -> Option<&ScalarVariable> {
+    #[cfg(feature = "disable")]
+    pub fn get_model_variable_by_vr(&self, vr: u32) -> Option<&ScalarVariable> {
         self.model_variables.map.get(&vr)
     }
 
     // pub fn model_variable_by
 
     /// Turns an UnknownList into a nested Vector of ScalarVariables and their Dependencies
+    #[cfg(feature = "disable")]
     fn map_unknowns(
         &self,
         list: &UnknownList,
@@ -228,22 +157,26 @@ impl FmiModelDescription {
     }
 
     /// Get a reference to the vector of Unknowns marked as outputs
+    #[cfg(feature = "disable")]
     pub fn outputs(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         self.map_unknowns(&self.model_structure.outputs)
     }
 
     /// Get a reference to the vector of Unknowns marked as derivatives
+    #[cfg(feature = "disable")]
     pub fn derivatives(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         self.map_unknowns(&self.model_structure.derivatives)
     }
 
     /// Get a reference to the vector of Unknowns marked as initial_unknowns
+    #[cfg(feature = "disable")]
     pub fn initial_unknowns(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         self.map_unknowns(&self.model_structure.initial_unknowns)
     }
 
     /// This private function is used to de-reference variable indices from the UnknownList and
     /// Real{derivative}
+    #[cfg(feature = "disable")]
     fn model_variable_by_index(
         &self,
         idx: usize,
@@ -262,6 +195,7 @@ impl FmiModelDescription {
 
     /// Return a vector of tuples `(&ScalarVariable, &ScalarVariabel)`, where the 1st is a
     /// continuous-time state, and the 2nd is its derivative.
+    #[cfg(feature = "disable")]
     pub fn continuous_states(
         &self,
     ) -> Result<Vec<(&ScalarVariable, &ScalarVariable)>, ModelDescriptionError> {
@@ -312,13 +246,13 @@ pub struct Category {
 
 #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct DefaultExperiment {
-    #[yaserde(default, deserialize_with = "t_from_str")]
+    #[yaserde(attribute, rename = "startTime")]
     pub start_time: f64,
 
-    #[yaserde(default = "default_stop_time", deserialize_with = "t_from_str")]
+    #[yaserde(attribute, default = "default_stop_time", rename = "stopTime")]
     pub stop_time: f64,
 
-    #[yaserde(default = "default_tolerance", deserialize_with = "t_from_str")]
+    #[yaserde(attribute, default = "default_tolerance", rename = "tolerance")]
     pub tolerance: f64,
 }
 
@@ -329,45 +263,112 @@ fn default_tolerance() -> f64 {
     1e-3
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct UnitDefinitions {
-    #[yaserde(default, rename = "$value")]
-    pub units: Vec<Unit>,
+    #[yaserde(child)]
+    pub units: Vec<Fmi2Unit>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(rename_all = "camelCase")]
-pub struct Unit {
-    #[yaserde(attribute)]
-    pub name: String,
-}
-
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename_all = "camelCase")]
 pub struct TypeDefinitions {
-    #[yaserde(default, rename = "$value")]
+    #[yaserde(child)]
     pub types: Vec<SimpleType>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(rename_all = "camelCase")]
-pub struct SimpleType {}
-
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-struct ModelVariables {
-    #[yaserde(default, rename = "$value")]
-    variables: Vec<ScalarVariable>,
+#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+pub struct ModelVariables {
+    #[yaserde(child, rename = "ScalarVariable")]
+    pub variables: Vec<ScalarVariable>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(rename = "ModelStructure", rename_all = "PascalCase")]
-struct ModelStructure {
-    #[yaserde(default)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(rename = "ModelStructure")]
+pub struct ModelStructure {
+    #[yaserde(child)]
     pub outputs: UnknownList,
 
-    #[yaserde(default)]
+    #[yaserde(child)]
     pub derivatives: UnknownList,
 
-    #[yaserde(default)]
+    #[yaserde(child)]
     pub initial_unknowns: UnknownList,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_model_description() {
+        let s = r##"<?xml version="1.0" encoding="UTF8"?>
+<fmiModelDescription
+ fmiVersion="2.0"
+ modelName="MyLibrary.SpringMassDamper"
+ guid="{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}"
+ description="Rotational Spring Mass Damper System"
+ version="1.0"
+ generationDateAndTime="2011-09-23T16:57:33Z"
+ variableNamingConvention="structured"
+ numberOfEventIndicators="2">
+ <ModelVariables>
+    <ScalarVariable name="x[1]" valueReference="0" initial="exact"> <Real/> </ScalarVariable> <!-- idex="5" -->
+    <ScalarVariable name="x[2]" valueReference="1" initial="exact"> <Real/> </ScalarVariable> <!-- index="6" -->
+    <ScalarVariable name="PI.x" valueReference="46" description="State of block" causality="local" variability="continuous" initial="calculated">
+        <Real relativeQuantity="false" />
+    </ScalarVariable>
+    <ScalarVariable name="der(PI.x)" valueReference="45" causality="local" variability="continuous" initial="calculated">
+        <Real relativeQuantity="false" derivative="3" />
+    </ScalarVariable>
+ </ModelVariables>
+ <ModelStructure>
+    <Outputs><Unknown index="1" dependencies="1 2" /><Unknown index="2" /></Outputs>
+    <Derivatives><Unknown index="4" dependencies="1 2" /></Derivatives>
+    <InitialUnknowns />
+</ModelStructure>
+</fmiModelDescription>"##;
+        let md: FmiModelDescription = yaserde::de::from_str(s).unwrap();
+        assert_eq!(md.fmi_version, "2.0");
+        assert_eq!(md.model_name, "MyLibrary.SpringMassDamper");
+        assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}");
+        assert_eq!(
+            md.description.as_deref(),
+            Some("Rotational Spring Mass Damper System")
+        );
+        assert_eq!(md.version.as_deref(), Some("1.0"));
+        // assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
+        assert_eq!(md.variable_naming_convention, Some("structured".to_owned()));
+        assert_eq!(md.number_of_event_indicators, 2);
+        assert_eq!(md.model_variables.variables.len(), 4);
+
+        /*
+        let outputs = md.outputs().unwrap();
+        assert_eq!(outputs[0].0.name, "x[1]");
+        assert_eq!(outputs[0].1.len(), 2);
+        assert_eq!(outputs[0].1[0].name, "x[1]");
+        assert_eq!(outputs[1].0.name, "x[2]");
+        assert_eq!(outputs[1].1.len(), 0);
+
+        let derivatives = md.derivatives().unwrap();
+        assert_eq!(derivatives[0].0.name, "der(PI.x)");
+        assert_eq!(
+            derivatives[0].0.elem,
+            ScalarVariableElement::Real {
+                declared_type: None,
+                start: 0.0,
+                relative_quantity: false,
+                derivative: Some(3)
+            }
+        );
+
+        let states = md.continuous_states().unwrap();
+        assert_eq!(
+            states
+                .iter()
+                .map(|(der, state)| (der.name.as_str(), state.name.as_str()))
+                .collect::<Vec<(_, _)>>(),
+            vec![("PI.x", "der(PI.x)")]
+        );
+        */
+    }
 }
