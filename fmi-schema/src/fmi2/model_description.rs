@@ -265,14 +265,13 @@ fn default_tolerance() -> f64 {
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct UnitDefinitions {
-    #[yaserde(child)]
+    #[yaserde(child, rename = "Unit")]
     pub units: Vec<Fmi2Unit>,
 }
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(rename_all = "camelCase")]
 pub struct TypeDefinitions {
-    #[yaserde(child)]
+    #[yaserde(child, rename = "SimpleType")]
     pub types: Vec<SimpleType>,
 }
 

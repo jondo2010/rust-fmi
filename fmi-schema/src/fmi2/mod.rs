@@ -12,6 +12,7 @@ mod r#type;
 mod unit;
 mod variable_dependency;
 
+pub use attribute_groups::*;
 pub use interface_type::*;
 pub use model_description::*;
 pub use r#type::*;
