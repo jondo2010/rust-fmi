@@ -1,38 +1,50 @@
-use std::str::FromStr;
-
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use crate::Error;
-
-use super::{CoSimulation, Fmi2Unit, ModelExchange, ScalarVariable, SimpleType, UnknownList};
+use super::{
+    CoSimulation, Fmi2Unit, Fmi2VariableDependency, ModelExchange, ScalarVariable, SimpleType,
+};
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiModelDescription {
-    /// Version of FMI that was used to generate the XML file.
+    /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined as "2.0").
     #[yaserde(attribute, rename = "fmiVersion")]
     pub fmi_version: String,
 
-    /// The name of the model as used in the modeling environment that generated the XML file, such as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
+    /// The name of the model as used in the modeling environment that generated the XML file, such as
+    /// Modelica.Mechanics.Rotational.Examples.CoupledClutches.
     #[yaserde(attribute, rename = "modelName")]
     pub model_name: String,
 
+    /// Fingerprint of xml-file content to verify that xml-file and C-functions are compatible to each other
     #[yaserde(attribute)]
     pub guid: String,
 
     #[yaserde(attribute)]
     pub description: Option<String>,
 
+    /// Version of FMU, e.g., "1.4.1"
     #[yaserde(attribute)]
     pub version: Option<String>,
 
-    /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
-    /// Date and time when the XML file was generated. The format is a subset of dateTime and should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
-    #[yaserde(attribute, rename = "generationDateAndTime")]
-    pub generation_date_and_time: Option<String>,
+    /// Information on intellectual property copyright for this FMU, such as “© MyCompany 2011“
+    #[yaserde(attribute)]
+    pub copyright: Option<String>,
+
+    /// Information on intellectual property licensing for this FMU, such as “BSD license”, "Proprietary", or "Public
+    /// Domain"
+    #[yaserde(attribute)]
+    pub license: Option<String>,
 
     /// Name of the tool that generated the XML file.
     #[yaserde(attribute, rename = "generationTool")]
     pub generation_tool: String,
+
+    /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
+    /// Date and time when the XML file was generated. The format is a subset of dateTime and should be:
+    /// YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu time zone, in other words,
+    /// Greenwich meantime) [for example 2009-12-08T14:33:22Z].
+    #[yaserde(attribute, rename = "generationDateAndTime")]
+    pub generation_date_and_time: Option<String>,
 
     /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a particular convention.
     #[yaserde(attribute, rename = "variableNamingConvention")]
@@ -68,23 +80,11 @@ pub struct FmiModelDescription {
     pub model_structure: ModelStructure,
 }
 
-impl FromStr for FmiModelDescription {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        yaserde::de::from_str(s).map_err(|e| Error::XmlParse(e))
-    }
-}
-
 impl FmiModelDescription {
     /// The model name
     pub fn model_name(&self) -> &str {
         &self.model_name
     }
-
-    // pub fn model_identifier(&self) -> &str {
-    // &self.model_exchange
-    // }
 
     /// Total number of variables
     pub fn num_variables(&self) -> usize {
@@ -109,8 +109,6 @@ impl FmiModelDescription {
     pub fn get_model_variable_by_vr(&self, vr: u32) -> Option<&ScalarVariable> {
         self.model_variables.map.get(&vr)
     }
-
-    // pub fn model_variable_by
 
     /// Turns an UnknownList into a nested Vector of ScalarVariables and their Dependencies
     #[cfg(feature = "disable")]
@@ -284,14 +282,20 @@ pub struct ModelVariables {
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "ModelStructure")]
 pub struct ModelStructure {
-    #[yaserde(child)]
+    #[yaserde(child, rename = "Outputs")]
     pub outputs: UnknownList,
 
-    #[yaserde(child)]
+    #[yaserde(child, rename = "Derivatives")]
     pub derivatives: UnknownList,
 
-    #[yaserde(child)]
+    #[yaserde(child, rename = "InitialUnknowns")]
     pub initial_unknowns: UnknownList,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct UnknownList {
+    #[yaserde(child, rename = "Unknown")]
+    pub unknowns: Vec<Fmi2VariableDependency>,
 }
 
 #[cfg(test)]

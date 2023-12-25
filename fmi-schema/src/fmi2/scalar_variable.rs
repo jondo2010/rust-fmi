@@ -99,9 +99,9 @@ pub enum ScalarVariableElement {
     Integer(Integer),
     #[yaserde(flatten)]
     Boolean(Boolean),
-    #[yaserde()]
+    #[yaserde(flatten)]
     String,
-    #[yaserde()]
+    #[yaserde(flatten)]
     Enumeration,
 }
 
@@ -169,7 +169,6 @@ mod tests {
         </ScalarVariable>
         "#;
         let sv: ScalarVariable = yaserde::de::from_str(s).unwrap();
-        dbg!(&sv);
         assert_eq!(sv.name, "inertia1.J");
         assert_eq!(sv.value_reference, 1073741824);
         assert_eq!(sv.description, "Moment of load inertia");

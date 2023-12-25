@@ -1,16 +1,16 @@
-//! This module implements the ModelDescription datamodel and provides
-//! attributes to serde_xml_rs to generate an XML deserializer.
-
-use yaserde_derive::{YaDeserialize, YaSerialize};
+//! FMI2.0 schema definitions
+//!
+//! This module contains the definitions of the FMI2.0 XML schema.
 
 mod attribute_groups;
-mod counts;
 mod interface_type;
 mod model_description;
 mod scalar_variable;
 mod r#type;
 mod unit;
 mod variable_dependency;
+
+use std::str::FromStr;
 
 pub use attribute_groups::*;
 pub use interface_type::*;
@@ -20,25 +20,85 @@ pub use scalar_variable::*;
 pub use unit::*;
 pub use variable_dependency::*;
 
+use crate::{
+    variable_counts::{Counts, VariableCounts},
+    Error,
+};
+
 pub type ScalarVariableMap<'a> = std::collections::HashMap<String, &'a ScalarVariable>;
 pub type UnknownsTuple<'a> = (&'a ScalarVariable, Vec<&'a ScalarVariable>);
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct UnknownList {
-    #[yaserde(child)]
-    pub unknowns: Vec<Unknown>,
+impl FromStr for FmiModelDescription {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        yaserde::de::from_str(s).map_err(|e| Error::XmlParse(e))
+    }
+}
+
+impl VariableCounts for ModelVariables {
+    fn model_counts(&self) -> Counts {
+        self.variables
+            .iter()
+            .fold(Counts::default(), |mut cts, ref sv| {
+                match sv.variability {
+                    Variability::Constant => {
+                        cts.num_constants += 1;
+                    }
+                    Variability::Continuous => {
+                        cts.num_continuous += 1;
+                    }
+                    Variability::Discrete => {
+                        cts.num_discrete += 1;
+                    }
+                    _ => {}
+                }
+                match sv.causality {
+                    Causality::CalculatedParameter => {
+                        cts.num_calculated_parameters += 1;
+                    }
+                    Causality::Parameter => {
+                        cts.num_parameters += 1;
+                    }
+                    Causality::Input => {
+                        cts.num_inputs += 1;
+                    }
+                    Causality::Output => {
+                        cts.num_outputs += 1;
+                    }
+                    Causality::Local => {
+                        cts.num_local += 1;
+                    }
+                    Causality::Independent => {
+                        cts.num_independent += 1;
+                    }
+                    _ => {}
+                }
+                match sv.elem {
+                    ScalarVariableElement::Real { .. } => {
+                        cts.num_real_vars += 1;
+                    }
+                    ScalarVariableElement::Integer { .. } => {
+                        cts.num_integer_vars += 1;
+                    }
+                    ScalarVariableElement::Enumeration { .. } => {
+                        cts.num_enum_vars += 1;
+                    }
+                    ScalarVariableElement::Boolean { .. } => {
+                        cts.num_bool_vars += 1;
+                    }
+                    ScalarVariableElement::String { .. } => {
+                        cts.num_string_vars += 1;
+                    }
+                }
+                cts
+            })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_model_exchange() {
-        let s = r##"<ModelExchange modelIdentifier="MyLibrary_SpringMassDamper"/>"##;
-        let x: ModelExchange = yaserde::de::from_str(s).unwrap();
-        assert!(x.model_identifier == "MyLibrary_SpringMassDamper");
-    }
 
     #[test]
     fn test_default_experiment() {
@@ -79,28 +139,34 @@ mod tests {
     fn test_model_structure() {
         let s = r##"
             <ModelStructure>
-                <Outputs> <Unknown index="3" /> <Unknown index="4" /> </Outputs>
-                <Derivatives> <Unknown index="7" /> <Unknown index="8" /> </Derivatives>
-                <InitialUnknowns> <Unknown index="3" /> <Unknown index="4" /> <Unknown index="7" dependencies="5 2" /> <Unknown index="8" dependencies="5 6" /> </InitialUnknowns>
+                <Outputs>
+                    <Unknown index="3" />
+                    <Unknown index="4" />
+                </Outputs>
+                <Derivatives>
+                    <Unknown index="7" />
+                    <Unknown index="8" />
+                </Derivatives>
+                <InitialUnknowns>
+                    <Unknown index="3" />
+                    <Unknown index="4" />
+                    <Unknown index="7" dependencies="5 2" />
+                    <Unknown index="8" dependencies="5 6" />
+                </InitialUnknowns>
             </ModelStructure>
         "##;
-        let x: ModelStructure = yaserde::de::from_str(s).unwrap();
-        assert_eq!(x.outputs.unknowns[0].index, 3);
-        assert_eq!(x.outputs.unknowns[1].index, 4);
-        assert_eq!(x.derivatives.unknowns[0].index, 7);
-        assert_eq!(x.derivatives.unknowns[1].index, 8);
-        assert_eq!(x.initial_unknowns.unknowns[0].index, 3);
-        assert_eq!(x.initial_unknowns.unknowns[1].index, 4);
-        assert_eq!(x.initial_unknowns.unknowns[2].index, 7);
-        //assert_eq!(x.initial_unknowns.unknowns[2].dependencies, vec! {5, 2});
-        //assert_eq!(x.initial_unknowns.unknowns[3].dependencies, vec! {5, 6});
+        let ms: ModelStructure = yaserde::de::from_str(s).unwrap();
+        assert_eq!(ms.outputs.unknowns.len(), 2);
+        assert_eq!(ms.outputs.unknowns[0].index, 3);
+        assert_eq!(ms.outputs.unknowns[1].index, 4);
+        assert_eq!(ms.derivatives.unknowns.len(), 2);
+        assert_eq!(ms.derivatives.unknowns[0].index, 7);
+        assert_eq!(ms.derivatives.unknowns[1].index, 8);
+        assert_eq!(ms.initial_unknowns.unknowns.len(), 4);
+        assert_eq!(ms.initial_unknowns.unknowns[0].index, 3);
+        assert_eq!(ms.initial_unknowns.unknowns[1].index, 4);
+        assert_eq!(ms.initial_unknowns.unknowns[2].index, 7);
+        assert_eq!(ms.initial_unknowns.unknowns[2].dependencies, vec! {5, 2});
+        assert_eq!(ms.initial_unknowns.unknowns[3].dependencies, vec! {5, 6});
     }
-
-    // #[test]
-    // fn test_file() {
-    // let file = std::fs::File::open("modelDescription.xml").unwrap();
-    // let file = std::io::BufReader::new(file);
-    // let x: ModelDescription = serde_xml_rs::deserialize(file).unwrap();
-    // println!("{:#?}", x);
-    // }
 }

@@ -24,18 +24,27 @@ pub struct Fmi3Unknown {
     pub annotations: Option<Annotations>,
     #[yaserde(attribute, rename = "valueReference")]
     pub value_reference: u32,
-    //#[yaserde(attribute)]
-    //pub dependencies: Vec<u32>,
-    //#[yaserde(attribute, rename = "dependenciesKind")]
-    //pub dependencies_kind: Option<DependenciesKind>,
+    #[yaserde(attribute, rename = "dependencies")]
+    pub dependencies: Vec<u32>,
+    #[yaserde(child, attribute, rename = "dependenciesKind")]
+    pub dependencies_kind: Vec<DependenciesKind>,
 }
 
 #[test]
 fn test_dependencies_kind() {
     let xml = r#"
-    <Fmi3Unknown valueReference="1" dependencies="0 1 2" dependenciesKind="dependent" />
+    <Fmi3Unknown valueReference="1" dependencies="0 1 2" dependenciesKind="dependent constant fixed" />
     "#;
 
     let x: Fmi3Unknown = yaserde::de::from_str(xml).unwrap();
-    dbg!(x);
+    assert_eq!(x.value_reference, 1);
+    assert_eq!(x.dependencies, vec![0, 1, 2]);
+    assert_eq!(
+        x.dependencies_kind,
+        vec![
+            DependenciesKind::Dependent,
+            DependenciesKind::Constant,
+            DependenciesKind::Fixed
+        ]
+    );
 }

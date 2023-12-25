@@ -3,6 +3,7 @@ name = "fmi-schema"
 version = "0.1.0"
 edition = "2021"
 description = "XML schema support for FMI 2.0 and 3.0"
+license.workspace = true
 
 [features]
 default = ["fmi2", "fmi3"]
@@ -16,3 +17,4 @@ yaserde = "0.9"
 yaserde_derive = "0.9"
 lenient_semver = "0.4"
 semver = "1.0"
+itertools = "0.12"

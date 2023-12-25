@@ -1,6 +1,10 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use super::{Float32Attributes, Float64Attributes, RealBaseAttributes, RealVariableAttributes};
+use super::{
+    Float32Attributes, Float64Attributes, Int16Attributes, Int32Attributes, Int8Attributes,
+    IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes, UInt16Attributes,
+    UInt32Attributes, UInt8Attributes,
+};
 
 pub trait AbstractVariableTrait {
     /// The full, unique name of the variable.
@@ -11,7 +15,7 @@ pub trait AbstractVariableTrait {
     fn description(&self) -> Option<&str>;
     /// Enumeration that defines the causality of the variable.
     fn causality(&self) -> Causality;
-    fn variability(&self) -> Option<Variability>;
+    fn variability(&self) -> Variability;
     fn can_handle_multiple_set_per_time_instant(&self) -> bool;
 }
 
@@ -20,16 +24,16 @@ pub trait ArrayableVariableTrait: AbstractVariableTrait {
     fn previous(&self) -> u32;
 }
 
-pub trait TypedArrayableariableTrait: ArrayableVariableTrait {
+pub trait TypedArrayableVariableTrait: ArrayableVariableTrait {
     fn declared_type(&self) -> Option<&str>;
 }
 
-pub trait InitializableVariableTrait: TypedArrayableariableTrait {
+pub trait InitializableVariableTrait: TypedArrayableVariableTrait {
     fn initial(&self) -> Option<Initial>;
 }
 
-macro_rules! impl_float_type {
-    ($name:ident, $type:ty) => {
+macro_rules! impl_abstract_variable {
+    ($name:ident) => {
         impl AbstractVariableTrait for $name {
             fn name(&self) -> &str {
                 &self
@@ -61,7 +65,7 @@ macro_rules! impl_float_type {
                     .abstract_var
                     .causality
             }
-            fn variability(&self) -> Option<Variability> {
+            fn variability(&self) -> Variability {
                 self.init_var
                     .typed_arrayable_var
                     .arrayable_var
@@ -76,6 +80,27 @@ macro_rules! impl_float_type {
                     .can_handle_multiple_set_per_time_instant
             }
         }
+    };
+}
+
+macro_rules! impl_float_type {
+    ($name:ident, $type:ty, $float_attr:ident) => {
+        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+        #[yaserde(root = "Float64")]
+        pub struct $name {
+            #[yaserde(flatten)]
+            pub base_attr: RealBaseAttributes,
+            #[yaserde(flatten)]
+            pub attr: $float_attr,
+            #[yaserde(flatten)]
+            pub init_var: InitializableVariable,
+            #[yaserde(attribute)]
+            pub start: $type,
+            #[yaserde(flatten)]
+            pub real_var_attr: RealVariableAttributes,
+        }
+
+        impl_abstract_variable!($name);
 
         impl ArrayableVariableTrait for $name {
             fn intermediate_update(&self) -> bool {
@@ -89,7 +114,7 @@ macro_rules! impl_float_type {
             }
         }
 
-        impl TypedArrayableariableTrait for $name {
+        impl TypedArrayableVariableTrait for $name {
             fn declared_type(&self) -> Option<&str> {
                 self.init_var.typed_arrayable_var.declared_type.as_deref()
             }
@@ -117,11 +142,29 @@ macro_rules! impl_float_type {
     };
 }
 
+macro_rules! impl_integer_type {
+    ($name:ident, $type:ty, $int_attr:ident) => {
+        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+        #[yaserde(root = "$name")]
+        pub struct $name {
+            #[yaserde(flatten)]
+            pub base_attr: IntegerBaseAttributes,
+            #[yaserde(flatten)]
+            pub int_attr: $int_attr,
+            #[yaserde(attribute)]
+            pub start: $type,
+            #[yaserde(flatten)]
+            pub init_var: InitializableVariable,
+        }
+
+        impl_abstract_variable!($name);
+    };
+}
+
 #[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Causality {
     /// A data value that is constant during the simulation
     #[yaserde(rename = "parameter")]
-    #[default]
     Parameter,
     /// A data value that is constant during the simulation and is computed during initialization or when tunable parameters change.
     #[yaserde(rename = "calculatedParameter")]
@@ -132,6 +175,7 @@ pub enum Causality {
     #[yaserde(rename = "output")]
     Output,
     #[yaserde(rename = "local")]
+    #[default]
     Local,
     /// The independent variable (usually time [but could also be, for example, angle]).
     #[yaserde(rename = "independent")]
@@ -146,7 +190,6 @@ pub enum Causality {
 #[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Variability {
     #[yaserde(rename = "constant")]
-    #[default]
     Constant,
     #[yaserde(rename = "fixed")]
     Fixed,
@@ -155,6 +198,7 @@ pub enum Variability {
     #[yaserde(rename = "discrete")]
     Discrete,
     #[yaserde(rename = "continuous")]
+    #[default]
     Continuous,
 }
 
@@ -169,7 +213,7 @@ pub struct AbstractVariable {
     #[yaserde(attribute)]
     pub causality: Causality,
     #[yaserde(attribute)]
-    pub variability: Option<Variability>,
+    pub variability: Variability,
     #[yaserde(attribute, rename = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: bool,
 }
@@ -211,38 +255,32 @@ pub struct InitializableVariable {
     pub initial: Option<Initial>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(root = "FmiFloat32")]
-pub struct FmiFloat32 {
-    #[yaserde(flatten)]
-    base_attr: RealBaseAttributes,
-    #[yaserde(flatten)]
-    attr: Float32Attributes,
-    #[yaserde(flatten)]
-    init_var: InitializableVariable,
-    #[yaserde(attribute)]
-    pub start: f32,
-    #[yaserde(flatten)]
-    real_var_attr: RealVariableAttributes,
+impl_float_type!(FmiFloat32, f32, Float32Attributes);
+impl_float_type!(FmiFloat64, f64, Float64Attributes);
+
+impl_integer_type!(FmiInt8, i8, Int8Attributes);
+impl_integer_type!(FmiUInt8, u8, UInt8Attributes);
+impl_integer_type!(FmiInt16, i16, Int16Attributes);
+impl_integer_type!(FmiUInt16, u16, UInt16Attributes);
+impl_integer_type!(FmiInt32, i32, Int32Attributes);
+impl_integer_type!(FmiUInt32, u32, UInt32Attributes);
+
+/*
+#[derive(Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "ModelVariables")]
+pub enum Fmi3Variable {
+    #[yaserde(flatten, rename = "Float32")]
+    Float32(FmiFloat32),
+    #[yaserde(flatten, rename = "Float64")]
+    Float64(FmiFloat64),
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(root = "FmiFloat32")]
-pub struct FmiFloat64 {
-    #[yaserde(flatten)]
-    base_attr: RealBaseAttributes,
-    #[yaserde(flatten)]
-    attr: Float64Attributes,
-    #[yaserde(flatten)]
-    init_var: InitializableVariable,
-    #[yaserde(attribute)]
-    pub start: f64,
-    #[yaserde(flatten)]
-    real_var_attr: RealVariableAttributes,
+impl Default for Fmi3Variable {
+    fn default() -> Self {
+        Fmi3Variable::Float32(FmiFloat32::default())
+    }
 }
-
-impl_float_type!(FmiFloat32, f32);
-impl_float_type!(FmiFloat64, f64);
+*/
 
 #[test]
 fn test_float64() {
@@ -261,7 +299,7 @@ fn test_float64() {
 
     assert_eq!(var.name(), "g");
     assert_eq!(var.value_reference(), 5);
-    assert_eq!(var.variability(), Some(Variability::Fixed));
+    assert_eq!(var.variability(), Variability::Fixed);
     assert_eq!(var.initial(), Some(Initial::Exact));
     assert_eq!(var.causality(), Causality::Parameter);
     assert_eq!(var.declared_type(), Some("Acceleration"));

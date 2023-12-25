@@ -479,6 +479,7 @@ name = "fmi-schema"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "itertools",
  "lenient_semver",
  "semver",
  "thiserror",
@@ -1673,8 +1674,7 @@ checksum = "0fcb9cbac069e033553e8bb871be2fbdffcab578eb25bd0f7c508cedc6dcd75a"
 [[package]]
 name = "yaserde"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3ada98459cb8ff951075f7eedacc8244f5d80b1a25fe787f36d0a7b9135d6e9"
+source = "git+https://github.com/jondo2010/yaserde.git?branch=support_xst_lists#9c5b993c84f0082dccedf01b4434e636fd17ac98"
 dependencies = [
  "log",
  "xml-rs",
@@ -1683,8 +1683,7 @@ dependencies = [
 [[package]]
 name = "yaserde_derive"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6664e1683c4295ca9cff116956ef99553b0944696847ce6cab705bd553b42f8c"
+source = "git+https://github.com/jondo2010/yaserde.git?branch=support_xst_lists#9c5b993c84f0082dccedf01b4434e636fd17ac98"
 dependencies = [
  "heck 0.4.1",
  "log",

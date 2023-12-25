@@ -4,8 +4,8 @@
 #[cfg(feature = "fmi3")]
 fn test_fmi3() {
     use fmi_schema::fmi3::{
-        AbstractVariableTrait, BaseTypeTrait, BaseUnit, Fmi3ModelExchange, FmiModelDescription,
-        Variability,
+        AbstractVariableTrait, BaseTypeTrait, BaseUnit, DependenciesKind, Fmi3ModelExchange,
+        FmiModelDescription, Variability,
     };
 
     let test_file = std::env::current_dir()
@@ -60,10 +60,7 @@ fn test_fmi3() {
     assert_eq!(model_vars.float64.len(), 7);
     assert_eq!(model_vars.float64[4].name(), "der(v)");
     assert_eq!(model_vars.float64[4].value_reference(), 4);
-    assert_eq!(
-        model_vars.float64[4].variability(),
-        Some(Variability::Continuous)
-    );
+    assert_eq!(model_vars.float64[4].variability(), Variability::Continuous);
 
     let model_structure = &model.model_structure;
     assert_eq!(model_structure.outputs.len(), 2);
@@ -71,5 +68,11 @@ fn test_fmi3() {
     assert_eq!(model_structure.outputs[1].value_reference, 3);
     assert_eq!(model_structure.continuous_state_derivative.len(), 2);
     assert_eq!(model_structure.initial_unknown.len(), 2);
+    assert_eq!(model_structure.initial_unknown[0].value_reference, 2);
+    assert_eq!(model_structure.initial_unknown[0].dependencies, vec![3]);
+    assert_eq!(
+        model_structure.initial_unknown[0].dependencies_kind,
+        vec![DependenciesKind::Constant]
+    );
     assert_eq!(model_structure.event_indicator.len(), 1);
 }

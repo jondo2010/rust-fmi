@@ -32,16 +32,6 @@ pub struct RealBaseAttributes {
 //float_attrs!(Float64Attributes, f64);
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct Float32Attributes {
-    #[yaserde(attribute)]
-    pub min: Option<f32>,
-    #[yaserde(attribute)]
-    pub max: Option<f32>,
-    #[yaserde(attribute)]
-    pub nominal: Option<f32>,
-}
-
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float64Attributes {
     #[yaserde(attribute)]
     pub min: Option<f64>,
@@ -52,7 +42,17 @@ pub struct Float64Attributes {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-struct IntegerBaseAttributes {
+pub struct Float32Attributes {
+    #[yaserde(attribute)]
+    pub min: Option<f32>,
+    #[yaserde(attribute)]
+    pub max: Option<f32>,
+    #[yaserde(attribute)]
+    pub nominal: Option<f32>,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct IntegerBaseAttributes {
     #[yaserde(attribute)]
     quantity: String,
 }

@@ -98,3 +98,15 @@ pub struct CoSimulation {
     #[yaserde(child, rename = "SourceFiles")]
     pub source_files: SourceFiles,
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::fmi2::ModelExchange;
+
+    #[test]
+    fn test_model_exchange() {
+        let s = r##"<ModelExchange modelIdentifier="MyLibrary_SpringMassDamper"/>"##;
+        let me: ModelExchange = yaserde::de::from_str(s).unwrap();
+        assert!(me.model_identifier == "MyLibrary_SpringMassDamper");
+    }
+}

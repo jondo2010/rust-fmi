@@ -1,4 +1,15 @@
 //! Minimal FMI definitions for determining FMI version.
+//!
+//! ```rust
+//! # use fmi_schema::minimal::ModelDescription;
+//! # use std::str::FromStr;
+//! let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+//!     <fmiModelDescription fmiVersion="2.0" modelName="BouncingBall">
+//!     </fmiModelDescription>"#;
+//! let md = ModelDescription::from_str(xml).unwrap();
+//! let version = md.version().unwrap();
+//! assert_eq!(version, semver::Version::new(2, 0, 0));
+//! ```
 
 use std::str::FromStr;
 

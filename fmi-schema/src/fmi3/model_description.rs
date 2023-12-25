@@ -2,10 +2,10 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::{
     Annotations, Float32Type, Float64Type, Fmi3CoSimulation, Fmi3ModelExchange,
-    Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64,
+    Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64, FmiInt8, FmiUInt8,
 };
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "fmiModelDescription")]
 pub struct FmiModelDescription {
     /// Version of FMI that was used to generate the XML file.
@@ -80,7 +80,7 @@ pub struct FmiModelDescription {
     #[yaserde(rename = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
 
-    #[yaserde(rename = "ModelVariables")]
+    #[yaserde(child, flatten, rename = "ModelVariables")]
     pub model_variables: ModelVariables,
 
     /// The model structure defines the dependency structure of the model variables.
@@ -139,13 +139,25 @@ pub struct DefaultExperiment {
     pub step_size: Option<f64>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(root = "ModelVariables")]
 pub struct ModelVariables {
     #[yaserde(rename = "Float32")]
     pub float32: Vec<FmiFloat32>,
     #[yaserde(rename = "Float64")]
     pub float64: Vec<FmiFloat64>,
+    #[yaserde(rename = "Int8")]
+    pub int8: Vec<FmiInt8>,
+    #[yaserde(rename = "UInt8")]
+    pub uint8: Vec<FmiUInt8>,
+    #[yaserde(rename = "Int16")]
+    pub int16: Vec<FmiInt8>,
+    #[yaserde(rename = "UInt16")]
+    pub uint16: Vec<FmiUInt8>,
+    #[yaserde(rename = "Int32")]
+    pub int32: Vec<FmiInt8>,
+    #[yaserde(rename = "UInt32")]
+    pub uint32: Vec<FmiUInt8>,
 }
 
 #[cfg(feature = "disabled")]

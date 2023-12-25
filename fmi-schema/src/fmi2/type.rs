@@ -2,7 +2,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::attribute_groups::{IntegerAttributes, RealAttributes};
 
-#[derive(Debug, YaSerialize, YaDeserialize)]
+#[derive(Debug, PartialEq, YaSerialize, YaDeserialize)]
 pub enum SimpleTypeElement {
     #[yaserde(flatten)]
     Real(RealAttributes),
@@ -22,7 +22,7 @@ impl Default for SimpleTypeElement {
     }
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
 #[yaserde()]
 /// Type attributes of a scalar variable
 pub struct SimpleType {
@@ -41,6 +41,8 @@ pub struct SimpleType {
 
 #[cfg(test)]
 mod tests {
+    use crate::fmi2::{RealAttributes, SimpleTypeElement};
+
     use super::SimpleType;
 
     #[test]
@@ -51,6 +53,15 @@ mod tests {
         </SimpleType>"#;
 
         let simple_type: SimpleType = yaserde::de::from_str(xml).unwrap();
-        dbg!(simple_type);
+        assert_eq!(simple_type.name, "Acceleration");
+        assert_eq!(simple_type.description, None);
+        assert_eq!(
+            simple_type.elem,
+            SimpleTypeElement::Real(RealAttributes {
+                quantity: Some("Acceleration".to_owned()),
+                unit: Some("m/s2".to_owned()),
+                ..Default::default()
+            })
+        );
     }
 }
