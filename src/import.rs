@@ -103,8 +103,8 @@ impl Import {
 }
 
 // TODO Make this work on other targets
-#[cfg(target_os = "linux")]
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use super::*;
 

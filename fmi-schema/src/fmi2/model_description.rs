@@ -1,5 +1,7 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
+use crate::Error;
+
 use super::{
     CoSimulation, Fmi2Unit, Fmi2VariableDependency, ModelExchange, ScalarVariable, SimpleType,
 };
@@ -170,6 +172,15 @@ impl FmiModelDescription {
     #[cfg(feature = "disable")]
     pub fn initial_unknowns(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
         self.map_unknowns(&self.model_structure.initial_unknowns)
+    }
+
+    /// Get a reference to the model variable with the given name
+    pub fn model_variable_by_name(&self, name: &str) -> Result<&ScalarVariable, Error> {
+        self.model_variables
+            .variables
+            .iter()
+            .find(|var| var.name == name)
+            .ok_or_else(|| Error::VariableNotFound(name.to_owned()))
     }
 
     /// This private function is used to de-reference variable indices from the UnknownList and

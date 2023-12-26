@@ -28,6 +28,9 @@ pub mod variable_counts;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Variable {0} not found")]
+    VariableNotFound(String),
+
     #[error(transparent)]
     Semver(#[from] lenient_semver::parser::OwnedError),
 
