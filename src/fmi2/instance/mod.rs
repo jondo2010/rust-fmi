@@ -1,6 +1,9 @@
+//! FMI 2.0 instance interface
+
 use crate::fmi2::instance::traits::Common;
 
-use super::*;
+use super::{binding, logger, schema, CallbackFunctions, Fmi2Status};
+
 use std::ffi::CString;
 
 mod co_simulation;
@@ -11,7 +14,6 @@ pub mod traits;
 pub struct ME;
 /// Tag for Co-Simulation instances
 pub struct CS;
-/// Tag for Scheduled Execution instances
 
 pub struct Instance<'a, Tag> {
     /// Raw FMI 2.0 bindings
@@ -19,7 +21,7 @@ pub struct Instance<'a, Tag> {
     /// Pointer to the raw FMI 2.0 instance
     component: binding::fmi2Component,
 
-    schema: &'a schema::ModelDescription,
+    schema: &'a schema::FmiModelDescription,
 
     /// Callbacks struct
     #[allow(dead_code)]
@@ -76,12 +78,14 @@ fn check_consistency(import: &Import, common: &FmiCommon) -> FmiResult<()> {
 //unsafe impl<A: FmiApi> Sync for Instance<A> {}
 
 /// FmuState wraps the FMUstate pointer and is used for managing FMU state
+#[cfg(feature = "disable")]
 pub struct FmuState<'a, Tag> {
     component: &'a Instance<'a, Tag>,
     state: binding::fmi2FMUstate,
     //container: &'a dlopen::wrapper::Container<A>,
 }
 
+#[cfg(feature = "disable")]
 impl<'a, Tag> FmuState<'a, Tag> {}
 
 #[cfg(feature = "disable")]
@@ -108,7 +112,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
             .expect("Error converting string")
     }
 
-    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> FmiStatus {
+    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Fmi2Status {
         let category_cstr = categories
             .iter()
             .map(|c| CString::new(*c).unwrap())
@@ -116,7 +120,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
 
         let category_ptrs: Vec<_> = category_cstr.iter().map(|c| c.as_ptr()).collect();
 
-        FmiStatus(unsafe {
+        Fmi2Status(unsafe {
             self.binding.fmi2SetDebugLogging(
                 self.component,
                 logging_on as binding::fmi2Boolean,
@@ -131,8 +135,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> FmiStatus {
-        FmiStatus(unsafe {
+    ) -> Fmi2Status {
+        Fmi2Status(unsafe {
             self.binding.fmi2SetupExperiment(
                 self.component,
                 tolerance.is_some() as binding::fmi2Boolean,
@@ -144,29 +148,29 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         })
     }
 
-    fn enter_initialization_mode(&self) -> FmiStatus {
-        FmiStatus(unsafe { self.binding.fmi2EnterInitializationMode(self.component) })
+    fn enter_initialization_mode(&self) -> Fmi2Status {
+        Fmi2Status(unsafe { self.binding.fmi2EnterInitializationMode(self.component) })
     }
 
-    fn exit_initialization_mode(&self) -> FmiStatus {
-        FmiStatus(unsafe { self.binding.fmi2ExitInitializationMode(self.component) })
+    fn exit_initialization_mode(&self) -> Fmi2Status {
+        Fmi2Status(unsafe { self.binding.fmi2ExitInitializationMode(self.component) })
     }
 
-    fn terminate(&self) -> FmiStatus {
-        FmiStatus(unsafe { self.binding.fmi2Terminate(self.component) })
+    fn terminate(&self) -> Fmi2Status {
+        Fmi2Status(unsafe { self.binding.fmi2Terminate(self.component) })
     }
 
-    fn reset(&self) -> FmiStatus {
-        FmiStatus(unsafe { self.binding.fmi2Reset(self.component) })
+    fn reset(&self) -> Fmi2Status {
+        Fmi2Status(unsafe { self.binding.fmi2Reset(self.component) })
     }
 
     fn get_real(
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &mut [binding::fmi2Real],
-    ) -> FmiStatus {
+    ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        FmiStatus(unsafe {
+        Fmi2Status(unsafe {
             self.binding
                 .fmi2GetReal(self.component, vrs.as_ptr(), vrs.len(), values.as_mut_ptr())
         })
@@ -176,8 +180,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &mut [binding::fmi2Integer],
-    ) -> FmiStatus {
-        FmiStatus(unsafe {
+    ) -> Fmi2Status {
+        Fmi2Status(unsafe {
             self.binding.fmi2GetInteger(
                 self.component,
                 vrs.as_ptr(),
@@ -191,8 +195,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Boolean],
-    ) -> FmiStatus {
-        FmiStatus(unsafe {
+    ) -> Fmi2Status {
+        Fmi2Status(unsafe {
             self.binding
                 .fmi2GetBoolean(self.component, sv.as_ptr(), sv.len(), v.as_mut_ptr())
         })
@@ -202,8 +206,8 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2String],
-    ) -> FmiStatus {
-        FmiStatus(unsafe {
+    ) -> Fmi2Status {
+        Fmi2Status(unsafe {
             self.binding
                 .fmi2GetString(self.component, sv.as_ptr(), sv.len(), v.as_mut_ptr())
         })
@@ -213,9 +217,9 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Real],
-    ) -> FmiStatus {
+    ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        FmiStatus(unsafe {
+        Fmi2Status(unsafe {
             self.binding.fmi2SetReal(
                 self.component,
                 vrs.as_ptr() as *const u32,
@@ -229,9 +233,9 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Integer],
-    ) -> FmiStatus {
+    ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        FmiStatus(unsafe {
+        Fmi2Status(unsafe {
             self.binding
                 .fmi2SetInteger(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
         })
@@ -241,9 +245,9 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &mut [binding::fmi2Boolean],
-    ) -> FmiStatus {
+    ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        FmiStatus(unsafe {
+        Fmi2Status(unsafe {
             self.binding
                 .fmi2SetBoolean(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
         })
@@ -253,7 +257,7 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         &self,
         _vrs: &[binding::fmi2ValueReference],
         _values: &[binding::fmi2String],
-    ) -> FmiStatus {
+    ) -> Fmi2Status {
         unimplemented!()
     }
 
@@ -267,10 +271,10 @@ impl<'a, A> traits::Common for Instance<'a, A> {
         known_vrs: &[binding::fmi2ValueReference],
         dv_known_values: &[binding::fmi2Real],
         dv_unknown_values: &mut [binding::fmi2Real],
-    ) -> FmiStatus {
+    ) -> Fmi2Status {
         assert!(unknown_vrs.len() == dv_unknown_values.len());
         assert!(known_vrs.len() == dv_unknown_values.len());
-        FmiStatus(unsafe {
+        Fmi2Status(unsafe {
             self.binding.fmi2GetDirectionalDerivative(
                 self.component,
                 unknown_vrs.as_ptr(),
@@ -296,24 +300,28 @@ impl<'a, A> std::fmt::Debug for Instance<'a, A> {
     }
 }
 
+#[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
+    use crate::{import::FmiImport, Import};
+
     use super::*;
 
     // TODO Make this work on other targets
-    #[cfg(target_os = "linux")]
     #[test]
     fn test_instance_me() {
         let import = Import::new(std::path::Path::new(
             "data/Modelica_Blocks_Sources_Sine.fmu",
         ))
+        .unwrap()
+        .as_fmi2()
         .unwrap();
 
-        let instance1 = InstanceME::new(&import, "inst1", false, true).unwrap();
-        assert_eq!(instance1.version().unwrap(), "2.0");
+        let instance1 = Instance::<ME>::new(&import, "inst1", false, true).unwrap();
+        assert_eq!(instance1.version(), "2.0");
 
         let categories = &import
-            .descr()
+            .model_description()
             .log_categories
             .as_ref()
             .unwrap()
@@ -324,23 +332,25 @@ mod tests {
 
         instance1
             .set_debug_logging(true, categories)
+            .ok()
             .expect("set_debug_logging");
         instance1
             .setup_experiment(Some(1.0e-6_f64), 0.0, None)
+            .ok()
             .expect("setup_experiment");
         instance1
             .enter_initialization_mode()
+            .ok()
             .expect("enter_initialization_mode");
         instance1
             .exit_initialization_mode()
+            .ok()
             .expect("exit_initialization_mode");
-        instance1.terminate().expect("terminate");
-        instance1.reset().expect("reset");
+        instance1.terminate().ok().expect("terminate");
+        instance1.reset().ok().expect("reset");
     }
 
     /// Tests on variable module requiring an instance.
-    #[cfg(target_os = "linux")]
-    #[cfg(feature = "disable")]
     #[test]
     fn test_variable() {
         use crate::{model_descr::ModelDescriptionError, Var};
@@ -362,8 +372,6 @@ mod tests {
         ));
     }
 
-    #[cfg(target_os = "linux")]
-    #[cfg(feature = "disable")]
     #[test]
     fn test_instance_cs() {
         use crate::{Value, Var};

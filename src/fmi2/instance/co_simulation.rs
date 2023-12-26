@@ -1,9 +1,9 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi2::{import, CallbackFunctions, FmiStatus, StatusKind},
+    fmi2::{import, CallbackFunctions, Fmi2Status, StatusKind},
     import::FmiImport,
-    FmiError, FmiResult,
+    Error,
 };
 
 use super::{binding, traits, Instance, CS};
@@ -15,9 +15,9 @@ impl<'a> Instance<'a, CS> {
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> FmiResult<Self> {
-        let binding = import.raw_bindings()?;
-        let schema = import.raw_schema();
+    ) -> Result<Self, Error> {
+        let binding = import.binding()?;
+        let schema = import.model_description();
 
         let callbacks = Box::new(CallbackFunctions::default());
         //check_consistency(&import, &cs.common)?;
@@ -40,7 +40,7 @@ impl<'a> Instance<'a, CS> {
             )
         };
         if component.is_null() {
-            return Err(FmiError::Instantiation);
+            return Err(Error::Instantiation);
         }
         log::trace!("Created CS component {:?}", component);
 
@@ -60,8 +60,8 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
         current_communication_point: f64,
         communication_step_size: f64,
         new_step: bool,
-    ) -> FmiStatus {
-        FmiStatus(unsafe {
+    ) -> Fmi2Status {
+        Fmi2Status(unsafe {
             self.binding.fmi2DoStep(
                 self.component,
                 current_communication_point,
@@ -71,13 +71,13 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
         })
     }
 
-    fn cancel_step(&self) -> FmiStatus {
-        FmiStatus(unsafe { self.binding.fmi2CancelStep(self.component) })
+    fn cancel_step(&self) -> Fmi2Status {
+        Fmi2Status(unsafe { self.binding.fmi2CancelStep(self.component) })
     }
 
-    fn get_status(&self, kind: StatusKind) -> FmiStatus {
+    fn get_status(&self, kind: StatusKind) -> Fmi2Status {
         let mut ret: binding::fmi2Status = binding::fmi2Status_fmi2OK;
-        FmiStatus(unsafe {
+        Fmi2Status(unsafe {
             self.binding
                 .fmi2GetStatus(self.component, kind as _, &mut ret)
         });

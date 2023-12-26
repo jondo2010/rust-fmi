@@ -22,12 +22,12 @@ pub struct Fmi3 {
     model: model::ModelDescription,
 }
 
-impl<'a> FmiImport<'a> for Fmi3 {
+impl FmiImport for Fmi3 {
     type Schema = schema::FmiModelDescription;
     type Binding = binding::Fmi3Binding;
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
-    fn new(dir: TempDir, schema_xml: String) -> Result<Self, Error> {
+    fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {
         let schema = schema::FmiModelDescription::from_str(&schema_xml)?;
         Ok(Self { dir, schema })
     }

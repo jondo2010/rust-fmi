@@ -1,6 +1,8 @@
 //! Traits for different instance types ([ModelExchange], [CoSimulation]).
 
-use super::{binding, EventInfo, FmiStatus, StatusKind};
+use crate::fmi2::{EventInfo, StatusKind};
+
+use super::{binding, Fmi2Status};
 
 /// Interface common to both ModelExchange and CoSimulation
 pub trait Common {
@@ -10,7 +12,7 @@ pub trait Common {
     /// The FMI-standard version string
     fn version(&self) -> &str;
 
-    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> FmiStatus;
+    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Fmi2Status;
 
     /// Informs the FMU to setup the experiment. This function can be called after `instantiate()`
     /// and before `enter_initialization_mode()` is called.
@@ -41,7 +43,7 @@ pub trait Common {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 
     /// Informs the FMU to enter Initialization Mode.
     ///
@@ -50,49 +52,49 @@ pub trait Common {
     /// *Setting other variables is not allowed*. Furthermore, `setup_experiment()` must be called
     /// at least once before calling `enter_initialization_mode()`, in order that `start_time` is
     /// defined.
-    fn enter_initialization_mode(&self) -> FmiStatus;
+    fn enter_initialization_mode(&self) -> Fmi2Status;
 
     /// Informs the FMU to exit Initialization Mode.
     ///
     /// Under ModelExchange this function switches off all initialization equations and the FMU
     /// enters implicitely Event Mode, that is all continuous-time and active discrete-time
     /// equations are available.
-    fn exit_initialization_mode(&self) -> FmiStatus;
+    fn exit_initialization_mode(&self) -> Fmi2Status;
 
     /// Informs the FMU that the simulation run is terminated.
     ///
     /// After calling this function, the final values of all variables can be inquired with the
     /// fmi2GetXXX(..) functions. It is not allowed to call this function after one of the
     /// functions returned with a status flag of fmi2Error or fmi2Fatal.
-    fn terminate(&self) -> FmiStatus;
+    fn terminate(&self) -> Fmi2Status;
 
     /// Is called by the environment to reset the FMU after a simulation run.
     ///
     /// The FMU goes into the same state as if fmi2Instantiate would have been called. All
     /// variables have their default values. Before starting a new run, fmi2SetupExperiment and
     /// fmi2EnterInitializationMode have to be called.
-    fn reset(&self) -> FmiStatus;
+    fn reset(&self) -> Fmi2Status;
 
     fn get_real(
         &self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Real],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
     fn get_integer(
         &self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Integer],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
     fn get_boolean(
         &self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Boolean],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
     fn get_string(
         &self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2String],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 
     /// Set real values
     ///
@@ -103,7 +105,7 @@ pub trait Common {
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Real],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 
     /// Set integer values
     ///
@@ -114,19 +116,19 @@ pub trait Common {
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Integer],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 
     fn set_boolean(
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &mut [binding::fmi2Boolean],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 
     fn set_string(
         &self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2String],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 
     // fn get_fmu_state(&self) -> Result<FmuState>;
     // fn set_fmu_state(&self, state: &FmuState<Self::Api>) -> Result<()>;
@@ -150,7 +152,7 @@ pub trait Common {
         known_vrs: &[binding::fmi2ValueReference],
         dv_known_values: &[binding::fmi2Real],
         dv_unknown_values: &mut [binding::fmi2Real],
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 }
 
 pub trait ModelExchange: Common {
@@ -158,21 +160,21 @@ pub trait ModelExchange: Common {
 
     /// The model enters Event Mode from the Continuous-Time Mode and discrete-time equations may
     /// become active (and relations are not "frozen").
-    fn enter_event_mode(&self) -> FmiStatus;
+    fn enter_event_mode(&self) -> Fmi2Status;
 
-    /// The FMU is in Event Mode and the super dense time is incremented by this call. If the super
-    /// dense time before a call to `new_discrete_states` was (tR,tI) then the time instant after
-    /// the call is (tR,tI + 1).
+    /// The FMU is in Event Mode and the super dense time is incremented by this call. If the super dense time before a
+    /// call to [`ModelExchange::new_discrete_states`] was `(tR,tI)` then the time instant after the call is
+    /// `(tR,tI + 1)`.
     ///
-    /// If returned EventInfo.new_discrete_states_needed = true, the FMU should stay in Event Mode
-    /// and the FMU requires to set new inputs to the FMU (`set_XXX` on inputs), to compute and
-    /// get the outputs (get_XXX on outputs) and to call `new_discrete_states` again.
+    /// If returned EventInfo.new_discrete_states_needed = true, the FMU should stay in Event Mode and the FMU requires
+    /// to set new inputs to the FMU (`set_XXX` on inputs), to compute and get the outputs (`get_XXX` on outputs) and to
+    /// call `new_discrete_states()` again.
+    ///
     /// Depending on the connection with other FMUs, the environment shall
-    ///     * call `terminate`, if `terminate_simulation` = true is returned by at least one FMU,
-    ///     * call `enter_continuous_time_mode` if all FMUs return `new_discrete_states_needed` =
-    ///       false.
-    ///     * stay in Event Mode otherwise.
-    fn new_discrete_states(&self, event_info: &mut EventInfo) -> FmiStatus;
+    ///   * call [`Common::terminate`], if `terminate_simulation = true` is returned by at least one FMU,
+    ///   * call [`ModelExchange::enter_continuous_time_mode`] if all FMUs return `new_discrete_states_needed = false`.
+    ///   * stay in Event Mode otherwise.
+    fn new_discrete_states(&self, event_info: &mut EventInfo) -> Fmi2Status;
 
     /// The model enters Continuous-Time Mode and all discrete-time equations become inactive and
     /// all relations are "frozen".
@@ -180,7 +182,7 @@ pub trait ModelExchange: Common {
     /// This function has to be called when changing from Event Mode (after the global event
     /// iteration in Event Mode over all involved FMUs and other models has converged) into
     /// Continuous-Time Mode.
-    fn enter_continuous_time_mode(&self) -> FmiStatus;
+    fn enter_continuous_time_mode(&self) -> Fmi2Status;
 
     /// Complete integrator step and return enterEventMode.
     ///
@@ -194,13 +196,13 @@ pub trait ModelExchange: Common {
     fn completed_integrator_step(
         &self,
         no_set_fmu_state_prior_to_current_point: bool,
-    ) -> (FmiStatus, bool, bool);
+    ) -> (Fmi2Status, bool, bool);
 
     /// Set a new time instant and re-initialize caching of variables that depend on time, provided
     /// the newly provided time value is different to the previously set time value (variables that
     /// depend solely on constants or parameters need not to be newly computed in the sequel, but
     /// the previously computed values can be reused).
-    fn set_time(&self, time: f64) -> FmiStatus;
+    fn set_time(&self, time: f64) -> Fmi2Status;
 
     /// Set a new (continuous) state vector and re-initialize caching of variables that depend on
     /// the states. Argument nx is the length of vector x and is provided for checking purposes
@@ -208,24 +210,24 @@ pub trait ModelExchange: Common {
     /// newly computed in the sequel, but the previously computed values can be reused).
     /// Note, the continuous states might also be changed in Event Mode.
     /// Note: fmi2Status = fmi2Discard is possible.
-    fn set_continuous_states(&self, states: &[f64]) -> FmiStatus;
+    fn set_continuous_states(&self, states: &[f64]) -> Fmi2Status;
 
     /// Compute state derivatives and event indicators at the current time instant and for the
     /// current states. The derivatives are returned as a vector with “nx” elements.
-    fn get_derivatives(&self, dx: &mut [f64]) -> FmiStatus;
+    fn get_derivatives(&self, dx: &mut [f64]) -> Fmi2Status;
 
     /// A state event is triggered when the domain of an event indicator changes from zj > 0 to zj ≤
     /// 0 or vice versa. The FMU must guarantee that at an event restart zj ≠ 0, for example by
     /// shifting zj with a small value. Furthermore, zj should be scaled in the FMU with its nominal
     /// value (so all elements of the returned vector “eventIndicators” should be in the order of
     /// “one”). The event indicators are returned as a vector with “ni” elements.
-    fn get_event_indicators(&self, events: &mut [f64]) -> FmiStatus;
+    fn get_event_indicators(&self, events: &mut [f64]) -> Fmi2Status;
 
     /// Return the new (continuous) state vector x.
     /// This function has to be called directly after calling function `enter_continuous_time_mode`
     /// if it returns with eventInfo->valuesOfContinuousStatesChanged = true (indicating that the
     /// (continuous-time) state vector has changed).
-    fn get_continuous_states(&self, x: &mut [f64]) -> FmiStatus;
+    fn get_continuous_states(&self, x: &mut [f64]) -> Fmi2Status;
 
     /// Return the nominal values of the continuous states. This function should always be called
     /// after calling function new_discrete_states if it returns with
@@ -239,7 +241,7 @@ pub trait ModelExchange: Common {
     /// Note, it is required that x_nominal[i] > 0.0 [Typically, the nominal values of the
     /// continuous states are used to compute the absolute tolerance required by the integrator.
     /// Example: absoluteTolerance[i] = 0.01*tolerance*x_nominal[i];]
-    fn get_nominals_of_continuous_states(&self, nominals: &mut [f64]) -> FmiStatus;
+    fn get_nominals_of_continuous_states(&self, nominals: &mut [f64]) -> Fmi2Status;
 }
 
 pub trait CoSimulation: Common {
@@ -257,7 +259,7 @@ pub trait CoSimulation: Common {
         current_communication_point: f64,
         communication_step_size: f64,
         new_step: bool,
-    ) -> FmiStatus;
+    ) -> Fmi2Status;
 
     /// Cancel a running asynchronous step.
     ///
@@ -265,8 +267,8 @@ pub trait CoSimulation: Common {
     /// asynchronous execution. The master calls this function if e.g. the co-simulation run is
     /// stopped by the user or one of the slaves. Afterwards it is only allowed to call the
     /// functions `terminate()` or `reset()`.
-    fn cancel_step(&self) -> FmiStatus;
+    fn cancel_step(&self) -> Fmi2Status;
 
     /// Inquire into slave status during asynchronous step.
-    fn get_status(&self, kind: StatusKind) -> FmiStatus;
+    fn get_status(&self, kind: StatusKind) -> Fmi2Status;
 }

@@ -10,6 +10,8 @@
 //! }
 //! ```
 
+#![deny(clippy::all)]
+
 #[cfg(feature = "fmi2")]
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
@@ -19,9 +21,7 @@ pub mod import;
 // Re-exports
 pub use self::import::Import;
 
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Error instantiating import")]
     Instantiation,
@@ -107,6 +107,10 @@ pub enum Error {
     //Fmi3ModelError(#[from] fmi3::model::ModelError),
     #[error(transparent)]
     LibLoading(#[from] libloading::Error),
+
+    #[cfg(feature = "fmi2")]
+    #[error(transparent)]
+    Fmi2Error(#[from] fmi2::Fmi2Err),
 }
 
 /// Ok Status returned by wrapped FMI functions.

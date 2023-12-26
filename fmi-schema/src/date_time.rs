@@ -1,3 +1,5 @@
+//! DateTime support for FMI schema.
+
 /// A wrapper around `chrono::DateTime` that implements `FromStr` for `xsd:dateTime`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DateTime(chrono::DateTime<chrono::FixedOffset>);

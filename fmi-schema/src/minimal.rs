@@ -37,6 +37,6 @@ impl FromStr for ModelDescription {
     type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        yaserde::de::from_str(s).map_err(|e| crate::Error::XmlParse(e))
+        yaserde::de::from_str(s).map_err(crate::Error::XmlParse)
     }
 }

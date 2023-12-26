@@ -1,4 +1,4 @@
-use std::{io::Read, path::Path, str::FromStr};
+use std::{path::Path, str::FromStr};
 
 #[cfg(feature = "fmi2")]
 use crate::fmi2;
@@ -10,7 +10,7 @@ use fmi_schema::minimal::ModelDescription as MinModel;
 
 const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 
-pub trait FmiImport<'a>: Sized {
+pub trait FmiImport: Sized {
     /// The raw parsed XML schema type
     type Schema;
 
@@ -18,7 +18,7 @@ pub trait FmiImport<'a>: Sized {
     type Binding;
 
     /// Create a new FMI import from a directory containing the unzipped FMU
-    fn new(dir: tempfile::TempDir, schema_xml: String) -> Result<Self, Error>;
+    fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error>;
 
     /// Return the path to the extracted FMU
     fn archive_path(&self) -> &std::path::Path;
@@ -60,13 +60,10 @@ impl Import {
 
         // Open and read the modelDescription XML into a string
         let descr_file_path = temp_dir.path().join(MODEL_DESCRIPTION);
-        let mut descr_file = std::fs::File::open(descr_file_path)?;
-        let mut descr_buf = String::new();
-        let descr_size = descr_file.read_to_string(&mut descr_buf)?;
-        log::trace!("Read {descr_size} bytes from {MODEL_DESCRIPTION}");
+        let descr_xml = std::fs::read_to_string(&descr_file_path)?;
 
         // Initial non-version-specific model description
-        let descr = MinModel::from_str(&descr_buf)?;
+        let descr = MinModel::from_str(&descr_xml)?;
         log::trace!(
             "Found FMI {} named '{}",
             descr.fmi_version,
@@ -75,10 +72,10 @@ impl Import {
 
         match descr.version()?.major {
             #[cfg(feature = "fmi2")]
-            2 => fmi2::import::Fmi2::new(temp_dir, &descr_buf).map(|import| Import::Fmi2(import)),
+            2 => fmi2::import::Fmi2::new(temp_dir, &descr_xml).map(|import| Import::Fmi2(import)),
 
             #[cfg(feature = "fmi3")]
-            3 => Ok(Self::Fmi3(fmi3::import::Fmi3::new(temp_dir, descr_buf)?)),
+            3 => fmi3::import::Fmi3::new(temp_dir, &descr_xml).map(|import| Import::Fmi3(import)),
 
             _ => {
                 return Err(Error::UnsupportedFmiVersion(descr.fmi_version.to_string()));
@@ -106,7 +103,7 @@ impl Import {
 }
 
 // TODO Make this work on other targets
-//#[cfg(target_os = "linux")]
+#[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,9 +115,9 @@ mod tests {
             .unwrap()
             .as_fmi2()
             .unwrap();
-        assert_eq!(import.raw_schema().fmi_version, "2.0");
-        assert_eq!(import.raw_schema().model_name, "BouncingBall");
-        let binding = import.raw_bindings().unwrap();
+        assert_eq!(import.model_description().fmi_version, "2.0");
+        assert_eq!(import.model_description().model_name, "BouncingBall");
+        let binding = import.binding().unwrap();
         let ver = unsafe {
             std::ffi::CStr::from_ptr(binding.fmi2GetVersion())
                 .to_str()
@@ -149,12 +146,24 @@ mod tests {
         assert_eq!(ver, "3.0");
 
         let mut inst1 = import.instantiate_me("inst1", true, true).unwrap();
-        //inst1 .set_debug_logging(true, import.model().log_categories.keys()) .unwrap();
-        inst1.enter_initialization_mode(None, 0.0, None).unwrap();
-        inst1.exit_initialization_mode().unwrap();
-        inst1.set_time(1234.0).unwrap();
+        let log_cats: Vec<_> = import
+            .model_description()
+            .log_categories
+            .as_ref()
+            .unwrap()
+            .categories
+            .iter()
+            .map(|x| x.name.as_str())
+            .collect();
+        inst1.set_debug_logging(true, &log_cats).ok().unwrap();
+        inst1
+            .enter_initialization_mode(None, 0.0, None)
+            .ok()
+            .unwrap();
+        inst1.exit_initialization_mode().ok().unwrap();
+        inst1.set_time(1234.0).ok().unwrap();
 
-        inst1.enter_continuous_time_mode().unwrap();
+        inst1.enter_continuous_time_mode().ok().unwrap();
 
         let states = (0..import
             .model_description()
@@ -165,13 +174,14 @@ mod tests {
             .collect::<Vec<_>>();
         dbg!(&states);
 
-        inst1.set_continuous_states(&states).unwrap();
+        inst1.set_continuous_states(&states).ok().unwrap();
         let ret = inst1.completed_integrator_step(false).unwrap();
         dbg!(ret);
 
         let mut ders = vec![0.0; states.len()];
         inst1
             .get_continuous_state_derivatives(ders.as_mut_slice())
+            .ok()
             .unwrap();
         dbg!(ders);
     }
@@ -183,7 +193,7 @@ mod tests {
             .unwrap()
             .as_fmi2()
             .unwrap();
-        assert_eq!(import.raw_schema().fmi_version, "2.0");
+        assert_eq!(import.model_description().fmi_version, "2.0");
         //let _me = import.container_me().unwrap();
     }
 

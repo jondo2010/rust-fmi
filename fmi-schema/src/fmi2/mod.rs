@@ -32,7 +32,7 @@ impl FromStr for FmiModelDescription {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        yaserde::de::from_str(s).map_err(|e| Error::XmlParse(e))
+        yaserde::de::from_str(s).map_err(Error::XmlParse)
     }
 }
 
@@ -40,7 +40,7 @@ impl VariableCounts for ModelVariables {
     fn model_counts(&self) -> Counts {
         self.variables
             .iter()
-            .fold(Counts::default(), |mut cts, ref sv| {
+            .fold(Counts::default(), |mut cts, sv| {
                 match sv.variability {
                     Variability::Constant => {
                         cts.num_constants += 1;

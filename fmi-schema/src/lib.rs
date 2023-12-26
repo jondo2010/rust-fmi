@@ -13,6 +13,9 @@
 //!
 //! ```
 
+#![deny(unsafe_code)]
+#![deny(clippy::all)]
+
 use thiserror::Error;
 
 pub mod date_time;

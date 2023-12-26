@@ -1,4 +1,4 @@
-use super::{binding, FmiStatus};
+use super::{binding, Fmi3Status};
 
 /// Callback function for logging
 pub(crate) unsafe extern "C" fn callback_log(
@@ -7,7 +7,7 @@ pub(crate) unsafe extern "C" fn callback_log(
     category: binding::fmi3String,
     message: binding::fmi3String,
 ) {
-    let status = FmiStatus::from(status);
+    let status = Fmi3Status::from(status);
     let category = std::ffi::CStr::from_ptr(category)
         .to_str()
         .unwrap_or("INVALID");
@@ -18,12 +18,13 @@ pub(crate) unsafe extern "C" fn callback_log(
     println!("status: {status:?}, category: {category}, message: {message}",);
 
     log::log!(
-        match status {
-            FmiStatus::Ok => log::Level::Info,
-            FmiStatus::Warning => log::Level::Warn,
-            FmiStatus::Discard => log::Level::Warn,
-            FmiStatus::Error => log::Level::Error,
-            FmiStatus::Fatal => log::Level::Error,
+        match status.0 {
+            binding::fmi3Status_fmi3OK => log::Level::Info,
+            binding::fmi3Status_fmi3Warning => log::Level::Warn,
+            binding::fmi3Status_fmi3Discard => log::Level::Warn,
+            binding::fmi3Status_fmi3Error => log::Level::Error,
+            binding::fmi3Status_fmi3Fatal => log::Level::Error,
+            _ => log::Level::Error,
         },
         "status: {status:?}, category: {category}, message: {message}",
     );

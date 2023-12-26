@@ -31,7 +31,7 @@ impl FromStr for FmiModelDescription {
     type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        yaserde::de::from_str(s).map_err(|e| Error::XmlParse(e))
+        yaserde::de::from_str(s).map_err(Error::XmlParse)
     }
 }
 

@@ -1,6 +1,27 @@
 //! Traits for the different instance types.
 
-use crate::Error;
+use crate::fmi3::Fmi3Err;
+
+use super::{binding, Fmi3Status};
+
+/// Return value of [`Common::update_discrete_states()`]
+#[derive(Default, Debug, PartialEq)]
+pub struct DiscreteStates {
+    /// The importer must stay in Event Mode for another event iteration, starting a new super-dense time instant.
+    pub discrete_states_need_update: bool,
+    /// The FMU requests to stop the simulation and the importer must call [`Common::terminate()`].
+    pub terminate_simulation: bool,
+    /// At least one nominal value of the states has changed and can be inquired with [`ModelExchange::get_nominals_of_continuous_states()`].
+    /// This argument is only valid in Model Exchange.
+    pub nominals_of_continuous_states_changed: bool,
+    /// At least one continuous state has changed its value because it was re-initialized (see [https://fmi-standard.org/docs/3.0.1/#reinit]).
+    pub values_of_continuous_states_changed: bool,
+    /// The absolute time of the next time event 𝑇next. The importer must compute up to `next_event_time` (or if needed
+    /// slightly further) and then enter Event Mode using [`Common::enter_event_mode()`]. The FMU must handle this time
+    /// event during the Event Mode that is entered by the first call to [`Common::enter_event_mode()`], at or after
+    /// `next_event_time`.
+    pub next_event_time: Option<f64>,
+}
 
 /// Interface common to all instance types
 pub trait Common {
@@ -11,13 +32,9 @@ pub trait Common {
     fn get_version(&self) -> &str;
 
     /// The function controls the debug logging that is output by the FMU
-    #[cfg(feature = "disabled")]
-    fn set_debug_logging(
-        &mut self,
-        logging_on: bool,
-        //categories: &[LogCategoryKey],
-        categories: impl Iterator<Item = fmi3::model::LogCategoryKey>,
-    ) -> FmiResult<()>;
+    ///
+    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging]
+    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi3Status;
 
     /// Changes state to `Initialization Mode`.
     ///
@@ -37,44 +54,101 @@ pub trait Common {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> Result<(), Error>;
+    ) -> Fmi3Status;
 
     /// Changes the state, depending on the instance type:
     /// * Model Exchange: Event Mode
     /// * Co-Simulation:
-    ///     event_mode_used = true: Event Mode
-    ///     event_mode_used = false: Step Mode
+    ///     * `event_mode_used = true`: Event Mode
+    ///     * `event_mode_used = false`: Step Mode
     /// * Scheduled Execution: Clock Activation Mode.
-    fn exit_initialization_mode(&mut self) -> Result<(), Error>;
+    fn exit_initialization_mode(&mut self) -> Fmi3Status;
 
     /// This function changes the state to Event Mode.
     ///
-    /// The importer must call fmi3EnterEventMode when any of the following conditions are met:
+    /// The importer must call `enter_event_mode` when any of the following conditions are met:
     /// * time has reached nextEventTime as returned by fmi3UpdateDiscreteStates, or
     /// * the signs of the event indicators signal an event according to Section 3.1.1, or
     /// * the FMU returned with enterEventMode = fmi3True from fmi3CompletedIntegratorStep, or
     /// * the importer plans discrete changes to inputs, or an input Clock needs to be set.
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3EnterEventMode]
-    fn enter_event_mode(&mut self) -> Result<(), Error>;
+    fn enter_event_mode(&mut self) -> Fmi3Status;
 
     /// Changes state to [`Terminated`](https://fmi-standard.org/docs/3.0.1/#Terminated).
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3Terminate]
-    fn terminate(&mut self) -> Result<(), Error>;
+    fn terminate(&mut self) -> Fmi3Status;
 
     /// Is called by the environment to reset the FMU after a simulation run.
     /// The FMU goes into the same state as if newly created. All variables have their default
-    /// values. Before starting a new run [`enter_initialization_mode()`] has to be called.
+    /// values. Before starting a new run [`Common::enter_initialization_mode()`] has to be called.
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3Reset]
-    fn reset(&mut self) -> Result<(), Error>;
+    fn reset(&mut self) -> Fmi3Status;
+
+    /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
+    fn get_float32(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [f32],
+    ) -> Fmi3Status;
+    fn get_float64(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [f64],
+    ) -> Fmi3Status;
+    fn get_int8(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i8]) -> Fmi3Status;
+    fn get_int16(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i16]) -> Fmi3Status;
+    fn get_int32(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i32]) -> Fmi3Status;
+
+    fn set_float32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f32]) -> Fmi3Status;
+    fn set_float64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f64]) -> Fmi3Status;
+    fn set_int8(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i8]) -> Fmi3Status;
+    fn set_int16(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i16]) -> Fmi3Status;
+    fn set_int32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i32]) -> Fmi3Status;
+
+    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
+    #[cfg(disabled)]
+    fn get_fmu_state<Tag>(
+        &mut self,
+        state: Option<Fmu3State<'_, Tag>>,
+    ) -> Result<Fmu3State<'_, Tag>, Error>;
+
+    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetFMUState]
+    #[cfg(disabled)]
+    fn set_fmu_state<Tag>(&mut self, state: &Fmu3State<'_, Tag>) -> Fmi3Status;
+
+    /// This function is called to signal a converged solution at the current super-dense time instant.
+    /// `update_discrete_states` must be called at least once per super-dense time instant.
+    ///
+    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates]
+    fn update_discrete_states(&mut self) -> Result<DiscreteStates, Fmi3Err>;
 }
 
 /// Interface for Model Exchange instances
 pub trait ModelExchange: Common {
     /// This function must be called to change from Event Mode into Continuous-Time Mode in Model Exchange.
-    fn enter_continuous_time_mode(&mut self) -> Result<(), Error>;
+    fn enter_continuous_time_mode(&mut self) -> Fmi3Status;
+
+    /// This function changes the state to Event Mode.
+    ///
+    /// The importer must call `enter_event_mode()` when any of the following conditions are met:
+    /// * time has reached nextEventTime as returned by fmi3UpdateDiscreteStates, or
+    /// * the signs of the event indicators signal an event according to Section 3.1.1, or
+    /// * the FMU returned with enterEventMode = fmi3True from fmi3CompletedIntegratorStep , or
+    /// * the importer plans discrete changes to inputs, or
+    /// * an input Clock needs to be set.
+    ///
+    /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3EnterEventMode]
+    fn enter_event_mode(&mut self) -> Fmi3Status;
+
+    /// Changes state to Reconfiguration Mode in Model Exchange.
+    ///
+    /// [`ModelExchange::enter_configuration_mode()`] must not be called if the FMU contains no tunable structural
+    /// parameters (i.e. with `causality` = [`crate::fmi3::schema::Causality::StructuredParameter`] and
+    /// `variability` = [`crate::fmi3::schema::Variability::Tunable`]).
+    fn enter_configuration_mode(&mut self) -> Fmi3Status;
 
     /// This function is called after every completed step of the integrator provided the capability flag
     /// [`schema::interface_type::Fmi3ModelExchange::needs_completed_integrator_step`] = true.
@@ -90,16 +164,29 @@ pub trait ModelExchange: Common {
     /// Returns: `(enter_event_mode, terminate_simulation)`
     ///
     /// The return value `enter_event_mode` signals that the importer must call
-    /// [`enter_event_mode()`] to handle a step event.
+    /// [`Common::enter_event_mode()`] to handle a step event.
+    ///
     /// When `terminate_simulation` = true, the FMU requests to stop the simulation and the
-    /// importer must call [`terminate()`].
+    /// importer must call [`Common::terminate()`].
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
-    ) -> Result<(bool, bool), Error>;
+    ) -> Result<(bool, bool), Fmi3Err>;
 
     /// Set a new value for the independent variable (typically a time instant).
-    fn set_time(&mut self, time: f64) -> Result<(), Error>;
+    ///
+    /// Argument time is the new value for the real part 𝑡𝑅 of 𝑡:=(𝑡𝑅,0). It refers to the unit of the independent
+    /// variable. time must be larger or equal to:
+    /// * `startTime`,
+    /// * the time at the second last call to fmi3CompletedIntegratorStep,
+    /// * the time at the last call to fmi3EnterEventMode.
+    ///
+    /// [This allows limited simulation backward in time. As soon as an event occurs (fmi3EnterEventMode was called),
+    /// going back in time is impossible, because fmi3EnterEventMode / fmi3UpdateDiscreteStates can only compute the
+    /// next discrete state, not the previous one.]
+    ///
+    /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3SetTime]
+    fn set_time(&mut self, time: f64) -> Fmi3Status;
 
     /// Set new continuous state values.
     ///
@@ -107,16 +194,55 @@ pub trait ModelExchange: Common {
     ///
     /// * `states`: the new values for each continuous state. The order of the continuousStates
     ///             vector must be the same as the ordered list of elements in
-    ///             [`model::ModelStructure::continuous_state_derivatives`].
-    fn set_continuous_states(&mut self, states: &[f64]) -> Result<(), Error>;
+    ///             [`crate::fmi3::schema::ModelStructure::continuous_state_derivatives`].
+    fn set_continuous_states(&mut self, states: &[f64]) -> Fmi3Status;
+
+    /// Return the current continuous state vector.
+    ///
+    /// Arguments:
+    ///
+    /// * `continuous_states`: returns the values for each continuous state with the same convention for the order as
+    ///                        defined for [`ModelExchange::set_continuous_states()`].
+    ///
+    /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3GetContinuousStates]
+    fn get_continuous_states(&mut self, continuous_states: &mut [f64]) -> Fmi3Status;
 
     /// Fetch the first-order derivatives with respect to the independent variable (usually
     /// time) of the continuous states.
     ///
     /// Returns:
-    /// [`FmiResult::Discard`] if the FMU was not able to compute the derivatives according to
+    /// [`crate::fmi3::Fmi3Err::Discard`] if the FMU was not able to compute the derivatives according to
     /// 𝐟cont because, for example, a numerical issue, such as division by zero, occurred.
-    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Result<(), Error>;
+    fn get_continuous_state_derivatives(&mut self, states: &mut [f64]) -> Fmi3Status;
+
+    /// Return the nominal values of the continuous states.
+    ///
+    /// Returns:
+    ///
+    /// * `nominals`: returns the nominal values for each continuous state with the same convention for the order as
+    ///               defined for [`ModelExchange::set_continuous_states()`]. If the FMU does not have information about
+    ///               the nominal value of a continuous state i, a nominal value nominals[i] = 1.0 should be returned.
+    ///               It is required that nominals[i] > 0.0.
+    ///
+    /// This function should always be called after calling function [`ModelExchange::update_discrete_states()`], if
+    /// `nominals_of_continuous_states_changed = true`, since then the nominal values of the continuous states have
+    /// changed [for example, because the mapping of the continuous states to variables has changed because of internal
+    /// dynamic state selection].
+    ///
+    /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3GetNominalsOfContinuousStates]
+    fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Fmi3Status;
+
+    /// Returns the event indicators signaling state events by their sign changes.
+    ///
+    /// Arguments:
+    /// * `event_indicators`: returns the values for the event indicators in the order defined by the ordered list of
+    ///                       XML elements <EventIndicator>.
+    ///
+    /// [fmi3Status = fmi3Discard should be returned if the FMU was not able to compute the event indicators according
+    /// to 𝐟cont because, for example, a numerical issue, such as division by zero, occurred.]
+    ///
+    /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3GetEventIndicators]
+    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Fmi3Status;
 }
 
 /// Interface for Co-Simulation instances

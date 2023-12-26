@@ -1,7 +1,7 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger::callback_log, FmiStatus},
+    fmi3::{binding, import, logger::callback_log, Fmi3Err, Fmi3Status},
     import::FmiImport,
     Error,
 };
@@ -66,7 +66,7 @@ impl<'a> Instance<'a, ME> {
         //assert_eq!(value_references.len(), values.len());
 
         /*
-        let res: FmiStatus = unsafe {
+        let res: Fmi3Status = unsafe {
             self.binding.fmi3GetFloat32Real(
                 self.instance,
                 value_references.as_ptr(),
@@ -83,19 +83,25 @@ impl<'a> Instance<'a, ME> {
 }
 
 impl<'a> traits::ModelExchange for Instance<'a, ME> {
-    fn enter_continuous_time_mode(&mut self) -> Result<(), Error> {
-        let res: FmiStatus =
-            unsafe { self.binding.fmi3EnterContinuousTimeMode(self.instance) }.into();
-        res.into()
+    fn enter_continuous_time_mode(&mut self) -> Fmi3Status {
+        unsafe { self.binding.fmi3EnterContinuousTimeMode(self.instance) }.into()
+    }
+
+    fn enter_event_mode(&mut self) -> Fmi3Status {
+        unsafe { self.binding.fmi3EnterEventMode(self.instance) }.into()
+    }
+
+    fn enter_configuration_mode(&mut self) -> Fmi3Status {
+        unsafe { self.binding.fmi3EnterConfigurationMode(self.instance) }.into()
     }
 
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
-    ) -> Result<(bool, bool), Error> {
+    ) -> Result<(bool, bool), Fmi3Err> {
         let mut enter_event_mode = false;
         let mut terminate_simulation = false;
-        let res: FmiStatus = unsafe {
+        let res: Fmi3Status = unsafe {
             self.binding.fmi3CompletedIntegratorStep(
                 self.instance,
                 no_set_fmu_state_prior,
@@ -104,41 +110,92 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
             )
         }
         .into();
-        Result::from(res).map(|_| (enter_event_mode, terminate_simulation))
+        res.ok().map(|_| (enter_event_mode, terminate_simulation))
     }
 
-    fn set_time(&mut self, time: f64) -> Result<(), Error> {
-        let res: FmiStatus = unsafe { self.binding.fmi3SetTime(self.instance, time) }.into();
-        res.into()
+    fn set_time(&mut self, time: f64) -> Fmi3Status {
+        unsafe { self.binding.fmi3SetTime(self.instance, time) }.into()
     }
 
-    fn set_continuous_states(&mut self, states: &[f64]) -> Result<(), Error> {
-        let res: FmiStatus = unsafe {
+    fn set_continuous_states(&mut self, states: &[f64]) -> Fmi3Status {
+        assert_eq!(
+            states.len(),
+            self.model.model_structure.continuous_state_derivative.len(),
+            "Invalid length of continuous_states array, must match the ModelDescription."
+        );
+
+        unsafe {
             self.binding
                 .fmi3SetContinuousStates(self.instance, states.as_ptr(), states.len())
         }
-        .into();
-        res.into()
+        .into()
     }
 
-    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Result<(), Error> {
-        #[cfg(feature = "disabled")]
+    fn get_continuous_states(&mut self, continuous_states: &mut [f64]) -> Fmi3Status {
         assert_eq!(
-            derivatives.len(),
-            self.model
-                .model_structure
-                .continuous_state_derivatives
-                .len()
+            continuous_states.len(),
+            self.model.model_structure.continuous_state_derivative.len(),
+            "Invalid length of continuous_states array, must match the ModelDescription."
         );
 
-        let res: FmiStatus = unsafe {
+        unsafe {
+            self.binding.fmi3GetContinuousStates(
+                self.instance,
+                continuous_states.as_mut_ptr(),
+                continuous_states.len(),
+            )
+        }
+        .into()
+    }
+
+    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Fmi3Status {
+        assert_eq!(
+            derivatives.len(),
+            self.model.model_structure.continuous_state_derivative.len(),
+            "Invalid length of derivatives array, must match the ModelDescription."
+        );
+
+        unsafe {
             self.binding.fmi3GetContinuousStateDerivatives(
                 self.instance,
                 derivatives.as_mut_ptr(),
                 derivatives.len(),
             )
         }
-        .into();
-        res.into()
+        .into()
+    }
+
+    fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Fmi3Status {
+        assert_eq!(
+            nominals.len(),
+            self.model.model_structure.continuous_state_derivative.len(),
+            "Invalid length of nominals array, must match the ModelDescription."
+        );
+
+        unsafe {
+            self.binding.fmi3GetNominalsOfContinuousStates(
+                self.instance,
+                nominals.as_mut_ptr(),
+                nominals.len(),
+            )
+        }
+        .into()
+    }
+
+    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Fmi3Status {
+        assert_eq!(
+            event_indicators.len(),
+            self.model.model_structure.event_indicator.len(),
+            "Invalid length of event_indicators array, must match the ModelDescription."
+        );
+
+        unsafe {
+            self.binding.fmi3GetEventIndicators(
+                self.instance,
+                event_indicators.as_mut_ptr(),
+                event_indicators.len(),
+            )
+        }
+        .into()
     }
 }

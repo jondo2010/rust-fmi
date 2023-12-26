@@ -1,8 +1,9 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
-use crate::{import::FmiImport, FmiError, FmiResult};
+use super::binding;
+use crate::{import::FmiImport, Error};
 
-use super::{binding, schema};
+use fmi_schema::fmi2 as schema;
 
 #[derive(Debug)]
 pub struct Fmi2 {
@@ -16,19 +17,18 @@ impl FmiImport for Fmi2 {
     type Schema = schema::FmiModelDescription;
     type Binding = binding::Fmi2Binding;
 
-    fn new(dir: tempfile::TempDir, schema_xml: &str) -> FmiResult<Self> {
-        let schema: schema::FmiModelDescription =
-            yaserde::de::from_str(schema_xml).map_err(FmiError::Parse)?;
+    fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error> {
+        let schema = schema::FmiModelDescription::from_str(&schema_xml)?;
         Ok(Self { dir, schema })
     }
 
     #[inline]
-    fn path(&self) -> &std::path::Path {
+    fn archive_path(&self) -> &std::path::Path {
         self.dir.path()
     }
 
     /// Get the path to the shared library
-    fn shared_lib_path(&self) -> FmiResult<PathBuf> {
+    fn shared_lib_path(&self) -> Result<PathBuf, Error> {
         let platform_folder = match (std::env::consts::OS, std::env::consts::ARCH) {
             ("windows", "x86_64") => "win64",
             ("windows", "x86") => "win32",
@@ -45,15 +45,14 @@ impl FmiImport for Fmi2 {
             .join(fname))
     }
 
-    /// Get a reference to the raw-schema model description
-    fn raw_schema(&self) -> &Self::Schema {
+    fn model_description(&self) -> &Self::Schema {
         &self.schema
     }
 
     /// Load the plugin shared library and return the raw bindings.
-    fn raw_bindings(&self) -> FmiResult<Self::Binding> {
+    fn binding(&self) -> Result<Self::Binding, Error> {
         let lib_path = self.dir.path().join(self.shared_lib_path()?);
         log::trace!("Loading shared library {:?}", lib_path);
-        unsafe { binding::Fmi2Binding::new(lib_path).map_err(FmiError::from) }
+        unsafe { binding::Fmi2Binding::new(lib_path).map_err(Error::from) }
     }
 }
