@@ -16,8 +16,14 @@ impl<'a> Instance<'a, CS> {
         visible: bool,
         logging_on: bool,
     ) -> Result<Self, Error> {
-        let binding = import.binding()?;
         let schema = import.model_description();
+
+        let co_simulation = schema
+            .co_simulation
+            .as_ref()
+            .ok_or(Error::UnsupportedFmuType("CoSimulation".to_owned()))?;
+
+        let binding = import.binding(&co_simulation.model_identifier)?;
 
         let callbacks = Box::new(CallbackFunctions::default());
         //check_consistency(&import, &cs.common)?;

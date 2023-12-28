@@ -6,7 +6,7 @@ use crate::{import::FmiImport, Error};
 
 use super::{
     binding,
-    instance::{Instance, ME},
+    instance::{Instance, CS, ME},
     schema,
 };
 
@@ -38,7 +38,7 @@ impl FmiImport for Fmi3 {
     }
 
     /// Get the path to the shared library
-    fn shared_lib_path(&self) -> Result<PathBuf, Error> {
+    fn shared_lib_path(&self, model_identifier: &str) -> Result<PathBuf, Error> {
         use std::env::consts::{ARCH, OS};
         let platform_folder = match (OS, ARCH) {
             ("windows", "x86_64") => "x86_64-windows",
@@ -50,8 +50,7 @@ impl FmiImport for Fmi3 {
             ("macos", "aarch64") => "aarch64-darwin",
             _ => panic!("Unsupported platform: {OS} {ARCH}"),
         };
-        let model_name = &self.schema.model_name;
-        let fname = format!("{model_name}{}", std::env::consts::DLL_SUFFIX);
+        let fname = format!("{model_identifier}{}", std::env::consts::DLL_SUFFIX);
         Ok(std::path::PathBuf::from("binaries")
             .join(platform_folder)
             .join(fname))
@@ -63,9 +62,12 @@ impl FmiImport for Fmi3 {
     }
 
     /// Load the plugin shared library and return the raw bindings.
-    fn binding(&self) -> Result<Self::Binding, Error> {
-        let lib_path = self.dir.path().join(self.shared_lib_path()?);
-        log::trace!("Loading shared library {:?}", lib_path);
+    fn binding(&self, model_identifier: &str) -> Result<Self::Binding, Error> {
+        let lib_path = self
+            .dir
+            .path()
+            .join(self.shared_lib_path(model_identifier)?);
+        log::debug!("Loading shared library {:?}", lib_path);
         unsafe { binding::Fmi3Binding::new(lib_path).map_err(Error::from) }
     }
 }
@@ -78,12 +80,37 @@ impl Fmi3 {
     }
 
     /// Create a new instance of the FMU for Model-Exchange
+    ///
+    /// See [`Instance::<ME>::new()`] for more information.
     pub fn instantiate_me(
         &self,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
     ) -> Result<Instance<'_, ME>, Error> {
-        Instance::new(self, instance_name, visible, logging_on)
+        Instance::<'_, ME>::new(self, instance_name, visible, logging_on)
+    }
+
+    /// Create a new instance of the FMU for Co-Simulation
+    ///
+    /// See [`Instance::<CS>::new()`] for more information.
+    pub fn instantiate_cs(
+        &self,
+        instance_name: &str,
+        visible: bool,
+        logging_on: bool,
+        event_mode_used: bool,
+        early_return_allowed: bool,
+        required_intermediate_variables: &[binding::fmi3ValueReference],
+    ) -> Result<Instance<'_, CS>, Error> {
+        Instance::<'_, CS>::new(
+            self,
+            instance_name,
+            visible,
+            logging_on,
+            event_mode_used,
+            early_return_allowed,
+            required_intermediate_variables,
+        )
     }
 }

@@ -15,11 +15,16 @@ impl<'a> Instance<'a, ME> {
         visible: bool,
         logging_on: bool,
     ) -> Result<Self, Error> {
-        let binding = import.binding()?;
         let schema = import.model_description();
 
+        let model_exchange = schema
+            .model_exchange
+            .as_ref()
+            .ok_or(Error::UnsupportedFmuType("ModelExchange".to_owned()))?;
+
+        let binding = import.binding(&model_exchange.model_identifier)?;
+
         let callbacks = Box::new(CallbackFunctions::default());
-        //let me = import.container_me()?;
         //check_consistency(&import, &me.common)?;
 
         let instance_name = CString::new(instance_name).expect("Error building CString");

@@ -2,8 +2,9 @@
 
 use super::{binding, schema, Fmi3Status};
 
-mod co_simulation {}
+mod co_simulation;
 mod scheduled_execution {}
+mod common;
 mod model_exchange;
 pub mod traits;
 
@@ -51,148 +52,82 @@ impl<'a, Tag> Drop for Fmu3State<'a, Tag> {
     }
 }
 
-macro_rules! impl_getter_setter {
-    ($ty:ty, $get:ident, $set:ident, $fmi_get:ident, $fmi_set:ident) => {
-        fn $get(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [$ty]) -> Fmi3Status {
-            unsafe {
-                self.binding.$fmi_get(
-                    self.instance,
-                    vrs.as_ptr(),
-                    vrs.len() as _,
-                    values.as_mut_ptr(),
-                    values.len() as _,
-                )
-            }
-            .into()
-        }
-
-        fn $set(&mut self, vrs: &[binding::fmi3ValueReference], values: &[$ty]) -> Fmi3Status {
-            unsafe {
-                self.binding.$fmi_set(
-                    self.instance,
-                    vrs.as_ptr(),
-                    vrs.len() as _,
-                    values.as_ptr(),
-                    values.len() as _,
-                )
-            }
-            .into()
-        }
-    };
+/// Return value of [`Common::update_discrete_states()`]
+#[derive(Default, Debug, PartialEq)]
+pub struct DiscreteStates {
+    /// The importer must stay in Event Mode for another event iteration, starting a new super-dense time instant.
+    pub discrete_states_need_update: bool,
+    /// The FMU requests to stop the simulation and the importer must call [`Common::terminate()`].
+    pub terminate_simulation: bool,
+    /// At least one nominal value of the states has changed and can be inquired with [`ModelExchange::get_nominals_of_continuous_states()`].
+    /// This argument is only valid in Model Exchange.
+    pub nominals_of_continuous_states_changed: bool,
+    /// At least one continuous state has changed its value because it was re-initialized (see [https://fmi-standard.org/docs/3.0.1/#reinit]).
+    pub values_of_continuous_states_changed: bool,
+    /// The absolute time of the next time event 𝑇next. The importer must compute up to `next_event_time` (or if needed
+    /// slightly further) and then enter Event Mode using [`Common::enter_event_mode()`]. The FMU must handle this time
+    /// event during the Event Mode that is entered by the first call to [`Common::enter_event_mode()`], at or after
+    /// `next_event_time`.
+    pub next_event_time: Option<f64>,
 }
 
-impl<'a, Tag> traits::Common for Instance<'a, Tag> {
-    fn name(&self) -> &str {
-        &self.model.model_name
-    }
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod tests {
+    #[test_log::test]
+    #[cfg(feature = "fmi3")]
+    fn test_instance() {
+        use crate::{
+            fmi3::instance::traits::{Common, ModelExchange},
+            import::FmiImport as _,
+            Import,
+        };
 
-    fn get_version(&self) -> &str {
-        unsafe { std::ffi::CStr::from_ptr(self.binding.fmi3GetVersion()) }
-            .to_str()
-            .expect("Invalid version string")
-    }
+        let import = Import::new("data/reference_fmus/3.0/BouncingBall.fmu")
+            .unwrap()
+            .as_fmi3()
+            .unwrap();
 
-    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi3Status {
-        let cats_vec = categories
+        let mut inst1 = import.instantiate_me("inst1", true, true).unwrap();
+        assert_eq!(inst1.get_version(), "3.0");
+        let log_cats: Vec<_> = import
+            .model_description()
+            .log_categories
+            .as_ref()
+            .unwrap()
+            .categories
             .iter()
-            .map(|cat| std::ffi::CString::new(cat.as_bytes()).expect("Error building CString"))
+            .map(|x| x.name.as_str())
+            .collect();
+        inst1.set_debug_logging(true, &log_cats).ok().unwrap();
+        inst1
+            .enter_initialization_mode(None, 0.0, None)
+            .ok()
+            .unwrap();
+        inst1.exit_initialization_mode().ok().unwrap();
+        inst1.set_time(1234.0).ok().unwrap();
+
+        inst1.enter_continuous_time_mode().ok().unwrap();
+
+        let states = (0..import
+            .model_description()
+            .model_structure
+            .continuous_state_derivative
+            .len())
+            .map(|x| x as f64)
             .collect::<Vec<_>>();
 
-        unsafe {
-            self.binding.fmi3SetDebugLogging(
-                self.instance,
-                logging_on,
-                cats_vec.len() as _,
-                cats_vec.as_ptr() as _,
-            )
-        }
-        .into()
-    }
+        inst1.set_continuous_states(&states).ok().unwrap();
+        let (enter_event_mode, terminate_simulation) =
+            inst1.completed_integrator_step(false).unwrap();
+        assert_eq!(enter_event_mode, false);
+        assert_eq!(terminate_simulation, false);
 
-    fn enter_initialization_mode(
-        &mut self,
-        tolerance: Option<f64>,
-        start_time: f64,
-        stop_time: Option<f64>,
-    ) -> Fmi3Status {
-        unsafe {
-            self.binding.fmi3EnterInitializationMode(
-                self.instance,
-                tolerance.is_some(),
-                tolerance.unwrap_or_default(),
-                start_time,
-                stop_time.is_some(),
-                stop_time.unwrap_or_default(),
-            )
-        }
-        .into()
-    }
-
-    fn exit_initialization_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3ExitInitializationMode(self.instance) }.into()
-    }
-
-    fn enter_event_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterEventMode(self.instance) }.into()
-    }
-
-    fn terminate(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3Terminate(self.instance) }.into()
-    }
-
-    fn reset(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3Reset(self.instance) }.into()
-    }
-
-    impl_getter_setter!(
-        f32,
-        get_float32,
-        set_float32,
-        fmi3GetFloat32,
-        fmi3SetFloat32
-    );
-    impl_getter_setter!(
-        f64,
-        get_float64,
-        set_float64,
-        fmi3GetFloat64,
-        fmi3SetFloat64
-    );
-    impl_getter_setter!(i8, get_int8, set_int8, fmi3GetInt8, fmi3SetInt8);
-    impl_getter_setter!(i16, get_int16, set_int16, fmi3GetInt16, fmi3SetInt16);
-    impl_getter_setter!(i32, get_int32, set_int32, fmi3GetInt32, fmi3SetInt32);
-
-    #[cfg(disabled)]
-    fn get_fmu_state<T>(
-        &mut self,
-        state: Option<Fmu3State<'_, T>>,
-    ) -> Result<Fmu3State<'_, T>, Error> {
-        unsafe { self.binding.fmi3GetFMUState(self.instance, FMUState) }
-    }
-
-    fn update_discrete_states(&mut self) -> Result<traits::DiscreteStates, super::Fmi3Err> {
-        let mut res = traits::DiscreteStates::default();
-
-        let mut next_event_time_defined = false;
-        let mut next_event_time = 0.0;
-
-        let status: Fmi3Status = unsafe {
-            self.binding.fmi3UpdateDiscreteStates(
-                self.instance,
-                &mut res.discrete_states_need_update as _,
-                &mut res.terminate_simulation as _,
-                &mut res.nominals_of_continuous_states_changed as _,
-                &mut res.values_of_continuous_states_changed as _,
-                &mut next_event_time_defined as _,
-                &mut next_event_time as _,
-            )
-        }
-        .into();
-
-        if next_event_time_defined {
-            res.next_event_time = Some(next_event_time);
-        }
-
-        status.ok().map(|_| res)
+        let mut ders = vec![0.0; states.len()];
+        inst1
+            .get_continuous_state_derivatives(ders.as_mut_slice())
+            .ok()
+            .unwrap();
+        assert_eq!(ders, vec![1.0, -9.81]);
     }
 }

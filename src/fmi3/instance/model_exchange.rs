@@ -1,8 +1,8 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger::callback_log, Fmi3Err, Fmi3Status},
-    import::FmiImport,
+    fmi3::{binding, import, logger, Fmi3Err, Fmi3Status},
+    import::FmiImport as _,
     Error,
 };
 
@@ -15,9 +15,14 @@ impl<'a> Instance<'a, ME> {
         visible: bool,
         logging_on: bool,
     ) -> Result<Self, Error> {
-        let binding = import.binding()?;
         let schema = import.model_description();
-        //let model = import.model();
+
+        let model_exchange = schema
+            .model_exchange
+            .as_ref()
+            .ok_or(Error::UnsupportedFmuType("ModelExchange".to_owned()))?;
+
+        let binding = import.binding(&model_exchange.model_identifier)?;
 
         let instance_name = CString::new(instance_name).expect("Invalid instance name");
         let instantiation_token = CString::new(schema.instantiation_token.as_bytes())
@@ -33,7 +38,7 @@ impl<'a> Instance<'a, ME> {
                 visible,
                 logging_on,
                 std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
-                Some(callback_log),
+                Some(logger::callback_log),
             )
         };
 
@@ -47,38 +52,6 @@ impl<'a> Instance<'a, ME> {
             model: schema,
             _tag: std::marker::PhantomData,
         })
-    }
-
-    #[cfg(feature = "disabled")]
-    fn get_values(
-        &mut self,
-        variables: &[model::VariableKey],
-        //values: &mut [T],
-    ) -> FmiResult<()> {
-        variables.iter().map(|&key| {
-            let var = self
-                .model
-                .model_variables
-                .get(key)
-                .expect("Invalid variable key");
-        });
-
-        //assert_eq!(value_references.len(), values.len());
-
-        /*
-        let res: Fmi3Status = unsafe {
-            self.binding.fmi3GetFloat32Real(
-                self.instance,
-                value_references.as_ptr(),
-                value_references.len(),
-                values.as_mut_ptr() as *mut f32,
-                values.len(),
-            )
-        }
-        .into();
-        res.into()
-        */
-        todo!()
     }
 }
 

@@ -187,16 +187,39 @@ pub enum Causality {
     StructuredParameter,
 }
 
+/// Enumeration that defines the time dependency of the variable, in other words, it defines the time instants when a
+/// variable may be changed by the importer or may change its value due to FMU internal computations, depending on
+/// their causality.
+///
+/// See [https://fmi-standard.org/docs/3.0.1/#variability]
 #[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Variability {
+    /// The value of the variable never changes.
     #[yaserde(rename = "constant")]
     Constant,
+    /// The value of the variable is fixed in super state Initialized, in other words, after
+    /// [`exit_initialization_mode()`] was called the variable value does not change anymore. The default for variables
+    /// of causality [`Causality::Parameter`], [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`]
+    /// is fixed.
     #[yaserde(rename = "fixed")]
     Fixed,
+    /// The value of the variable is constant between events (ME and CS if Event Mode is supported) and between
+    /// communication points (CS and SE). A parameter with variability = tunable may be changed only in Event Mode or,
+    /// if Event Mode is not supported, at communication points (CS and SE).
     #[yaserde(rename = "tunable")]
     Tunable,
+    /// * Model Exchange: The value of the variable may change only in Event Mode.
+    /// * Co-Simulation: If Event Mode is used (see `event_mode_used`), the value of the variable may only change in
+    ///   Event Mode. If Event Mode is not used, the value may change at communication points and the FMU must detect
+    ///   and handle such events internally. During Intermediate Update Mode, discrete variables are not allowed to
+    ///   change.
+    /// * Scheduled Execution: The value may change only at communication points.
     #[yaserde(rename = "discrete")]
     Discrete,
+    /// Only variables of type [`FmiFloat32`]or [`FmiFloat64`] may be continuous. The default for variables of type
+    /// `FmiFloat32` and `FmiFloat64` and causality other than [`Causality::Parameter`],
+    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is continuous. Variables with
+    /// variability continuous may change in Initialization Mode and in super state Initialized.
     #[yaserde(rename = "continuous")]
     #[default]
     Continuous,

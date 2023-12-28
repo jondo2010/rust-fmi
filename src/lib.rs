@@ -62,10 +62,9 @@ pub enum Error {
     #[error("unknown toolchain version: {}", version)]
     UnknownToolchainVersion { version: String },
 
-    /*
-    #[error("Model type {} not supported by this FMU", .0)]
-    UnsupportedFmuType(fmi2::fmi2Type),
-    */
+    #[error("Model type {0} not supported by this FMU")]
+    UnsupportedFmuType(String),
+
     #[error("Unsupported platform {os}/{arch}")]
     UnsupportedPlatform { os: String, arch: String },
 
@@ -106,7 +105,10 @@ pub enum Error {
     //#[error(transparent)]
     //Fmi3ModelError(#[from] fmi3::model::ModelError),
     #[error(transparent)]
-    LibLoading(#[from] libloading::Error),
+    LibLoading {
+        #[from]
+        source: libloading::Error,
+    },
 
     #[cfg(feature = "fmi2")]
     #[error(transparent)]

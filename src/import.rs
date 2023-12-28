@@ -24,7 +24,7 @@ pub trait FmiImport: Sized {
     fn archive_path(&self) -> &std::path::Path;
 
     /// Get the path to the shared library
-    fn shared_lib_path(&self) -> Result<std::path::PathBuf, Error>;
+    fn shared_lib_path(&self, model_identifier: &str) -> Result<std::path::PathBuf, Error>;
 
     /// Return the path to the resources directory
     fn resource_url(&self) -> url::Url {
@@ -36,7 +36,7 @@ pub trait FmiImport: Sized {
     fn model_description(&self) -> &Self::Schema;
 
     /// Load the plugin shared library and return the raw bindings.
-    fn binding(&self) -> Result<Self::Binding, Error>;
+    fn binding(&self, model_identifier: &str) -> Result<Self::Binding, Error>;
 }
 
 /// Import is responsible for extracting the FMU, parsing the modelDescription XML and loading the
@@ -52,11 +52,15 @@ pub enum Import {
 impl Import {
     /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
     pub fn new(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let file = std::fs::File::open(path)?;
+        let file = std::fs::File::open(path.as_ref())?;
         let mut archive = zip::ZipArchive::new(file)?;
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
-        log::trace!("Extracting {archive:?} into {temp_dir:?}");
+        log::debug!("Extracting {:?} into {temp_dir:?}", path.as_ref());
         archive.extract(&temp_dir)?;
+
+        for fname in archive.file_names() {
+            log::trace!("  - {}", fname);
+        }
 
         // Open and read the modelDescription XML into a string
         let descr_file_path = temp_dir.path().join(MODEL_DESCRIPTION);
@@ -64,7 +68,7 @@ impl Import {
 
         // Initial non-version-specific model description
         let descr = MinModel::from_str(&descr_xml)?;
-        log::trace!(
+        log::debug!(
             "Found FMI {} named '{}",
             descr.fmi_version,
             descr.model_name
@@ -117,7 +121,9 @@ mod tests {
             .unwrap();
         assert_eq!(import.model_description().fmi_version, "2.0");
         assert_eq!(import.model_description().model_name, "BouncingBall");
-        let binding = import.binding().unwrap();
+        let me = import.model_description().model_exchange.as_ref().unwrap();
+        assert_eq!(me.model_identifier, "BouncingBall");
+        let binding = import.binding(&me.model_identifier).unwrap();
         let ver = unsafe {
             std::ffi::CStr::from_ptr(binding.fmi2GetVersion())
                 .to_str()
@@ -129,64 +135,23 @@ mod tests {
     #[test_log::test]
     #[cfg(feature = "fmi3")]
     fn test_import_fmi3() {
-        use crate::fmi3::instance::traits::{Common, ModelExchange};
-
         let import = Import::new("data/reference_fmus/3.0/BouncingBall.fmu")
             .unwrap()
             .as_fmi3()
             .unwrap();
         assert_eq!(import.model_description().fmi_version, "3.0");
         assert_eq!(import.model_description().model_name, "BouncingBall");
-        let binding = import.binding().unwrap();
+        let me = import.model_description().model_exchange.as_ref().unwrap();
+        let binding = import.binding(&me.model_identifier).unwrap();
         let ver = unsafe {
             std::ffi::CStr::from_ptr(binding.fmi3GetVersion())
                 .to_str()
                 .unwrap()
         };
         assert_eq!(ver, "3.0");
-
-        let mut inst1 = import.instantiate_me("inst1", true, true).unwrap();
-        let log_cats: Vec<_> = import
-            .model_description()
-            .log_categories
-            .as_ref()
-            .unwrap()
-            .categories
-            .iter()
-            .map(|x| x.name.as_str())
-            .collect();
-        inst1.set_debug_logging(true, &log_cats).ok().unwrap();
-        inst1
-            .enter_initialization_mode(None, 0.0, None)
-            .ok()
-            .unwrap();
-        inst1.exit_initialization_mode().ok().unwrap();
-        inst1.set_time(1234.0).ok().unwrap();
-
-        inst1.enter_continuous_time_mode().ok().unwrap();
-
-        let states = (0..import
-            .model_description()
-            .model_structure
-            .continuous_state_derivative
-            .len())
-            .map(|x| x as f64)
-            .collect::<Vec<_>>();
-        dbg!(&states);
-
-        inst1.set_continuous_states(&states).ok().unwrap();
-        let ret = inst1.completed_integrator_step(false).unwrap();
-        dbg!(ret);
-
-        let mut ders = vec![0.0; states.len()];
-        inst1
-            .get_continuous_state_derivatives(ders.as_mut_slice())
-            .ok()
-            .unwrap();
-        dbg!(ders);
     }
 
-    #[test]
+    #[test_log::test]
     #[cfg(feature = "fmi2")]
     fn test_import_me() {
         let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
@@ -194,14 +159,19 @@ mod tests {
             .as_fmi2()
             .unwrap();
         assert_eq!(import.model_description().fmi_version, "2.0");
-        //let _me = import.container_me().unwrap();
+        let me = import.instantiate_me("inst1", false, true).unwrap();
+        assert_eq!(fmi2::instance::traits::Common::version(&me), "2.0");
     }
 
-    #[test]
-    #[cfg(feature = "disabled")]
+    #[test_log::test]
+    #[cfg(feature = "fmi2")]
     fn test_import_cs() {
-        let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu").unwrap();
-        assert_eq!(import.descr.fmi_version, "2.0");
-        let _cs = import.container_cs().unwrap();
+        let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
+            .unwrap()
+            .as_fmi2()
+            .unwrap();
+        assert_eq!(import.model_description().fmi_version, "2.0");
+        let cs = import.instantiate_cs("inst1", false, true).unwrap();
+        assert_eq!(fmi2::instance::traits::Common::version(&cs), "2.0");
     }
 }

@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use prettytable::{row, table, Row, Table};
 
+mod fmi3;
 mod options;
 
 fn print_info(import: &fmi::Import) {

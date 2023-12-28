@@ -15,17 +15,14 @@ pub(crate) unsafe extern "C" fn callback_log(
         .to_str()
         .unwrap_or("INVALID");
 
-    println!("status: {status:?}, category: {category}, message: {message}",);
+    let (status, level) = match status.0 {
+        binding::fmi3Status_fmi3OK => ("fmi3OK", log::Level::Info),
+        binding::fmi3Status_fmi3Warning => ("fmi3Warning", log::Level::Warn),
+        binding::fmi3Status_fmi3Discard => ("fmi3Discard", log::Level::Warn),
+        binding::fmi3Status_fmi3Error => ("fmi3Error", log::Level::Error),
+        binding::fmi3Status_fmi3Fatal => ("fmi3Fatal", log::Level::Error),
+        _ => unreachable!("Invalid status"),
+    };
 
-    log::log!(
-        match status.0 {
-            binding::fmi3Status_fmi3OK => log::Level::Info,
-            binding::fmi3Status_fmi3Warning => log::Level::Warn,
-            binding::fmi3Status_fmi3Discard => log::Level::Warn,
-            binding::fmi3Status_fmi3Error => log::Level::Error,
-            binding::fmi3Status_fmi3Fatal => log::Level::Error,
-            _ => log::Level::Error,
-        },
-        "status: {status:?}, category: {category}, message: {message}",
-    );
+    log::log!(target: category, level, "[{status}], {message}");
 }

@@ -2,26 +2,7 @@
 
 use crate::fmi3::Fmi3Err;
 
-use super::{binding, Fmi3Status};
-
-/// Return value of [`Common::update_discrete_states()`]
-#[derive(Default, Debug, PartialEq)]
-pub struct DiscreteStates {
-    /// The importer must stay in Event Mode for another event iteration, starting a new super-dense time instant.
-    pub discrete_states_need_update: bool,
-    /// The FMU requests to stop the simulation and the importer must call [`Common::terminate()`].
-    pub terminate_simulation: bool,
-    /// At least one nominal value of the states has changed and can be inquired with [`ModelExchange::get_nominals_of_continuous_states()`].
-    /// This argument is only valid in Model Exchange.
-    pub nominals_of_continuous_states_changed: bool,
-    /// At least one continuous state has changed its value because it was re-initialized (see [https://fmi-standard.org/docs/3.0.1/#reinit]).
-    pub values_of_continuous_states_changed: bool,
-    /// The absolute time of the next time event 𝑇next. The importer must compute up to `next_event_time` (or if needed
-    /// slightly further) and then enter Event Mode using [`Common::enter_event_mode()`]. The FMU must handle this time
-    /// event during the Event Mode that is entered by the first call to [`Common::enter_event_mode()`], at or after
-    /// `next_event_time`.
-    pub next_event_time: Option<f64>,
-}
+use super::{binding, DiscreteStates, Fmi3Status};
 
 /// Interface common to all instance types
 pub trait Common {
@@ -123,7 +104,7 @@ pub trait Common {
     /// `update_discrete_states` must be called at least once per super-dense time instant.
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates]
-    fn update_discrete_states(&mut self) -> Result<DiscreteStates, Fmi3Err>;
+    fn update_discrete_states(&mut self, states: &mut DiscreteStates) -> Fmi3Status;
 }
 
 /// Interface for Model Exchange instances
@@ -246,7 +227,25 @@ pub trait ModelExchange: Common {
 }
 
 /// Interface for Co-Simulation instances
-pub trait CoSimulation: Common {}
+pub trait CoSimulation: Common {
+    /// This function must be called to change from Event Mode into Step Mode in Co-Simulation.
+    fn enter_step_mode(&mut self) -> Fmi3Status;
+
+    /// The importer requests the computation of the next time step.
+    ///
+    /// Arguments:
+    /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3DoStep]
+    fn do_step(
+        &mut self,
+        currentCommunicationPoint: f64,
+        communicationStepSize: f64,
+        noSetFMUStatePriorToCurrentPoint: bool,
+        eventHandlingNeeded: &mut bool,
+        terminateSimulation: &mut bool,
+        earlyReturn: &mut bool,
+        lastSuccessfulTime: &mut f64,
+    ) -> Fmi3Status;
+}
 
 /// Interface for Scheduled instances
 pub trait Scheduled: Common {}
