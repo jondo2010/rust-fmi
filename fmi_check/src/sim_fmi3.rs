@@ -1,4 +1,5 @@
-use std::{fs::File, path::Path};
+use std::path::Path;
+use std::str::FromStr;
 
 use fmi::{
     fmi3::{
@@ -14,13 +15,18 @@ use fmi::{
 const FIXED_SOLVER_STEP: f64 = 1e-3;
 
 fn apply_continuous_inputs<Tag>(md: &FmiModelDescription, instance: &mut Instance<'_, Tag>) {
-    for variable in
-        md.model_variables.float32.iter().filter(|v| {
-            v.causality() == Causality::Input && v.variability() == Variability::Continuous
+    let continuous_inputs = md
+        .model_variables
+        .iter_abstract()
+        .filter_map(|v| {
+            (v.causality() == Causality::Input && v.variability() == Variability::Continuous)
+                .then(|| (v.name(), v.value_reference()))
         })
-    {}
+        .collect::<Vec<_>>();
 
     //instance.set_float32(vrs, values)
+
+    //md.model_variables.iter_abstract().
 }
 
 struct CsvHeader<'a> {
@@ -28,28 +34,39 @@ struct CsvHeader<'a> {
     //r#type: fmi::fmi3::schema::
 }
 
-fn csv_input<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+fn csv_input<'a, P, I>(path: P, inputs: I) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+    I: Iterator<Item = &'a dyn AbstractVariableTrait>,
+{
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(true)
         .from_path(path)?;
 
     let mut headers = reader.headers()?;
+
+    // For each input, find the corresponding column index in the CSV header
+    let input_idxs = inputs.map(|input| {
+        headers
+            .iter()
+            .enumerate()
+            .find_map(|(i, h)| (h == input.name()).then_some(i))
+            .ok_or_else(|| anyhow::anyhow!("No column for input {}", input.name()))
+    });
+
     let time_idx = headers
         .iter()
         .enumerate()
-        .find_map(|(i, &h)| (h == "time").then_some(i))
-        .ok_or_else(|| anyhow::anyhow!("no time column"))?;
-
-    let num_cols = headers.len();
+        .find_map(|(i, h)| (h == "time").then_some(i))
+        .ok_or_else(|| anyhow::anyhow!("No time column"))?;
 
     for x in reader.records() {
         let record = x?;
 
         let time = record
             .get(time_idx)
-            .ok_or_else(|| anyhow::anyhow!("no time column"))?;
-
-        let time = time.parse::<f64>()?;
+            .ok_or_else(|| anyhow::anyhow!("No time column"))
+            .and_then(|x| f64::from_str(x).map_err(|e| e.into()))?;
 
         for (i, header) in headers.iter().enumerate() {
             if i == time_idx {
@@ -69,7 +86,7 @@ fn csv_input<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn co_simulation(
+pub fn co_simulation(
     import: &fmi::fmi3::import::Fmi3,
     start_time: f64,
     stop_time: f64,

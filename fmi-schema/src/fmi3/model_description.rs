@@ -1,8 +1,9 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::{
-    Annotations, Float32Type, Float64Type, Fmi3CoSimulation, Fmi3ModelExchange,
-    Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64, FmiInt8, FmiUInt8,
+    AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
+    Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64,
+    FmiInt8, FmiUInt8,
 };
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
@@ -160,11 +161,24 @@ pub struct ModelVariables {
     pub uint32: Vec<FmiUInt8>,
 }
 
-#[cfg(feature = "disabled")]
 impl ModelVariables {
     /// Returns the total number of variables in the model description
     pub fn len(&self) -> usize {
-        self.float32.len() + self.float64.len()
+        self.iter_abstract().count()
+    }
+
+    /// Returns an iterator over all the AbstractVariables in the model description
+    pub fn iter_abstract(&self) -> impl Iterator<Item = &dyn AbstractVariableTrait> {
+        itertools::chain!(
+            self.float32.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.float64.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.int8.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.uint8.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.int16.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.uint16.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.int32.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.uint32.iter().map(|v| v as &dyn AbstractVariableTrait),
+        )
     }
 }
 

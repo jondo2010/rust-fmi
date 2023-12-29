@@ -6,6 +6,21 @@ use super::{
     UInt32Attributes, UInt8Attributes,
 };
 
+/// An enumeration that defines the type of a variable.
+pub enum VariableType {
+    FmiFloat32,
+    FmiFloat64,
+    FmiInt8,
+    FmiUInt8,
+    FmiInt16,
+    FmiUInt16,
+    FmiInt32,
+    FmiUInt32,
+    FmiBoolean,
+    FmiString,
+    FmiBinary,
+}
+
 pub trait AbstractVariableTrait {
     /// The full, unique name of the variable.
     fn name(&self) -> &str;
@@ -17,6 +32,7 @@ pub trait AbstractVariableTrait {
     fn causality(&self) -> Causality;
     fn variability(&self) -> Variability;
     fn can_handle_multiple_set_per_time_instant(&self) -> bool;
+    fn r#type(&self) -> VariableType;
 }
 
 pub trait ArrayableVariableTrait: AbstractVariableTrait {
@@ -79,6 +95,9 @@ macro_rules! impl_abstract_variable {
                     .abstract_var
                     .can_handle_multiple_set_per_time_instant
             }
+            fn r#type(&self) -> VariableType {
+                VariableType::$name
+            }
         }
     };
 }
@@ -86,7 +105,7 @@ macro_rules! impl_abstract_variable {
 macro_rules! impl_float_type {
     ($name:ident, $type:ty, $float_attr:ident) => {
         #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-        #[yaserde(root = "Float64")]
+        //#[yaserde(root = "Float64")]
         pub struct $name {
             #[yaserde(flatten)]
             pub base_attr: RealBaseAttributes,
@@ -145,7 +164,7 @@ macro_rules! impl_float_type {
 macro_rules! impl_integer_type {
     ($name:ident, $type:ty, $int_attr:ident) => {
         #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-        #[yaserde(root = "$name")]
+        //#[yaserde(root = "$name")]
         pub struct $name {
             #[yaserde(flatten)]
             pub base_attr: IntegerBaseAttributes,
