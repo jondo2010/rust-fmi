@@ -26,7 +26,7 @@ impl Default for SimpleTypeElement {
 #[yaserde()]
 /// Type attributes of a scalar variable
 pub struct SimpleType {
-    #[yaserde(child, flatten)]
+    #[yaserde(flatten)]
     pub elem: SimpleTypeElement,
 
     #[yaserde(attribute)]

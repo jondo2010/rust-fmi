@@ -1,6 +1,6 @@
 //! Traits for the different instance types.
 
-use crate::fmi3::Fmi3Err;
+use crate::fmi3::Fmi3Error;
 
 use super::{binding, DiscreteStates, Fmi3Status};
 
@@ -82,12 +82,25 @@ pub trait Common {
     fn get_int8(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i8]) -> Fmi3Status;
     fn get_int16(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i16]) -> Fmi3Status;
     fn get_int32(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i32]) -> Fmi3Status;
+    fn get_int64(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i64]) -> Fmi3Status;
+    fn get_uint8(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u8]) -> Fmi3Status;
+    fn get_uint16(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u16])
+        -> Fmi3Status;
+    fn get_uint32(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u32])
+        -> Fmi3Status;
+    fn get_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u64])
+        -> Fmi3Status;
 
     fn set_float32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f32]) -> Fmi3Status;
     fn set_float64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f64]) -> Fmi3Status;
     fn set_int8(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i8]) -> Fmi3Status;
     fn set_int16(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i16]) -> Fmi3Status;
     fn set_int32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i32]) -> Fmi3Status;
+    fn set_int64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i64]) -> Fmi3Status;
+    fn set_uint8(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u8]) -> Fmi3Status;
+    fn set_uint16(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u16]) -> Fmi3Status;
+    fn set_uint32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u32]) -> Fmi3Status;
+    fn set_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u64]) -> Fmi3Status;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
     #[cfg(disabled)]
@@ -152,7 +165,7 @@ pub trait ModelExchange: Common {
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
-    ) -> Result<(bool, bool), Fmi3Err>;
+    ) -> Result<(bool, bool), Fmi3Error>;
 
     /// Set a new value for the independent variable (typically a time instant).
     ///

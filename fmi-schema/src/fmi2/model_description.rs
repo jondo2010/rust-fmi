@@ -56,29 +56,29 @@ pub struct FmiModelDescription {
     pub number_of_event_indicators: u32,
 
     /// If present, the FMU is based on FMI for Model Exchange
-    #[yaserde(child, rename = "ModelExchange")]
+    #[yaserde(rename = "ModelExchange")]
     pub model_exchange: Option<ModelExchange>,
 
     /// If present, the FMU is based on FMI for Co-Simulation
-    #[yaserde(child, rename = "CoSimulation")]
+    #[yaserde(rename = "CoSimulation")]
     pub co_simulation: Option<CoSimulation>,
 
-    #[yaserde(child, rename = "LogCategories")]
+    #[yaserde(rename = "LogCategories")]
     pub log_categories: Option<LogCategories>,
 
-    #[yaserde(child, rename = "DefaultExperiment")]
+    #[yaserde(rename = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
 
-    #[yaserde(child, rename = "UnitDefinitions")]
+    #[yaserde(rename = "UnitDefinitions")]
     pub unit_definitions: Option<UnitDefinitions>,
 
-    #[yaserde(child, rename = "TypeDefinitions")]
+    #[yaserde(rename = "TypeDefinitions")]
     pub type_definitions: Option<TypeDefinitions>,
 
-    #[yaserde(child, rename = "ModelVariables")]
+    #[yaserde(rename = "ModelVariables")]
     pub model_variables: ModelVariables,
 
-    #[yaserde(child, rename = "ModelStructure")]
+    #[yaserde(rename = "ModelStructure")]
     pub model_structure: ModelStructure,
 }
 
@@ -274,38 +274,38 @@ fn default_tolerance() -> f64 {
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct UnitDefinitions {
-    #[yaserde(child, rename = "Unit")]
+    #[yaserde(rename = "Unit")]
     pub units: Vec<Fmi2Unit>,
 }
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct TypeDefinitions {
-    #[yaserde(child, rename = "SimpleType")]
+    #[yaserde(rename = "SimpleType")]
     pub types: Vec<SimpleType>,
 }
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct ModelVariables {
-    #[yaserde(child, rename = "ScalarVariable")]
+    #[yaserde(rename = "ScalarVariable")]
     pub variables: Vec<ScalarVariable>,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "ModelStructure")]
 pub struct ModelStructure {
-    #[yaserde(child, rename = "Outputs")]
+    #[yaserde(rename = "Outputs")]
     pub outputs: UnknownList,
 
-    #[yaserde(child, rename = "Derivatives")]
+    #[yaserde(rename = "Derivatives")]
     pub derivatives: UnknownList,
 
-    #[yaserde(child, rename = "InitialUnknowns")]
+    #[yaserde(rename = "InitialUnknowns")]
     pub initial_unknowns: UnknownList,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct UnknownList {
-    #[yaserde(child, rename = "Unknown")]
+    #[yaserde(rename = "Unknown")]
     pub unknowns: Vec<Fmi2VariableDependency>,
 }
 

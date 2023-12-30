@@ -117,6 +117,11 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     impl_getter_setter!(i8, get_int8, set_int8, fmi3GetInt8, fmi3SetInt8);
     impl_getter_setter!(i16, get_int16, set_int16, fmi3GetInt16, fmi3SetInt16);
     impl_getter_setter!(i32, get_int32, set_int32, fmi3GetInt32, fmi3SetInt32);
+    impl_getter_setter!(i64, get_int64, set_int64, fmi3GetInt64, fmi3SetInt64);
+    impl_getter_setter!(u8, get_uint8, set_uint8, fmi3GetUInt8, fmi3SetUInt8);
+    impl_getter_setter!(u16, get_uint16, set_uint16, fmi3GetUInt16, fmi3SetUInt16);
+    impl_getter_setter!(u32, get_uint32, set_uint32, fmi3GetUInt32, fmi3SetUInt32);
+    impl_getter_setter!(u64, get_uint64, set_uint64, fmi3GetUInt64, fmi3SetUInt64);
 
     #[cfg(disabled)]
     fn get_fmu_state<T>(

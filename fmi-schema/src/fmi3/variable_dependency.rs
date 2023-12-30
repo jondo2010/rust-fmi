@@ -20,13 +20,13 @@ pub enum DependenciesKind {
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(tag = "Fmi3Unknown")]
 pub struct Fmi3Unknown {
-    #[yaserde(child = "Annotations")]
+    #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
     #[yaserde(attribute, rename = "valueReference")]
     pub value_reference: u32,
     #[yaserde(attribute, rename = "dependencies")]
     pub dependencies: Vec<u32>,
-    #[yaserde(child, attribute, rename = "dependenciesKind")]
+    #[yaserde(attribute, rename = "dependenciesKind")]
     pub dependencies_kind: Vec<DependenciesKind>,
 }
 

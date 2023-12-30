@@ -12,7 +12,7 @@ pub struct File {
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(tag = "SourceFiles")]
 pub struct SourceFiles {
-    #[yaserde(child, rename = "File")]
+    #[yaserde(rename = "File")]
     pub files: Vec<File>,
 }
 
@@ -51,7 +51,7 @@ pub struct ModelExchange {
 
     /// List of source file names that are present in the "sources" directory of the FMU and need to be compiled in
     /// order to generate the binary of the FMU (only meaningful for source code FMUs).
-    #[yaserde(child, rename = "SourceFiles")]
+    #[yaserde(rename = "SourceFiles")]
     pub source_files: SourceFiles,
 }
 
@@ -95,7 +95,7 @@ pub struct CoSimulation {
 
     /// List of source file names that are present in the "sources" directory of the FMU and need to be compiled in
     /// order to generate the binary of the FMU (only meaningful for source code FMUs).
-    #[yaserde(child, rename = "SourceFiles")]
+    #[yaserde(rename = "SourceFiles")]
     pub source_files: SourceFiles,
 }
 

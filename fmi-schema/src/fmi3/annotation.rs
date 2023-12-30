@@ -3,7 +3,6 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "Annotations")]
 pub struct Fmi3Annotations {
-    //#[xml(child = "Annotation")]
     pub annotation: Annotation,
 }
 

@@ -42,7 +42,7 @@ pub struct Fmi3ModelExchange {
     #[yaserde(attribute, rename = "providesEvaluateDiscreteStates")]
     pub provides_evaluate_discrete_states: Option<bool>,
 
-    #[yaserde(child = "Annotations")]
+    #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
 
     #[yaserde(attribute, rename = "modelIdentifier")]
@@ -100,7 +100,7 @@ pub struct Fmi3CoSimulation {
     #[yaserde(attribute, rename = "providesEvaluateDiscreteStates")]
     pub provides_evaluate_discrete_states: Option<bool>,
 
-    #[yaserde(child = "Annotations")]
+    #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
 
     #[yaserde(attribute, rename = "modelIdentifier")]
@@ -131,7 +131,7 @@ pub struct Fmi3CoSimulation {
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "ScheduledExecution")]
 pub struct Fmi3ScheduledExecution {
-    #[yaserde(child = "Annotations")]
+    #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
 
     #[yaserde(attribute, rename = "modelIdentifier")]

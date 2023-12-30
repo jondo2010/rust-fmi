@@ -1,5 +1,7 @@
 use structopt::StructOpt;
 
+mod input;
+mod interpolation;
 mod options;
 mod sim_fmi3;
 

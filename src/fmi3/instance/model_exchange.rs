@@ -1,7 +1,7 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger, Fmi3Err, Fmi3Status},
+    fmi3::{binding, import, logger, Fmi3Error, Fmi3Status},
     import::FmiImport as _,
     Error,
 };
@@ -71,7 +71,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
-    ) -> Result<(bool, bool), Fmi3Err> {
+    ) -> Result<(bool, bool), Fmi3Error> {
         let mut enter_event_mode = false;
         let mut terminate_simulation = false;
         let res: Fmi3Status = unsafe {

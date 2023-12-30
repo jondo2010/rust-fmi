@@ -3,7 +3,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 use super::{
     AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
     Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64,
-    FmiInt8, FmiUInt8,
+    FmiInt16, FmiInt32, FmiInt8, FmiUInt16, FmiUInt32, FmiUInt8,
 };
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
@@ -81,7 +81,7 @@ pub struct FmiModelDescription {
     #[yaserde(rename = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
 
-    #[yaserde(child, flatten, rename = "ModelVariables")]
+    #[yaserde(rename = "ModelVariables")]
     pub model_variables: ModelVariables,
 
     /// The model structure defines the dependency structure of the model variables.
@@ -152,13 +152,13 @@ pub struct ModelVariables {
     #[yaserde(rename = "UInt8")]
     pub uint8: Vec<FmiUInt8>,
     #[yaserde(rename = "Int16")]
-    pub int16: Vec<FmiInt8>,
+    pub int16: Vec<FmiInt16>,
     #[yaserde(rename = "UInt16")]
-    pub uint16: Vec<FmiUInt8>,
+    pub uint16: Vec<FmiUInt16>,
     #[yaserde(rename = "Int32")]
-    pub int32: Vec<FmiInt8>,
+    pub int32: Vec<FmiInt32>,
     #[yaserde(rename = "UInt32")]
-    pub uint32: Vec<FmiUInt8>,
+    pub uint32: Vec<FmiUInt32>,
 }
 
 impl ModelVariables {
@@ -245,4 +245,80 @@ fn test_model_descr() {
             ..Default::default()
         }
     );
+}
+
+#[test]
+fn test_model_variables() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<ModelVariables>
+    <Float64 name="time" valueReference="0" causality="independent" variability="continuous"/>
+
+    <Float32 name="Float32_continuous_input"  valueReference="1" causality="input" start="0"/>
+    <Float32 name="Float32_continuous_output" valueReference="2" causality="output"/>
+    <Float32 name="Float32_discrete_input"    valueReference="3" causality="input" variability="discrete" start="0"/>
+    <Float32 name="Float32_discrete_output"   valueReference="4" causality="output" variability="discrete"/>
+
+    <Float64 name="Float64_fixed_parameter" valueReference="5" causality="parameter" variability="fixed" start="0"/>
+    <Float64 name="Float64_tunable_parameter" valueReference="6" causality="parameter" variability="tunable" start="0"/>
+    <Float64 name="Float64_continuous_input" valueReference="7" causality="input" start="0" initial="exact"/>
+    <Float64 name="Float64_continuous_output" valueReference="8" causality="output" initial="calculated"/>
+    <Float64 name="Float64_discrete_input" valueReference="9" causality="input" variability="discrete" start="0"/>
+    <Float64 name="Float64_discrete_output" valueReference="10" causality="output" variability="discrete" initial="calculated"/>
+
+    <Int8 name="Int8_input" valueReference="11" causality="input" start="0"/>
+    <Int8 name="Int8_output" valueReference="12" causality="output"/>
+
+    <UInt8 name="UInt8_input" valueReference="13" causality="input" start="0"/>
+    <UInt8 name="UInt8_output" valueReference="14" causality="output"/>
+
+    <Int16 name="Int16_input" valueReference="15" causality="input" start="0"/>
+    <Int16 name="Int16_output" valueReference="16" causality="output"/>
+
+    <UInt16 name="UInt16_input" valueReference="17" causality="input" start="0"/>
+    <UInt16 name="UInt16_output" valueReference="18" causality="output"/>
+
+    <Int32 name="Int32_input" valueReference="19" causality="input" start="0"/>
+    <Int32 name="Int32_output" valueReference="20" causality="output"/>
+
+    <UInt32 name="UInt32_input" valueReference="21" causality="input" start="0"/>
+    <UInt32 name="UInt32_output" valueReference="22" causality="output"/>
+
+    <Int64 name="Int64_input" valueReference="23" causality="input" start="0"/>
+    <Int64 name="Int64_output" valueReference="24" causality="output"/>
+
+    <UInt64 name="UInt64_input" valueReference="25" causality="input" start="0"/>
+    <UInt64 name="UInt64_output" valueReference="26" causality="output"/>
+
+    <Boolean name="Boolean_input" valueReference="27" causality="input" start="false"/>
+    <Boolean name="Boolean_output" valueReference="28" causality="output" initial="calculated"/>
+
+    <String name="String_parameter" valueReference="29" causality="parameter" variability="fixed">
+        <Start value="Set me!"/>
+    </String>
+
+    <Binary name="Binary_input" valueReference="30" causality="input">
+        <Start value="666f6f"/>
+    </Binary>
+    <Binary name="Binary_output" valueReference="31" causality="output"/>
+
+    <Enumeration name="Enumeration_input" declaredType="Option" valueReference="32" causality="input" start="1"/>
+    <Enumeration name="Enumeration_output" declaredType="Option" valueReference="33" causality="output"/>
+</ModelVariables>"#;
+
+    let mv: ModelVariables = yaserde::de::from_str(xml).unwrap();
+
+    assert_eq!(mv.float32.len(), 4);
+    assert_eq!(mv.float64.len(), 7);
+    assert_eq!(mv.int8.len(), 2);
+    assert_eq!(mv.uint8.len(), 2);
+    assert_eq!(mv.int16.len(), 2);
+    assert_eq!(mv.uint16.len(), 2);
+    assert_eq!(mv.int32.len(), 2);
+    assert_eq!(mv.uint32.len(), 2);
+    //assert_eq!(mv.int64.len(), 2);
+    //assert_eq!(mv.uint64.len(), 2);
+    //assert_eq!(mv.boolean.len(), 2);
+    //assert_eq!(mv.string.len(), 1);
+    //assert_eq!(mv.binary.len(), 2);
+    //assert_eq!(mv.enumeration.len(), 2);
 }

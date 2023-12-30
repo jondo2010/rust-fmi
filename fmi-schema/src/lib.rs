@@ -1,18 +1,7 @@
-//! This crate provides a Rust representation of the FMI schema.
+#![doc=include_str!( "../README.md")]
 //!
-//! The refernce XSI can be found at https://fmi-standard.org/downloads.
-//!
-//! # Determining the FMI version
-//!
-//! FMI2.0 and 3.0 have different XML schemas. The FMI version can initially be determined in a non-specific way by
-//! using [`minimal::ModelDescription`].
-//!
-//! # Example
-//!
-//! ```rust
-//!
-//! ```
-
+//! ## Feature flags
+#![doc = document_features::document_features!()]
 #![deny(unsafe_code)]
 #![deny(clippy::all)]
 

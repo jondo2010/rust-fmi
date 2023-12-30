@@ -139,7 +139,7 @@ pub struct ScalarVariable {
     #[yaserde(attribute)]
     pub initial: Initial,
 
-    #[yaserde(child, flatten)]
+    #[yaserde(flatten)]
     pub elem: ScalarVariableElement,
 }
 

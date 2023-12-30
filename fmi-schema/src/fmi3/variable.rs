@@ -21,6 +21,25 @@ pub enum VariableType {
     FmiBinary,
 }
 
+#[cfg(feature = "arrow")]
+impl From<VariableType> for arrow::datatypes::DataType {
+    fn from(v: VariableType) -> Self {
+        match v {
+            VariableType::FmiFloat32 => arrow::datatypes::DataType::Float32,
+            VariableType::FmiFloat64 => arrow::datatypes::DataType::Float64,
+            VariableType::FmiInt8 => arrow::datatypes::DataType::Int8,
+            VariableType::FmiUInt8 => arrow::datatypes::DataType::UInt8,
+            VariableType::FmiInt16 => arrow::datatypes::DataType::Int16,
+            VariableType::FmiUInt16 => arrow::datatypes::DataType::UInt16,
+            VariableType::FmiInt32 => arrow::datatypes::DataType::Int32,
+            VariableType::FmiUInt32 => arrow::datatypes::DataType::UInt32,
+            VariableType::FmiBoolean => arrow::datatypes::DataType::Boolean,
+            VariableType::FmiString => arrow::datatypes::DataType::Utf8,
+            VariableType::FmiBinary => arrow::datatypes::DataType::Binary,
+        }
+    }
+}
+
 pub trait AbstractVariableTrait {
     /// The full, unique name of the variable.
     fn name(&self) -> &str;
@@ -103,9 +122,9 @@ macro_rules! impl_abstract_variable {
 }
 
 macro_rules! impl_float_type {
-    ($name:ident, $type:ty, $float_attr:ident) => {
+    ($name:ident, $root:literal, $type:ty, $float_attr:ident) => {
         #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-        //#[yaserde(root = "Float64")]
+        #[yaserde(root = $root)]
         pub struct $name {
             #[yaserde(flatten)]
             pub base_attr: RealBaseAttributes,
@@ -162,9 +181,9 @@ macro_rules! impl_float_type {
 }
 
 macro_rules! impl_integer_type {
-    ($name:ident, $type:ty, $int_attr:ident) => {
+    ($name:ident, $root:literal, $type:ty, $int_attr:ident) => {
         #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-        //#[yaserde(root = "$name")]
+        #[yaserde(root = $root)]
         pub struct $name {
             #[yaserde(flatten)]
             pub base_attr: IntegerBaseAttributes,
@@ -297,15 +316,15 @@ pub struct InitializableVariable {
     pub initial: Option<Initial>,
 }
 
-impl_float_type!(FmiFloat32, f32, Float32Attributes);
-impl_float_type!(FmiFloat64, f64, Float64Attributes);
+impl_float_type!(FmiFloat32, "Float32", f32, Float32Attributes);
+impl_float_type!(FmiFloat64, "Float64", f64, Float64Attributes);
 
-impl_integer_type!(FmiInt8, i8, Int8Attributes);
-impl_integer_type!(FmiUInt8, u8, UInt8Attributes);
-impl_integer_type!(FmiInt16, i16, Int16Attributes);
-impl_integer_type!(FmiUInt16, u16, UInt16Attributes);
-impl_integer_type!(FmiInt32, i32, Int32Attributes);
-impl_integer_type!(FmiUInt32, u32, UInt32Attributes);
+impl_integer_type!(FmiInt8, "Int8", i8, Int8Attributes);
+impl_integer_type!(FmiUInt8, "UInt8", u8, UInt8Attributes);
+impl_integer_type!(FmiInt16, "Int16", i16, Int16Attributes);
+impl_integer_type!(FmiUInt16, "UInt16", u16, UInt16Attributes);
+impl_integer_type!(FmiInt32, "Int32", i32, Int32Attributes);
+impl_integer_type!(FmiUInt32, "UInt32", u32, UInt32Attributes);
 
 /*
 #[derive(Debug, YaSerialize, YaDeserialize)]
