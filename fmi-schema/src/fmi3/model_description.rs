@@ -174,6 +174,10 @@ impl ModelVariables {
         self.iter_abstract().count()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns an iterator over all the AbstractVariables in the model description
     pub fn iter_abstract(&self) -> impl Iterator<Item = &dyn AbstractVariableTrait> {
         itertools::chain!(

@@ -28,7 +28,7 @@ impl FmiImport for Fmi3 {
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
     fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {
-        let schema = schema::FmiModelDescription::from_str(&schema_xml)?;
+        let schema = schema::FmiModelDescription::from_str(schema_xml)?;
         Ok(Self { dir, schema })
     }
 

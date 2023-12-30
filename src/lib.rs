@@ -3,14 +3,20 @@
 //!
 //! # Examples
 //!
-//! ```
+//! ```rust
 //! #[cfg(target_os = "linux")] {
-//!     let import = fmi::Import::new(std::path::Path::new("data/Modelica_Blocks_Sources_Sine.fmu")).unwrap();
-//!     let instance1 = fmi::fmi2::InstanceME::new(&import, "inst1", false, true).unwrap();
-//! }
+//!    let import = fmi::Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
+//!        .unwrap()
+//!        .as_fmi2()
+//!        .unwrap();
+//!    assert_eq!(import.model_description().fmi_version, "2.0");
+//!    let me = import.instantiate_me("inst1", false, true).unwrap();
+//!    assert_eq!(crate::fmi2::instance::traits::Common::version(&me), "2.0");
+//! #}
 //! ```
 
-#![deny(clippy::all)]
+//TODO: turn this on
+//#![deny(clippy::pedantic)]
 
 #[cfg(feature = "fmi2")]
 pub mod fmi2;
@@ -38,13 +44,13 @@ pub enum Error {
     #[error("Unsupported FMI version: {0}")]
     UnsupportedFmiVersion(String),
 
-    //TODO: Fix
+    // TODO: Fix
     //#[error(
     //    "TypesPlatform of loaded API ({:?}) doesn't match expected ({:?})",
     //    found,
     //    fmi2::fmi2TypesPlatform
     //)]
-    //TypesPlatformMismatch { found: Box<[u8]> },
+    // TypesPlatformMismatch { found: Box<[u8]> },
     #[error("FMI version of loaded API ({found}) doesn't match expected ({expected})")]
     FmiVersionMismatch { found: String, expected: String },
 
@@ -74,27 +80,6 @@ pub enum Error {
     #[error(transparent)]
     Fmi3Error(#[from] fmi3::Fmi3Error),
 }
-
-/// Ok Status returned by wrapped FMI functions.
-//#[derive(Debug, PartialEq)]
-// pub enum FmiStatus {
-//    Ok,
-//    Warning,
-//    Pending,
-//}
-
-// impl From<fmi2::fmi2Status> for std::result::Result<FmiStatus, FmiError> {
-// fn from(fmi_status: fmi2::fmi2Status) -> Self {
-// match fmi_status {
-// fmi2::fmi2Status::OK => Ok(FmiStatus::Ok),
-// fmi2::fmi2Status::Warning => Ok(FmiStatus::Warning),
-// fmi2::fmi2Status::Discard => Err(FmiError::FmiStatusDiscard),
-// fmi2::fmi2Status::Error => Err(FmiError::FmiStatusError),
-// fmi2::fmi2Status::Fatal => Err(FmiError::FmiStatusFatal),
-// fmi2::fmi2Status::Pending => Ok(FmiStatus::Pending),
-// }
-// }
-// }
 
 pub mod built_info {
     // The file has been placed there by the build script.

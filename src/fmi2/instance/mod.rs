@@ -52,9 +52,9 @@ impl<'a, Tag> Instance<'a, Tag> {
     /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
     /// from the library and the Model Description XML
     pub fn check_consistency(&self) -> Result<(), Error> {
-        //TODO: Fix
-        //let types_platform = self.get_types_platform();
-        //if types_platform != binding::fmi2TypesPlatform {
+        // TODO: Fix
+        // let types_platform = self.get_types_platform();
+        // if types_platform != binding::fmi2TypesPlatform {
         //    return Err(FmiError::TypesPlatformMismatch {
         //        found: types_platform.into(),
         //    });

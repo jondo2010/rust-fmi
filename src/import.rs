@@ -64,7 +64,7 @@ impl Import {
 
         // Open and read the modelDescription XML into a string
         let descr_file_path = temp_dir.path().join(MODEL_DESCRIPTION);
-        let descr_xml = std::fs::read_to_string(&descr_file_path)?;
+        let descr_xml = std::fs::read_to_string(descr_file_path)?;
 
         // Initial non-version-specific model description
         let descr = MinModel::from_str(&descr_xml)?;
@@ -76,14 +76,12 @@ impl Import {
 
         match descr.version()?.major {
             #[cfg(feature = "fmi2")]
-            2 => fmi2::import::Fmi2::new(temp_dir, &descr_xml).map(|import| Import::Fmi2(import)),
+            2 => fmi2::import::Fmi2::new(temp_dir, &descr_xml).map(Import::Fmi2),
 
             #[cfg(feature = "fmi3")]
-            3 => fmi3::import::Fmi3::new(temp_dir, &descr_xml).map(|import| Import::Fmi3(import)),
+            3 => fmi3::import::Fmi3::new(temp_dir, &descr_xml).map(Import::Fmi3),
 
-            _ => {
-                return Err(Error::UnsupportedFmiVersion(descr.fmi_version.to_string()));
-            }
+            _ => Err(Error::UnsupportedFmiVersion(descr.fmi_version.to_string())),
         }
     }
 
