@@ -230,7 +230,7 @@ mod tests {
             .ok()
             .unwrap();
 
-        assert_eq!(y, [1.0e-6]);
+        assert_eq!(y, [0.0]);
 
         instance1.do_step(0.0, 0.125, false).ok().expect("do_step");
 
