@@ -1,5 +1,5 @@
 [workspace]
-members = ["fmi-schema"]
+members = ["fmi-schema", "fmi-check"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
