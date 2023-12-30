@@ -13,11 +13,13 @@ pub struct FmiModelDescription {
     #[yaserde(attribute, rename = "fmiVersion")]
     pub fmi_version: String,
 
-    /// The name of the model as used in the modeling environment that generated the XML file, such as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
+    /// The name of the model as used in the modeling environment that generated the XML file, such
+    /// as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
     #[yaserde(attribute, rename = "modelName")]
     pub model_name: String,
 
-    /// The instantiationToken is a string that can be used by the FMU to check that the XML file is compatible with the implementation of the FMU.
+    /// The instantiationToken is a string that can be used by the FMU to check that the XML file
+    /// is compatible with the implementation of the FMU.
     #[yaserde(attribute, rename = "instantiationToken")]
     pub instantiation_token: String,
 
@@ -33,11 +35,13 @@ pub struct FmiModelDescription {
     #[yaserde(attribute, rename = "version")]
     pub version: Option<String>,
 
-    /// Information on the intellectual property copyright for this FMU [for example © My Company 2011].
+    /// Information on the intellectual property copyright for this FMU [for example © My Company
+    /// 2011].
     #[yaserde(attribute, rename = "copyright")]
     pub copyright: Option<String>,
 
-    /// Information on the intellectual property licensing for this FMU [for example BSD license <license text or link to license>].
+    /// Information on the intellectual property licensing for this FMU [for example BSD license
+    /// <license text or link to license>].
     #[yaserde(attribute, rename = "license")]
     pub license: Option<String>,
 
@@ -45,12 +49,15 @@ pub struct FmiModelDescription {
     #[yaserde(attribute, rename = "generationTool")]
     pub generation_tool: Option<String>,
 
-    ///  Date and time when the XML file was generated. The format is a subset of dateTime and should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
+    ///  Date and time when the XML file was generated. The format is a subset of dateTime and
+    /// should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu
+    /// time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
     #[yaserde(attribute, rename = "generationDateAndTime")]
-    //pub generation_date_and_time: Option<DateTime>,
+    // pub generation_date_and_time: Option<DateTime>,
     pub generation_date_and_time: Option<String>,
 
-    /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a particular convention.
+    /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
+    /// particular convention.
     #[yaserde(attribute, rename = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
 
@@ -315,10 +322,10 @@ fn test_model_variables() {
     assert_eq!(mv.uint16.len(), 2);
     assert_eq!(mv.int32.len(), 2);
     assert_eq!(mv.uint32.len(), 2);
-    //assert_eq!(mv.int64.len(), 2);
-    //assert_eq!(mv.uint64.len(), 2);
-    //assert_eq!(mv.boolean.len(), 2);
-    //assert_eq!(mv.string.len(), 1);
-    //assert_eq!(mv.binary.len(), 2);
-    //assert_eq!(mv.enumeration.len(), 2);
+    // assert_eq!(mv.int64.len(), 2);
+    // assert_eq!(mv.uint64.len(), 2);
+    // assert_eq!(mv.boolean.len(), 2);
+    // assert_eq!(mv.string.len(), 1);
+    // assert_eq!(mv.binary.len(), 2);
+    // assert_eq!(mv.enumeration.len(), 2);
 }

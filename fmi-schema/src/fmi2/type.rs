@@ -30,8 +30,9 @@ pub struct SimpleType {
     pub elem: SimpleTypeElement,
 
     #[yaserde(attribute)]
-    /// Name of SimpleType element. "name" must be unique with respect to all other elements of the TypeDefinitions
-    /// list. Furthermore, "name" of a SimpleType must be different to all "name"s of ScalarVariable.
+    /// Name of SimpleType element. "name" must be unique with respect to all other elements of the
+    /// TypeDefinitions list. Furthermore, "name" of a SimpleType must be different to all
+    /// "name"s of ScalarVariable.
     pub name: String,
 
     #[yaserde(attribute)]

@@ -26,7 +26,7 @@ impl<'a> Instance<'a, CS> {
         let binding = import.binding(&co_simulation.model_identifier)?;
 
         let callbacks = Box::new(CallbackFunctions::default());
-        //check_consistency(&import, &cs.common)?;
+        // check_consistency(&import, &cs.common)?;
 
         let instance_name = CString::new(instance_name).expect("Error building CString");
         let guid = CString::new(schema.guid.as_bytes()).expect("Error building CString");

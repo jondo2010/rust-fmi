@@ -43,7 +43,8 @@ impl From<VariableType> for arrow::datatypes::DataType {
 pub trait AbstractVariableTrait {
     /// The full, unique name of the variable.
     fn name(&self) -> &str;
-    /// A handle of the variable to efficiently identify the variable value in the model interface and for references within the modelDescription.xml
+    /// A handle of the variable to efficiently identify the variable value in the model interface
+    /// and for references within the modelDescription.xml
     fn value_reference(&self) -> u32;
     /// An optional description string describing the meaning of the variable.
     fn description(&self) -> Option<&str>;
@@ -204,7 +205,8 @@ pub enum Causality {
     /// A data value that is constant during the simulation
     #[yaserde(rename = "parameter")]
     Parameter,
-    /// A data value that is constant during the simulation and is computed during initialization or when tunable parameters change.
+    /// A data value that is constant during the simulation and is computed during initialization
+    /// or when tunable parameters change.
     #[yaserde(rename = "calculatedParameter")]
     CalculatedParameter,
     /// The variable value can be provided by the importer.
@@ -225,9 +227,9 @@ pub enum Causality {
     StructuredParameter,
 }
 
-/// Enumeration that defines the time dependency of the variable, in other words, it defines the time instants when a
-/// variable may be changed by the importer or may change its value due to FMU internal computations, depending on
-/// their causality.
+/// Enumeration that defines the time dependency of the variable, in other words, it defines the
+/// time instants when a variable may be changed by the importer or may change its value due to FMU
+/// internal computations, depending on their causality.
 ///
 /// See [https://fmi-standard.org/docs/3.0.1/#variability]
 #[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -236,28 +238,30 @@ pub enum Variability {
     #[yaserde(rename = "constant")]
     Constant,
     /// The value of the variable is fixed in super state Initialized, in other words, after
-    /// [`exit_initialization_mode()`] was called the variable value does not change anymore. The default for variables
-    /// of causality [`Causality::Parameter`], [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`]
-    /// is fixed.
+    /// [`exit_initialization_mode()`] was called the variable value does not change anymore. The
+    /// default for variables of causality [`Causality::Parameter`],
+    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is fixed.
     #[yaserde(rename = "fixed")]
     Fixed,
-    /// The value of the variable is constant between events (ME and CS if Event Mode is supported) and between
-    /// communication points (CS and SE). A parameter with variability = tunable may be changed only in Event Mode or,
-    /// if Event Mode is not supported, at communication points (CS and SE).
+    /// The value of the variable is constant between events (ME and CS if Event Mode is supported)
+    /// and between communication points (CS and SE). A parameter with variability = tunable
+    /// may be changed only in Event Mode or, if Event Mode is not supported, at communication
+    /// points (CS and SE).
     #[yaserde(rename = "tunable")]
     Tunable,
     /// * Model Exchange: The value of the variable may change only in Event Mode.
-    /// * Co-Simulation: If Event Mode is used (see `event_mode_used`), the value of the variable may only change in
-    ///   Event Mode. If Event Mode is not used, the value may change at communication points and the FMU must detect
-    ///   and handle such events internally. During Intermediate Update Mode, discrete variables are not allowed to
-    ///   change.
+    /// * Co-Simulation: If Event Mode is used (see `event_mode_used`), the value of the variable
+    ///   may only change in Event Mode. If Event Mode is not used, the value may change at
+    ///   communication points and the FMU must detect and handle such events internally. During
+    ///   Intermediate Update Mode, discrete variables are not allowed to change.
     /// * Scheduled Execution: The value may change only at communication points.
     #[yaserde(rename = "discrete")]
     Discrete,
-    /// Only variables of type [`FmiFloat32`]or [`FmiFloat64`] may be continuous. The default for variables of type
-    /// `FmiFloat32` and `FmiFloat64` and causality other than [`Causality::Parameter`],
-    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is continuous. Variables with
-    /// variability continuous may change in Initialization Mode and in super state Initialized.
+    /// Only variables of type [`FmiFloat32`]or [`FmiFloat64`] may be continuous. The default for
+    /// variables of type `FmiFloat32` and `FmiFloat64` and causality other than
+    /// [`Causality::Parameter`], [`Causality::StructuredParameter`] or
+    /// [`Causality::CalculatedParameter`] is continuous. Variables with variability continuous
+    /// may change in Initialization Mode and in super state Initialized.
     #[yaserde(rename = "continuous")]
     #[default]
     Continuous,
@@ -326,22 +330,20 @@ impl_integer_type!(FmiUInt16, "UInt16", u16, UInt16Attributes);
 impl_integer_type!(FmiInt32, "Int32", i32, Int32Attributes);
 impl_integer_type!(FmiUInt32, "UInt32", u32, UInt32Attributes);
 
-/*
-#[derive(Debug, YaSerialize, YaDeserialize)]
-#[yaserde(root = "ModelVariables")]
-pub enum Fmi3Variable {
-    #[yaserde(flatten, rename = "Float32")]
-    Float32(FmiFloat32),
-    #[yaserde(flatten, rename = "Float64")]
-    Float64(FmiFloat64),
-}
-
-impl Default for Fmi3Variable {
-    fn default() -> Self {
-        Fmi3Variable::Float32(FmiFloat32::default())
-    }
-}
-*/
+// #[derive(Debug, YaSerialize, YaDeserialize)]
+// #[yaserde(root = "ModelVariables")]
+// pub enum Fmi3Variable {
+// #[yaserde(flatten, rename = "Float32")]
+// Float32(FmiFloat32),
+// #[yaserde(flatten, rename = "Float64")]
+// Float64(FmiFloat64),
+// }
+//
+// impl Default for Fmi3Variable {
+// fn default() -> Self {
+// Fmi3Variable::Float32(FmiFloat32::default())
+// }
+// }
 
 #[test]
 fn test_float64() {

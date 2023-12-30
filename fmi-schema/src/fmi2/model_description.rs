@@ -8,16 +8,18 @@ use super::{
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiModelDescription {
-    /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined as "2.0").
+    /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
+    /// as "2.0").
     #[yaserde(attribute, rename = "fmiVersion")]
     pub fmi_version: String,
 
-    /// The name of the model as used in the modeling environment that generated the XML file, such as
-    /// Modelica.Mechanics.Rotational.Examples.CoupledClutches.
+    /// The name of the model as used in the modeling environment that generated the XML file, such
+    /// as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
     #[yaserde(attribute, rename = "modelName")]
     pub model_name: String,
 
-    /// Fingerprint of xml-file content to verify that xml-file and C-functions are compatible to each other
+    /// Fingerprint of xml-file content to verify that xml-file and C-functions are compatible to
+    /// each other
     #[yaserde(attribute)]
     pub guid: String,
 
@@ -32,8 +34,8 @@ pub struct FmiModelDescription {
     #[yaserde(attribute)]
     pub copyright: Option<String>,
 
-    /// Information on intellectual property licensing for this FMU, such as “BSD license”, "Proprietary", or "Public
-    /// Domain"
+    /// Information on intellectual property licensing for this FMU, such as “BSD license”,
+    /// "Proprietary", or "Public Domain"
     #[yaserde(attribute)]
     pub license: Option<String>,
 
@@ -42,13 +44,14 @@ pub struct FmiModelDescription {
     pub generation_tool: String,
 
     /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
-    /// Date and time when the XML file was generated. The format is a subset of dateTime and should be:
-    /// YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu time zone, in other words,
-    /// Greenwich meantime) [for example 2009-12-08T14:33:22Z].
+    /// Date and time when the XML file was generated. The format is a subset of dateTime and
+    /// should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the
+    /// Zulu time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
     #[yaserde(attribute, rename = "generationDateAndTime")]
     pub generation_date_and_time: Option<String>,
 
-    /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a particular convention.
+    /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
+    /// particular convention.
     #[yaserde(attribute, rename = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
 
@@ -355,34 +358,32 @@ mod tests {
         assert_eq!(md.number_of_event_indicators, 2);
         assert_eq!(md.model_variables.variables.len(), 4);
 
-        /*
-        let outputs = md.outputs().unwrap();
-        assert_eq!(outputs[0].0.name, "x[1]");
-        assert_eq!(outputs[0].1.len(), 2);
-        assert_eq!(outputs[0].1[0].name, "x[1]");
-        assert_eq!(outputs[1].0.name, "x[2]");
-        assert_eq!(outputs[1].1.len(), 0);
-
-        let derivatives = md.derivatives().unwrap();
-        assert_eq!(derivatives[0].0.name, "der(PI.x)");
-        assert_eq!(
-            derivatives[0].0.elem,
-            ScalarVariableElement::Real {
-                declared_type: None,
-                start: 0.0,
-                relative_quantity: false,
-                derivative: Some(3)
-            }
-        );
-
-        let states = md.continuous_states().unwrap();
-        assert_eq!(
-            states
-                .iter()
-                .map(|(der, state)| (der.name.as_str(), state.name.as_str()))
-                .collect::<Vec<(_, _)>>(),
-            vec![("PI.x", "der(PI.x)")]
-        );
-        */
+        // let outputs = md.outputs().unwrap();
+        // assert_eq!(outputs[0].0.name, "x[1]");
+        // assert_eq!(outputs[0].1.len(), 2);
+        // assert_eq!(outputs[0].1[0].name, "x[1]");
+        // assert_eq!(outputs[1].0.name, "x[2]");
+        // assert_eq!(outputs[1].1.len(), 0);
+        //
+        // let derivatives = md.derivatives().unwrap();
+        // assert_eq!(derivatives[0].0.name, "der(PI.x)");
+        // assert_eq!(
+        // derivatives[0].0.elem,
+        // ScalarVariableElement::Real {
+        // declared_type: None,
+        // start: 0.0,
+        // relative_quantity: false,
+        // derivative: Some(3)
+        // }
+        // );
+        //
+        // let states = md.continuous_states().unwrap();
+        // assert_eq!(
+        // states
+        // .iter()
+        // .map(|(der, state)| (der.name.as_str(), state.name.as_str()))
+        // .collect::<Vec<(_, _)>>(),
+        // vec![("PI.x", "der(PI.x)")]
+        // );
     }
 }

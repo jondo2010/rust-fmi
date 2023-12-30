@@ -25,7 +25,7 @@ impl<'a> Instance<'a, ME> {
         let binding = import.binding(&model_exchange.model_identifier)?;
 
         let callbacks = Box::new(CallbackFunctions::default());
-        //check_consistency(&import, &me.common)?;
+        // check_consistency(&import, &me.common)?;
 
         let instance_name = CString::new(instance_name).expect("Error building CString");
         let guid = CString::new(schema.guid.as_bytes()).expect("Error building CString");
@@ -75,7 +75,6 @@ impl<'a> Instance<'a, ME> {
         {
             log::trace!("Iterating while new_discrete_states_needed=true");
             self.new_discrete_states(&mut event_info).ok()?;
-            todo!();
         }
 
         assert!(

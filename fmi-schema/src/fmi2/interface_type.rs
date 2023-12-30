@@ -3,8 +3,8 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(tag = "File")]
 pub struct File {
-    /// Name of the file including the path relative to the sources directory, using the forward slash as separator
-    /// (for example: name = "myFMU.c"; name = "modelExchange/solve.c")
+    /// Name of the file including the path relative to the sources directory, using the forward
+    /// slash as separator (for example: name = "myFMU.c"; name = "modelExchange/solve.c")
     #[yaserde(attribute)]
     pub name: String,
 }
@@ -16,8 +16,8 @@ pub struct SourceFiles {
     pub files: Vec<File>,
 }
 
-/// The FMU includes a model or the communication to a tool that provides a model. The environment provides the
-/// simulation engine for the model.
+/// The FMU includes a model or the communication to a tool that provides a model. The environment
+/// provides the simulation engine for the model.
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct ModelExchange {
     /// Short class name according to C-syntax
@@ -49,8 +49,9 @@ pub struct ModelExchange {
     #[yaserde(attribute, rename = "providesDirectionalDerivative")]
     pub provides_directional_derivative: bool,
 
-    /// List of source file names that are present in the "sources" directory of the FMU and need to be compiled in
-    /// order to generate the binary of the FMU (only meaningful for source code FMUs).
+    /// List of source file names that are present in the "sources" directory of the FMU and need
+    /// to be compiled in order to generate the binary of the FMU (only meaningful for source
+    /// code FMUs).
     #[yaserde(rename = "SourceFiles")]
     pub source_files: SourceFiles,
 }
@@ -61,7 +62,8 @@ pub struct CoSimulation {
     #[yaserde(attribute, rename = "modelIdentifier")]
     pub model_identifier: String,
 
-    /// If true, a tool is needed to execute the model and the FMU just contains the communication to this tool.
+    /// If true, a tool is needed to execute the model and the FMU just contains the communication
+    /// to this tool.
     #[yaserde(attribute, rename = "needsExecutionTool")]
     pub needs_execution_tool: bool,
 
@@ -93,8 +95,9 @@ pub struct CoSimulation {
     #[yaserde(attribute, rename = "providesDirectionalDerivative")]
     pub provides_directional_derivative: bool,
 
-    /// List of source file names that are present in the "sources" directory of the FMU and need to be compiled in
-    /// order to generate the binary of the FMU (only meaningful for source code FMUs).
+    /// List of source file names that are present in the "sources" directory of the FMU and need
+    /// to be compiled in order to generate the binary of the FMU (only meaningful for source
+    /// code FMUs).
     #[yaserde(rename = "SourceFiles")]
     pub source_files: SourceFiles,
 }

@@ -12,6 +12,8 @@ pub trait Common {
     /// The FMI-standard version string
     fn version(&self) -> &str;
 
+    fn get_types_platform(&self) -> &str;
+
     fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Fmi2Status;
 
     /// Informs the FMU to setup the experiment. This function can be called after `instantiate()`
@@ -162,17 +164,19 @@ pub trait ModelExchange: Common {
     /// become active (and relations are not "frozen").
     fn enter_event_mode(&self) -> Fmi2Status;
 
-    /// The FMU is in Event Mode and the super dense time is incremented by this call. If the super dense time before a
-    /// call to [`ModelExchange::new_discrete_states`] was `(tR,tI)` then the time instant after the call is
-    /// `(tR,tI + 1)`.
+    /// The FMU is in Event Mode and the super dense time is incremented by this call. If the super
+    /// dense time before a call to [`ModelExchange::new_discrete_states`] was `(tR,tI)` then
+    /// the time instant after the call is `(tR,tI + 1)`.
     ///
-    /// If returned EventInfo.new_discrete_states_needed = true, the FMU should stay in Event Mode and the FMU requires
-    /// to set new inputs to the FMU (`set_XXX` on inputs), to compute and get the outputs (`get_XXX` on outputs) and to
-    /// call `new_discrete_states()` again.
+    /// If returned EventInfo.new_discrete_states_needed = true, the FMU should stay in Event Mode
+    /// and the FMU requires to set new inputs to the FMU (`set_XXX` on inputs), to compute and
+    /// get the outputs (`get_XXX` on outputs) and to call `new_discrete_states()` again.
     ///
     /// Depending on the connection with other FMUs, the environment shall
-    ///   * call [`Common::terminate`], if `terminate_simulation = true` is returned by at least one FMU,
-    ///   * call [`ModelExchange::enter_continuous_time_mode`] if all FMUs return `new_discrete_states_needed = false`.
+    ///   * call [`Common::terminate`], if `terminate_simulation = true` is returned by at least one
+    ///     FMU,
+    ///   * call [`ModelExchange::enter_continuous_time_mode`] if all FMUs return
+    ///     `new_discrete_states_needed = false`.
     ///   * stay in Event Mode otherwise.
     fn new_discrete_states(&self, event_info: &mut EventInfo) -> Fmi2Status;
 

@@ -1,6 +1,6 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-//use super::Annotations;
+// use super::Annotations;
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "Unit")]
@@ -14,7 +14,7 @@ pub struct Fmi2Unit {
     #[yaserde(rename = "DisplayUnit")]
     pub display_unit: Vec<DisplayUnit>,
     //#[yaserde(= "Annotations")]
-    //pub annotations: Option<Annotations>,
+    // pub annotations: Option<Annotations>,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -46,7 +46,7 @@ pub struct BaseUnit {
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct DisplayUnit {
     //#[yaserde(rename = "Annotations")]
-    //pub annotations: Option<Annotations>,
+    // pub annotations: Option<Annotations>,
     #[yaserde(attribute, rename = "name")]
     pub name: String,
     #[yaserde(attribute, rename = "factor")]

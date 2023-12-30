@@ -22,7 +22,7 @@ new_key_type! { pub struct LogCategoryKey; }
 
 #[derive(Debug)]
 struct UnitDefinition<'a> {
-    //TODO
+    // TODO
     unit: Fmi3Unit<'a>,
 }
 
@@ -53,15 +53,20 @@ pub enum ModelVariable {
 pub struct ModelDescription {
     /// Version of FMI the XML file complies with.
     pub fmi_version: String,
-    /// The name of the model as used in the modeling environment that generated the XML file, such as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
+    /// The name of the model as used in the modeling environment that generated the XML file, such
+    /// as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
     pub model_name: String,
-    /// The instantiationToken is a string that may be used by the FMU to check that the XML file is compatible with the implementation of the FMU. For this purpose the importer must pass the instantiationToken from the modelDescription.xml to the fmi3InstantiateXXX function call.
+    /// The instantiationToken is a string that may be used by the FMU to check that the XML file
+    /// is compatible with the implementation of the FMU. For this purpose the importer must pass
+    /// the instantiationToken from the modelDescription.xml to the fmi3InstantiateXXX function
+    /// call.
     pub instantiation_token: String,
     /// Optional string with a brief description of the model.
     pub description: Option<String>,
     /// Optional date and time when the XML file was generated.
     pub generation_date_and_time: Option<super::DateTime>,
-    /// A list of log categories that can be set to define the log information that is supported from the FMU.
+    /// A list of log categories that can be set to define the log information that is supported
+    /// from the FMU.
     pub log_categories: SlotMap<LogCategoryKey, Category>,
     /// A global list of unit and display unit definitions
     unit_definitions: SlotMap<UnitKey, UnitDefinition>,
@@ -137,7 +142,7 @@ fn build_unit_definitions<'a>(
     }
     Ok(map)
 
-    //Ok(md.unit_definitions.as_ref().map_or_else( || SlotMap::default(), |defs| { },))
+    // Ok(md.unit_definitions.as_ref().map_or_else( || SlotMap::default(), |defs| { },))
 }
 
 fn build_type_definitions<'a>(
@@ -271,34 +276,32 @@ fn build_model_structure(
         );
     }
 
-    /*
-    for var in &md.model_structure.output {
-        outputs.push(find_variable_by_name(model_variables.iter(), var).ok_or(
-            ModelError::ReferenceError(format!(
-                "Variable '{}' not found in ModelStructure",
-                var
-            )),
-        )?);
-    }
-
-    for var in &md.model_structure.derivative {
-        derivatives.push(find_variable_by_name(model_variables.iter(), var).ok_or(
-            ModelError::ReferenceError(format!(
-                "Variable '{}' not found in ModelStructure",
-                var
-            )),
-        )?);
-    }
-
-    for var in &md.model_structure.initial_unknown {
-        initial_unknowns.push(find_variable_by_name(model_variables.iter(), var).ok_or(
-            ModelError::ReferenceError(format!(
-                "Variable '{}' not found in ModelStructure",
-                var
-            )),
-        )?);
-    }
-    */
+    // for var in &md.model_structure.output {
+    // outputs.push(find_variable_by_name(model_variables.iter(), var).ok_or(
+    // ModelError::ReferenceError(format!(
+    // "Variable '{}' not found in ModelStructure",
+    // var
+    // )),
+    // )?);
+    // }
+    //
+    // for var in &md.model_structure.derivative {
+    // derivatives.push(find_variable_by_name(model_variables.iter(), var).ok_or(
+    // ModelError::ReferenceError(format!(
+    // "Variable '{}' not found in ModelStructure",
+    // var
+    // )),
+    // )?);
+    // }
+    //
+    // for var in &md.model_structure.initial_unknown {
+    // initial_unknowns.push(find_variable_by_name(model_variables.iter(), var).ok_or(
+    // ModelError::ReferenceError(format!(
+    // "Variable '{}' not found in ModelStructure",
+    // var
+    // )),
+    // )?);
+    // }
 
     Ok(ModelStructure {
         outputs,

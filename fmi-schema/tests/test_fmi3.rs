@@ -41,7 +41,7 @@ fn test_fmi3() {
     let type_defs = model.type_definitions.unwrap();
     assert_eq!(type_defs.float64types.len(), 3);
     assert_eq!(type_defs.float64types[0].name(), "Position");
-    //Float64Type { name: "Position", quantity: "Position", unit: "m" },
+    // Float64Type { name: "Position", quantity: "Position", unit: "m" },
 
     let log_cats = model.log_categories.unwrap();
     assert_eq!(log_cats.categories.len(), 2);

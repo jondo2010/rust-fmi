@@ -57,7 +57,8 @@ pub struct Real {
     #[yaserde(attribute)]
     pub start: f64,
 
-    /// If present, this variable is the derivative of variable with ScalarVariable index "derivative".
+    /// If present, this variable is the derivative of variable with ScalarVariable index
+    /// "derivative".
     #[yaserde(attribute)]
     pub derivative: Option<u32>,
 

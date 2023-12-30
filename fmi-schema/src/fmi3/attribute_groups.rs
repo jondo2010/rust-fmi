@@ -14,7 +14,7 @@ pub struct RealBaseAttributes {
     pub unbounded: bool,
 }
 
-//macro_rules! float_attrs {
+// macro_rules! float_attrs {
 //    ($name:ident, $type:ty) => {
 //        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 //        pub struct $name {
@@ -27,9 +27,8 @@ pub struct RealBaseAttributes {
 //        }
 //    };
 //}
-//
-//float_attrs!(Float32Attributes, f32);
-//float_attrs!(Float64Attributes, f64);
+// float_attrs!(Float32Attributes, f32);
+// float_attrs!(Float64Attributes, f64);
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float64Attributes {
