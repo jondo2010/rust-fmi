@@ -250,13 +250,13 @@ pub trait CoSimulation: Common {
     /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3DoStep]
     fn do_step(
         &mut self,
-        currentCommunicationPoint: f64,
-        communicationStepSize: f64,
-        noSetFMUStatePriorToCurrentPoint: bool,
-        eventHandlingNeeded: &mut bool,
-        terminateSimulation: &mut bool,
-        earlyReturn: &mut bool,
-        lastSuccessfulTime: &mut f64,
+        current_communication_point: f64,
+        communication_step_size: f64,
+        no_set_fmu_state_prior_to_current_point: bool,
+        event_handling_needed: &mut bool,
+        terminate_simulation: &mut bool,
+        early_return: &mut bool,
+        last_successful_time: &mut f64,
     ) -> Fmi3Status;
 }
 
