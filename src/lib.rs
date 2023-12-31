@@ -5,14 +5,15 @@
 //!
 //! ```rust
 //! #[cfg(target_os = "linux")] {
+//!    use fmi::fmi2::instance::traits::Common;
 //!    let import = fmi::Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
 //!        .unwrap()
 //!        .as_fmi2()
 //!        .unwrap();
 //!    assert_eq!(import.model_description().fmi_version, "2.0");
 //!    let me = import.instantiate_me("inst1", false, true).unwrap();
-//!    assert_eq!(crate::fmi2::instance::traits::Common::version(&me), "2.0");
-//! #}
+//!    assert_eq!(me.version(), "2.0");
+//! }
 //! ```
 
 //TODO: turn this on
