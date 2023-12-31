@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "FMI2/fmi2FunctionTypes.h"
+#include "hdrs/fmi2FunctionTypes.h"
 
 extern void callback_log(fmi2ComponentEnvironment componentEnvironment,
                          fmi2String instanceName, fmi2Status status,

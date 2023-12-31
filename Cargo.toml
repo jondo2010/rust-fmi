@@ -1,8 +1,17 @@
+[workspace]
+members = ["fmi-schema"]
+
+[workspace.package]
+license = "MIT OR Apache-2.0"
+version = "0.3.0"
+edition = "2021"
+authors = ["John Hughes <jondo2010@gmail.com>"]
+
 [package]
 name = "fmi"
-version = "0.2.2"
-authors = ["John Hughes <jondo2010@gmail.com>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 include = [
     "/Cargo.toml",
     "/LICENSE-APACHE",
@@ -15,56 +24,36 @@ include = [
 description = "A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/"
 repository = "https://github.com/jondo2010/rust-fmi"
 readme = "README.md"
-license = "MIT OR Apache-2.0"
+license.workspace = true
 keywords = ["model", "ode", "modelica"]
 categories = ["science", "simulation"]
+
+[features]
+default = ["fmi2", "fmi3"]
+fmi2 = ["libc"]
+fmi3 = []
 
 [build-dependencies]
 cc = "1.0"
 built = "0.7"
+bindgen = "0.69"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde-xml-rs = "0.6"
-dtparse = "2.0"
-num-traits = "0.2"
-derive_more = "0.99"
-dlopen = "0.1"
-dlopen_derive = "0.1"
-zip = "0.6"
-url = "2.2"
-tempfile = "3.1"
-chrono = { version = "0.4", features = ["serde"] }
-libc = { version = "0.2", features = ["align"] }
+fmi-schema = { path = "fmi-schema" }
+itertools = "0.12"
+libc = { version = "0.2", features = ["align"], optional = true }
+libloading = "0.8"
 log = { version = "0.4", features = ["std", "serde"] }
+tempfile = "3.1"
 thiserror = "1.0"
+url = "2.2"
+zip = "0.6"
 
 [dev-dependencies]
-pretty_env_logger = "0.5"
-csv = "1.0"
 assert_approx_eq = "1.1"
+env_logger = "0.10"
+test-log = "0.2"
 
-[workspace]
-members = ["fmi_check"]
-
-# Config for 'cargo dist'
-[workspace.metadata.dist]
-# The preferred cargo-dist version to use in CI (Cargo.toml SemVer syntax)
-cargo-dist-version = "0.4.2"
-# CI backends to support
-ci = ["github"]
-# The installers to generate for each app
-installers = []
-# Target platforms to build apps for (Rust target-triple syntax)
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "aarch64-apple-darwin",
-    "x86_64-pc-windows-msvc",
-]
-# Publish jobs to run in CI
-pr-run-mode = "plan"
-
-# The profile that 'cargo dist' will build with
-[profile.dist]
-inherits = "release"
-lto = "thin"
+[patch.crates-io]
+yaserde = { git = "https://github.com/jondo2010/yaserde.git", branch = "support_xst_lists" }
+yaserde_derive = { git = "https://github.com/jondo2010/yaserde.git", branch = "support_xst_lists" }

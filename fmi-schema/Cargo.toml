@@ -1,0 +1,26 @@
+[package]
+name = "fmi-schema"
+version = "0.1.0"
+edition = "2021"
+description = "XML schema support for FMI 2.0 and 3.0"
+license.workspace = true
+
+[features]
+default = ["fmi2", "fmi3"]
+## Enable support for FMI 2.0
+fmi2 = []
+## Enable support for FMI 3.0
+fmi3 = []
+## Enable support for Apache Arrow Schema
+arrow = ["dep:arrow"]
+
+[dependencies]
+arrow = { version = "49.0", optional = true }
+chrono = { version = "0.4" }
+document-features = "0.2"
+itertools = "0.12"
+lenient_semver = "0.4"
+semver = "1.0"
+thiserror = "1.0"
+yaserde = "0.9"
+yaserde_derive = "0.9"

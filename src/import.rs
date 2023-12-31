@@ -1,255 +1,178 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::Path, str::FromStr};
 
-use super::{fmi, model_descr, FmiError, Result};
-use dlopen::wrapper::Container;
-use log::trace;
+#[cfg(feature = "fmi2")]
+use crate::fmi2;
+#[cfg(feature = "fmi3")]
+use crate::fmi3;
+use crate::Error;
+
+use fmi_schema::minimal::ModelDescription as MinModel;
 
 const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 
-#[cfg(all(
-    target_os = "windows",
-    any(target_arch = "x86_64", target_arch = "aarch64")
-))]
-const FMI_PLATFORM: &str = "win64";
-#[cfg(all(target_os = "windows", target_arch = "x86"))]
-const FMI_PLATFORM: &str = "win32";
-#[cfg(all(
-    target_os = "linux",
-    any(target_arch = "x86_64", target_arch = "aarch64")
-))]
-const FMI_PLATFORM: &str = "linux64";
-#[cfg(all(linux, target_arch = "x86"))]
-const FMI_PLATFORM: &str = "linux32";
-#[cfg(all(
-    target_os = "macos",
-    any(target_arch = "x86_64", target_arch = "aarch64")
-))]
-const FMI_PLATFORM: &str = "darwin64";
-#[cfg(all(macos, target_arch = "x86"))]
-const FMI_PLATFORM: &str = "darwin32";
+pub trait FmiImport: Sized {
+    /// The raw parsed XML schema type
+    type Schema;
 
-fn construct_so_path(model_identifier: &str) -> Result<PathBuf> {
-    let fname = model_identifier.to_owned() + std::env::consts::DLL_SUFFIX;
-    Ok(std::path::PathBuf::from("binaries")
-        .join(FMI_PLATFORM)
-        .join(fname))
-}
+    /// The raw FMI bindings type
+    type Binding;
 
-fn extract_archive(archive: impl AsRef<Path>, outdir: impl AsRef<Path>) -> Result<()> {
-    let archive = archive.as_ref();
-    let outdir = outdir.as_ref();
-    trace!("Extracting {} into {}", archive.display(), outdir.display());
-    let file = std::fs::File::open(archive)?;
-    let mut archive = zip::ZipArchive::new(file)?;
+    /// Create a new FMI import from a directory containing the unzipped FMU
+    fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error>;
 
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i)?;
-        let outpath = outdir.join(file.name());
-        if file.is_dir() {
-            std::fs::create_dir_all(&outpath)?;
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(p)?;
-                }
-            }
-            let mut outfile = std::fs::File::create(&outpath)?;
-            std::io::copy(&mut file, &mut outfile)?;
-        }
+    /// Return the path to the extracted FMU
+    fn archive_path(&self) -> &std::path::Path;
+
+    /// Get the path to the shared library
+    fn shared_lib_path(&self, model_identifier: &str) -> Result<std::path::PathBuf, Error>;
+
+    /// Return the path to the resources directory
+    fn resource_url(&self) -> url::Url {
+        url::Url::from_file_path(self.archive_path().join("resources"))
+            .expect("Error forming resource location URL")
     }
-    Ok(())
+
+    /// Get a reference to the raw-schema model description
+    fn model_description(&self) -> &Self::Schema;
+
+    /// Load the plugin shared library and return the raw bindings.
+    fn binding(&self, model_identifier: &str) -> Result<Self::Binding, Error>;
 }
 
-pub struct Import {
-    /// Path to the unzipped FMU on disk
-    dir: tempfile::TempDir,
-    pub descr: Arc<model_descr::ModelDescription>,
-}
-
-/// Implement Deserialize
-#[cfg(feature = "deserialize")]
-impl<'de> serde::Deserialize<'de> for Import {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "snake_case")]
-        enum Field {
-            Url,
-            EnableFmiLogging,
-        }
-
-        struct ImportVisitor;
-        impl<'de> serde::de::Visitor<'de> for ImportVisitor {
-            type Value = Import;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct Import")
-            }
-
-            fn visit_map<V>(self, mut map: V) -> Result<Import, V::Error>
-            where
-                V: serde::de::MapAccess<'de>,
-            {
-                let mut url = None;
-                let mut enable_fmi_logging = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::Url => {
-                            if url.is_some() {
-                                return Err(serde::de::Error::duplicate_field("url"));
-                            }
-                            url = Some(map.next_value()?);
-                        }
-                        Field::EnableFmiLogging => {
-                            if enable_fmi_logging.is_some() {
-                                return Err(serde::de::Error::duplicate_field(
-                                    "enable_fmi_logging",
-                                ));
-                            }
-                            enable_fmi_logging = Some(map.next_value()?);
-                        }
-                    }
-                }
-                let url = url.ok_or_else(|| serde::de::Error::missing_field("url"))?;
-                let _enable_fmi_logging: bool = enable_fmi_logging
-                    .ok_or_else(|| serde::de::Error::missing_field("enable_fmi_logging"))?;
-                Import::new(url).map_err(serde::de::Error::custom)
-            }
-        }
-
-        const FIELDS: &'static [&'static str] = &["url", "enable_fmi_logging"];
-        deserializer.deserialize_struct("Import", FIELDS, ImportVisitor)
-    }
-}
-
-impl std::fmt::Debug for Import {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "Import {} {{FMI{}, {} variables}}",
-            self.descr.model_name(),
-            self.descr.fmi_version,
-            self.descr.num_variables()
-        )
-    }
+/// Import is responsible for extracting the FMU, parsing the modelDescription XML and loading the
+/// shared library.
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
+pub enum Import {
+    #[cfg(feature = "fmi2")]
+    Fmi2(fmi2::import::Fmi2),
+    #[cfg(feature = "fmi3")]
+    Fmi3(fmi3::import::Fmi3),
 }
 
 impl Import {
     /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
-    pub fn new(path: impl Into<std::path::PathBuf>) -> Result<Import> {
-        // First create a temp directory
+    pub fn new(path: impl AsRef<Path>) -> Result<Self, Error> {
+        let file = std::fs::File::open(path.as_ref())?;
+        let mut archive = zip::ZipArchive::new(file)?;
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
-        extract_archive(path.into(), temp_dir.path())?;
-        //.context("extraction")?;
+        log::debug!("Extracting {:?} into {temp_dir:?}", path.as_ref());
+        archive.extract(&temp_dir)?;
 
-        // Open and parse the model description
+        for fname in archive.file_names() {
+            log::trace!("  - {}", fname);
+        }
+
+        // Open and read the modelDescription XML into a string
         let descr_file_path = temp_dir.path().join(MODEL_DESCRIPTION);
-        trace!("Parsing ModelDescription {:?}", descr_file_path);
-        let descr_file = std::fs::File::open(descr_file_path)?;
-        //.context(format!("{}", descr_file_path.as_path().display()))?;
+        let descr_xml = std::fs::read_to_string(descr_file_path)?;
 
-        let descr: model_descr::ModelDescription =
-            model_descr::from_reader(std::io::BufReader::new(descr_file))?;
-
-        let cap_string = if descr.model_exchange.is_some() && descr.co_simulation.is_some() {
-            "ME+CS".to_owned()
-        } else if descr.model_exchange.is_some() {
-            "ME".to_owned()
-        } else if descr.co_simulation.is_some() {
-            "CS".to_owned()
-        } else {
-            "".to_owned()
-        };
-
-        trace!(
-            "Parsed modelDescription for \"{}\" ({})",
-            descr.model_name(),
-            cap_string
+        // Initial non-version-specific model description
+        let descr = MinModel::from_str(&descr_xml)?;
+        log::debug!(
+            "Found FMI {} named '{}",
+            descr.fmi_version,
+            descr.model_name
         );
 
-        Ok(Import {
-            dir: temp_dir,
-            descr: Arc::new(descr),
-        })
+        match descr.version()?.major {
+            #[cfg(feature = "fmi2")]
+            2 => fmi2::import::Fmi2::new(temp_dir, &descr_xml).map(Import::Fmi2),
+
+            #[cfg(feature = "fmi3")]
+            3 => fmi3::import::Fmi3::new(temp_dir, &descr_xml).map(Import::Fmi3),
+
+            _ => Err(Error::UnsupportedFmiVersion(descr.fmi_version.to_string())),
+        }
     }
 
-    /// Create a ModelExchange API container if supported
-    pub fn container_me(&self) -> Result<Container<fmi::Fmi2ME>> {
-        let me = self
-            .descr
-            .model_exchange
-            .as_ref()
-            .ok_or(FmiError::UnsupportedFmuType(fmi::fmi2Type::ModelExchange))?;
-        trace!("Found ModelExchange model \"{}\"", me.model_identifier);
-
-        let lib_path = self
-            .dir
-            .path()
-            .join(construct_so_path(&me.model_identifier)?);
-        trace!("Loading shared library {:?}", lib_path);
-
-        unsafe { Container::load(lib_path) }.map_err(FmiError::from)
+    #[cfg(feature = "fmi2")]
+    #[must_use]
+    pub fn as_fmi2(self) -> Option<fmi2::import::Fmi2> {
+        if let Self::Fmi2(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 
-    /// Create a CoSimulation API container if supported
-    pub fn container_cs(&self) -> Result<Container<fmi::Fmi2CS>> {
-        let cs = self
-            .descr
-            .co_simulation
-            .as_ref()
-            .ok_or(FmiError::UnsupportedFmuType(fmi::fmi2Type::CoSimulation))?;
-        trace!("Found CoSimulation model \"{}\"", cs.model_identifier);
-
-        let lib_path = self
-            .dir
-            .path()
-            .join(construct_so_path(&cs.model_identifier)?);
-        trace!("Loading shared library {:?}", lib_path);
-
-        unsafe { Container::load(lib_path) }.map_err(FmiError::from)
-    }
-
-    /// Return the path to the extracted FMU
-    pub fn path(&self) -> &std::path::Path {
-        self.dir.path()
-    }
-
-    pub fn resource_url(&self) -> url::Url {
-        url::Url::from_file_path(self.path().join("resources"))
-            .expect("Error forming resource location URL")
+    #[cfg(feature = "fmi3")]
+    #[must_use]
+    pub fn as_fmi3(self) -> Option<fmi3::import::Fmi3> {
+        if let Self::Fmi3(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 }
 
 // TODO Make this work on other targets
-#[cfg(target_os = "linux")]
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_import_me() {
-        let import = Import::new(std::path::Path::new(
-            "data/Modelica_Blocks_Sources_Sine.fmu",
-        ))
-        .unwrap();
-        assert_eq!(import.descr.fmi_version, "2.0");
-
-        let _me = import.container_me().unwrap();
+    #[cfg(feature = "fmi2")]
+    fn test_import_fmi2() {
+        let import = Import::new("data/reference_fmus/2.0/BouncingBall.fmu")
+            .unwrap()
+            .as_fmi2()
+            .unwrap();
+        assert_eq!(import.model_description().fmi_version, "2.0");
+        assert_eq!(import.model_description().model_name, "BouncingBall");
+        let me = import.model_description().model_exchange.as_ref().unwrap();
+        assert_eq!(me.model_identifier, "BouncingBall");
+        let binding = import.binding(&me.model_identifier).unwrap();
+        let ver = unsafe {
+            std::ffi::CStr::from_ptr(binding.fmi2GetVersion())
+                .to_str()
+                .unwrap()
+        };
+        assert_eq!(ver, "2.0");
     }
 
-    #[test]
-    fn test_import_cs() {
-        let import = Import::new(std::path::Path::new(
-            "data/Modelica_Blocks_Sources_Sine.fmu",
-        ))
-        .unwrap();
-        assert_eq!(import.descr.fmi_version, "2.0");
+    #[test_log::test]
+    #[cfg(feature = "fmi3")]
+    fn test_import_fmi3() {
+        let import = Import::new("data/reference_fmus/3.0/BouncingBall.fmu")
+            .unwrap()
+            .as_fmi3()
+            .unwrap();
+        assert_eq!(import.model_description().fmi_version, "3.0");
+        assert_eq!(import.model_description().model_name, "BouncingBall");
+        let me = import.model_description().model_exchange.as_ref().unwrap();
+        let binding = import.binding(&me.model_identifier).unwrap();
+        let ver = unsafe {
+            std::ffi::CStr::from_ptr(binding.fmi3GetVersion())
+                .to_str()
+                .unwrap()
+        };
+        assert_eq!(ver, "3.0");
+    }
 
-        let _cs = import.container_cs().unwrap();
+    #[test_log::test]
+    #[cfg(feature = "fmi2")]
+    fn test_import_me() {
+        let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
+            .unwrap()
+            .as_fmi2()
+            .unwrap();
+        assert_eq!(import.model_description().fmi_version, "2.0");
+        let me = import.instantiate_me("inst1", false, true).unwrap();
+        assert_eq!(fmi2::instance::traits::Common::version(&me), "2.0");
+    }
+
+    #[test_log::test]
+    #[cfg(feature = "fmi2")]
+    fn test_import_cs() {
+        let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
+            .unwrap()
+            .as_fmi2()
+            .unwrap();
+        assert_eq!(import.model_description().fmi_version, "2.0");
+        let cs = import.instantiate_cs("inst1", false, true).unwrap();
+        assert_eq!(fmi2::instance::traits::Common::version(&cs), "2.0");
     }
 }
