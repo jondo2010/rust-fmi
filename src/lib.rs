@@ -5,7 +5,7 @@
 //!
 //! ```rust
 //! #[cfg(target_os = "linux")] {
-//!    use fmi::fmi2::instance::traits::Common;
+//!    use fmi::{import::FmiImport, fmi2::instance::traits::Common};
 //!    let import = fmi::Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
 //!        .unwrap()
 //!        .as_fmi2()
