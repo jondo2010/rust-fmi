@@ -41,6 +41,7 @@ pub trait FmiImport: Sized {
 
 /// Import is responsible for extracting the FMU, parsing the modelDescription XML and loading the
 /// shared library.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum Import {
     #[cfg(feature = "fmi2")]
@@ -86,6 +87,7 @@ impl Import {
     }
 
     #[cfg(feature = "fmi2")]
+    #[must_use]
     pub fn as_fmi2(self) -> Option<fmi2::import::Fmi2> {
         if let Self::Fmi2(v) = self {
             Some(v)
@@ -95,6 +97,7 @@ impl Import {
     }
 
     #[cfg(feature = "fmi3")]
+    #[must_use]
     pub fn as_fmi3(self) -> Option<fmi3::import::Fmi3> {
         if let Self::Fmi3(v) = self {
             Some(v)

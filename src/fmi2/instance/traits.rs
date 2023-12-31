@@ -1,6 +1,6 @@
 //! Traits for different instance types ([ModelExchange], [CoSimulation]).
 
-use crate::fmi2::{EventInfo, StatusKind};
+use crate::{fmi2::EventInfo, Error};
 
 use super::{binding, Fmi2Status};
 
@@ -273,6 +273,23 @@ pub trait CoSimulation: Common {
     /// functions `terminate()` or `reset()`.
     fn cancel_step(&self) -> Fmi2Status;
 
-    /// Inquire into slave status during asynchronous step.
-    fn get_status(&self, kind: StatusKind) -> Fmi2Status;
+    /// Can be called when the [`CoSimulation::do_step`] function returned fmi2Pending. The function
+    /// delivers fmi2Pending if the computation is not finished. Otherwise the function returns the
+    /// result of the asynchronously executed [`CoSimulation::do_step`] call.
+    fn do_step_status(&mut self) -> Result<Fmi2Status, Error>;
+
+    /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers a
+    /// string which informs about the status of the currently running asynchronous fmi2DoStep
+    /// computation.
+    fn pending_status(&mut self) -> Result<&str, Error>;
+
+    /// Returns the end time of the last successfully completed communication step. Can be called
+    /// after fmi2DoStep(..) returned fmi2Discard.
+    fn last_successful_time(&mut self) -> Result<f64, Error>;
+
+    /// Returns `true`, if the slave wants to terminate the simulation. Can be called after
+    /// [`CoSimulation::do_step(..)`] returned `Fmi2Status::Discard`. Use
+    /// [`CoSimulation::last_successful_time()`] to determine the time instant at which the slave
+    /// terminated.
+    fn terminated(&mut self) -> Result<bool, Error>;
 }

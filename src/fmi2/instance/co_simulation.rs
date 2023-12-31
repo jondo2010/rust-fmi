@@ -1,7 +1,7 @@
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 use crate::{
-    fmi2::{import, CallbackFunctions, Fmi2Status, StatusKind},
+    fmi2::{import, CallbackFunctions, Fmi2Status},
     import::FmiImport,
     Error,
 };
@@ -81,12 +81,55 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
         Fmi2Status(unsafe { self.binding.fmi2CancelStep(self.component) })
     }
 
-    fn get_status(&self, kind: StatusKind) -> Fmi2Status {
-        let mut ret: binding::fmi2Status = binding::fmi2Status_fmi2OK;
+    fn do_step_status(&mut self) -> Result<Fmi2Status, Error> {
+        let mut ret = binding::fmi2Status_fmi2OK;
         Fmi2Status(unsafe {
-            self.binding
-                .fmi2GetStatus(self.component, kind as _, &mut ret)
-        });
-        todo!();
+            self.binding.fmi2GetStatus(
+                self.component,
+                binding::fmi2StatusKind_fmi2DoStepStatus,
+                &mut ret,
+            )
+        })
+        .ok()?;
+        Ok(Fmi2Status(ret))
+    }
+
+    fn pending_status(&mut self) -> Result<&str, Error> {
+        let str_ret = CStr::from_bytes_with_nul(b"\0").unwrap();
+        Fmi2Status(unsafe {
+            self.binding.fmi2GetStringStatus(
+                self.component,
+                binding::fmi2StatusKind_fmi2PendingStatus,
+                &mut str_ret.as_ptr(),
+            )
+        })
+        .ok()?;
+        Ok(str_ret.to_str()?)
+    }
+
+    fn last_successful_time(&mut self) -> Result<f64, Error> {
+        let mut ret = 0.0;
+        Fmi2Status(unsafe {
+            self.binding.fmi2GetRealStatus(
+                self.component,
+                binding::fmi2StatusKind_fmi2LastSuccessfulTime,
+                &mut ret,
+            )
+        })
+        .ok()?;
+        Ok(ret)
+    }
+
+    fn terminated(&mut self) -> Result<bool, Error> {
+        let mut ret = 0i32;
+        Fmi2Status(unsafe {
+            self.binding.fmi2GetBooleanStatus(
+                self.component,
+                binding::fmi2StatusKind_fmi2Terminated,
+                &mut ret,
+            )
+        })
+        .ok()?;
+        Ok(ret != 0)
     }
 }

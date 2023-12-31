@@ -24,7 +24,7 @@ impl<'a> Instance<'a, ME> {
 
         let binding = import.binding(&model_exchange.model_identifier)?;
 
-        let callbacks = Box::new(CallbackFunctions::default());
+        let callbacks = Box::<CallbackFunctions>::default();
         // check_consistency(&import, &me.common)?;
 
         let instance_name = CString::new(instance_name).expect("Error building CString");

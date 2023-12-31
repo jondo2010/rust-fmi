@@ -16,8 +16,7 @@
 //! }
 //! ```
 
-//TODO: turn this on
-//#![deny(clippy::pedantic)]
+#![deny(clippy::all)]
 
 #[cfg(feature = "fmi2")]
 pub mod fmi2;

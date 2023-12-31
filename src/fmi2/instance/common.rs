@@ -129,12 +129,8 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
         Fmi2Status(unsafe {
-            self.binding.fmi2SetReal(
-                self.component,
-                vrs.as_ptr() as *const u32,
-                values.len(),
-                values.as_ptr(),
-            )
+            self.binding
+                .fmi2SetReal(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
         })
     }
 

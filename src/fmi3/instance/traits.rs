@@ -256,6 +256,7 @@ pub trait CoSimulation: Common {
     ///
     /// Arguments:
     /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3DoStep]
+    #[allow(clippy::too_many_arguments)]
     fn do_step(
         &mut self,
         current_communication_point: f64,

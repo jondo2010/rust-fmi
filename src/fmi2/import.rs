@@ -21,7 +21,7 @@ impl FmiImport for Fmi2 {
     type Binding = binding::Fmi2Binding;
 
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error> {
-        let schema = schema::FmiModelDescription::from_str(&schema_xml)?;
+        let schema = schema::FmiModelDescription::from_str(schema_xml)?;
         Ok(Self { dir, schema })
     }
 

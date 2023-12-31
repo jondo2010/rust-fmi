@@ -17,9 +17,6 @@ pub struct Fmi3 {
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
     schema: schema::FmiModelDescription,
-    /// Derived model description
-    #[cfg(feature = "disabled")]
-    model: model::ModelDescription,
 }
 
 impl FmiImport for Fmi3 {
