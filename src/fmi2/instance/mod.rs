@@ -2,7 +2,7 @@
 
 use crate::{fmi2::instance::traits::Common, Error, FmiInstance};
 
-use super::{binding, logger, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
+use super::{binding, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
 
 mod co_simulation;
 mod common;
@@ -55,7 +55,7 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
 impl Default for CallbackFunctions {
     fn default() -> Self {
         CallbackFunctions {
-            logger: Some(logger::callback_logger_handler),
+            logger: Some(super::binding::logger::callback_logger_handler),
             allocate_memory: Some(libc::calloc),
             free_memory: Some(libc::free),
             step_finished: None,

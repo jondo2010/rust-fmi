@@ -1,9 +1,9 @@
-use super::{binding, binding::fmi2ComponentEnvironment};
+use crate::fmi2 as binding;
 
 /// This function gets called from logger.c
 #[no_mangle]
 extern "C" fn callback_log(
-    _component_environment: fmi2ComponentEnvironment,
+    _component_environment: binding::fmi2ComponentEnvironment,
     instance_name: binding::fmi2String,
     status: binding::fmi2Status,
     category: binding::fmi2String,
@@ -48,8 +48,8 @@ extern "C" {
     /// This function is implemented in logger.c
     /// Note: This can be re-implemented in pure Rust once the `c_variadics` feature stabilizes.
     /// See: https://doc.rust-lang.org/beta/unstable-book/language-features/c-variadic.html
-    pub(crate) fn callback_logger_handler(
-        componentEnvironment: fmi2ComponentEnvironment,
+    pub fn callback_logger_handler(
+        componentEnvironment: binding::fmi2ComponentEnvironment,
         instanceName: binding::fmi2String,
         status: binding::fmi2Status,
         category: binding::fmi2String,

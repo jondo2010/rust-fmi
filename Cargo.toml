@@ -1,5 +1,5 @@
 [workspace]
-members = ["fmi-schema", "fmi-check"]
+members = ["fmi-schema", "fmi-check", "fmi-sys"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
@@ -9,9 +9,11 @@ authors = ["John Hughes <jondo2010@gmail.com>"]
 
 [workspace.dependencies]
 arrow = { version = "49.0" }
+document-features = "0.2"
 fmi = { path = "." }
 fmi-schema = { path = "fmi-schema" }
-document-features = "0.2"
+fmi-sys = { path = "fmi-sys" }
+libloading = "0.8"
 
 [package]
 name = "fmi"
@@ -43,24 +45,23 @@ fmi3 = []
 ## Enable support for Apache Arrow Schema
 arrow = ["dep:arrow"]
 
-[build-dependencies]
-cc = "1.0"
-built = "0.7"
-bindgen = "0.69"
-
 [dependencies]
 arrow = { workspace = true, optional = true }
 document-features = { workspace = true }
 fmi-schema = { workspace = true }
+fmi-sys = { workspace = true }
 itertools = "0.12"
 # Note: libc is only used for FMI 2.0 support, needed for alloc
 libc = { version = "0.2", features = ["align"], optional = true }
-libloading = "0.8"
+libloading = { workspace = true }
 log = { version = "0.4", features = ["std", "serde"] }
 tempfile = "3.1"
 thiserror = "1.0"
 url = "2.2"
 zip = "0.6"
+
+[build-dependencies]
+built = "0.7"
 
 [dev-dependencies]
 assert_approx_eq = "1.1"

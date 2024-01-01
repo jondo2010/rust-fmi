@@ -461,13 +461,13 @@ dependencies = [
 
 [[package]]
 name = "clang-sys"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c688fc74432808e3eb684cae8830a86be1d66a2bd58e1f248ed0960a590baf6f"
+checksum = "67523a3b4be3ce1989d607a828d036249522dd9c1c8de7f4dd2dae43a37369d1"
 dependencies = [
  "glob",
  "libc",
- "libloading 0.7.4",
+ "libloading",
 ]
 
 [[package]]
@@ -701,15 +701,14 @@ version = "0.3.0"
 dependencies = [
  "arrow",
  "assert_approx_eq",
- "bindgen",
  "built",
- "cc",
  "document-features",
  "env_logger 0.10.1",
  "fmi-schema",
+ "fmi-sys",
  "itertools",
  "libc",
- "libloading 0.8.1",
+ "libloading",
  "log",
  "tempfile",
  "test-log",
@@ -746,6 +745,16 @@ dependencies = [
  "thiserror",
  "yaserde",
  "yaserde_derive",
+]
+
+[[package]]
+name = "fmi-sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "cc",
+ "libloading",
+ "log",
 ]
 
 [[package]]
@@ -1070,16 +1079,6 @@ name = "libc"
 version = "0.2.151"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
-
-[[package]]
-name = "libloading"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67380fd3b2fbe7527a606e18729d21c6f3951633d0500574c4dc22d2d638b9f"
-dependencies = [
- "cfg-if",
- "winapi",
-]
 
 [[package]]
 name = "libloading"
