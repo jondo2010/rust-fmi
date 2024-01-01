@@ -52,7 +52,7 @@ pub trait AbstractVariableTrait {
     fn causality(&self) -> Causality;
     fn variability(&self) -> Variability;
     fn can_handle_multiple_set_per_time_instant(&self) -> bool;
-    fn r#type(&self) -> VariableType;
+    fn data_type(&self) -> VariableType;
 }
 
 pub trait ArrayableVariableTrait: AbstractVariableTrait {
@@ -115,7 +115,7 @@ macro_rules! impl_abstract_variable {
                     .abstract_var
                     .can_handle_multiple_set_per_time_instant
             }
-            fn r#type(&self) -> VariableType {
+            fn data_type(&self) -> VariableType {
                 VariableType::$name
             }
         }
@@ -240,7 +240,7 @@ pub enum Variability {
     /// The value of the variable is fixed in super state Initialized, in other words, after
     /// [`exit_initialization_mode()`] was called the variable value does not change anymore. The
     /// default for variables of causality [`Causality::Parameter`],
-    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is fixed.
+    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is `Fixed`.
     #[yaserde(rename = "fixed")]
     Fixed,
     /// The value of the variable is constant between events (ME and CS if Event Mode is supported)

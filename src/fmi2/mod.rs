@@ -73,6 +73,9 @@ pub enum Fmi2Res {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Fmi2Error {
+    #[error("TypesPlatform of loaded API ({0}) doesn't match expected (default)")]
+    TypesPlatformMismatch(String),
+
     /// For “model exchange”: It is recommended to perform a smaller step size and evaluate the
     /// model equations again, for example because an iterative solver in the model did not
     /// converge or because a function is outside of its domain (for example sqrt(<negative

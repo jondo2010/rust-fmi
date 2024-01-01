@@ -1,4 +1,4 @@
-use super::{binding, binding::fmi2ComponentEnvironment, Fmi2Error, Fmi2Res, Fmi2Status};
+use super::{binding, binding::fmi2ComponentEnvironment};
 
 /// This function gets called from logger.c
 #[no_mangle]
@@ -12,14 +12,15 @@ extern "C" fn callback_log(
     let instance_name = unsafe { std::ffi::CStr::from_ptr(instance_name) }
         .to_str()
         .unwrap_or("NULL");
-    let status = Result::<Fmi2Res, Fmi2Error>::from(Fmi2Status(status));
+
     let level = match status {
-        Ok(Fmi2Res::OK) => log::Level::Info,
-        Ok(Fmi2Res::Warning) => log::Level::Warn,
-        Ok(Fmi2Res::Pending) => unreachable!("Pending status is not allowed in logger"),
-        Err(Fmi2Error::Discard) => log::Level::Trace,
-        Err(Fmi2Error::Error) => log::Level::Error,
-        Err(Fmi2Error::Fatal) => log::Level::Error,
+        binding::fmi2Status_fmi2OK => log::Level::Info,
+        binding::fmi2Status_fmi2Warning => log::Level::Warn,
+        binding::fmi2Status_fmi2Pending => unreachable!("Pending status is not allowed in logger"),
+        binding::fmi2Status_fmi2Discard => log::Level::Trace,
+        binding::fmi2Status_fmi2Error => log::Level::Error,
+        binding::fmi2Status_fmi2Fatal => log::Level::Error,
+        _ => unreachable!("Invalid status"),
     };
 
     let _category = unsafe { std::ffi::CStr::from_ptr(category) }

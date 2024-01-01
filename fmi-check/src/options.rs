@@ -1,7 +1,17 @@
 use structopt::StructOpt;
-/// Query/Validate/Simulate an FMU
+
 #[derive(Debug, StructOpt)]
-pub struct FmiCheckOptions {
+pub enum Action {
+    /// Check the XML
+    Check,
+    /// Perform a ModelExchange simulation
+    ME(Simulate),
+    /// Perform a CoSimulation simulation
+    CS(Simulate),
+}
+
+#[derive(Debug, StructOpt)]
+pub struct Simulate {
     /// Name of the CSV file name with input data.
     #[structopt(short = "i", parse(from_os_str))]
     pub input_file: Option<std::path::PathBuf>,
@@ -10,18 +20,21 @@ pub struct FmiCheckOptions {
     #[structopt(short = "o", parse(from_os_str))]
     pub output_file: Option<std::path::PathBuf>,
 
-    /// Error log file name. Default is to use standard error.
-    #[structopt(short = "e", parse(from_os_str))]
-    pub error_log: Option<std::path::PathBuf>,
-
-    /// Temporary dir to use for unpacking the FMU. Default is to use system-wide directory, e.g.,
-    /// C:\Temp or /tmp.
-    #[structopt(short = "t", parse(from_os_str))]
-    pub temp_dir: Option<std::path::PathBuf>,
-
-    /// Separator to be used in CSV output.
+    /// Separator to be used in CSV input/output.
     #[structopt(short = "c", default_value = ",")]
     pub separator: String,
+
+    /// Mangle variable names to avoid quoting (needed for some CSV importing applications, but not
+    /// according to the CrossCheck rules).
+    #[structopt(short = "m")]
+    pub mangle_names: bool,
+
+    /// List of initial values to set before simulation starts. The format is
+    /// "variableName=value", where variableName is the name of the variable and value is the
+    /// value to set. The value must be of the same type as the variable. The variable name must
+    /// be a valid FMI variable name, i.e. it must be a valid identifier and it must be unique.
+    #[structopt(short = "v")]
+    pub initial_values: Vec<String>,
 
     /// Print also left limit values at event points to the output file to investigate event
     /// behaviour. Default is to only print values after event handling.
@@ -29,13 +42,8 @@ pub struct FmiCheckOptions {
     pub print_left_limit: bool,
 
     /// Print all variables to the output file. Default is to only print outputs.
-    #[structopt(short = "f")]
+    #[structopt(long = "print-all")]
     pub print_all_variables: bool,
-
-    /// Mangle variable names to avoid quoting (needed for some CSV importing applications, but not
-    /// according to the CrossCheck rules).
-    #[structopt(short = "m")]
-    pub mangle_names: bool,
 
     /// For ME simulation: Decides step size to use in forward Euler.
     /// For CS simulation: Decides communication step size for the stepping.
@@ -49,26 +57,26 @@ pub struct FmiCheckOptions {
     /// outputs are decided by the -h option. Observe that no interpolation is used, output points
     /// are taken at the steps.
     #[structopt(short = "n", default_value = "500")]
-    pub num_steps: u32,
+    pub num_steps: usize,
+
+    /// Simulation start time, default is to use information from 'DefaultExperiment' as specified
+    /// in the model description XML.
+    #[structopt(short = "s")]
+    pub start_time: Option<f64>,
 
     /// Simulation stop time, default is to use information from 'DefaultExperiment' as specified
     /// in the model description XML.
-    #[structopt(short = "s")]
+    #[structopt(short = "f")]
     pub stop_time: Option<f64>,
+}
 
-    /// Check the XML
-    #[structopt(long = "xml")]
-    pub check_xml: bool,
-
-    /// Perform a ModelExchange simulation (implicitly enables --xml)
-    #[structopt(long = "me")]
-    pub sim_me: bool,
-
-    /// Perform a CoSimulation simulation (implicitly enables --xml)
-    #[structopt(long = "cs")]
-    pub sim_cs: bool,
-
+/// Query/Validate/Simulate an FMU
+#[derive(Debug, StructOpt)]
+pub struct FmiCheckOptions {
     /// The FMU model to read
     #[structopt(name = "model.fmu", parse(from_os_str))]
     pub model: std::path::PathBuf,
+
+    #[structopt(subcommand)]
+    pub action: Action,
 }

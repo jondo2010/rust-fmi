@@ -1,12 +1,14 @@
 [package]
 name = "fmi-check"
 version = "0.2.0"
-authors = ["John Hughes <jondo2010@gmail.com>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
 anyhow = "1.0"
 arrow = { version = "49.0", features = ["csv", "prettyprint"] }
+env_logger = "0.10"
 fmi = { path = ".." }
 fmi-schema = { path = "../fmi-schema", features = ["arrow"] }
 log = "0.4"

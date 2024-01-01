@@ -12,7 +12,7 @@ const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 
 pub trait FmiImport: Sized {
     /// The raw parsed XML schema type
-    type Schema;
+    type ModelDescription;
 
     /// The raw FMI bindings type
     type Binding;
@@ -33,7 +33,7 @@ pub trait FmiImport: Sized {
     }
 
     /// Get a reference to the raw-schema model description
-    fn model_description(&self) -> &Self::Schema;
+    fn model_description(&self) -> &Self::ModelDescription;
 
     /// Load the plugin shared library and return the raw bindings.
     fn binding(&self, model_identifier: &str) -> Result<Self::Binding, Error>;
@@ -47,7 +47,7 @@ pub enum Import {
     #[cfg(feature = "fmi2")]
     Fmi2(fmi2::import::Fmi2),
     #[cfg(feature = "fmi3")]
-    Fmi3(fmi3::import::Fmi3),
+    Fmi3(fmi3::import::Fmi3Import),
 }
 
 impl Import {
@@ -80,7 +80,7 @@ impl Import {
             2 => fmi2::import::Fmi2::new(temp_dir, &descr_xml).map(Import::Fmi2),
 
             #[cfg(feature = "fmi3")]
-            3 => fmi3::import::Fmi3::new(temp_dir, &descr_xml).map(Import::Fmi3),
+            3 => fmi3::import::Fmi3Import::new(temp_dir, &descr_xml).map(Import::Fmi3),
 
             _ => Err(Error::UnsupportedFmiVersion(descr.fmi_version.to_string())),
         }
@@ -98,7 +98,7 @@ impl Import {
 
     #[cfg(feature = "fmi3")]
     #[must_use]
-    pub fn as_fmi3(self) -> Option<fmi3::import::Fmi3> {
+    pub fn as_fmi3(self) -> Option<fmi3::import::Fmi3Import> {
         if let Self::Fmi3(v) = self {
             Some(v)
         } else {

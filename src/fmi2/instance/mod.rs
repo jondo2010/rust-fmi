@@ -1,8 +1,8 @@
 //! FMI 2.0 instance interface
 
-use crate::{fmi2::instance::traits::Common, Error};
+use crate::{fmi2::instance::traits::Common, Error, FmiInstance};
 
-use super::{binding, logger, schema, CallbackFunctions, Fmi2Status};
+use super::{binding, logger, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
 
 mod co_simulation;
 mod common;
@@ -19,20 +19,36 @@ pub struct Instance<'a, Tag> {
     binding: binding::Fmi2Binding,
     /// Pointer to the raw FMI 2.0 instance
     component: binding::fmi2Component,
-
-    schema: &'a schema::FmiModelDescription,
-
+    /// Model description
+    model_description: &'a schema::FmiModelDescription,
     /// Callbacks struct
     #[allow(dead_code)]
     callbacks: Box<CallbackFunctions>,
-
+    /// Copy of the instance name
+    name: String,
     _tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, A> Drop for Instance<'a, A> {
+impl<'a, Tag> Drop for Instance<'a, Tag> {
     fn drop(&mut self) {
         log::trace!("Freeing component {:?}", self.component);
         unsafe { self.binding.fmi2FreeInstance(self.component) };
+    }
+}
+
+impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
+    type ModelDescription = &'a schema::FmiModelDescription;
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_version(&self) -> &str {
+        <Self as Common>::get_version(self)
+    }
+
+    fn model_description(&self) -> &Self::ModelDescription {
+        &self.model_description
     }
 }
 
@@ -52,19 +68,16 @@ impl<'a, Tag> Instance<'a, Tag> {
     /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
     /// from the library and the Model Description XML
     pub fn check_consistency(&self) -> Result<(), Error> {
-        // TODO: Fix
-        // let types_platform = self.get_types_platform();
-        // if types_platform != binding::fmi2TypesPlatform {
-        //    return Err(FmiError::TypesPlatformMismatch {
-        //        found: types_platform.into(),
-        //    });
-        //}
+        let types_platform = self.get_types_platform();
+        if types_platform != "default" {
+            return Err(Fmi2Error::TypesPlatformMismatch(types_platform.to_owned()).into());
+        }
 
-        let fmi_version = self.version();
-        if fmi_version != self.schema.fmi_version {
+        let fmi_version = <Self as Common>::get_version(self);
+        if fmi_version != self.model_description.fmi_version {
             return Err(Error::FmiVersionMismatch {
                 found: fmi_version.to_owned(),
-                expected: self.schema.fmi_version.to_owned(),
+                expected: self.model_description.fmi_version.to_owned(),
             });
         }
 
@@ -101,9 +114,7 @@ impl<'a, A> std::fmt::Debug for Instance<'a, A> {
         write!(
             f,
             "Instance {} {{Import {}, {:?}}}",
-            self.name(),
-            self.schema.model_name,
-            self.component,
+            self.name, self.model_description.model_name, self.component,
         )
     }
 }

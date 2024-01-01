@@ -33,10 +33,6 @@ macro_rules! impl_getter_setter {
 }
 
 impl<'a, Tag> traits::Common for Instance<'a, Tag> {
-    fn name(&self) -> &str {
-        &self.model.model_name
-    }
-
     fn get_version(&self) -> &str {
         unsafe { std::ffi::CStr::from_ptr(self.binding.fmi3GetVersion()) }
             .to_str()
@@ -153,5 +149,110 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         }
 
         status
+    }
+
+    #[cfg(feature = "arrow")]
+    fn set_values(&mut self, vrs: &[binding::fmi3ValueReference], values: &arrow::array::ArrayRef) {
+        use arrow::datatypes::DataType;
+        match values.data_type() {
+            DataType::Boolean => {
+                let values: arrow::array::Int32Array =
+                    arrow::compute::cast(values, &DataType::Int32)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                todo!();
+                // self.set_boolean(vrs, values.values());
+            }
+            DataType::Int8 => {
+                let values: arrow::array::Int8Array = arrow::compute::cast(values, &DataType::Int8)
+                    .map(|a| arrow::array::downcast_array(&a))
+                    .expect("Error casting");
+                self.set_int8(vrs, values.values());
+            }
+            DataType::Int16 => {
+                let values: arrow::array::Int16Array =
+                    arrow::compute::cast(values, &DataType::Int16)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_int16(vrs, values.values());
+            }
+            DataType::Int32 => {
+                let values: arrow::array::Int32Array =
+                    arrow::compute::cast(values, &DataType::Int32)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_int32(vrs, values.values());
+            }
+            DataType::Int64 => {
+                let values: arrow::array::Int64Array =
+                    arrow::compute::cast(values, &DataType::Int64)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_int64(vrs, values.values());
+            }
+            DataType::UInt8 => {
+                let values: arrow::array::UInt8Array =
+                    arrow::compute::cast(values, &DataType::UInt8)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_uint8(vrs, values.values());
+            }
+            DataType::UInt16 => {
+                let values: arrow::array::UInt16Array =
+                    arrow::compute::cast(values, &DataType::UInt16)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_uint16(vrs, values.values());
+            }
+            DataType::UInt32 => {
+                let values: arrow::array::UInt32Array =
+                    arrow::compute::cast(values, &DataType::UInt32)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_uint32(vrs, values.values());
+            }
+            DataType::UInt64 => {
+                let values: arrow::array::UInt64Array =
+                    arrow::compute::cast(values, &DataType::UInt64)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_uint64(vrs, values.values());
+            }
+            DataType::Float16 => {
+                todo!()
+            }
+            DataType::Float32 => {
+                let values: arrow::array::Float32Array =
+                    arrow::compute::cast(values, &DataType::Float32)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_float32(vrs, values.values());
+            }
+            DataType::Float64 => {
+                let values: arrow::array::Float64Array =
+                    arrow::compute::cast(values, &DataType::Float64)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_float64(vrs, values.values());
+            }
+            DataType::Binary => {
+                let values: arrow::array::BinaryArray =
+                    arrow::compute::cast(values, &DataType::Binary)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                todo!();
+            }
+            DataType::FixedSizeBinary(_) => todo!(),
+            DataType::LargeBinary => todo!(),
+            DataType::Utf8 => {
+                let values: arrow::array::StringArray =
+                    arrow::compute::cast(values, &DataType::Utf8)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                todo!();
+            }
+            DataType::LargeUtf8 => todo!(),
+            _ => unimplemented!("Unsupported data type"),
+        }
     }
 }

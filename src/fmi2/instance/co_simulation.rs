@@ -28,6 +28,8 @@ impl<'a> Instance<'a, CS> {
         let callbacks = Box::<CallbackFunctions>::default();
         //.check_consistency(&import, &cs.common)?;
 
+        let name = instance_name.to_owned();
+
         let instance_name = CString::new(instance_name).expect("Error building CString");
         let guid = CString::new(schema.guid.as_bytes()).expect("Error building CString");
         let resource_url =
@@ -53,8 +55,9 @@ impl<'a> Instance<'a, CS> {
         Ok(Self {
             binding,
             component,
-            schema,
+            model_description: schema,
             callbacks,
+            name,
             _tag: std::marker::PhantomData,
         })
     }
