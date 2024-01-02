@@ -12,9 +12,9 @@ use arrow::{
 use fmi::{
     fmi3::{
         import::Fmi3Import,
-        instance::{traits::Common as _, Instance},
+        instance::{Common as _, Instance},
     },
-    import::FmiImport as _,
+    FmiImport as _,
 };
 
 use crate::interpolation::{Interpolate, Linear};

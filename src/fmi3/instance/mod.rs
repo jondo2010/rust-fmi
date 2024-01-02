@@ -2,15 +2,15 @@
 
 use crate::FmiInstance;
 
-use self::traits::Common;
-
 use super::{binding, schema, Fmi3Status};
 
 mod co_simulation;
 mod scheduled_execution {}
 mod common;
 mod model_exchange;
-pub mod traits;
+mod traits;
+
+pub use traits::{CoSimulation, Common, ModelExchange, ScheduledExecution};
 
 /// Tag for Model Exchange instances
 pub struct ME;

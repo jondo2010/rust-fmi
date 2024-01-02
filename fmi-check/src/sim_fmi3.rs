@@ -1,11 +1,7 @@
 use arrow::{array::StringArray, datatypes::DataType};
 use fmi::{
-    fmi3::instance::{
-        traits::{CoSimulation, Common},
-        DiscreteStates, Instance,
-    },
-    import::FmiImport,
-    FmiInstance,
+    fmi3::instance::{CoSimulation, Common, DiscreteStates, Instance},
+    FmiImport, FmiInstance,
 };
 
 use crate::{

@@ -1,4 +1,4 @@
-use fmi::{import::FmiImport, Import};
+use fmi::{FmiImport, Import};
 use fmi_schema::variable_counts::VariableCounts;
 use structopt::StructOpt;
 
@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     sensible_env_logger::try_init!()?;
 
     let args = options::FmiCheckOptions::from_args();
-    let import = fmi::import::Import::new(&args.model)?;
+    let import = fmi::Import::new(&args.model)?;
 
     match args.action {
         options::Action::Check => {

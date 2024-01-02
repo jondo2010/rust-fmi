@@ -22,10 +22,10 @@
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
-pub mod import;
+mod import;
 
 // Re-exports
-pub use self::import::Import;
+pub use import::{FmiImport, Import};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

@@ -270,4 +270,4 @@ pub trait CoSimulation: Common {
 }
 
 /// Interface for Scheduled instances
-pub trait Scheduled: Common {}
+pub trait ScheduledExecution: Common {}

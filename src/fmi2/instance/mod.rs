@@ -1,13 +1,15 @@
 //! FMI 2.0 instance interface
 
-use crate::{fmi2::instance::traits::Common, Error, FmiInstance};
+use crate::{Error, FmiInstance};
 
 use super::{binding, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
 
 mod co_simulation;
 mod common;
 mod model_exchange;
-pub mod traits;
+mod traits;
+
+pub use traits::{CoSimulation, Common, ModelExchange};
 
 /// Tag for Model Exchange instances
 pub struct ME;
@@ -122,9 +124,8 @@ impl<'a, A> std::fmt::Debug for Instance<'a, A> {
 #[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
-    use crate::{fmi2::instance::traits::CoSimulation, import::FmiImport, Import};
-
-    use super::*;
+    use super::{CoSimulation, Common, Instance, CS, ME};
+    use crate::{import::FmiImport, Import};
 
     // TODO Make this work on other targets
     #[test]
@@ -136,8 +137,8 @@ mod tests {
         .as_fmi2()
         .unwrap();
 
-        let instance1 = Instance::<ME>::new(&import, "inst1", false, true).unwrap();
-        assert_eq!(instance1.version(), "2.0");
+        let mut instance1 = Instance::<ME>::new(&import, "inst1", false, true).unwrap();
+        assert_eq!(instance1.get_version(), "2.0");
 
         let categories = &import
             .model_description()
@@ -202,8 +203,8 @@ mod tests {
         .as_fmi2()
         .unwrap();
 
-        let instance1 = Instance::<CS>::new(&import, "inst1", false, true).unwrap();
-        assert_eq!(instance1.version(), "2.0");
+        let mut instance1 = Instance::<CS>::new(&import, "inst1", false, true).unwrap();
+        assert_eq!(instance1.get_version(), "2.0");
 
         instance1
             .setup_experiment(Some(1.0e-6_f64), 0.0, None)

@@ -1,3 +1,5 @@
+//! FMI 2.0 API
+
 pub mod import;
 pub mod instance;
 // Re-export

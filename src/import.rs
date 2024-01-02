@@ -111,7 +111,7 @@ impl Import {
 #[cfg(test)]
 #[cfg(target_os = "linux")]
 mod tests {
-    use super::*;
+    use crate::{FmiImport, Import};
 
     #[test]
     #[cfg(feature = "fmi2")]
@@ -155,24 +155,26 @@ mod tests {
     #[test_log::test]
     #[cfg(feature = "fmi2")]
     fn test_import_me() {
+        use crate::fmi2::instance::Common;
         let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
             .unwrap()
             .as_fmi2()
             .unwrap();
         assert_eq!(import.model_description().fmi_version, "2.0");
         let me = import.instantiate_me("inst1", false, true).unwrap();
-        assert_eq!(fmi2::instance::traits::Common::version(&me), "2.0");
+        assert_eq!(me.get_version(), "2.0");
     }
 
     #[test_log::test]
     #[cfg(feature = "fmi2")]
     fn test_import_cs() {
+        use crate::fmi2::instance::Common;
         let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
             .unwrap()
             .as_fmi2()
             .unwrap();
         assert_eq!(import.model_description().fmi_version, "2.0");
         let cs = import.instantiate_cs("inst1", false, true).unwrap();
-        assert_eq!(fmi2::instance::traits::Common::version(&cs), "2.0");
+        assert_eq!(cs.get_version(), "2.0");
     }
 }
