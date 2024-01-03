@@ -1,15 +1,10 @@
-pub mod instance;
-pub mod logger;
-pub mod binding {
-    #![allow(non_upper_case_globals)]
-    #![allow(non_camel_case_types)]
-    #![allow(non_snake_case)]
-    #![allow(clippy::all)]
-    include!(concat!(env!("OUT_DIR"), "/fmi2_bindings.rs"));
-}
+//! FMI 2.0 API
+
 pub mod import;
+pub mod instance;
 // Re-export
 pub use fmi_schema::fmi2 as schema;
+pub use fmi_sys::fmi2 as binding;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -73,6 +68,9 @@ pub enum Fmi2Res {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Fmi2Error {
+    #[error("TypesPlatform of loaded API ({0}) doesn't match expected (default)")]
+    TypesPlatformMismatch(String),
+
     /// For “model exchange”: It is recommended to perform a smaller step size and evaluate the
     /// model equations again, for example because an iterative solver in the model did not
     /// converge or because a function is outside of its domain (for example sqrt(<negative

@@ -10,11 +10,11 @@ pub trait Common {
     fn name(&self) -> &str;
 
     /// The FMI-standard version string
-    fn version(&self) -> &str;
+    fn get_version(&self) -> &str;
 
     fn get_types_platform(&self) -> &str;
 
-    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Fmi2Status;
+    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi2Status;
 
     /// Informs the FMU to setup the experiment. This function can be called after `instantiate()`
     /// and before `enter_initialization_mode()` is called.
@@ -41,7 +41,7 @@ pub trait Common {
     /// the FMU has to return `Error`. If `stop_time` is `None()`, then no final value of the
     /// independent variable is defined.
     fn setup_experiment(
-        &self,
+        &mut self,
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
@@ -54,46 +54,49 @@ pub trait Common {
     /// *Setting other variables is not allowed*. Furthermore, `setup_experiment()` must be called
     /// at least once before calling `enter_initialization_mode()`, in order that `start_time` is
     /// defined.
-    fn enter_initialization_mode(&self) -> Fmi2Status;
+    fn enter_initialization_mode(&mut self) -> Fmi2Status;
 
     /// Informs the FMU to exit Initialization Mode.
     ///
     /// Under ModelExchange this function switches off all initialization equations and the FMU
     /// enters implicitely Event Mode, that is all continuous-time and active discrete-time
     /// equations are available.
-    fn exit_initialization_mode(&self) -> Fmi2Status;
+    fn exit_initialization_mode(&mut self) -> Fmi2Status;
 
     /// Informs the FMU that the simulation run is terminated.
     ///
     /// After calling this function, the final values of all variables can be inquired with the
     /// fmi2GetXXX(..) functions. It is not allowed to call this function after one of the
     /// functions returned with a status flag of fmi2Error or fmi2Fatal.
-    fn terminate(&self) -> Fmi2Status;
+    fn terminate(&mut self) -> Fmi2Status;
 
     /// Is called by the environment to reset the FMU after a simulation run.
     ///
     /// The FMU goes into the same state as if fmi2Instantiate would have been called. All
     /// variables have their default values. Before starting a new run, fmi2SetupExperiment and
     /// fmi2EnterInitializationMode have to be called.
-    fn reset(&self) -> Fmi2Status;
+    fn reset(&mut self) -> Fmi2Status;
 
     fn get_real(
-        &self,
+        &mut self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Real],
     ) -> Fmi2Status;
+
     fn get_integer(
-        &self,
+        &mut self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Integer],
     ) -> Fmi2Status;
+
     fn get_boolean(
-        &self,
+        &mut self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Boolean],
     ) -> Fmi2Status;
+
     fn get_string(
-        &self,
+        &mut self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2String],
     ) -> Fmi2Status;
@@ -104,7 +107,7 @@ pub trait Common {
     /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
     /// * `values` - a slice of `fmi::fmi2Real` values to set
     fn set_real(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Real],
     ) -> Fmi2Status;
@@ -115,19 +118,19 @@ pub trait Common {
     /// * `vrs` - a slice of `fmi::fmi2ValueReference` ValueReferences
     /// * `values` - a slice of `fmi::fmi2Integer` values to set
     fn set_integer(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Integer],
     ) -> Fmi2Status;
 
     fn set_boolean(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: &mut [binding::fmi2Boolean],
+        values: &[binding::fmi2Boolean],
     ) -> Fmi2Status;
 
     fn set_string(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2String],
     ) -> Fmi2Status;
@@ -155,6 +158,9 @@ pub trait Common {
         dv_known_values: &[binding::fmi2Real],
         dv_unknown_values: &mut [binding::fmi2Real],
     ) -> Fmi2Status;
+
+    #[cfg(feature = "arrow")]
+    fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef);
 }
 
 pub trait ModelExchange: Common {

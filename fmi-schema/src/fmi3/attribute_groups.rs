@@ -14,41 +14,21 @@ pub struct RealBaseAttributes {
     pub unbounded: bool,
 }
 
-// macro_rules! float_attrs {
-//    ($name:ident, $type:ty) => {
-//        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-//        pub struct $name {
-//            #[yaserde(attr)]
-//            pub min: Option<$type>,
-//            #[yaserde(attr)]
-//            pub max: Option<$type>,
-//            #[yaserde(attr)]
-//            pub nominal: Option<$type>,
-//        }
-//    };
-//}
-// float_attrs!(Float32Attributes, f32);
-// float_attrs!(Float64Attributes, f64);
-
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct Float64Attributes {
-    #[yaserde(attribute)]
-    pub min: Option<f64>,
-    #[yaserde(attribute)]
-    pub max: Option<f64>,
-    #[yaserde(attribute)]
-    pub nominal: Option<f64>,
+macro_rules! float_attrs {
+    ($name:ident, $type:ty) => {
+        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+        pub struct $name {
+            #[yaserde(attr)]
+            pub min: Option<$type>,
+            #[yaserde(attr)]
+            pub max: Option<$type>,
+            #[yaserde(attr)]
+            pub nominal: Option<$type>,
+        }
+    };
 }
-
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct Float32Attributes {
-    #[yaserde(attribute)]
-    pub min: Option<f32>,
-    #[yaserde(attribute)]
-    pub max: Option<f32>,
-    #[yaserde(attribute)]
-    pub nominal: Option<f32>,
-}
+float_attrs!(Float32Attributes, f32);
+float_attrs!(Float64Attributes, f64);
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct IntegerBaseAttributes {

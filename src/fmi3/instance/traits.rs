@@ -6,9 +6,6 @@ use super::{binding, DiscreteStates, Fmi3Status};
 
 /// Interface common to all instance types
 pub trait Common {
-    /// The instance name
-    fn name(&self) -> &str;
-
     /// The FMI-standard version string
     fn get_version(&self) -> &str;
 
@@ -90,6 +87,11 @@ pub trait Common {
         -> Fmi3Status;
     fn get_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u64])
         -> Fmi3Status;
+    fn get_string(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [String],
+    ) -> Fmi3Status;
 
     fn set_float32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f32]) -> Fmi3Status;
     fn set_float64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f64]) -> Fmi3Status;
@@ -101,6 +103,12 @@ pub trait Common {
     fn set_uint16(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u16]) -> Fmi3Status;
     fn set_uint32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u32]) -> Fmi3Status;
     fn set_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u64]) -> Fmi3Status;
+
+    fn set_string<'b>(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: impl Iterator<Item = &'b str>,
+    ) -> Fmi3Status;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
     #[cfg(disabled)]
@@ -119,6 +127,9 @@ pub trait Common {
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates]
     fn update_discrete_states(&mut self, states: &mut DiscreteStates) -> Fmi3Status;
+
+    #[cfg(feature = "arrow")]
+    fn set_values(&mut self, vrs: &[binding::fmi3ValueReference], values: &arrow::array::ArrayRef);
 }
 
 /// Interface for Model Exchange instances
@@ -270,4 +281,4 @@ pub trait CoSimulation: Common {
 }
 
 /// Interface for Scheduled instances
-pub trait Scheduled: Common {}
+pub trait ScheduledExecution: Common {}

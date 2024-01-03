@@ -10,12 +10,14 @@ use super::{traits, Instance, ME};
 
 impl<'a> Instance<'a, ME> {
     pub fn new(
-        import: &'a import::Fmi3,
+        import: &'a import::Fmi3Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
     ) -> Result<Self, Error> {
         let schema = import.model_description();
+
+        let name = instance_name.to_owned();
 
         let model_exchange = schema
             .model_exchange
@@ -49,7 +51,8 @@ impl<'a> Instance<'a, ME> {
         Ok(Self {
             binding,
             instance,
-            model: schema,
+            model_description: schema,
+            name,
             _tag: std::marker::PhantomData,
         })
     }
@@ -93,7 +96,10 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn set_continuous_states(&mut self, states: &[f64]) -> Fmi3Status {
         assert_eq!(
             states.len(),
-            self.model.model_structure.continuous_state_derivative.len(),
+            self.model_description
+                .model_structure
+                .continuous_state_derivative
+                .len(),
             "Invalid length of continuous_states array, must match the ModelDescription."
         );
 
@@ -107,7 +113,10 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn get_continuous_states(&mut self, continuous_states: &mut [f64]) -> Fmi3Status {
         assert_eq!(
             continuous_states.len(),
-            self.model.model_structure.continuous_state_derivative.len(),
+            self.model_description
+                .model_structure
+                .continuous_state_derivative
+                .len(),
             "Invalid length of continuous_states array, must match the ModelDescription."
         );
 
@@ -124,7 +133,10 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Fmi3Status {
         assert_eq!(
             derivatives.len(),
-            self.model.model_structure.continuous_state_derivative.len(),
+            self.model_description
+                .model_structure
+                .continuous_state_derivative
+                .len(),
             "Invalid length of derivatives array, must match the ModelDescription."
         );
 
@@ -141,7 +153,10 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Fmi3Status {
         assert_eq!(
             nominals.len(),
-            self.model.model_structure.continuous_state_derivative.len(),
+            self.model_description
+                .model_structure
+                .continuous_state_derivative
+                .len(),
             "Invalid length of nominals array, must match the ModelDescription."
         );
 
@@ -158,7 +173,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Fmi3Status {
         assert_eq!(
             event_indicators.len(),
-            self.model.model_structure.event_indicator.len(),
+            self.model_description.model_structure.event_indicator.len(),
             "Invalid length of event_indicators array, must match the ModelDescription."
         );
 

@@ -1,13 +1,15 @@
 //! FMI 2.0 instance interface
 
-use crate::{fmi2::instance::traits::Common, Error};
+use crate::{Error, FmiInstance};
 
-use super::{binding, logger, schema, CallbackFunctions, Fmi2Status};
+use super::{binding, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
 
 mod co_simulation;
 mod common;
 mod model_exchange;
-pub mod traits;
+mod traits;
+
+pub use traits::{CoSimulation, Common, ModelExchange};
 
 /// Tag for Model Exchange instances
 pub struct ME;
@@ -19,27 +21,43 @@ pub struct Instance<'a, Tag> {
     binding: binding::Fmi2Binding,
     /// Pointer to the raw FMI 2.0 instance
     component: binding::fmi2Component,
-
-    schema: &'a schema::FmiModelDescription,
-
+    /// Model description
+    model_description: &'a schema::FmiModelDescription,
     /// Callbacks struct
     #[allow(dead_code)]
     callbacks: Box<CallbackFunctions>,
-
+    /// Copy of the instance name
+    name: String,
     _tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, A> Drop for Instance<'a, A> {
+impl<'a, Tag> Drop for Instance<'a, Tag> {
     fn drop(&mut self) {
         log::trace!("Freeing component {:?}", self.component);
         unsafe { self.binding.fmi2FreeInstance(self.component) };
     }
 }
 
+impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
+    type ModelDescription = &'a schema::FmiModelDescription;
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_version(&self) -> &str {
+        <Self as Common>::get_version(self)
+    }
+
+    fn model_description(&self) -> &Self::ModelDescription {
+        &self.model_description
+    }
+}
+
 impl Default for CallbackFunctions {
     fn default() -> Self {
         CallbackFunctions {
-            logger: Some(logger::callback_logger_handler),
+            logger: Some(super::binding::logger::callback_logger_handler),
             allocate_memory: Some(libc::calloc),
             free_memory: Some(libc::free),
             step_finished: None,
@@ -52,19 +70,16 @@ impl<'a, Tag> Instance<'a, Tag> {
     /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
     /// from the library and the Model Description XML
     pub fn check_consistency(&self) -> Result<(), Error> {
-        // TODO: Fix
-        // let types_platform = self.get_types_platform();
-        // if types_platform != binding::fmi2TypesPlatform {
-        //    return Err(FmiError::TypesPlatformMismatch {
-        //        found: types_platform.into(),
-        //    });
-        //}
+        let types_platform = self.get_types_platform();
+        if types_platform != "default" {
+            return Err(Fmi2Error::TypesPlatformMismatch(types_platform.to_owned()).into());
+        }
 
-        let fmi_version = self.version();
-        if fmi_version != self.schema.fmi_version {
+        let fmi_version = <Self as Common>::get_version(self);
+        if fmi_version != self.model_description.fmi_version {
             return Err(Error::FmiVersionMismatch {
                 found: fmi_version.to_owned(),
-                expected: self.schema.fmi_version.to_owned(),
+                expected: self.model_description.fmi_version.to_owned(),
             });
         }
 
@@ -101,9 +116,7 @@ impl<'a, A> std::fmt::Debug for Instance<'a, A> {
         write!(
             f,
             "Instance {} {{Import {}, {:?}}}",
-            self.name(),
-            self.schema.model_name,
-            self.component,
+            self.name, self.model_description.model_name, self.component,
         )
     }
 }
@@ -111,9 +124,8 @@ impl<'a, A> std::fmt::Debug for Instance<'a, A> {
 #[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
-    use crate::{fmi2::instance::traits::CoSimulation, import::FmiImport, Import};
-
-    use super::*;
+    use super::{CoSimulation, Common, Instance, CS, ME};
+    use crate::{import::FmiImport, Import};
 
     // TODO Make this work on other targets
     #[test]
@@ -125,8 +137,8 @@ mod tests {
         .as_fmi2()
         .unwrap();
 
-        let instance1 = Instance::<ME>::new(&import, "inst1", false, true).unwrap();
-        assert_eq!(instance1.version(), "2.0");
+        let mut instance1 = Instance::<ME>::new(&import, "inst1", false, true).unwrap();
+        assert_eq!(instance1.get_version(), "2.0");
 
         let categories = &import
             .model_description()
@@ -191,8 +203,8 @@ mod tests {
         .as_fmi2()
         .unwrap();
 
-        let instance1 = Instance::<CS>::new(&import, "inst1", false, true).unwrap();
-        assert_eq!(instance1.version(), "2.0");
+        let mut instance1 = Instance::<CS>::new(&import, "inst1", false, true).unwrap();
+        assert_eq!(instance1.get_version(), "2.0");
 
         instance1
             .setup_experiment(Some(1.0e-6_f64), 0.0, None)

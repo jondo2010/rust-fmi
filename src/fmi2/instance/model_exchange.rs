@@ -27,6 +27,8 @@ impl<'a> Instance<'a, ME> {
         let callbacks = Box::<CallbackFunctions>::default();
         // check_consistency(&import, &me.common)?;
 
+        let name = instance_name.to_owned();
+
         let instance_name = CString::new(instance_name).expect("Error building CString");
         let guid = CString::new(schema.guid.as_bytes()).expect("Error building CString");
         let resource_url =
@@ -52,8 +54,9 @@ impl<'a> Instance<'a, ME> {
         Ok(Self {
             binding,
             component,
-            schema,
+            model_description: schema,
             callbacks,
+            name,
             _tag: std::marker::PhantomData,
         })
     }
@@ -132,7 +135,7 @@ impl<'a> ModelExchange for Instance<'a, ME> {
     }
 
     fn set_continuous_states(&self, states: &[f64]) -> Fmi2Status {
-        assert!(states.len() == self.schema.num_states());
+        assert!(states.len() == self.model_description.num_states());
         Fmi2Status(unsafe {
             self.binding
                 .fmi2SetContinuousStates(self.component, states.as_ptr(), states.len())
@@ -140,7 +143,7 @@ impl<'a> ModelExchange for Instance<'a, ME> {
     }
 
     fn get_derivatives(&self, dx: &mut [f64]) -> Fmi2Status {
-        assert!(dx.len() == self.schema.num_states());
+        assert!(dx.len() == self.model_description.num_states());
         Fmi2Status(unsafe {
             self.binding
                 .fmi2GetDerivatives(self.component, dx.as_mut_ptr(), dx.len())
@@ -148,7 +151,7 @@ impl<'a> ModelExchange for Instance<'a, ME> {
     }
 
     fn get_event_indicators(&self, events: &mut [f64]) -> Fmi2Status {
-        assert_eq!(events.len(), self.schema.num_event_indicators());
+        assert_eq!(events.len(), self.model_description.num_event_indicators());
         Fmi2Status(unsafe {
             self.binding
                 .fmi2GetEventIndicators(self.component, events.as_mut_ptr(), events.len())
@@ -156,7 +159,7 @@ impl<'a> ModelExchange for Instance<'a, ME> {
     }
 
     fn get_continuous_states(&self, states: &mut [f64]) -> Fmi2Status {
-        assert_eq!(states.len(), self.schema.num_states());
+        assert_eq!(states.len(), self.model_description.num_states());
         Fmi2Status(unsafe {
             self.binding
                 .fmi2GetContinuousStates(self.component, states.as_mut_ptr(), states.len())
@@ -164,7 +167,7 @@ impl<'a> ModelExchange for Instance<'a, ME> {
     }
 
     fn get_nominals_of_continuous_states(&self, nominals: &mut [f64]) -> Fmi2Status {
-        assert_eq!(nominals.len(), self.schema.num_states());
+        assert_eq!(nominals.len(), self.model_description.num_states());
         Fmi2Status(unsafe {
             self.binding.fmi2GetNominalsOfContinuousStates(
                 self.component,

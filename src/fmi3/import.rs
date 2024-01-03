@@ -12,21 +12,24 @@ use super::{
 
 /// FMU import for FMI 3.0
 #[derive(Debug)]
-pub struct Fmi3 {
+pub struct Fmi3Import {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
-    schema: schema::FmiModelDescription,
+    model_description: schema::FmiModelDescription,
 }
 
-impl FmiImport for Fmi3 {
-    type Schema = schema::FmiModelDescription;
+impl FmiImport for Fmi3Import {
+    type ModelDescription = schema::FmiModelDescription;
     type Binding = binding::Fmi3Binding;
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
     fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {
         let schema = schema::FmiModelDescription::from_str(schema_xml)?;
-        Ok(Self { dir, schema })
+        Ok(Self {
+            dir,
+            model_description: schema,
+        })
     }
 
     #[inline]
@@ -54,8 +57,8 @@ impl FmiImport for Fmi3 {
     }
 
     /// Get the parsed raw-schema model description
-    fn model_description(&self) -> &Self::Schema {
-        &self.schema
+    fn model_description(&self) -> &Self::ModelDescription {
+        &self.model_description
     }
 
     /// Load the plugin shared library and return the raw bindings.
@@ -69,7 +72,7 @@ impl FmiImport for Fmi3 {
     }
 }
 
-impl Fmi3 {
+impl Fmi3Import {
     /// Build a derived model description from the raw-schema model description
     #[cfg(feature = "disabled")]
     pub fn model(&self) -> &model::ModelDescription {

@@ -6,10 +6,10 @@ use super::{traits, Instance};
 
 impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     fn name(&self) -> &str {
-        &self.schema.model_name
+        &self.model_description.model_name
     }
 
-    fn version(&self) -> &str {
+    fn get_version(&self) -> &str {
         unsafe { CStr::from_ptr(self.binding.fmi2GetVersion()) }
             .to_str()
             .expect("Error converting string")
@@ -21,7 +21,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
             .expect("Error converting string")
     }
 
-    fn set_debug_logging(&self, logging_on: bool, categories: &[&str]) -> Fmi2Status {
+    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi2Status {
         let category_cstr = categories
             .iter()
             .map(|c| CString::new(*c).unwrap())
@@ -40,7 +40,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn setup_experiment(
-        &self,
+        &mut self,
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
@@ -57,24 +57,24 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         })
     }
 
-    fn enter_initialization_mode(&self) -> Fmi2Status {
+    fn enter_initialization_mode(&mut self) -> Fmi2Status {
         Fmi2Status(unsafe { self.binding.fmi2EnterInitializationMode(self.component) })
     }
 
-    fn exit_initialization_mode(&self) -> Fmi2Status {
+    fn exit_initialization_mode(&mut self) -> Fmi2Status {
         Fmi2Status(unsafe { self.binding.fmi2ExitInitializationMode(self.component) })
     }
 
-    fn terminate(&self) -> Fmi2Status {
+    fn terminate(&mut self) -> Fmi2Status {
         Fmi2Status(unsafe { self.binding.fmi2Terminate(self.component) })
     }
 
-    fn reset(&self) -> Fmi2Status {
+    fn reset(&mut self) -> Fmi2Status {
         Fmi2Status(unsafe { self.binding.fmi2Reset(self.component) })
     }
 
     fn get_real(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
         values: &mut [binding::fmi2Real],
     ) -> Fmi2Status {
@@ -86,7 +86,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn get_integer(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
         values: &mut [binding::fmi2Integer],
     ) -> Fmi2Status {
@@ -101,7 +101,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn get_boolean(
-        &self,
+        &mut self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Boolean],
     ) -> Fmi2Status {
@@ -112,7 +112,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn get_string(
-        &self,
+        &mut self,
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2String],
     ) -> Fmi2Status {
@@ -123,7 +123,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn set_real(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Real],
     ) -> Fmi2Status {
@@ -135,7 +135,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn set_integer(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
         values: &[binding::fmi2Integer],
     ) -> Fmi2Status {
@@ -147,9 +147,9 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn set_boolean(
-        &self,
+        &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: &mut [binding::fmi2Boolean],
+        values: &[binding::fmi2Boolean],
     ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
         Fmi2Status(unsafe {
@@ -159,11 +159,15 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     }
 
     fn set_string(
-        &self,
-        _vrs: &[binding::fmi2ValueReference],
-        _values: &[binding::fmi2String],
+        &mut self,
+        vrs: &[binding::fmi2ValueReference],
+        values: &[binding::fmi2String],
     ) -> Fmi2Status {
-        unimplemented!()
+        assert_eq!(vrs.len(), values.len());
+        Fmi2Status(unsafe {
+            self.binding
+                .fmi2SetString(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
+        })
     }
 
     // fn get_fmu_state(&self, state: *mut fmi2FMUstate) -> FmiResult<()> {}
@@ -190,5 +194,50 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
                 dv_unknown_values.as_mut_ptr(),
             )
         })
+    }
+
+    #[cfg(feature = "arrow")]
+    fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef) {
+        use arrow::datatypes::DataType;
+        match values.data_type() {
+            DataType::Boolean => {
+                let values: arrow::array::Int32Array =
+                    arrow::compute::cast(values, &DataType::Int32)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_boolean(vrs, values.values());
+            }
+            DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32 => {
+                let values: arrow::array::Int32Array =
+                    arrow::compute::cast(values, &DataType::Int32)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_integer(vrs, values.values());
+            }
+            DataType::Float32 | DataType::Float64 => {
+                let values: arrow::array::Float64Array =
+                    arrow::compute::cast(values, &DataType::Float64)
+                        .map(|a| arrow::array::downcast_array(&a))
+                        .expect("Error casting");
+                self.set_real(vrs, values.values());
+            }
+            DataType::Binary => todo!(),
+            DataType::Utf8 => {
+                let values: arrow::array::StringArray = arrow::array::downcast_array(values);
+                let strings = values
+                    .into_iter()
+                    .map(|s| CString::new(s.unwrap_or_default()))
+                    .collect::<Result<Vec<_>, _>>()
+                    .expect("Error converting string");
+                let values: Vec<_> = strings.iter().map(|s| s.as_ptr()).collect();
+                self.set_string(vrs, &values);
+            }
+            _ => unimplemented!("Unsupported data type"),
+        }
     }
 }

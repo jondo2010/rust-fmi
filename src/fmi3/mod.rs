@@ -1,19 +1,13 @@
 //! FMI 3.0 API
 
+pub mod import;
 pub mod instance;
+pub(crate) mod logger;
 #[cfg(feature = "disabled")]
 pub mod model;
-pub mod binding {
-    #![allow(non_upper_case_globals)]
-    #![allow(non_camel_case_types)]
-    #![allow(non_snake_case)]
-    #![allow(clippy::all)]
-    include!(concat!(env!("OUT_DIR"), "/fmi3_bindings.rs"));
-}
-pub mod import;
-pub(crate) mod logger;
 // Re-export
 pub use fmi_schema::fmi3 as schema;
+pub use fmi_sys::fmi3 as binding;
 
 #[derive(Debug)]
 pub enum Fmi3Res {
