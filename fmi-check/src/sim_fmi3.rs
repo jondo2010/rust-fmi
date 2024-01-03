@@ -41,9 +41,7 @@ pub fn co_simulation(
     import: &fmi::fmi3::import::Fmi3Import,
     options: &options::Simulate,
 ) -> anyhow::Result<()> {
-    let start_time = start_time(import, options);
-    let stop_time = stop_time(import, options);
-    let num_steps = num_steps(import, options, start_time, stop_time)?;
+    let sim_params = SimParams::new(import, options)?;
 
     let mut inst = import.instantiate_cs("inst1", true, true, true, true, &[])?;
     let input_state = options
@@ -52,15 +50,15 @@ pub fn co_simulation(
         .map(|path| InputState::new(import, path))
         .transpose()?;
 
-    let output_state = OutputState::new(import, num_steps)?;
+    let mut output_state = OutputState::new(import, sim_params.num_steps)?;
 
     // set start values
     apply_start_values(&mut inst, &options.initial_values)?;
 
-    let mut time = start_time;
+    let mut time = sim_params.start_time;
 
     // initialize the FMU
-    inst.enter_initialization_mode(None, time, Some(stop_time))
+    inst.enter_initialization_mode(None, time, Some(sim_params.stop_time))
         .ok()?;
 
     // apply continuous and discrete inputs
@@ -88,13 +86,10 @@ pub fn co_simulation(
 
     inst.enter_step_mode().ok()?;
 
-    // communication step size
-    let step_size = 10.0 * FIXED_SOLVER_STEP;
-
     loop {
         output_state.record_variables(&mut inst, time)?;
 
-        if (states.terminate_simulation || time >= stop_time) {
+        if states.terminate_simulation || time >= sim_params.stop_time {
             break;
         }
 
@@ -103,7 +98,7 @@ pub fn co_simulation(
 
         inst.do_step(
             time,
-            step_size,
+            sim_params.step_size,
             true,
             &mut event_encountered,
             &mut states.terminate_simulation,
@@ -113,8 +108,9 @@ pub fn co_simulation(
         .ok()?;
 
         if event_encountered {
+            log::trace!("Event encountered at t = {}", time);
             // record variables before event update
-            // CALL(recordVariables(S, outputFile));
+            output_state.record_variables(&mut inst, time)?;
 
             // enter Event Mode
             inst.enter_event_mode().ok()?;
@@ -144,50 +140,62 @@ pub fn co_simulation(
     Ok(())
 }
 
-fn num_steps(
-    import: &fmi::fmi3::import::Fmi3Import,
-    options: &options::Simulate,
+struct SimParams {
     start_time: f64,
     stop_time: f64,
-) -> anyhow::Result<usize> {
-    if options.num_steps > 0 {
-        Ok(options.num_steps)
-    } else {
-        options
+    step_size: f64,
+    num_steps: usize,
+}
+
+impl SimParams {
+    fn new(
+        import: &fmi::fmi3::import::Fmi3Import,
+        options: &options::Simulate,
+    ) -> anyhow::Result<Self> {
+        let start_time = options
+            .start_time
+            .or(import
+                .model_description()
+                .default_experiment
+                .as_ref()
+                .and_then(|de| de.start_time))
+            .unwrap_or_default();
+
+        let stop_time = options
+            .stop_time
+            .or(import
+                .model_description()
+                .default_experiment
+                .as_ref()
+                .and_then(|de| de.stop_time))
+            .unwrap_or_default();
+
+        let step_size = options
             .step_size
-            .ok_or(anyhow::anyhow!(
-                "`num_steps > 0` or `step_size` must be specified."
-            ))
-            .and_then(|step_size| {
-                if step_size > 0.0 {
-                    Ok(step_size)
-                } else {
-                    Err(anyhow::anyhow!("`step_size` must be positive."))
-                }
-            })
-            .map(|step_size| ((stop_time - start_time) / step_size).ceil() as usize)
+            .or(import
+                .model_description()
+                .default_experiment
+                .as_ref()
+                .and_then(|de| de.step_size))
+            .unwrap_or_default();
+
+        if step_size <= 0.0 {
+            return Err(anyhow::anyhow!("`step_size` must be positive."))?;
+        }
+
+        let num_steps = {
+            if options.num_steps > 0 {
+                options.num_steps
+            } else {
+                ((stop_time - start_time) / step_size).ceil() as usize
+            }
+        };
+
+        Ok(Self {
+            start_time,
+            stop_time,
+            step_size,
+            num_steps,
+        })
     }
-}
-
-fn stop_time(import: &fmi::fmi3::import::Fmi3Import, options: &options::Simulate) -> f64 {
-    options
-        .stop_time
-        .or(import
-            .model_description()
-            .default_experiment
-            .as_ref()
-            .and_then(|de| de.stop_time))
-        .unwrap_or_default()
-}
-
-fn start_time(import: &fmi::fmi3::import::Fmi3Import, options: &options::Simulate) -> f64 {
-    let mut time = options
-        .start_time
-        .or(import
-            .model_description()
-            .default_experiment
-            .as_ref()
-            .and_then(|de| de.start_time))
-        .unwrap_or_default();
-    time
 }

@@ -6,7 +6,7 @@ use super::{
     FmiInt16, FmiInt32, FmiInt8, FmiUInt16, FmiUInt32, FmiUInt8,
 };
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaDeserialize)]
 #[yaserde(rename = "fmiModelDescription")]
 pub struct FmiModelDescription {
     /// Version of FMI that was used to generate the XML file.
@@ -147,7 +147,7 @@ pub struct DefaultExperiment {
     pub step_size: Option<f64>,
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaDeserialize)]
 #[yaserde(root = "ModelVariables")]
 pub struct ModelVariables {
     #[yaserde(rename = "Float32")]

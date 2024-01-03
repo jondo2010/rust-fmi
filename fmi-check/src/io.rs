@@ -2,8 +2,10 @@ use std::{io::Seek as _, path::Path, sync::Arc};
 
 use arrow::{
     array::{
-        self, ArrayBuilder, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
-        Int8Array, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        self, ArrayBuilder, Float32Array, Float32Builder, Float64Array, Float64Builder, Int16Array,
+        Int16Builder, Int32Array, Int32Builder, Int64Array, Int64Builder, Int8Array, Int8Builder,
+        UInt16Array, UInt16Builder, UInt32Array, UInt32Builder, UInt64Array, UInt64Builder,
+        UInt8Array, UInt8Builder,
     },
     csv::{reader::Format, ReaderBuilder},
     datatypes::{DataType, Field, Fields, Schema},
@@ -28,6 +30,8 @@ pub trait FmiSchemaBuilder {
     fn continuous_inputs(&self, schema: &Schema) -> Vec<(usize, u32)>;
     /// Build a list of Schema column indices and value references for the discrete inputs.
     fn discrete_inputs(&self, schema: &Schema) -> Vec<(usize, u32)>;
+    /// Build a list of Schema column indices and value references for the outputs.
+    fn outputs(&self, schema: &Schema) -> Vec<(usize, u32)>;
 }
 
 impl FmiSchemaBuilder for Fmi3Import {
@@ -44,12 +48,14 @@ impl FmiSchemaBuilder for Fmi3Import {
     }
 
     fn outputs_schema(&self) -> Schema {
+        let time = Field::new("time", DataType::Float64, false);
         let output_fields = self
             .model_description()
             .model_variables
             .iter_abstract()
             .filter(|v| v.causality() == fmi::fmi3::schema::Causality::Output)
             .map(|v| Field::new(v.name(), v.data_type().into(), false))
+            .chain(std::iter::once(time))
             .collect::<Fields>();
 
         Schema::new(output_fields)
@@ -74,6 +80,17 @@ impl FmiSchemaBuilder for Fmi3Import {
             .filter_map(|v| {
                 (v.causality() == fmi::fmi3::schema::Causality::Input
                     && v.variability() == fmi::fmi3::schema::Variability::Discrete)
+                    .then(|| (schema.index_of(v.name()).unwrap(), v.value_reference()))
+            })
+            .collect::<Vec<_>>()
+    }
+
+    fn outputs(&self, schema: &Schema) -> Vec<(usize, u32)> {
+        self.model_description()
+            .model_variables
+            .iter_abstract()
+            .filter_map(|v| {
+                (v.causality() == fmi::fmi3::schema::Causality::Output)
                     .then(|| (schema.index_of(v.name()).unwrap(), v.value_reference()))
             })
             .collect::<Vec<_>>()
@@ -107,7 +124,7 @@ impl InputState {
         time: f64,
         instance: &mut Instance<'_, Tag>,
         inputs: &[(usize, u32)],
-    ) {
+    ) -> anyhow::Result<()> {
         let time_array: Float64Array =
             array::downcast_array(self.input_data.column_by_name("time").unwrap());
         let pl = crate::interpolation::PreLookup::new(&time_array, time);
@@ -121,67 +138,68 @@ impl InputState {
                     let array: Int8Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_int8(&[*value_reference], &[value]);
+                    instance.set_int8(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::Int16 => {
                     let array: Int16Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_int16(&[*value_reference], &[value]);
+                    instance.set_int16(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::Int32 => {
                     let array: Int32Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_int32(&[*value_reference], &[value]);
+                    instance.set_int32(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::Int64 => {
                     let array: Int64Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_int64(&[*value_reference], &[value]);
+                    instance.set_int64(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::UInt8 => {
                     let array: UInt8Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_uint8(&[*value_reference], &[value]);
+                    instance.set_uint8(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::UInt16 => {
                     let array: UInt16Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_uint16(&[*value_reference], &[value]);
+                    instance.set_uint16(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::UInt32 => {
                     let array: UInt32Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_uint32(&[*value_reference], &[value]);
+                    instance.set_uint32(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::UInt64 => {
                     let array: UInt64Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_uint64(&[*value_reference], &[value]);
+                    instance.set_uint64(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::Float32 => {
                     let array: Float32Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_float32(&[*value_reference], &[value]);
+                    instance.set_float32(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::Float64 => {
                     let array: Float64Array =
                         array::downcast_array(self.input_data.column(*column_index));
                     let value = I::interpolate(&pl, &array);
-                    instance.set_float64(&[*value_reference], &[value]);
+                    instance.set_float64(&[*value_reference], &[value]).ok()?;
                 }
                 DataType::Binary => todo!(),
                 DataType::Utf8 => todo!(),
                 _ => unimplemented!("Unsupported data type: {:?}", col.data_type()),
             }
         }
+        Ok(())
     }
 
     pub fn apply_continuous_inputs<Tag>(&self, time: f64, instance: &mut Instance<'_, Tag>) {
@@ -196,12 +214,12 @@ impl InputState {
 pub struct OutputState {
     output_schema: Schema,
     data_builders: Vec<Box<dyn ArrayBuilder>>,
+    outputs: Vec<(usize, u32)>,
 }
 
 impl OutputState {
     pub fn new(import: &Fmi3Import, num_points: usize) -> anyhow::Result<Self> {
         let output_schema = import.outputs_schema();
-        dbg!(&output_schema);
 
         let data_builders = output_schema
             .fields()
@@ -209,18 +227,132 @@ impl OutputState {
             .map(|field| array::make_builder(field.data_type(), num_points))
             .collect();
 
+        let outputs = import.outputs(&output_schema);
+
         Ok(Self {
             output_schema,
             data_builders,
+            outputs,
         })
     }
 
     pub fn record_variables(
-        &self,
+        &mut self,
         inst: &mut Instance<'_, fmi::fmi3::instance::CS>,
         time: f64,
     ) -> anyhow::Result<()> {
-        todo!();
+        log::trace!("Recording variables at time {}", time);
+
+        let time_idx = self
+            .output_schema
+            .index_of("time")
+            .expect("time column not found");
+        self.data_builders[time_idx]
+            .as_any_mut()
+            .downcast_mut::<Float64Builder>()
+            .expect("time column is not Float64")
+            .append_value(time);
+
+        for (column_index, value_reference) in &self.outputs {
+            let col = self.output_schema.field(*column_index);
+
+            match col.data_type() {
+                DataType::Boolean => todo!(),
+                DataType::Int8 => {
+                    let mut value = 0;
+                    inst.get_int8(&[*value_reference], &mut [value]).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<Int8Builder>()
+                        .expect("column is not Int8")
+                        .append_value(value);
+                }
+                DataType::Int16 => {
+                    let mut value = 0;
+                    inst.get_int16(&[*value_reference], &mut [value]).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<Int16Builder>()
+                        .expect("column is not Int16")
+                        .append_value(value);
+                }
+                DataType::Int32 => {
+                    let mut value = 0;
+                    inst.get_int32(&[*value_reference], &mut [value]).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<Int32Builder>()
+                        .expect("column is not Int32")
+                        .append_value(value);
+                }
+                DataType::Int64 => {
+                    let mut value = 0;
+                    inst.get_int64(&[*value_reference], &mut [value]).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<Int64Builder>()
+                        .expect("column is not Int64")
+                        .append_value(value);
+                }
+                DataType::UInt8 => {
+                    let mut value = 0;
+                    inst.get_uint8(&[*value_reference], &mut [value]).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<UInt8Builder>()
+                        .expect("column is not UInt8")
+                        .append_value(value);
+                }
+                DataType::UInt16 => {
+                    let mut value = [0];
+                    inst.get_uint16(&[*value_reference], &mut value).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<UInt16Builder>()
+                        .expect("column is not UInt16")
+                        .append_value(value[0]);
+                }
+                DataType::UInt32 => {
+                    let mut value = [0];
+                    inst.get_uint32(&[*value_reference], &mut value).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<UInt32Builder>()
+                        .expect("column is not UInt32")
+                        .append_value(value[0]);
+                }
+                DataType::UInt64 => {
+                    let mut value = [0];
+                    inst.get_uint64(&[*value_reference], &mut value).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<UInt64Builder>()
+                        .expect("column is not UInt64")
+                        .append_value(value[0]);
+                }
+                DataType::Float32 => {
+                    let mut value = [0.0];
+                    inst.get_float32(&[*value_reference], &mut value).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<Float32Builder>()
+                        .expect("column is not Float32")
+                        .append_value(value[0]);
+                }
+                DataType::Float64 => {
+                    let mut value = [0.0];
+                    inst.get_float64(&[*value_reference], &mut value).ok()?;
+                    self.data_builders[*column_index]
+                        .as_any_mut()
+                        .downcast_mut::<Float64Builder>()
+                        .expect("column is not Float64")
+                        .append_value(value[0]);
+                }
+                _ => unimplemented!("Unsupported data type: {:?}", col.data_type()),
+            }
+        }
+
+        Ok(())
     }
 }
 

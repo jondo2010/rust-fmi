@@ -56,6 +56,7 @@ pub trait AbstractVariableTrait {
 }
 
 pub trait ArrayableVariableTrait: AbstractVariableTrait {
+    fn dimensions(&self) -> &[Dimension];
     fn intermediate_update(&self) -> bool;
     fn previous(&self) -> u32;
 }
@@ -124,7 +125,7 @@ macro_rules! impl_abstract_variable {
 
 macro_rules! impl_float_type {
     ($name:ident, $root:literal, $type:ty, $float_attr:ident) => {
-        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+        #[derive(Default, PartialEq, Debug, YaDeserialize)]
         #[yaserde(root = $root)]
         pub struct $name {
             #[yaserde(flatten)]
@@ -133,8 +134,8 @@ macro_rules! impl_float_type {
             pub attr: $float_attr,
             #[yaserde(flatten)]
             pub init_var: InitializableVariable,
-            #[yaserde(attribute)]
-            pub start: $type,
+            #[yaserde(attribute, rename = "start")]
+            pub start: Vec<$type>,
             #[yaserde(flatten)]
             pub real_var_attr: RealVariableAttributes,
         }
@@ -142,6 +143,9 @@ macro_rules! impl_float_type {
         impl_abstract_variable!($name);
 
         impl ArrayableVariableTrait for $name {
+            fn dimensions(&self) -> &[Dimension] {
+                &self.init_var.typed_arrayable_var.arrayable_var.dimensions
+            }
             fn intermediate_update(&self) -> bool {
                 self.init_var
                     .typed_arrayable_var
@@ -166,8 +170,8 @@ macro_rules! impl_float_type {
         }
 
         impl $name {
-            pub fn start(&self) -> $type {
-                self.start
+            pub fn start(&self) -> &[$type] {
+                &self.start
             }
 
             pub fn derivative(&self) -> Option<u32> {
@@ -268,6 +272,20 @@ pub enum Variability {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct Dimension {
+    /// Defines a constant unsigned 64-bit integer size for this dimension. The variability of the dimension size is constant in this case.
+    #[yaserde(attribute)]
+    pub start: Option<u64>,
+    /// If the present, it defines the size of this dimension to be the value of the variable with the value reference
+    /// given by the `value_reference` attribute. The referenced variable must be a variable of type `UInt64`, and must
+    /// either be a constant (i.e. with variability = constant) or a structural parameter (i.e. with causality =
+    /// structuralParameter). The variability of the dimension size is in this case the variability of the referenced
+    /// variable. A structural parameter must be a variable of type `UInt64` only if it is referenced in `Dimension`.
+    #[yaserde(attribute, rename = "valueReference")]
+    pub value_reference: Option<u32>,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct AbstractVariable {
     #[yaserde(attribute)]
     pub name: String,
@@ -287,6 +305,9 @@ pub struct AbstractVariable {
 pub struct ArrayableVariable {
     #[yaserde(flatten)]
     pub abstract_var: AbstractVariable,
+    /// Each `Dimension` element specifies the size of one dimension of the array
+    #[yaserde(rename = "Dimension")]
+    pub dimensions: Vec<Dimension>,
     #[yaserde(attribute, rename = "intermediateUpdate")]
     pub intermediate_update: bool,
     #[yaserde(attribute, rename = "previous")]
@@ -366,9 +387,33 @@ fn test_float64() {
     assert_eq!(var.initial(), Some(Initial::Exact));
     assert_eq!(var.causality(), Causality::Parameter);
     assert_eq!(var.declared_type(), Some("Acceleration"));
-    assert_eq!(var.start(), -9.81);
+    assert_eq!(var.start(), &[-9.81]);
     assert_eq!(var.derivative(), Some(1));
     assert_eq!(var.description(), Some("Gravity acting on the ball"));
     assert_eq!(var.can_handle_multiple_set_per_time_instant(), false);
     assert_eq!(var.intermediate_update(), false);
+}
+
+#[test]
+fn test_dim_f64() {
+    let xml = r#"<Float64
+        name="A"
+        valueReference="4"
+        description="Matrix coefficient A"
+        causality="parameter"
+        variability="tunable"
+        start="1 0 0 0 1 0 0 0 1">
+        <Dimension valueReference="2"/>
+        <Dimension valueReference="2"/>
+        </Float64>"#;
+
+    let var: FmiFloat64 = yaserde::de::from_str(xml).unwrap();
+    assert_eq!(var.name(), "A");
+    assert_eq!(var.value_reference(), 4);
+    assert_eq!(var.variability(), Variability::Tunable);
+    assert_eq!(var.causality(), Causality::Parameter);
+    assert_eq!(var.description(), Some("Matrix coefficient A"));
+    assert_eq!(var.start, vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+    assert_eq!(var.dimensions().len(), 2);
+    assert_eq!(var.dimensions()[0].value_reference, Some(2));
 }
