@@ -1,3 +1,5 @@
+use std::mem::MaybeUninit;
+
 use crate::fmi3::{binding, Fmi3Status};
 
 use super::{traits, DiscreteStates, Instance};
@@ -118,6 +120,62 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     impl_getter_setter!(u16, get_uint16, set_uint16, fmi3GetUInt16, fmi3SetUInt16);
     impl_getter_setter!(u32, get_uint32, set_uint32, fmi3GetUInt32, fmi3SetUInt32);
     impl_getter_setter!(u64, get_uint64, set_uint64, fmi3GetUInt64, fmi3SetUInt64);
+
+    fn get_string(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [String],
+    ) -> Fmi3Status {
+        unsafe {
+            // Create a mutable vec of fmi3String with uninitialized values to pass to ffi
+            let mut ret_values = MaybeUninit::<Vec<binding::fmi3String>>::uninit();
+            let stat = self.binding.fmi3GetString(
+                self.instance,
+                vrs.as_ptr(),
+                vrs.len() as _,
+                ret_values.assume_init_mut().as_mut_ptr(),
+                ret_values.assume_init_ref().len() as _,
+            );
+            for (v, ret) in ret_values
+                .assume_init_ref()
+                .into_iter()
+                .zip(values.iter_mut())
+            {
+                *ret = std::ffi::CStr::from_ptr(*v)
+                    .to_str()
+                    .expect("Error converting C string")
+                    .to_string();
+            }
+            stat
+        }
+        .into()
+    }
+
+    fn set_string<'b>(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: impl Iterator<Item = &'b str>,
+    ) -> Fmi3Status {
+        let values = values
+            .map(|s| std::ffi::CString::new(s.as_bytes()).expect("Error building CString"))
+            .collect::<Vec<_>>();
+
+        let ptrs = values
+            .iter()
+            .map(|s| s.as_c_str().as_ptr())
+            .collect::<Vec<_>>();
+
+        unsafe {
+            self.binding.fmi3SetString(
+                self.instance,
+                vrs.as_ptr(),
+                vrs.len() as _,
+                ptrs.as_ptr(),
+                values.len() as _,
+            )
+        }
+        .into()
+    }
 
     #[cfg(disabled)]
     fn get_fmu_state<T>(
@@ -249,7 +307,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
                     arrow::compute::cast(values, &DataType::Utf8)
                         .map(|a| arrow::array::downcast_array(&a))
                         .expect("Error casting");
-                todo!();
+                self.set_string(vrs, values.iter().filter_map(|x| x));
             }
             DataType::LargeUtf8 => todo!(),
             _ => unimplemented!("Unsupported data type"),

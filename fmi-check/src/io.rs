@@ -202,12 +202,20 @@ impl InputState {
         Ok(())
     }
 
-    pub fn apply_continuous_inputs<Tag>(&self, time: f64, instance: &mut Instance<'_, Tag>) {
-        self.apply_inputs::<_, Linear>(time, instance, &self.continuous_inputs);
+    pub fn apply_continuous_inputs<Tag>(
+        &self,
+        time: f64,
+        instance: &mut Instance<'_, Tag>,
+    ) -> anyhow::Result<()> {
+        self.apply_inputs::<_, Linear>(time, instance, &self.continuous_inputs)
     }
 
-    pub fn apply_discrete_inputs<Tag>(&self, time: f64, instance: &mut Instance<'_, Tag>) {
-        self.apply_inputs::<_, Linear>(time, instance, &self.discrete_inputs);
+    pub fn apply_discrete_inputs<Tag>(
+        &self,
+        time: f64,
+        instance: &mut Instance<'_, Tag>,
+    ) -> anyhow::Result<()> {
+        self.apply_inputs::<_, Linear>(time, instance, &self.discrete_inputs)
     }
 }
 
@@ -259,49 +267,49 @@ impl OutputState {
             match col.data_type() {
                 DataType::Boolean => todo!(),
                 DataType::Int8 => {
-                    let mut value = 0;
-                    inst.get_int8(&[*value_reference], &mut [value]).ok()?;
+                    let mut value = [0];
+                    inst.get_int8(&[*value_reference], &mut value).ok()?;
                     self.data_builders[*column_index]
                         .as_any_mut()
                         .downcast_mut::<Int8Builder>()
                         .expect("column is not Int8")
-                        .append_value(value);
+                        .append_value(value[0]);
                 }
                 DataType::Int16 => {
-                    let mut value = 0;
-                    inst.get_int16(&[*value_reference], &mut [value]).ok()?;
+                    let mut value = [0];
+                    inst.get_int16(&[*value_reference], &mut value).ok()?;
                     self.data_builders[*column_index]
                         .as_any_mut()
                         .downcast_mut::<Int16Builder>()
                         .expect("column is not Int16")
-                        .append_value(value);
+                        .append_value(value[0]);
                 }
                 DataType::Int32 => {
-                    let mut value = 0;
-                    inst.get_int32(&[*value_reference], &mut [value]).ok()?;
+                    let mut value = [0];
+                    inst.get_int32(&[*value_reference], &mut value).ok()?;
                     self.data_builders[*column_index]
                         .as_any_mut()
                         .downcast_mut::<Int32Builder>()
                         .expect("column is not Int32")
-                        .append_value(value);
+                        .append_value(value[0]);
                 }
                 DataType::Int64 => {
-                    let mut value = 0;
-                    inst.get_int64(&[*value_reference], &mut [value]).ok()?;
+                    let mut value = [0];
+                    inst.get_int64(&[*value_reference], &mut value).ok()?;
                     self.data_builders[*column_index]
                         .as_any_mut()
                         .downcast_mut::<Int64Builder>()
                         .expect("column is not Int64")
-                        .append_value(value);
+                        .append_value(value[0]);
                 }
                 DataType::UInt8 => {
-                    let mut value = 0;
-                    inst.get_uint8(&[*value_reference], &mut [value]).ok()?;
+                    let mut value = [0];
+                    inst.get_uint8(&[*value_reference], &mut value).ok()?;
                     self.data_builders[*column_index]
                         .as_any_mut()
                         .downcast_mut::<UInt8Builder>()
                         .expect("column is not UInt8")
-                        .append_value(value);
+                        .append_value(value[0]);
                 }
                 DataType::UInt16 => {
                     let mut value = [0];
@@ -353,6 +361,18 @@ impl OutputState {
         }
 
         Ok(())
+    }
+
+    /// Finish the output state and return the RecordBatch.
+    pub fn finish(self) -> RecordBatch {
+        let columns = self
+            .data_builders
+            .into_iter()
+            .map(|mut builder| builder.finish())
+            .collect::<Vec<_>>();
+
+        RecordBatch::try_new(Arc::new(self.output_schema), columns)
+            .expect("Failed to create RecordBatch")
     }
 }
 

@@ -123,6 +123,45 @@ macro_rules! impl_abstract_variable {
     };
 }
 
+macro_rules! impl_arrayable_variable {
+    ($name:ident) => {
+        impl ArrayableVariableTrait for $name {
+            fn dimensions(&self) -> &[Dimension] {
+                &self.init_var.typed_arrayable_var.arrayable_var.dimensions
+            }
+            fn intermediate_update(&self) -> bool {
+                self.init_var
+                    .typed_arrayable_var
+                    .arrayable_var
+                    .intermediate_update
+            }
+            fn previous(&self) -> u32 {
+                self.init_var.typed_arrayable_var.arrayable_var.previous
+            }
+        }
+    };
+}
+
+macro_rules! impl_typed_arrayable_variable {
+    ($name:ident) => {
+        impl TypedArrayableVariableTrait for $name {
+            fn declared_type(&self) -> Option<&str> {
+                self.init_var.typed_arrayable_var.declared_type.as_deref()
+            }
+        }
+    };
+}
+
+macro_rules! impl_initializable_variable {
+    ($name:ident) => {
+        impl InitializableVariableTrait for $name {
+            fn initial(&self) -> Option<Initial> {
+                self.init_var.initial
+            }
+        }
+    };
+}
+
 macro_rules! impl_float_type {
     ($name:ident, $root:literal, $type:ty, $float_attr:ident) => {
         #[derive(Default, PartialEq, Debug, YaDeserialize)]
@@ -141,33 +180,9 @@ macro_rules! impl_float_type {
         }
 
         impl_abstract_variable!($name);
-
-        impl ArrayableVariableTrait for $name {
-            fn dimensions(&self) -> &[Dimension] {
-                &self.init_var.typed_arrayable_var.arrayable_var.dimensions
-            }
-            fn intermediate_update(&self) -> bool {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .intermediate_update
-            }
-            fn previous(&self) -> u32 {
-                self.init_var.typed_arrayable_var.arrayable_var.previous
-            }
-        }
-
-        impl TypedArrayableVariableTrait for $name {
-            fn declared_type(&self) -> Option<&str> {
-                self.init_var.typed_arrayable_var.declared_type.as_deref()
-            }
-        }
-
-        impl InitializableVariableTrait for $name {
-            fn initial(&self) -> Option<Initial> {
-                self.init_var.initial
-            }
-        }
+        impl_arrayable_variable!($name);
+        impl_typed_arrayable_variable!($name);
+        impl_initializable_variable!($name);
 
         impl $name {
             pub fn start(&self) -> &[$type] {
@@ -351,6 +366,32 @@ impl_integer_type!(FmiUInt16, "UInt16", u16, UInt16Attributes);
 impl_integer_type!(FmiInt32, "Int32", i32, Int32Attributes);
 impl_integer_type!(FmiUInt32, "UInt32", u32, UInt32Attributes);
 
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct StringStart {
+    #[yaserde(attribute, rename = "value")]
+    pub value: String,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "String")]
+pub struct FmiString {
+    #[yaserde(rename = "Start")]
+    pub start: Vec<StringStart>,
+    #[yaserde(flatten)]
+    pub init_var: InitializableVariable,
+}
+
+impl FmiString {
+    pub fn start(&self) -> impl Iterator<Item = &str> {
+        self.start.iter().map(|s| s.value.as_str())
+    }
+}
+
+impl_abstract_variable!(FmiString);
+impl_arrayable_variable!(FmiString);
+impl_typed_arrayable_variable!(FmiString);
+impl_initializable_variable!(FmiString);
+
 // #[derive(Debug, YaSerialize, YaDeserialize)]
 // #[yaserde(root = "ModelVariables")]
 // pub enum Fmi3Variable {
@@ -416,4 +457,18 @@ fn test_dim_f64() {
     assert_eq!(var.start, vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
     assert_eq!(var.dimensions().len(), 2);
     assert_eq!(var.dimensions()[0].value_reference, Some(2));
+}
+
+#[test]
+fn test_string() {
+    let xml = r#"<String name="String_parameter" valueReference="29" causality="parameter" variability="fixed">
+        <Start value="Set me!"/>
+    </String>"#;
+
+    let var: FmiString = yaserde::de::from_str(xml).unwrap();
+    assert_eq!(var.name(), "String_parameter");
+    assert_eq!(var.value_reference(), 29);
+    assert_eq!(var.variability(), Variability::Fixed);
+    assert_eq!(var.causality(), Causality::Parameter);
+    assert_eq!(var.start().next().unwrap(), "Set me!");
 }

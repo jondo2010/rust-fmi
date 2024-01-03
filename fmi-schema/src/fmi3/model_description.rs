@@ -3,7 +3,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 use super::{
     AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
     Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64,
-    FmiInt16, FmiInt32, FmiInt8, FmiUInt16, FmiUInt32, FmiUInt8,
+    FmiInt16, FmiInt32, FmiInt8, FmiString, FmiUInt16, FmiUInt32, FmiUInt8,
 };
 
 #[derive(Default, Debug, YaDeserialize)]
@@ -166,6 +166,8 @@ pub struct ModelVariables {
     pub int32: Vec<FmiInt32>,
     #[yaserde(rename = "UInt32")]
     pub uint32: Vec<FmiUInt32>,
+    #[yaserde(rename = "String")]
+    pub string: Vec<FmiString>,
 }
 
 impl ModelVariables {
@@ -189,6 +191,7 @@ impl ModelVariables {
             self.uint16.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.int32.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.uint32.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.string.iter().map(|v| v as &dyn AbstractVariableTrait),
         )
     }
 }
@@ -329,7 +332,7 @@ fn test_model_variables() {
     // assert_eq!(mv.int64.len(), 2);
     // assert_eq!(mv.uint64.len(), 2);
     // assert_eq!(mv.boolean.len(), 2);
-    // assert_eq!(mv.string.len(), 1);
+    assert_eq!(mv.string.len(), 1);
     // assert_eq!(mv.binary.len(), 2);
     // assert_eq!(mv.enumeration.len(), 2);
 }

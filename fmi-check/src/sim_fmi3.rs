@@ -26,11 +26,13 @@ pub fn apply_start_values<Tag>(
             .model_variables
             .iter_abstract()
             .find(|var| var.name() == name)
-            .ok_or_else(|| anyhow::anyhow!("Invalid variable name"))?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid variable name: {name}"))?;
 
         let ary = StringArray::from(vec![value.to_string()]);
         let ary = arrow::compute::cast(&ary, &var.data_type().into())
             .map_err(|_| anyhow::anyhow!("Error casting type"))?;
+
+        log::trace!("Setting start value `{name}` = `{value}`");
         instance.set_values(&[var.value_reference()], &ary);
     }
 
@@ -63,8 +65,8 @@ pub fn co_simulation(
 
     // apply continuous and discrete inputs
     if let Some(input_state) = input_state {
-        input_state.apply_continuous_inputs(time, &mut inst);
-        input_state.apply_discrete_inputs(time, &mut inst);
+        input_state.apply_continuous_inputs(time, &mut inst)?;
+        input_state.apply_discrete_inputs(time, &mut inst)?;
     }
 
     inst.exit_initialization_mode().ok()?;
@@ -136,6 +138,12 @@ pub fn co_simulation(
             inst.enter_step_mode().ok()?;
         }
     }
+
+    let output = output_state.finish();
+    println!(
+        "{}",
+        arrow::util::pretty::pretty_format_batches(&[output]).unwrap()
+    );
 
     Ok(())
 }

@@ -48,7 +48,7 @@ impl Action for Import {
 }
 
 fn main() -> anyhow::Result<()> {
-    sensible_env_logger::try_init!()?;
+    sensible_env_logger::try_init_timed!()?;
 
     let args = options::FmiCheckOptions::from_args();
     let import = fmi::Import::new(&args.model)?;
