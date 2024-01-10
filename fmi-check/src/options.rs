@@ -10,7 +10,7 @@ pub enum Action {
     CS(Simulate),
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Default, StructOpt)]
 pub struct Simulate {
     /// Name of the CSV file name with input data.
     #[structopt(short = "i", parse(from_os_str))]

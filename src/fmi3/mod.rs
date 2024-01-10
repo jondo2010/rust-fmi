@@ -57,6 +57,11 @@ impl Fmi3Status {
     pub fn ok(self) -> Result<Fmi3Res, Fmi3Error> {
         self.into()
     }
+
+    #[inline]
+    pub fn is_error(&self) -> bool {
+        self.0 == binding::fmi3Status_fmi3Error || self.0 == binding::fmi3Status_fmi3Fatal
+    }
 }
 
 impl From<binding::fmi3Status> for Fmi3Status {

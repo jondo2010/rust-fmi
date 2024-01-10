@@ -1,9 +1,9 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::{
-    Float32Attributes, Float64Attributes, Int16Attributes, Int32Attributes, Int8Attributes,
-    IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes, UInt16Attributes,
-    UInt32Attributes, UInt8Attributes,
+    Float32Attributes, Float64Attributes, Int16Attributes, Int32Attributes, Int64Attributes,
+    Int8Attributes, IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes,
+    UInt16Attributes, UInt32Attributes, UInt64Attributes, UInt8Attributes,
 };
 
 /// An enumeration that defines the type of a variable.
@@ -16,6 +16,8 @@ pub enum VariableType {
     FmiUInt16,
     FmiInt32,
     FmiUInt32,
+    FmiInt64,
+    FmiUInt64,
     FmiBoolean,
     FmiString,
     FmiBinary,
@@ -33,6 +35,8 @@ impl From<VariableType> for arrow::datatypes::DataType {
             VariableType::FmiUInt16 => arrow::datatypes::DataType::UInt16,
             VariableType::FmiInt32 => arrow::datatypes::DataType::Int32,
             VariableType::FmiUInt32 => arrow::datatypes::DataType::UInt32,
+            VariableType::FmiInt64 => arrow::datatypes::DataType::Int64,
+            VariableType::FmiUInt64 => arrow::datatypes::DataType::UInt64,
             VariableType::FmiBoolean => arrow::datatypes::DataType::Boolean,
             VariableType::FmiString => arrow::datatypes::DataType::Utf8,
             VariableType::FmiBinary => arrow::datatypes::DataType::Binary,
@@ -365,6 +369,22 @@ impl_integer_type!(FmiInt16, "Int16", i16, Int16Attributes);
 impl_integer_type!(FmiUInt16, "UInt16", u16, UInt16Attributes);
 impl_integer_type!(FmiInt32, "Int32", i32, Int32Attributes);
 impl_integer_type!(FmiUInt32, "UInt32", u32, UInt32Attributes);
+impl_integer_type!(FmiInt64, "Int64", i64, Int64Attributes);
+impl_integer_type!(FmiUInt64, "UInt64", u64, UInt64Attributes);
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "Boolean")]
+pub struct FmiBoolean {
+    #[yaserde(attribute, flatten)]
+    pub start: Vec<bool>,
+    #[yaserde(flatten)]
+    pub init_var: InitializableVariable,
+}
+
+impl_abstract_variable!(FmiBoolean);
+impl_arrayable_variable!(FmiBoolean);
+impl_typed_arrayable_variable!(FmiBoolean);
+impl_initializable_variable!(FmiBoolean);
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct StringStart {
@@ -391,6 +411,31 @@ impl_abstract_variable!(FmiString);
 impl_arrayable_variable!(FmiString);
 impl_typed_arrayable_variable!(FmiString);
 impl_initializable_variable!(FmiString);
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct BinaryStart {
+    #[yaserde(attribute, rename = "value")]
+    pub value: String,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "Binary")]
+pub struct FmiBinary {
+    #[yaserde(attribute, rename = "start")]
+    pub start: Vec<BinaryStart>,
+    #[yaserde(attribute, default = "default_mime_type")]
+    pub mime_type: String,
+    #[yaserde(attribute)]
+    pub max_size: Option<u32>,
+    #[yaserde(flatten)]
+    pub init_var: InitializableVariable,
+}
+
+fn default_mime_type() -> String {
+    "application/octet-stream".into()
+}
+
+impl_abstract_variable!(FmiBinary);
 
 // #[derive(Debug, YaSerialize, YaDeserialize)]
 // #[yaserde(root = "ModelVariables")]

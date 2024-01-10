@@ -1,7 +1,8 @@
-use arrow::{array::StringArray, datatypes::DataType};
+use anyhow::Context;
+use arrow::record_batch::RecordBatch;
 use fmi::{
-    fmi3::instance::{CoSimulation, Common, DiscreteStates, Instance},
-    FmiImport, FmiInstance,
+    fmi3::instance::{CoSimulation, Common, DiscreteStates},
+    FmiImport,
 };
 
 use crate::{
@@ -9,40 +10,10 @@ use crate::{
     options,
 };
 
-const FIXED_SOLVER_STEP: f64 = 1e-3;
-
-/// Parse the start values from the command line and set them in the FMU.
-pub fn apply_start_values<Tag>(
-    instance: &mut Instance<'_, Tag>,
-    start_values: &[String],
-) -> anyhow::Result<()> {
-    for start_value in start_values.into_iter() {
-        let (name, value) = start_value
-            .split_once('=')
-            .ok_or_else(|| anyhow::anyhow!("Invalid start value"))?;
-
-        let var = instance
-            .model_description()
-            .model_variables
-            .iter_abstract()
-            .find(|var| var.name() == name)
-            .ok_or_else(|| anyhow::anyhow!("Invalid variable name: {name}"))?;
-
-        let ary = StringArray::from(vec![value.to_string()]);
-        let ary = arrow::compute::cast(&ary, &var.data_type().into())
-            .map_err(|_| anyhow::anyhow!("Error casting type"))?;
-
-        log::trace!("Setting start value `{name}` = `{value}`");
-        instance.set_values(&[var.value_reference()], &ary);
-    }
-
-    Ok(())
-}
-
 pub fn co_simulation(
     import: &fmi::fmi3::import::Fmi3Import,
     options: &options::Simulate,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<RecordBatch> {
     let sim_params = SimParams::new(import, options)?;
 
     let mut inst = import.instantiate_cs("inst1", true, true, true, true, &[])?;
@@ -50,18 +21,21 @@ pub fn co_simulation(
         .input_file
         .as_ref()
         .map(|path| InputState::new(import, path))
-        .transpose()?;
+        .transpose()
+        .context("Building InputState")?;
 
-    let mut output_state = OutputState::new(import, sim_params.num_steps)?;
+    let mut output_state =
+        OutputState::new(import, sim_params.num_steps).context("Building OutputState")?;
 
     // set start values
-    apply_start_values(&mut inst, &options.initial_values)?;
+    InputState::apply_start_values(&mut inst, &options.initial_values)?;
 
     let mut time = sim_params.start_time;
 
     // initialize the FMU
     inst.enter_initialization_mode(None, time, Some(sim_params.stop_time))
-        .ok()?;
+        .ok()
+        .context("enter_initialization_mode")?;
 
     // apply continuous and discrete inputs
     if let Some(input_state) = input_state {
@@ -69,13 +43,17 @@ pub fn co_simulation(
         input_state.apply_discrete_inputs(time, &mut inst)?;
     }
 
-    inst.exit_initialization_mode().ok()?;
+    inst.exit_initialization_mode()
+        .ok()
+        .context("exit_initialization_mode")?;
 
     let mut states = DiscreteStates::default();
 
     // update discrete states
     let terminate = loop {
-        inst.update_discrete_states(&mut states).ok()?;
+        inst.update_discrete_states(&mut states)
+            .ok()
+            .context("update_discrete_states")?;
 
         if states.terminate_simulation {
             break false;
@@ -86,7 +64,7 @@ pub fn co_simulation(
         }
     };
 
-    inst.enter_step_mode().ok()?;
+    inst.enter_step_mode().ok().context("enter_step_mode")?;
 
     loop {
         output_state.record_variables(&mut inst, time)?;
@@ -98,24 +76,29 @@ pub fn co_simulation(
         let mut event_encountered = false;
         let mut early_return = false;
 
+        // Step only up to the stop time
+        let step_size = sim_params.step_size.min(sim_params.stop_time - time);
         inst.do_step(
             time,
-            sim_params.step_size,
+            step_size,
             true,
             &mut event_encountered,
             &mut states.terminate_simulation,
             &mut early_return,
             &mut time,
         )
-        .ok()?;
+        .ok()
+        .context("do_step")?;
 
         if event_encountered {
             log::trace!("Event encountered at t = {}", time);
             // record variables before event update
-            output_state.record_variables(&mut inst, time)?;
+            output_state
+                .record_variables(&mut inst, time)
+                .context("record_variables")?;
 
             // enter Event Mode
-            inst.enter_event_mode().ok()?;
+            inst.enter_event_mode().ok().context("enter_event_mode")?;
 
             // apply continuous and discrete inputs
             // CALL(applyContinuousInputs(S, true));
@@ -123,7 +106,9 @@ pub fn co_simulation(
 
             // update discrete states
             loop {
-                inst.update_discrete_states(&mut states).ok()?;
+                inst.update_discrete_states(&mut states)
+                    .ok()
+                    .context("update_discrete_states")?;
 
                 if states.terminate_simulation {
                     break;
@@ -135,17 +120,11 @@ pub fn co_simulation(
             }
 
             // return to Step Mode
-            inst.enter_step_mode().ok()?;
+            inst.enter_step_mode().ok().context("enter_step_mode")?;
         }
     }
 
-    let output = output_state.finish();
-    println!(
-        "{}",
-        arrow::util::pretty::pretty_format_batches(&[output]).unwrap()
-    );
-
-    Ok(())
+    Ok(output_state.finish())
 }
 
 struct SimParams {
