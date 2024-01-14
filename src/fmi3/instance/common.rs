@@ -2,7 +2,7 @@ use std::mem::MaybeUninit;
 
 use crate::fmi3::{binding, Fmi3Status};
 
-use super::{traits, DiscreteStates, Instance};
+use super::{traits, Instance};
 
 macro_rules! impl_getter_setter {
     ($ty:ty, $get:ident, $set:ident, $fmi_get:ident, $fmi_set:ident) => {
@@ -250,26 +250,35 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         unsafe { self.binding.fmi3GetFMUState(self.instance, FMUState) }
     }
 
-    fn update_discrete_states(&mut self, states: &mut DiscreteStates) -> Fmi3Status {
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Fmi3Status {
         let mut next_event_time_defined = false;
-        let mut next_event_time = 0.0;
+        let mut next_event_time_value = 0.0;
 
         let status: Fmi3Status = unsafe {
             self.binding.fmi3UpdateDiscreteStates(
                 self.instance,
-                &mut states.discrete_states_need_update as _,
-                &mut states.terminate_simulation as _,
-                &mut states.nominals_of_continuous_states_changed as _,
-                &mut states.values_of_continuous_states_changed as _,
+                discrete_states_need_update as _,
+                terminate_simulation as _,
+                nominals_of_continuous_states_changed as _,
+                values_of_continuous_states_changed as _,
                 &mut next_event_time_defined as _,
-                &mut next_event_time as _,
+                &mut next_event_time_value as _,
             )
         }
         .into();
 
-        if next_event_time_defined {
-            states.next_event_time = Some(next_event_time);
-        }
+        *next_event_time = if next_event_time_defined {
+            Some(next_event_time_value)
+        } else {
+            None
+        };
 
         status
     }

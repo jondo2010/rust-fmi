@@ -56,6 +56,10 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     }
 }
 
+pub type InstanceME<'a> = Instance<'a, ME>;
+pub type InstanceCS<'a> = Instance<'a, CS>;
+pub type InstanceSE<'a> = Instance<'a, SE>;
+
 pub struct Fmu3State<'a, Tag> {
     instance: Instance<'a, Tag>,
     /// Pointer to the raw FMI 3.0 state

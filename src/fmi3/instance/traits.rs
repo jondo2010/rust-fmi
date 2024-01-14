@@ -2,7 +2,7 @@
 
 use crate::fmi3::Fmi3Error;
 
-use super::{binding, DiscreteStates, Fmi3Status};
+use super::{binding, Fmi3Status};
 
 /// Interface common to all instance types
 pub trait Common {
@@ -141,7 +141,14 @@ pub trait Common {
     /// instant.
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates]
-    fn update_discrete_states(&mut self, states: &mut DiscreteStates) -> Fmi3Status;
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Fmi3Status;
 }
 
 /// Interface for Model Exchange instances

@@ -49,6 +49,8 @@ impl<'a> Instance<'a, CS> {
     ///   using fmi3Set{VariableType} and fmi3Get{VariableType} during Intermediate Update Mode. All
     ///   variables referenced in this set must be marked with the attribute intermediateUpdate =
     ///   "true" in modelDescription.xml.
+    ///
+    /// See: https://fmi-standard.org/docs/3.0.1/#fmi3InstantiateCoSimulation
     pub fn new(
         import: &'a import::Fmi3Import,
         instance_name: &str,

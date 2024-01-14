@@ -7,9 +7,8 @@ use arrow::{
         UInt32Type, UInt64Type, UInt8Type,
     },
 };
-use assert_cmd::{output, prelude::*};
-use fmi_check::options::{self, FmiCheckOptions, Simulate};
-use std::{path::PathBuf, process::Command, str::FromStr};
+use fmi_check::options::{FmiCheckOptions, Simulate};
+use std::{path::PathBuf, str::FromStr};
 
 #[test]
 fn test_start_time() {
@@ -36,7 +35,28 @@ fn test_start_time() {
 }
 
 #[test]
-fn test_start_values() {
+fn test_stop_time() {
+    let model = PathBuf::from_str("../data/reference_fmus/3.0/BouncingBall.fmu")
+        .expect("Error building PathBuf");
+    let simulate = Simulate {
+        stop_time: Some(0.5),
+        ..Default::default()
+    };
+    let options = FmiCheckOptions {
+        model,
+        action: fmi_check::options::Action::CS(simulate),
+    };
+    let output = fmi_check::simulate(options).expect("Error simulating FMU");
+
+    let time = output
+        .column_by_name("time")
+        .unwrap()
+        .as_primitive::<Float64Type>();
+    assert_eq!(time.value(time.len() - 1), 0.5);
+}
+
+#[test]
+fn test_start_value_types() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/Feedthrough.fmu")
         .expect("Error building PathBuf");
     let simulate = Simulate {
@@ -165,33 +185,4 @@ fn test_start_values() {
             .value(0),
         b"42696E617279"
     );
-}
-
-#[test]
-fn test_feedthrough() {
-    let _cmd = Command::cargo_bin("fmi-check")
-        .unwrap()
-        .arg("../data/reference_fmus/3.0/Feedthrough.fmu")
-        .arg("cs")
-        .args(&["-h", "1.0"])
-        .args(&["-v", "Float64_continuous_input=-5e-1"])
-        .args(&["-v", "Int32_input=2147483647"])
-        .args(&["-v", "Boolean_input=1"])
-        .args(&["-v", "String_parameter='FMI is awesome!'"])
-        .args(&["-v", "Enumeration_input=2"])
-        .args(&["-v", "Float32_continuous_input=0.2"])
-        .args(&["-v", "Int8_input=127"])
-        .args(&["-v", "UInt8_input=255,"])
-        .args(&["-v", "Int16_input=32767"])
-        .args(&["-v", "UInt16_input=65535"])
-        .args(&["-v", "UInt32_input=4294967295"])
-        .args(&["-v", "Int64_input=9223372036854775807"])
-        .args(&["-v", "UInt64_input=18446744073709551615"])
-        .args(&["-v", "Binary_input=42696E617279"])
-        //.args(&["-i", "../data/feedthrough_in.csv"])
-        .env("GLOBAL_RUST_LOG", "fmi=trace")
-        .assert()
-        .success();
-
-    println!("{:?}", _cmd.get_output());
 }

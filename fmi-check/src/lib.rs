@@ -1,17 +1,17 @@
 use arrow::record_batch::RecordBatch;
 use fmi::{FmiImport, Import};
 use fmi_schema::variable_counts::VariableCounts;
+use sim::options::SimOptions;
 
-mod io;
 pub mod options;
-mod sim_fmi3;
+mod sim;
 
 trait Action {
     fn check(&self) -> anyhow::Result<()>;
 
-    fn model_exchange(&self, options: options::Simulate) -> anyhow::Result<RecordBatch>;
+    fn model_exchange(&self, options: SimOptions) -> anyhow::Result<RecordBatch>;
 
-    fn co_simulation(&self, options: options::Simulate) -> anyhow::Result<RecordBatch>;
+    fn co_simulation(&self, options: SimOptions) -> anyhow::Result<RecordBatch>;
 }
 
 impl Action for Import {
@@ -27,19 +27,17 @@ impl Action for Import {
         Ok(())
     }
 
-    fn model_exchange(&self, options: options::Simulate) -> anyhow::Result<RecordBatch> {
-        todo!();
-
-        // match self {
-        // Import::Fmi2(fmi2) => fmi2.model_exchange(options),
-        // Import::Fmi3(fmi3) => fmi3.model_exchange(options),
-        //}
-    }
-
-    fn co_simulation(&self, options: options::Simulate) -> anyhow::Result<RecordBatch> {
+    fn model_exchange(&self, options: SimOptions) -> anyhow::Result<RecordBatch> {
         match self {
             Import::Fmi2(import) => todo!(),
-            Import::Fmi3(import) => sim_fmi3::co_simulation(import, &options),
+            Import::Fmi3(import) => sim::fmi3_me::me_simulation(import, options),
+        }
+    }
+
+    fn co_simulation(&self, options: SimOptions) -> anyhow::Result<RecordBatch> {
+        match self {
+            Import::Fmi2(import) => todo!(),
+            Import::Fmi3(import) => sim::fmi3_cs::co_simulation(import, options),
         }
     }
 }
@@ -51,14 +49,7 @@ pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
             import.check()?;
             todo!();
         }
-        options::Action::ME(options) => {
-            // let import = import.as_fmi2().unwrap();
-            // import.model_exchange(options)?;
-            todo!();
-        }
-        options::Action::CS(options) => {
-            // let import = import.as_fmi2().unwrap();
-            import.co_simulation(options)
-        }
+        options::Action::ME(options) => import.model_exchange(options),
+        options::Action::CS(options) => import.co_simulation(options),
     }
 }
