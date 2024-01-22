@@ -7,14 +7,14 @@ use arrow::{
         UInt32Type, UInt64Type, UInt8Type,
     },
 };
-use fmi_check::options::{FmiCheckOptions, Simulate};
+use fmi_check::{options::FmiCheckOptions, sim::options::SimOptions};
 use std::{path::PathBuf, str::FromStr};
 
 #[test]
 fn test_start_time() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/BouncingBall.fmu")
         .expect("Error building PathBuf");
-    let simulate = Simulate {
+    let simulate = SimOptions {
         start_time: Some(0.5),
         ..Default::default()
     };
@@ -38,7 +38,7 @@ fn test_start_time() {
 fn test_stop_time() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/BouncingBall.fmu")
         .expect("Error building PathBuf");
-    let simulate = Simulate {
+    let simulate = SimOptions {
         stop_time: Some(0.5),
         ..Default::default()
     };
@@ -59,7 +59,7 @@ fn test_stop_time() {
 fn test_start_value_types() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/Feedthrough.fmu")
         .expect("Error building PathBuf");
-    let simulate = Simulate {
+    let simulate = SimOptions {
         initial_values: [
             "Float64_continuous_input=-5e-1",
             "Int32_input=2147483647",
@@ -185,4 +185,31 @@ fn test_start_value_types() {
             .value(0),
         b"42696E617279"
     );
+}
+
+#[test]
+fn test_input_file() {
+    let model = PathBuf::from_str("../data/reference_fmus/3.0/Feedthrough.fmu")
+        .expect("Error building PathBuf");
+    let simulate = SimOptions {
+        input_file: Some(PathBuf::from_str("tests/data/feedthrough_in.csv").unwrap()),
+        stop_time: Some(5.0),
+        ..Default::default()
+    };
+    let options = FmiCheckOptions {
+        model,
+        action: fmi_check::options::Action::CS(simulate),
+    };
+    let output = fmi_check::simulate(options).expect("Error simulating FMU");
+
+    let f64_cts_out = output
+        .column_by_name("Float64_continuous_output")
+        .unwrap()
+        .as_primitive::<Float64Type>();
+
+    // start value
+    assert_eq!(f64_cts_out.value(0), 3.0);
+
+    // extrapolation
+    assert_eq!(f64_cts_out.value(f64_cts_out.len() - 1), 3.0);
 }

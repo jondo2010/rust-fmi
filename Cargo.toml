@@ -14,6 +14,7 @@ fmi = { path = "." }
 fmi-schema = { path = "fmi-schema" }
 fmi-sys = { path = "fmi-sys" }
 libloading = "0.8"
+itertools = "0.12"
 
 [package]
 name = "fmi"
@@ -50,7 +51,7 @@ arrow = { workspace = true, optional = true }
 document-features = { workspace = true }
 fmi-schema = { workspace = true }
 fmi-sys = { workspace = true }
-itertools = "0.12"
+itertools = { workspace = true }
 # Note: libc is only used for FMI 2.0 support, needed for alloc
 libc = { version = "0.2", features = ["align"], optional = true }
 libloading = { workspace = true }

@@ -4,7 +4,7 @@ use fmi_schema::variable_counts::VariableCounts;
 use sim::options::SimOptions;
 
 pub mod options;
-mod sim;
+pub mod sim;
 
 trait Action {
     fn check(&self) -> anyhow::Result<()>;
