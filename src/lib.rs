@@ -5,14 +5,14 @@
 //!
 //! ```rust
 //! #[cfg(target_os = "linux")] {
-//!    use fmi::{import::FmiImport, fmi2::instance::traits::Common};
+//!    use fmi::{FmiImport as _, FmiInstance as _};
 //!    let import = fmi::Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
 //!        .unwrap()
 //!        .as_fmi2()
 //!        .unwrap();
 //!    assert_eq!(import.model_description().fmi_version, "2.0");
 //!    let me = import.instantiate_me("inst1", false, true).unwrap();
-//!    assert_eq!(me.version(), "2.0");
+//!    assert_eq!(me.get_version(), "2.0");
 //! }
 //! ```
 #![doc = document_features::document_features!()]
