@@ -1,5 +1,5 @@
 [package]
-name = "fmi-check"
+name = "fmi-sim"
 version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
@@ -19,3 +19,4 @@ itertools = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "2.0"
+test-log = { workspace = true }

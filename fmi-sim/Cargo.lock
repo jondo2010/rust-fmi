@@ -339,7 +339,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fmi_check"
+name = "fmi_sim"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -1,4 +1,4 @@
-use fmi_check::{options, simulate};
+use fmi_sim::{options, simulate};
 use structopt::StructOpt;
 
 fn main() -> anyhow::Result<()> {

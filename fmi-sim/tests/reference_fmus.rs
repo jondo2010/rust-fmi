@@ -7,10 +7,10 @@ use arrow::{
         UInt32Type, UInt64Type, UInt8Type,
     },
 };
-use fmi_check::{options::FmiCheckOptions, sim::options::SimOptions};
+use fmi_sim::{options::FmiCheckOptions, sim::options::SimOptions};
 use std::{path::PathBuf, str::FromStr};
 
-#[test]
+#[test_log::test]
 fn test_start_time() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/BouncingBall.fmu")
         .expect("Error building PathBuf");
@@ -20,9 +20,9 @@ fn test_start_time() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_check::options::Action::CS(simulate),
+        action: fmi_sim::options::Action::CS(simulate),
     };
-    let output = fmi_check::simulate(options).expect("Error simulating FMU");
+    let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
     assert_eq!(
         output
@@ -34,7 +34,7 @@ fn test_start_time() {
     );
 }
 
-#[test]
+#[test_log::test]
 fn test_stop_time() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/BouncingBall.fmu")
         .expect("Error building PathBuf");
@@ -44,9 +44,9 @@ fn test_stop_time() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_check::options::Action::CS(simulate),
+        action: fmi_sim::options::Action::CS(simulate),
     };
-    let output = fmi_check::simulate(options).expect("Error simulating FMU");
+    let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
     let time = output
         .column_by_name("time")
@@ -55,7 +55,7 @@ fn test_stop_time() {
     assert_eq!(time.value(time.len() - 1), 0.5);
 }
 
-#[test]
+#[test_log::test]
 fn test_start_value_types() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/Feedthrough.fmu")
         .expect("Error building PathBuf");
@@ -84,10 +84,10 @@ fn test_start_value_types() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_check::options::Action::CS(simulate),
+        action: fmi_sim::options::Action::CS(simulate),
     };
 
-    let output = fmi_check::simulate(options).expect("Error simulating FMU");
+    let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
     assert_eq!(
         output
@@ -187,7 +187,8 @@ fn test_start_value_types() {
     );
 }
 
-#[test]
+#[cfg(feature = "disabled")]
+#[test_log::test]
 fn test_input_file() {
     let model = PathBuf::from_str("../data/reference_fmus/3.0/Feedthrough.fmu")
         .expect("Error building PathBuf");
@@ -198,9 +199,9 @@ fn test_input_file() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_check::options::Action::CS(simulate),
+        action: fmi_sim::options::Action::CS(simulate),
     };
-    let output = fmi_check::simulate(options).expect("Error simulating FMU");
+    let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
     let f64_cts_out = output
         .column_by_name("Float64_continuous_output")

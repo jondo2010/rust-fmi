@@ -36,8 +36,6 @@ extern "C" fn callback_log(
             .args(format_args!("{}", message))
             .level(level)
             .module_path(Some("logger"))
-            .file(Some("logger.rs"))
-            .line(Some(0))
             .target(instance_name)
             .build(),
     );

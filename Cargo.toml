@@ -1,5 +1,5 @@
 [workspace]
-members = ["fmi-schema", "fmi-check", "fmi-sys"]
+members = ["fmi-schema", "fmi-sim", "fmi-sys"]
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
@@ -13,8 +13,9 @@ document-features = "0.2"
 fmi = { path = "." }
 fmi-schema = { path = "fmi-schema" }
 fmi-sys = { path = "fmi-sys" }
-libloading = "0.8"
 itertools = "0.12"
+libloading = "0.8"
+test-log = { version = "0.2", features = ["trace"] }
 
 [package]
 name = "fmi"
@@ -67,10 +68,10 @@ built = "0.7"
 [dev-dependencies]
 assert_approx_eq = "1.1"
 env_logger = "0.10"
-test-log = "0.2"
+test-log = { workspace = true }
 
 [patch.crates-io]
 #yaserde = { git = "https://github.com/jondo2010/yaserde.git", branch = "support_xst_lists" }
 #yaserde_derive = { git = "https://github.com/jondo2010/yaserde.git", branch = "support_xst_lists" }
-yaserde = { path = "../yaserde/yaserde" }
-yaserde_derive = { path = "../yaserde/yaserde_derive" }
+#yaserde = { path = "../yaserde/yaserde" }
+#yaserde_derive = { path = "../yaserde/yaserde_derive" }

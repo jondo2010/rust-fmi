@@ -111,7 +111,7 @@ fn setup_debug_logging<I: fmi::Common>(
 fn sim_prelude<'a, I: fmi::Common>(
     import: &'a fmi::Import,
     instance: &'a I,
-    fmi_check: &FmiCheckState,
+    fmi_sim: &FmiCheckState,
 ) -> fmi::Result<(Vec<UnknownsTuple<'a>>, Table)> {
     let outputs = import.descr.outputs()?;
 
@@ -128,22 +128,22 @@ fn sim_prelude<'a, I: fmi::Common>(
 
     log::info!(
         "Preparing simulation from t=[{},{}], dt={}, tol={}",
-        fmi_check.start_time,
-        fmi_check.stop_time,
-        fmi_check.step_size,
-        fmi_check.tolerance.unwrap_or(0.0)
+        fmi_sim.start_time,
+        fmi_sim.stop_time,
+        fmi_sim.step_size,
+        fmi_sim.tolerance.unwrap_or(0.0)
     );
 
     instance.setup_experiment(
-        fmi_check.tolerance,
-        fmi_check.start_time,
-        Some(fmi_check.stop_time),
+        fmi_sim.tolerance,
+        fmi_sim.start_time,
+        Some(fmi_sim.stop_time),
     )?;
     instance.enter_initialization_mode()?;
     instance.exit_initialization_mode()?;
 
     // Write initial outputs
-    data_table.add_row(Row::from([fmi_check.start_time].iter().cloned().chain(
+    data_table.add_row(Row::from([fmi_sim.start_time].iter().cloned().chain(
         outputs.iter().map(|(sv, _)| match sv.elem {
             fmi::model_descr::ScalarVariableElement::Real { .. } => instance.get_real(sv).unwrap(),
             _ => 0.0,
@@ -153,20 +153,20 @@ fn sim_prelude<'a, I: fmi::Common>(
     Ok((outputs, data_table))
 }
 
-fn sim_cs(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Table> {
+fn sim_cs(import: &fmi::Import, fmi_sim: &mut FmiCheckState) -> fmi::Result<Table> {
     use fmi::instance::{CoSimulation, Common};
     let instance = fmi::InstanceCS::new(import, "inst1", false, true)?;
-    let (outputs, mut data_table) = sim_prelude(import, &instance, fmi_check)?;
+    let (outputs, mut data_table) = sim_prelude(import, &instance, fmi_sim)?;
 
     log::info!(
         "Initialized FMU for CS simulation starting at time {}.",
-        fmi_check.start_time
+        fmi_sim.start_time
     );
 
-    let mut current_time = fmi_check.start_time;
+    let mut current_time = fmi_sim.start_time;
 
-    while current_time < fmi_check.stop_time {
-        instance.do_step(current_time, fmi_check.step_size, true)?;
+    while current_time < fmi_sim.stop_time {
+        instance.do_step(current_time, fmi_sim.step_size, true)?;
 
         data_table.add_row(Row::from([current_time].iter().cloned().chain(
             outputs.iter().map(|(sv, _)| match sv.elem {
@@ -177,17 +177,17 @@ fn sim_cs(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
             }),
         )));
 
-        current_time += fmi_check.step_size;
+        current_time += fmi_sim.step_size;
     }
 
     Ok(data_table)
 }
 
 /// Run a simple ModelExchange simulation
-fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Table> {
+fn sim_me(import: &fmi::Import, fmi_sim: &mut FmiCheckState) -> fmi::Result<Table> {
     use fmi::instance::{Common, ModelExchange};
     let instance = fmi::InstanceME::new(import, "inst1", false, true)?;
-    let (outputs, mut data_table) = sim_prelude(import, &instance, fmi_check)?;
+    let (outputs, mut data_table) = sim_prelude(import, &instance, fmi_sim)?;
 
     // fmiExitInitializationMode leaves FMU in event mode
     let _ = instance.do_event_iteration()?;
@@ -202,23 +202,23 @@ fn sim_me(import: &fmi::Import, fmi_check: &mut FmiCheckState) -> fmi::Result<Ta
     instance.get_event_indicators(&mut events_prev)?;
     log::info!(
         "Initialized FMU for ME simulation starting at time {}: {:?}",
-        fmi_check.start_time,
+        fmi_sim.start_time,
         states
     );
 
-    let mut current_time = fmi_check.start_time;
+    let mut current_time = fmi_sim.start_time;
     let mut terminate_simulation = false;
 
-    while (current_time < fmi_check.stop_time) && !terminate_simulation {
+    while (current_time < fmi_sim.stop_time) && !terminate_simulation {
         // Get derivatives
         instance.get_derivatives(&mut states_der)?;
 
         // Choose time step and advance tcur
-        let mut next_time = current_time + fmi_check.step_size;
+        let mut next_time = current_time + fmi_sim.step_size;
 
         // adjust tnext step to get tend exactly
-        if next_time > (fmi_check.stop_time - fmi_check.step_size / 1e16) {
-            next_time = fmi_check.stop_time;
+        if next_time > (fmi_sim.stop_time - fmi_sim.step_size / 1e16) {
+            next_time = fmi_sim.stop_time;
         }
 
         // Check for eternal events
@@ -338,7 +338,7 @@ fn main() -> anyhow::Result<()> {
     print_info(&import);
 
     let default_experiment = &import.descr.default_experiment.as_ref();
-    let mut fmi_check = FmiCheckState::from_options_and_experiment(&args, default_experiment)?;
+    let mut fmi_sim = FmiCheckState::from_options_and_experiment(&args, default_experiment)?;
 
     if args.sim_me || args.sim_cs || args.check_xml {
         // Validate XML?
@@ -350,12 +350,12 @@ fn main() -> anyhow::Result<()> {
     }
 
     if args.sim_me {
-        let data_table = sim_me(&import, &mut fmi_check)?;
+        let data_table = sim_me(&import, &mut fmi_sim)?;
         data_table.printstd();
     }
 
     if args.sim_cs {
-        let data_table = sim_cs(&import, &mut fmi_check)?;
+        let data_table = sim_cs(&import, &mut fmi_sim)?;
         data_table.printstd();
     }
 

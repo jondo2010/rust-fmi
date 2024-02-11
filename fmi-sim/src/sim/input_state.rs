@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
+use anyhow::Context;
 use arrow::{
     array::{self, Float64Array, StringArray},
-    datatypes::{DataType, Schema},
+    datatypes::{DataType, Schema, SchemaRef},
     downcast_primitive_array,
     record_batch::RecordBatch,
 };
@@ -8,6 +11,7 @@ use fmi::{
     fmi3::{import::Fmi3Import, instance::Instance},
     FmiInstance,
 };
+use itertools::Itertools;
 
 use super::{
     interpolation::{self, Interpolate, Linear, PreLookup},
@@ -16,24 +20,70 @@ use super::{
 };
 
 pub struct InputState {
-    input_schema: Schema,
+    input_schema: SchemaRef,
     input_data: Option<RecordBatch>,
     continuous_inputs: Vec<(usize, u32)>,
     discrete_inputs: Vec<(usize, u32)>,
 }
 
+/// Transform the `input_data` to match the `input_schema`. Input data columns are projected and cast to the corresponding input schema columns.
+///
+/// This is necessary because the input_data may have extra columns or have different datatypes.
+fn project_input_data(
+    input_data: &RecordBatch,
+    input_schema: SchemaRef,
+) -> anyhow::Result<RecordBatch> {
+    let (projected_fields, projected_columns): (Vec<_>, Vec<_>) = input_schema
+        .fields()
+        .iter()
+        .filter_map(|field| {
+            input_data.column_by_name(field.name()).map(|col| {
+                arrow::compute::cast(col, &field.data_type())
+                    .map(|col| (field.clone(), col))
+                    .map_err(|_| anyhow::anyhow!("Error casting type"))
+            })
+        })
+        .process_results(|pairs| pairs.unzip())?;
+
+    // if there are extra columns in the input data, ignore them but issue a warning:
+    if projected_fields.len() < input_data.num_columns() {
+        let extra_columns = input_data
+            .schema()
+            .fields()
+            .iter()
+            .filter_map(|field| (!projected_fields.contains(field)).then(|| field.name().as_str()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        log::warn!("Ignoring extra columns in input data: [{extra_columns}]");
+    }
+
+    let input_data_schema = Arc::new(Schema::new(projected_fields));
+
+    log::info!("Projected input data schema: {input_schema:#?} -> {input_data_schema:#?}");
+    RecordBatch::try_new(input_data_schema, projected_columns).map_err(anyhow::Error::from)
+}
+
 impl InputState {
-    pub fn new(import: &Fmi3Import, input_data: Option<RecordBatch>) -> Self {
-        let input_schema = import.inputs_schema();
+    pub fn new(import: &Fmi3Import, input_data: Option<RecordBatch>) -> anyhow::Result<Self> {
+        let input_schema = Arc::new(import.inputs_schema());
         let continuous_inputs = import.continuous_inputs(&input_schema);
         let discrete_inputs = import.discrete_inputs(&input_schema);
 
-        Self {
+        let input_data = if let Some(input_data) = input_data {
+            let rb = project_input_data(&input_data, input_schema.clone())?;
+
+            arrow::util::pretty::print_batches(&[input_data]).unwrap();
+            Some(rb)
+        } else {
+            None
+        };
+
+        Ok(Self {
             input_schema,
             input_data,
             continuous_inputs,
             discrete_inputs,
-        }
+        })
     }
 
     pub fn apply_input<Tag, I: Interpolate>(

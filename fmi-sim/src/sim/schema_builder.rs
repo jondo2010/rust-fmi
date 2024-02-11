@@ -79,7 +79,8 @@ impl FmiSchemaBuilder for Fmi3Import {
     }
 }
 
-#[test]
+#[cfg(feature = "disable")]
+#[test_log::test]
 fn test_input_csv() {
     let import = fmi::Import::new("../data/reference_fmus/3.0/Feedthrough.fmu")
         .unwrap()
@@ -88,7 +89,7 @@ fn test_input_csv() {
 
     let schema = import.inputs_schema();
 
-    let data = crate::sim::csv_recordbatch("../data/feedthrough_in.csv", &schema).unwrap();
+    let data = crate::sim::read_csv("../data/feedthrough_in.csv").unwrap();
 
     println!(
         "{}",

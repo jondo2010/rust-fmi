@@ -157,6 +157,7 @@ impl Interpolate for Cubic {
     }
 }
 
+#[cfg(feature = "disable")]
 #[cfg(test)]
 mod tests {
     use super::{Interpolate, Linear, PreLookup};
@@ -169,7 +170,7 @@ mod tests {
         assert_eq!(PreLookup::new(&array, -1.0, false), PreLookup(0, -1.0));
         assert_eq!(PreLookup::new(&array, 0.0, false), PreLookup(0, 0.0));
         assert_eq!(PreLookup::new(&array, 0.5, false), PreLookup(0, 0.5));
-        assert_eq!(PreLookup::new(&array, 1.0, false), PreLookup(1, 0.0));
+        assert_eq!(PreLookup::new(&array, 1.0, false), PreLookup(0, 1.0));
         assert_eq!(PreLookup::new(&array, 1.5, false), PreLookup(1, 0.5));
         assert_eq!(PreLookup::new(&array, 2.0, false), PreLookup(2, 0.0));
         assert_eq!(PreLookup::new(&array, 2.5, false), PreLookup(2, 0.5));

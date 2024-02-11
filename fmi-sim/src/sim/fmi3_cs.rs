@@ -32,11 +32,11 @@ impl<'a> SimState<'a> {
         let input_data = options
             .input_file
             .as_ref()
-            .map(|path| crate::sim::csv_recordbatch(path, &import.inputs_schema()))
+            .map(|path| crate::sim::read_csv(path))
             .transpose()
             .context("Reading input file")?;
 
-        let input_state = InputState::new(import, input_data);
+        let input_state = InputState::new(import, input_data)?;
         let output_state = OutputState::new(import, &sim_params);
 
         let inst = import.instantiate_cs(

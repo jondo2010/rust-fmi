@@ -13,6 +13,7 @@ fmi2 = ["dep:log"]
 fmi3 = []
 
 [dependencies]
+document-features = { workspace = true }
 libloading = { workspace = true }
 log = { version = "0.4", optional = true }
 

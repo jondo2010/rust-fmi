@@ -212,7 +212,7 @@ impl<Tag> InstanceSetValues for Instance<'_, Tag> {
 }
 
 /// Read a CSV file into a single RecordBatch.
-fn csv_recordbatch<P>(path: P, input_schema: &Schema) -> anyhow::Result<RecordBatch>
+fn read_csv<P>(path: P) -> anyhow::Result<RecordBatch>
 where
     P: AsRef<Path>,
 {
@@ -232,6 +232,7 @@ where
 
     // Build a projection based on the input schema and the file schema.
     // Input fields that are not in the file schema are ignored.
+    /*
     let input_projection = input_schema
         .fields()
         .iter()
@@ -258,10 +259,11 @@ where
             })
         })
         .collect::<Result<Vec<usize>, _>>()?;
+        */
 
     let reader = ReaderBuilder::new(Arc::new(file_schema))
         .with_header(true)
-        .with_projection(input_projection)
+        //.with_projection(input_projection)
         .build(file)?;
 
     let batches = reader.collect::<Result<Vec<_>, _>>()?;
