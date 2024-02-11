@@ -2,11 +2,12 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::{
     AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
-    Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiFloat32, FmiFloat64,
-    FmiInt16, FmiInt32, FmiInt8, FmiUInt16, FmiUInt32, FmiUInt8,
+    Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiBinary, FmiBoolean,
+    FmiFloat32, FmiFloat64, FmiInt16, FmiInt32, FmiInt64, FmiInt8, FmiString, FmiUInt16, FmiUInt32,
+    FmiUInt64, FmiUInt8,
 };
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaDeserialize)]
 #[yaserde(rename = "fmiModelDescription")]
 pub struct FmiModelDescription {
     /// Version of FMI that was used to generate the XML file.
@@ -147,7 +148,7 @@ pub struct DefaultExperiment {
     pub step_size: Option<f64>,
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, YaDeserialize)]
 #[yaserde(root = "ModelVariables")]
 pub struct ModelVariables {
     #[yaserde(rename = "Float32")]
@@ -166,6 +167,16 @@ pub struct ModelVariables {
     pub int32: Vec<FmiInt32>,
     #[yaserde(rename = "UInt32")]
     pub uint32: Vec<FmiUInt32>,
+    #[yaserde(rename = "Int64")]
+    pub int64: Vec<FmiInt64>,
+    #[yaserde(rename = "UInt64")]
+    pub uint64: Vec<FmiUInt64>,
+    #[yaserde(rename = "Boolean")]
+    pub boolean: Vec<FmiBoolean>,
+    #[yaserde(rename = "String")]
+    pub string: Vec<FmiString>,
+    #[yaserde(rename = "Binary")]
+    pub binary: Vec<FmiBinary>,
 }
 
 impl ModelVariables {
@@ -189,6 +200,11 @@ impl ModelVariables {
             self.uint16.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.int32.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.uint32.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.int64.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.uint64.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.boolean.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.string.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.binary.iter().map(|v| v as &dyn AbstractVariableTrait),
         )
     }
 }
@@ -326,10 +342,13 @@ fn test_model_variables() {
     assert_eq!(mv.uint16.len(), 2);
     assert_eq!(mv.int32.len(), 2);
     assert_eq!(mv.uint32.len(), 2);
-    // assert_eq!(mv.int64.len(), 2);
-    // assert_eq!(mv.uint64.len(), 2);
-    // assert_eq!(mv.boolean.len(), 2);
-    // assert_eq!(mv.string.len(), 1);
+    assert_eq!(mv.int64.len(), 2);
+    assert_eq!(mv.uint64.len(), 2);
+    assert_eq!(mv.boolean.len(), 2);
+    assert_eq!(mv.boolean[0].name(), "Boolean_input");
+    assert_eq!(mv.boolean[0].causality(), crate::fmi3::Causality::Input);
+    assert_eq!(mv.boolean[0].start, vec![false]);
+    assert_eq!(mv.string.len(), 1);
     // assert_eq!(mv.binary.len(), 2);
     // assert_eq!(mv.enumeration.len(), 2);
 }

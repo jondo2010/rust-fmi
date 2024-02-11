@@ -1,12 +1,16 @@
 //! FMI 3.0 instance interface
 
+use crate::FmiInstance;
+
 use super::{binding, schema, Fmi3Status};
 
 mod co_simulation;
 mod scheduled_execution {}
 mod common;
 mod model_exchange;
-pub mod traits;
+mod traits;
+
+pub use traits::{CoSimulation, Common, ModelExchange, ScheduledExecution};
 
 /// Tag for Model Exchange instances
 pub struct ME;
@@ -20,9 +24,10 @@ pub struct Instance<'a, Tag> {
     binding: binding::Fmi3Binding,
     /// Pointer to the raw FMI 3.0 instance
     instance: binding::fmi3Instance,
-    /// Derived model description
-    model: &'a schema::FmiModelDescription,
-    // model: &'a model::ModelDescription,
+    /// Model description
+    model_description: &'a schema::FmiModelDescription,
+    /// Instance name
+    name: String,
     _tag: std::marker::PhantomData<&'a Tag>,
 }
 
@@ -34,6 +39,26 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
         }
     }
 }
+
+impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
+    type ModelDescription = &'a schema::FmiModelDescription;
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_version(&self) -> &str {
+        <Self as Common>::get_version(self)
+    }
+
+    fn model_description(&self) -> &Self::ModelDescription {
+        &self.model_description
+    }
+}
+
+pub type InstanceME<'a> = Instance<'a, ME>;
+pub type InstanceCS<'a> = Instance<'a, CS>;
+pub type InstanceSE<'a> = Instance<'a, SE>;
 
 pub struct Fmu3State<'a, Tag> {
     instance: Instance<'a, Tag>,

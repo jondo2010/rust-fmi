@@ -1,9 +1,9 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::{
-    Float32Attributes, Float64Attributes, Int16Attributes, Int32Attributes, Int8Attributes,
-    IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes, UInt16Attributes,
-    UInt32Attributes, UInt8Attributes,
+    Float32Attributes, Float64Attributes, Int16Attributes, Int32Attributes, Int64Attributes,
+    Int8Attributes, IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes,
+    UInt16Attributes, UInt32Attributes, UInt64Attributes, UInt8Attributes,
 };
 
 /// An enumeration that defines the type of a variable.
@@ -16,6 +16,8 @@ pub enum VariableType {
     FmiUInt16,
     FmiInt32,
     FmiUInt32,
+    FmiInt64,
+    FmiUInt64,
     FmiBoolean,
     FmiString,
     FmiBinary,
@@ -33,6 +35,8 @@ impl From<VariableType> for arrow::datatypes::DataType {
             VariableType::FmiUInt16 => arrow::datatypes::DataType::UInt16,
             VariableType::FmiInt32 => arrow::datatypes::DataType::Int32,
             VariableType::FmiUInt32 => arrow::datatypes::DataType::UInt32,
+            VariableType::FmiInt64 => arrow::datatypes::DataType::Int64,
+            VariableType::FmiUInt64 => arrow::datatypes::DataType::UInt64,
             VariableType::FmiBoolean => arrow::datatypes::DataType::Boolean,
             VariableType::FmiString => arrow::datatypes::DataType::Utf8,
             VariableType::FmiBinary => arrow::datatypes::DataType::Binary,
@@ -52,10 +56,11 @@ pub trait AbstractVariableTrait {
     fn causality(&self) -> Causality;
     fn variability(&self) -> Variability;
     fn can_handle_multiple_set_per_time_instant(&self) -> bool;
-    fn r#type(&self) -> VariableType;
+    fn data_type(&self) -> VariableType;
 }
 
 pub trait ArrayableVariableTrait: AbstractVariableTrait {
+    fn dimensions(&self) -> &[Dimension];
     fn intermediate_update(&self) -> bool;
     fn previous(&self) -> u32;
 }
@@ -115,33 +120,19 @@ macro_rules! impl_abstract_variable {
                     .abstract_var
                     .can_handle_multiple_set_per_time_instant
             }
-            fn r#type(&self) -> VariableType {
+            fn data_type(&self) -> VariableType {
                 VariableType::$name
             }
         }
     };
 }
 
-macro_rules! impl_float_type {
-    ($name:ident, $root:literal, $type:ty, $float_attr:ident) => {
-        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-        #[yaserde(root = $root)]
-        pub struct $name {
-            #[yaserde(flatten)]
-            pub base_attr: RealBaseAttributes,
-            #[yaserde(flatten)]
-            pub attr: $float_attr,
-            #[yaserde(flatten)]
-            pub init_var: InitializableVariable,
-            #[yaserde(attribute)]
-            pub start: $type,
-            #[yaserde(flatten)]
-            pub real_var_attr: RealVariableAttributes,
-        }
-
-        impl_abstract_variable!($name);
-
+macro_rules! impl_arrayable_variable {
+    ($name:ident) => {
         impl ArrayableVariableTrait for $name {
+            fn dimensions(&self) -> &[Dimension] {
+                &self.init_var.typed_arrayable_var.arrayable_var.dimensions
+            }
             fn intermediate_update(&self) -> bool {
                 self.init_var
                     .typed_arrayable_var
@@ -152,22 +143,54 @@ macro_rules! impl_float_type {
                 self.init_var.typed_arrayable_var.arrayable_var.previous
             }
         }
+    };
+}
 
+macro_rules! impl_typed_arrayable_variable {
+    ($name:ident) => {
         impl TypedArrayableVariableTrait for $name {
             fn declared_type(&self) -> Option<&str> {
                 self.init_var.typed_arrayable_var.declared_type.as_deref()
             }
         }
+    };
+}
 
+macro_rules! impl_initializable_variable {
+    ($name:ident) => {
         impl InitializableVariableTrait for $name {
             fn initial(&self) -> Option<Initial> {
                 self.init_var.initial
             }
         }
+    };
+}
+
+macro_rules! impl_float_type {
+    ($name:ident, $root:literal, $type:ty, $float_attr:ident) => {
+        #[derive(Default, PartialEq, Debug, YaDeserialize)]
+        #[yaserde(root = $root)]
+        pub struct $name {
+            #[yaserde(flatten)]
+            pub base_attr: RealBaseAttributes,
+            #[yaserde(flatten)]
+            pub attr: $float_attr,
+            #[yaserde(flatten)]
+            pub init_var: InitializableVariable,
+            #[yaserde(attribute, rename = "start")]
+            pub start: Vec<$type>,
+            #[yaserde(flatten)]
+            pub real_var_attr: RealVariableAttributes,
+        }
+
+        impl_abstract_variable!($name);
+        impl_arrayable_variable!($name);
+        impl_typed_arrayable_variable!($name);
+        impl_initializable_variable!($name);
 
         impl $name {
-            pub fn start(&self) -> $type {
-                self.start
+            pub fn start(&self) -> &[$type] {
+                &self.start
             }
 
             pub fn derivative(&self) -> Option<u32> {
@@ -240,7 +263,7 @@ pub enum Variability {
     /// The value of the variable is fixed in super state Initialized, in other words, after
     /// [`exit_initialization_mode()`] was called the variable value does not change anymore. The
     /// default for variables of causality [`Causality::Parameter`],
-    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is fixed.
+    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is `Fixed`.
     #[yaserde(rename = "fixed")]
     Fixed,
     /// The value of the variable is constant between events (ME and CS if Event Mode is supported)
@@ -268,6 +291,23 @@ pub enum Variability {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct Dimension {
+    /// Defines a constant unsigned 64-bit integer size for this dimension. The variability of the
+    /// dimension size is constant in this case.
+    #[yaserde(attribute)]
+    pub start: Option<u64>,
+    /// If the present, it defines the size of this dimension to be the value of the variable with
+    /// the value reference given by the `value_reference` attribute. The referenced variable
+    /// must be a variable of type `UInt64`, and must either be a constant (i.e. with
+    /// variability = constant) or a structural parameter (i.e. with causality =
+    /// structuralParameter). The variability of the dimension size is in this case the variability
+    /// of the referenced variable. A structural parameter must be a variable of type `UInt64`
+    /// only if it is referenced in `Dimension`.
+    #[yaserde(attribute, rename = "valueReference")]
+    pub value_reference: Option<u32>,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct AbstractVariable {
     #[yaserde(attribute)]
     pub name: String,
@@ -287,6 +327,9 @@ pub struct AbstractVariable {
 pub struct ArrayableVariable {
     #[yaserde(flatten)]
     pub abstract_var: AbstractVariable,
+    /// Each `Dimension` element specifies the size of one dimension of the array
+    #[yaserde(rename = "Dimension")]
+    pub dimensions: Vec<Dimension>,
     #[yaserde(attribute, rename = "intermediateUpdate")]
     pub intermediate_update: bool,
     #[yaserde(attribute, rename = "previous")]
@@ -329,6 +372,73 @@ impl_integer_type!(FmiInt16, "Int16", i16, Int16Attributes);
 impl_integer_type!(FmiUInt16, "UInt16", u16, UInt16Attributes);
 impl_integer_type!(FmiInt32, "Int32", i32, Int32Attributes);
 impl_integer_type!(FmiUInt32, "UInt32", u32, UInt32Attributes);
+impl_integer_type!(FmiInt64, "Int64", i64, Int64Attributes);
+impl_integer_type!(FmiUInt64, "UInt64", u64, UInt64Attributes);
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "Boolean")]
+pub struct FmiBoolean {
+    #[yaserde(attribute, flatten)]
+    pub start: Vec<bool>,
+    #[yaserde(flatten)]
+    pub init_var: InitializableVariable,
+}
+
+impl_abstract_variable!(FmiBoolean);
+impl_arrayable_variable!(FmiBoolean);
+impl_typed_arrayable_variable!(FmiBoolean);
+impl_initializable_variable!(FmiBoolean);
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct StringStart {
+    #[yaserde(attribute, rename = "value")]
+    pub value: String,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "String")]
+pub struct FmiString {
+    #[yaserde(rename = "Start")]
+    pub start: Vec<StringStart>,
+    #[yaserde(flatten)]
+    pub init_var: InitializableVariable,
+}
+
+impl FmiString {
+    pub fn start(&self) -> impl Iterator<Item = &str> {
+        self.start.iter().map(|s| s.value.as_str())
+    }
+}
+
+impl_abstract_variable!(FmiString);
+impl_arrayable_variable!(FmiString);
+impl_typed_arrayable_variable!(FmiString);
+impl_initializable_variable!(FmiString);
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct BinaryStart {
+    #[yaserde(attribute, rename = "value")]
+    pub value: String,
+}
+
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[yaserde(root = "Binary")]
+pub struct FmiBinary {
+    #[yaserde(attribute, rename = "start")]
+    pub start: Vec<BinaryStart>,
+    #[yaserde(attribute, default = "default_mime_type")]
+    pub mime_type: String,
+    #[yaserde(attribute)]
+    pub max_size: Option<u32>,
+    #[yaserde(flatten)]
+    pub init_var: InitializableVariable,
+}
+
+fn default_mime_type() -> String {
+    "application/octet-stream".into()
+}
+
+impl_abstract_variable!(FmiBinary);
 
 // #[derive(Debug, YaSerialize, YaDeserialize)]
 // #[yaserde(root = "ModelVariables")]
@@ -366,9 +476,47 @@ fn test_float64() {
     assert_eq!(var.initial(), Some(Initial::Exact));
     assert_eq!(var.causality(), Causality::Parameter);
     assert_eq!(var.declared_type(), Some("Acceleration"));
-    assert_eq!(var.start(), -9.81);
+    assert_eq!(var.start(), &[-9.81]);
     assert_eq!(var.derivative(), Some(1));
     assert_eq!(var.description(), Some("Gravity acting on the ball"));
     assert_eq!(var.can_handle_multiple_set_per_time_instant(), false);
     assert_eq!(var.intermediate_update(), false);
+}
+
+#[test]
+fn test_dim_f64() {
+    let xml = r#"<Float64
+        name="A"
+        valueReference="4"
+        description="Matrix coefficient A"
+        causality="parameter"
+        variability="tunable"
+        start="1 0 0 0 1 0 0 0 1">
+        <Dimension valueReference="2"/>
+        <Dimension valueReference="2"/>
+        </Float64>"#;
+
+    let var: FmiFloat64 = yaserde::de::from_str(xml).unwrap();
+    assert_eq!(var.name(), "A");
+    assert_eq!(var.value_reference(), 4);
+    assert_eq!(var.variability(), Variability::Tunable);
+    assert_eq!(var.causality(), Causality::Parameter);
+    assert_eq!(var.description(), Some("Matrix coefficient A"));
+    assert_eq!(var.start, vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+    assert_eq!(var.dimensions().len(), 2);
+    assert_eq!(var.dimensions()[0].value_reference, Some(2));
+}
+
+#[test]
+fn test_string() {
+    let xml = r#"<String name="String_parameter" valueReference="29" causality="parameter" variability="fixed">
+        <Start value="Set me!"/>
+    </String>"#;
+
+    let var: FmiString = yaserde::de::from_str(xml).unwrap();
+    assert_eq!(var.name(), "String_parameter");
+    assert_eq!(var.value_reference(), 29);
+    assert_eq!(var.variability(), Variability::Fixed);
+    assert_eq!(var.causality(), Causality::Parameter);
+    assert_eq!(var.start().next().unwrap(), "Set me!");
 }

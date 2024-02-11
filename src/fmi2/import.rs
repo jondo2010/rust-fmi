@@ -13,16 +13,19 @@ pub struct Fmi2 {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
-    schema: schema::FmiModelDescription,
+    model_description: schema::FmiModelDescription,
 }
 
 impl FmiImport for Fmi2 {
-    type Schema = schema::FmiModelDescription;
+    type ModelDescription = schema::FmiModelDescription;
     type Binding = binding::Fmi2Binding;
 
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error> {
         let schema = schema::FmiModelDescription::from_str(schema_xml)?;
-        Ok(Self { dir, schema })
+        Ok(Self {
+            dir,
+            model_description: schema,
+        })
     }
 
     #[inline]
@@ -39,7 +42,12 @@ impl FmiImport for Fmi2 {
             ("linux", "x86") => "linux32",
             ("macos", "x86_64") => "darwin64",
             ("macos", "x86") => "darwin32",
-            _ => panic!("Unsupported platform"),
+            _ => {
+                return Err(Error::UnsupportedPlatform {
+                    os: std::env::consts::OS.to_string(),
+                    arch: std::env::consts::ARCH.to_string(),
+                });
+            }
         };
         let fname = format!("{model_identifier}{}", std::env::consts::DLL_SUFFIX);
         Ok(std::path::PathBuf::from("binaries")
@@ -47,8 +55,8 @@ impl FmiImport for Fmi2 {
             .join(fname))
     }
 
-    fn model_description(&self) -> &Self::Schema {
-        &self.schema
+    fn model_description(&self) -> &Self::ModelDescription {
+        &self.model_description
     }
 
     /// Load the plugin shared library and return the raw bindings.

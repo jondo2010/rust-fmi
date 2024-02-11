@@ -2,13 +2,10 @@
 
 use crate::fmi3::Fmi3Error;
 
-use super::{binding, DiscreteStates, Fmi3Status};
+use super::{binding, Fmi3Status};
 
 /// Interface common to all instance types
 pub trait Common {
-    /// The instance name
-    fn name(&self) -> &str;
-
     /// The FMI-standard version string
     fn get_version(&self) -> &str;
 
@@ -69,6 +66,11 @@ pub trait Common {
     fn reset(&mut self) -> Fmi3Status;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
+    fn get_boolean(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [bool],
+    ) -> Fmi3Status;
     fn get_float32(
         &mut self,
         vrs: &[binding::fmi3ValueReference],
@@ -90,7 +92,18 @@ pub trait Common {
         -> Fmi3Status;
     fn get_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u64])
         -> Fmi3Status;
+    fn get_string(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [String],
+    ) -> Fmi3Status;
+    fn get_binary(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [Vec<u8>],
+    ) -> Fmi3Status;
 
+    fn set_boolean(&mut self, vrs: &[binding::fmi3ValueReference], values: &[bool]) -> Fmi3Status;
     fn set_float32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f32]) -> Fmi3Status;
     fn set_float64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f64]) -> Fmi3Status;
     fn set_int8(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i8]) -> Fmi3Status;
@@ -101,6 +114,16 @@ pub trait Common {
     fn set_uint16(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u16]) -> Fmi3Status;
     fn set_uint32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u32]) -> Fmi3Status;
     fn set_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u64]) -> Fmi3Status;
+    fn set_string<'b>(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: impl Iterator<Item = &'b str>,
+    ) -> Fmi3Status;
+    fn set_binary<'b>(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        values: impl Iterator<Item = &'b [u8]>,
+    ) -> Fmi3Status;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
     #[cfg(disabled)]
@@ -118,7 +141,14 @@ pub trait Common {
     /// instant.
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates]
-    fn update_discrete_states(&mut self, states: &mut DiscreteStates) -> Fmi3Status;
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Fmi3Status;
 }
 
 /// Interface for Model Exchange instances
@@ -270,4 +300,4 @@ pub trait CoSimulation: Common {
 }
 
 /// Interface for Scheduled instances
-pub trait Scheduled: Common {}
+pub trait ScheduledExecution: Common {}

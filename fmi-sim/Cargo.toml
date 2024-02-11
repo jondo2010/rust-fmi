@@ -1,0 +1,22 @@
+[package]
+name = "fmi-sim"
+version = "0.2.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+arrow = { version = "49.0", features = ["csv", "prettyprint"] }
+env_logger = "0.10"
+fmi = { path = ".." }
+fmi-schema = { path = "../fmi-schema", features = ["arrow"] }
+log = "0.4"
+num-traits = "0.2"
+sensible-env-logger = "0.3"
+structopt = { version = "0.3", features = ["paw"] }
+itertools = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+test-log = { workspace = true }

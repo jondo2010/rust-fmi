@@ -1,9 +1,9 @@
-use super::{binding, binding::fmi2ComponentEnvironment, Fmi2Error, Fmi2Res, Fmi2Status};
+use crate::fmi2 as binding;
 
 /// This function gets called from logger.c
 #[no_mangle]
 extern "C" fn callback_log(
-    _component_environment: fmi2ComponentEnvironment,
+    _component_environment: binding::fmi2ComponentEnvironment,
     instance_name: binding::fmi2String,
     status: binding::fmi2Status,
     category: binding::fmi2String,
@@ -12,14 +12,15 @@ extern "C" fn callback_log(
     let instance_name = unsafe { std::ffi::CStr::from_ptr(instance_name) }
         .to_str()
         .unwrap_or("NULL");
-    let status = Result::<Fmi2Res, Fmi2Error>::from(Fmi2Status(status));
+
     let level = match status {
-        Ok(Fmi2Res::OK) => log::Level::Info,
-        Ok(Fmi2Res::Warning) => log::Level::Warn,
-        Ok(Fmi2Res::Pending) => unreachable!("Pending status is not allowed in logger"),
-        Err(Fmi2Error::Discard) => log::Level::Trace,
-        Err(Fmi2Error::Error) => log::Level::Error,
-        Err(Fmi2Error::Fatal) => log::Level::Error,
+        binding::fmi2Status_fmi2OK => log::Level::Info,
+        binding::fmi2Status_fmi2Warning => log::Level::Warn,
+        binding::fmi2Status_fmi2Pending => unreachable!("Pending status is not allowed in logger"),
+        binding::fmi2Status_fmi2Discard => log::Level::Trace,
+        binding::fmi2Status_fmi2Error => log::Level::Error,
+        binding::fmi2Status_fmi2Fatal => log::Level::Error,
+        _ => unreachable!("Invalid status"),
     };
 
     let _category = unsafe { std::ffi::CStr::from_ptr(category) }
@@ -35,8 +36,6 @@ extern "C" fn callback_log(
             .args(format_args!("{}", message))
             .level(level)
             .module_path(Some("logger"))
-            .file(Some("logger.rs"))
-            .line(Some(0))
             .target(instance_name)
             .build(),
     );
@@ -47,8 +46,8 @@ extern "C" {
     /// This function is implemented in logger.c
     /// Note: This can be re-implemented in pure Rust once the `c_variadics` feature stabilizes.
     /// See: https://doc.rust-lang.org/beta/unstable-book/language-features/c-variadic.html
-    pub(crate) fn callback_logger_handler(
-        componentEnvironment: fmi2ComponentEnvironment,
+    pub fn callback_logger_handler(
+        componentEnvironment: binding::fmi2ComponentEnvironment,
         instanceName: binding::fmi2String,
         status: binding::fmi2Status,
         category: binding::fmi2String,

@@ -1,31 +1,31 @@
 //! The `fmi` crate implements a Rust interface to FMUs (Functional Mockup Units) that follow FMI
 //! Standard. This version of the library supports FMI 2.0 and 3.0. See http://www.fmi-standard.org/
 //!
-//! # Examples
+//! ## Examples
 //!
 //! ```rust
 //! #[cfg(target_os = "linux")] {
-//!    use fmi::{import::FmiImport, fmi2::instance::traits::Common};
+//!    use fmi::{FmiImport as _, FmiInstance as _};
 //!    let import = fmi::Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
 //!        .unwrap()
 //!        .as_fmi2()
 //!        .unwrap();
 //!    assert_eq!(import.model_description().fmi_version, "2.0");
 //!    let me = import.instantiate_me("inst1", false, true).unwrap();
-//!    assert_eq!(me.version(), "2.0");
+//!    assert_eq!(me.get_version(), "2.0");
 //! }
 //! ```
-
+#![doc = document_features::document_features!()]
 #![deny(clippy::all)]
 
 #[cfg(feature = "fmi2")]
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
-pub mod import;
+mod import;
 
 // Re-exports
-pub use self::import::Import;
+pub use import::{FmiImport, Import};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -44,13 +44,6 @@ pub enum Error {
     #[error("Unsupported FMI version: {0}")]
     UnsupportedFmiVersion(String),
 
-    // TODO: Fix
-    //#[error(
-    //    "TypesPlatform of loaded API ({:?}) doesn't match expected ({:?})",
-    //    found,
-    //    fmi2::fmi2TypesPlatform
-    //)]
-    // TypesPlatformMismatch { found: Box<[u8]> },
     #[error("FMI version of loaded API ({found}) doesn't match expected ({expected})")]
     FmiVersionMismatch { found: String, expected: String },
 
@@ -84,4 +77,18 @@ pub enum Error {
 pub mod built_info {
     // The file has been placed there by the build script.
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
+
+/// Generic FMI instance trait
+pub trait FmiInstance {
+    type ModelDescription;
+
+    /// Get the name of the FMU
+    fn name(&self) -> &str;
+
+    /// Get the version of the FMU
+    fn get_version(&self) -> &str;
+
+    /// Get the model description of the FMU
+    fn model_description(&self) -> &Self::ModelDescription;
 }
