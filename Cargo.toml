@@ -6,6 +6,9 @@ license = "MIT OR Apache-2.0"
 version = "0.3.0"
 edition = "2021"
 authors = ["John Hughes <jondo2010@gmail.com>"]
+repository = "https://github.com/jondo2010/rust-fmi"
+keywords = ["model", "ode", "modelica"]
+categories = ["science", "simulation"]
 
 [workspace.dependencies]
 arrow = { version = "49.0" }
@@ -22,6 +25,10 @@ name = "fmi"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
+license.workspace = true
+package.workspace = true
+keywords.workspace = true
+categories.workspace = true
 include = [
     "/Cargo.toml",
     "/LICENSE-APACHE",
@@ -32,11 +39,7 @@ include = [
     "/src/**",
 ]
 description = "A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/"
-repository = "https://github.com/jondo2010/rust-fmi"
 readme = "README.md"
-license.workspace = true
-keywords = ["model", "ode", "modelica"]
-categories = ["science", "simulation"]
 
 [features]
 default = ["fmi2", "fmi3", "arrow"]
