@@ -214,7 +214,8 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
 
         unsafe {
             // Copy the binary data into `values`
-            // Safety: `value_sizes` and `value_ptrs` are guaranteed to be initialized by `fmi3GetBinary`
+            // Safety: `value_sizes` and `value_ptrs` are guaranteed to be initialized by
+            // `fmi3GetBinary`
             for (i, (size, ptr)) in value_sizes.iter().zip(value_ptrs.iter()).enumerate() {
                 values[i] = std::slice::from_raw_parts(*ptr, *size).to_vec();
             }

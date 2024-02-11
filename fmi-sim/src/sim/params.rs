@@ -12,7 +12,7 @@ pub struct SimParams {
 impl SimParams {
     pub fn new(
         import: &fmi::fmi3::import::Fmi3Import,
-        //import: &impl FmiModelDescription,
+        // import: &impl FmiModelDescription,
         options: &options::SimOptions,
     ) -> anyhow::Result<Self> {
         let md = import.model_description();

@@ -26,7 +26,8 @@ pub struct InputState {
     discrete_inputs: Vec<(usize, u32)>,
 }
 
-/// Transform the `input_data` to match the `input_schema`. Input data columns are projected and cast to the corresponding input schema columns.
+/// Transform the `input_data` to match the `input_schema`. Input data columns are projected and
+/// cast to the corresponding input schema columns.
 ///
 /// This is necessary because the input_data may have extra columns or have different datatypes.
 fn project_input_data(
@@ -119,7 +120,7 @@ impl InputState {
             }
 
             if discrete {
-                //TODO: Refactor the interpolation code to separate index lookup from interpolation
+                // TODO: Refactor the interpolation code to separate index lookup from interpolation
                 let input_idx = interpolation::find_index(&time_array, time, after_event);
 
                 for (col_idx, vr) in &self.discrete_inputs {
@@ -200,7 +201,7 @@ impl InputState {
                     return t0; // discrete change of a continuous variable
                 }
 
-                //TODO: This could be computed once and cached
+                // TODO: This could be computed once and cached
 
                 // skip continuous variables
                 for (col_idx, vr) in &self.discrete_inputs {

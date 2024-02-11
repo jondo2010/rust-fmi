@@ -292,14 +292,17 @@ pub enum Variability {
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Dimension {
-    /// Defines a constant unsigned 64-bit integer size for this dimension. The variability of the dimension size is constant in this case.
+    /// Defines a constant unsigned 64-bit integer size for this dimension. The variability of the
+    /// dimension size is constant in this case.
     #[yaserde(attribute)]
     pub start: Option<u64>,
-    /// If the present, it defines the size of this dimension to be the value of the variable with the value reference
-    /// given by the `value_reference` attribute. The referenced variable must be a variable of type `UInt64`, and must
-    /// either be a constant (i.e. with variability = constant) or a structural parameter (i.e. with causality =
-    /// structuralParameter). The variability of the dimension size is in this case the variability of the referenced
-    /// variable. A structural parameter must be a variable of type `UInt64` only if it is referenced in `Dimension`.
+    /// If the present, it defines the size of this dimension to be the value of the variable with
+    /// the value reference given by the `value_reference` attribute. The referenced variable
+    /// must be a variable of type `UInt64`, and must either be a constant (i.e. with
+    /// variability = constant) or a structural parameter (i.e. with causality =
+    /// structuralParameter). The variability of the dimension size is in this case the variability
+    /// of the referenced variable. A structural parameter must be a variable of type `UInt64`
+    /// only if it is referenced in `Dimension`.
     #[yaserde(attribute, rename = "valueReference")]
     pub value_reference: Option<u32>,
 }

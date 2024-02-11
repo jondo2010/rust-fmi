@@ -69,7 +69,7 @@ impl<'a> SimState<'a> {
     fn initialize(&mut self) -> anyhow::Result<()> {
         if let Some(initial_state_file) = &self.options.initial_fmu_state_file {
             unimplemented!("initial_fmu_state_file");
-            //self.inst.restore_fmu_state_from_file(initial_state_file)?;
+            // self.inst.restore_fmu_state_from_file(initial_state_file)?;
         }
 
         // set start values
@@ -167,9 +167,9 @@ impl<'a> SimState<'a> {
             let mut last_successful_time = 0.0;
 
             if self.options.event_mode_used {
-                //self.input_state.unwrap()
+                // self.input_state.unwrap()
             } else {
-                //self.input_state.apply_inputs
+                // self.input_state.apply_inputs
             }
 
             self.inst
@@ -226,7 +226,7 @@ impl<'a> SimState<'a> {
             .ok()
             .context("enter_event_mode")?;
         if input_event {
-            //self.input_state.apply()
+            // self.input_state.apply()
         }
         let mut discrete_states_need_update = true;
         Ok(while discrete_states_need_update {

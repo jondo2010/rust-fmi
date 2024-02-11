@@ -15,19 +15,18 @@ pub fn me_simulation(
 
     todo!();
 
-    /*
-       let input_state = options
-           .input_file
-           .as_ref()
-           .map(|path| InputState::new(import, path))
-           .transpose()
-           .context("Building InputState")?;
-
-       let mut output_state = OutputState::new(import, &sim_params).context("Building OutputState")?;
-
-       // set start values
-       //InputState::apply_start_values(&mut inst, &options.initial_values)?;
-
-       let mut time = sim_params.start_time;
-    */
+    // let input_state = options
+    // .input_file
+    // .as_ref()
+    // .map(|path| InputState::new(import, path))
+    // .transpose()
+    // .context("Building InputState")?;
+    //
+    // let mut output_state = OutputState::new(import, &sim_params).context("Building
+    // OutputState")?;
+    //
+    // set start values
+    // InputState::apply_start_values(&mut inst, &options.initial_values)?;
+    //
+    // let mut time = sim_params.start_time;
 }

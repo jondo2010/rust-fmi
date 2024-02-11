@@ -232,34 +232,32 @@ where
 
     // Build a projection based on the input schema and the file schema.
     // Input fields that are not in the file schema are ignored.
-    /*
-    let input_projection = input_schema
-        .fields()
-        .iter()
-        .chain(std::iter::once(&time))
-        .filter_map(|input_field| {
-            file_schema.index_of(input_field.name()).ok().map(|idx| {
-                let file_dt = file_schema.field(idx).data_type();
-                let input_dt = input_field.data_type();
-
-                // Check if the file data type is compatible with the input data type.
-                let dt_match = file_dt == input_dt
-                    || file_dt.primitive_width() >= input_dt.primitive_width()
-                        //&& file_dt.is_signed_integer() == input_dt.is_signed_integer()
-                        //&& file_dt.is_unsigned_integer() == input_dt.is_unsigned_integer()
-                        && file_dt.is_floating() == input_dt.is_floating();
-
-                dt_match.then(|| idx).ok_or(anyhow::anyhow!(
-                    "Input field {} has type {:?} but file field {} has type {:?}",
-                    input_field.name(),
-                    input_field.data_type(),
-                    file_schema.field(idx).name(),
-                    file_schema.field(idx).data_type()
-                ))
-            })
-        })
-        .collect::<Result<Vec<usize>, _>>()?;
-        */
+    // let input_projection = input_schema
+    // .fields()
+    // .iter()
+    // .chain(std::iter::once(&time))
+    // .filter_map(|input_field| {
+    // file_schema.index_of(input_field.name()).ok().map(|idx| {
+    // let file_dt = file_schema.field(idx).data_type();
+    // let input_dt = input_field.data_type();
+    //
+    // Check if the file data type is compatible with the input data type.
+    // let dt_match = file_dt == input_dt
+    // || file_dt.primitive_width() >= input_dt.primitive_width()
+    // && file_dt.is_signed_integer() == input_dt.is_signed_integer()
+    // && file_dt.is_unsigned_integer() == input_dt.is_unsigned_integer()
+    // && file_dt.is_floating() == input_dt.is_floating();
+    //
+    // dt_match.then(|| idx).ok_or(anyhow::anyhow!(
+    // "Input field {} has type {:?} but file field {} has type {:?}",
+    // input_field.name(),
+    // input_field.data_type(),
+    // file_schema.field(idx).name(),
+    // file_schema.field(idx).data_type()
+    // ))
+    // })
+    // })
+    // .collect::<Result<Vec<usize>, _>>()?;
 
     let reader = ReaderBuilder::new(Arc::new(file_schema))
         .with_header(true)

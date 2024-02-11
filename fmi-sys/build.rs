@@ -1,8 +1,6 @@
 use std::{env, path::PathBuf};
 
 fn main() {
-    //built::write_built_file().expect("Failed to acquire build-time information");
-
     #[cfg(feature = "fmi2")]
     cc::Build::new()
         .file("src/fmi2/logger.c")
