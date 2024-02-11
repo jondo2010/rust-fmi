@@ -1,7 +1,6 @@
-use anyhow::Context;
 use arrow::record_batch::RecordBatch;
 
-use crate::sim::{params::SimParams, InputState, OutputState};
+use crate::sim::params::SimParams;
 
 use super::options;
 
@@ -9,9 +8,9 @@ pub fn me_simulation(
     import: &fmi::fmi3::import::Fmi3Import,
     options: options::SimOptions,
 ) -> anyhow::Result<RecordBatch> {
-    let sim_params = SimParams::new(import, &options)?;
+    let _sim_params = SimParams::new(import, &options)?;
 
-    let mut inst = import.instantiate_me("inst1", false, true)?;
+    let mut _inst = import.instantiate_me("inst1", false, true)?;
 
     todo!();
 

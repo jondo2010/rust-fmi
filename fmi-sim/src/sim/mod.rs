@@ -6,7 +6,7 @@ use arrow::{
         UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
     csv::{reader::Format, ReaderBuilder},
-    datatypes::{DataType, Schema},
+    datatypes::DataType,
     record_batch::RecordBatch,
 };
 use fmi::fmi3::{
@@ -224,7 +224,7 @@ where
         .infer_schema(&file, Some(100))?;
     file.rewind()?;
 
-    let time = Arc::new(arrow::datatypes::Field::new(
+    let _time = Arc::new(arrow::datatypes::Field::new(
         "time",
         arrow::datatypes::DataType::Float64,
         false,

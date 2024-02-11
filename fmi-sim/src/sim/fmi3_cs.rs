@@ -2,10 +2,7 @@ use anyhow::Context;
 use arrow::record_batch::RecordBatch;
 use fmi::fmi3::instance::{CoSimulation, Common, InstanceCS};
 
-use super::{
-    interpolation, options, params::SimParams, schema_builder::FmiSchemaBuilder, InputState,
-    OutputState,
-};
+use super::{interpolation, options, params::SimParams, InputState, OutputState};
 
 struct SimState<'a> {
     sim_params: SimParams,
@@ -15,8 +12,6 @@ struct SimState<'a> {
     options: options::SimOptions,
 
     time: f64,
-    event_encountered: bool,
-    early_return: bool,
     nominals_of_continuous_states_changed: bool,
     values_of_continuous_states_changed: bool,
     next_event_time: Option<f64>,
@@ -58,8 +53,6 @@ impl<'a> SimState<'a> {
             options,
 
             time,
-            event_encountered: false,
-            early_return: false,
             nominals_of_continuous_states_changed: false,
             values_of_continuous_states_changed: false,
             next_event_time: None,
@@ -67,7 +60,7 @@ impl<'a> SimState<'a> {
     }
 
     fn initialize(&mut self) -> anyhow::Result<()> {
-        if let Some(initial_state_file) = &self.options.initial_fmu_state_file {
+        if let Some(_initial_state_file) = &self.options.initial_fmu_state_file {
             unimplemented!("initial_fmu_state_file");
             // self.inst.restore_fmu_state_from_file(initial_state_file)?;
         }

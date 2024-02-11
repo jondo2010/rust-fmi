@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use anyhow::Context;
 use arrow::{
     array::{self, Float64Array, StringArray},
-    datatypes::{DataType, Schema, SchemaRef},
+    datatypes::{Schema, SchemaRef},
     downcast_primitive_array,
     record_batch::RecordBatch,
 };
@@ -14,7 +13,7 @@ use fmi::{
 use itertools::Itertools;
 
 use super::{
-    interpolation::{self, Interpolate, Linear, PreLookup},
+    interpolation::{self, Interpolate, PreLookup},
     schema_builder::FmiSchemaBuilder,
     InstanceSetValues,
 };
@@ -204,7 +203,7 @@ impl InputState {
                 // TODO: This could be computed once and cached
 
                 // skip continuous variables
-                for (col_idx, vr) in &self.discrete_inputs {
+                for (col_idx, _vr) in &self.discrete_inputs {
                     let field = self.input_schema.field(*col_idx);
 
                     if let Some(input_col) = input_data.column_by_name(field.name()) {

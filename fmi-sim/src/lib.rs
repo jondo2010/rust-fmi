@@ -29,14 +29,14 @@ impl Action for Import {
 
     fn model_exchange(&self, options: SimOptions) -> anyhow::Result<RecordBatch> {
         match self {
-            Import::Fmi2(import) => todo!(),
+            Import::Fmi2(_import) => todo!(),
             Import::Fmi3(import) => sim::fmi3_me::me_simulation(import, options),
         }
     }
 
     fn co_simulation(&self, options: SimOptions) -> anyhow::Result<RecordBatch> {
         match self {
-            Import::Fmi2(import) => todo!(),
+            Import::Fmi2(_import) => todo!(),
             Import::Fmi3(import) => sim::fmi3_cs::co_simulation(import, options),
         }
     }
