@@ -14,8 +14,8 @@ categories = ["science", "simulation"]
 arrow = { version = "49.0" }
 document-features = "0.2"
 fmi = { path = "." }
-fmi-schema = { path = "fmi-schema" }
-fmi-sys = { path = "fmi-sys" }
+fmi-schema = { path = "fmi-schema", version = "0.1.0" }
+fmi-sys = { path = "fmi-sys", version = "0.1.0" }
 itertools = "0.12"
 libloading = "0.8"
 test-log = { version = "0.2", features = ["trace"] }
