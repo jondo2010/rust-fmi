@@ -143,11 +143,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
                 ret_values.assume_init_mut().as_mut_ptr(),
                 ret_values.assume_init_ref().len() as _,
             );
-            for (v, ret) in ret_values
-                .assume_init_ref()
-                .into_iter()
-                .zip(values.iter_mut())
-            {
+            for (v, ret) in ret_values.assume_init_ref().iter().zip(values.iter_mut()) {
                 *ret = std::ffi::CStr::from_ptr(*v)
                     .to_str()
                     .expect("Error converting C string")
