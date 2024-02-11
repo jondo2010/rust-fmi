@@ -1,4 +1,8 @@
-use std::{path::Path, str::FromStr};
+use std::{
+    io::{self, Read},
+    path::Path,
+    str::FromStr,
+};
 
 #[cfg(feature = "fmi2")]
 use crate::fmi2;
@@ -52,11 +56,17 @@ pub enum Import {
 
 impl Import {
     /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
-    pub fn new(path: impl AsRef<Path>) -> Result<Self, Error> {
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, Error> {
         let file = std::fs::File::open(path.as_ref())?;
-        let mut archive = zip::ZipArchive::new(file)?;
+        log::debug!("Opening FMU file {:?}", path.as_ref());
+        Self::new(file)
+    }
+
+    /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
+    pub fn new<R: Read + io::Seek>(reader: R) -> Result<Self, Error> {
+        let mut archive = zip::ZipArchive::new(reader)?;
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
-        log::debug!("Extracting {:?} into {temp_dir:?}", path.as_ref());
+        log::debug!("Extracting into {temp_dir:?}");
         archive.extract(&temp_dir)?;
 
         for fname in archive.file_names() {
@@ -70,7 +80,7 @@ impl Import {
         // Initial non-version-specific model description
         let descr = MinModel::from_str(&descr_xml)?;
         log::debug!(
-            "Found FMI {} named '{}",
+            "Found FMI {} named '{}'",
             descr.fmi_version,
             descr.model_name
         );

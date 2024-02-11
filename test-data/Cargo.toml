@@ -1,0 +1,15 @@
+[package]
+name = "test-data"
+license.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+fetch-data = "0.1"
+fmi = { workspace = true }
+zip = { workspace = true }

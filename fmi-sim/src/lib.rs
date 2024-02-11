@@ -43,7 +43,7 @@ impl Action for Import {
 }
 
 pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
-    let import = fmi::Import::new(&args.model)?;
+    let import = fmi::Import::from_path(&args.model)?;
     match args.action {
         options::Action::Check => {
             import.check()?;
