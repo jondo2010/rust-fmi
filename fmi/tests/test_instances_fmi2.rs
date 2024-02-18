@@ -74,13 +74,13 @@ fn test_instance_cs() {
 
     let sv = import
         .model_description()
-        .model_variable_by_name("freqHz")
+        .model_variable_by_name("k")
         .unwrap();
 
     instance1
         .set_real(&[sv.value_reference], &[2.0f64])
         .ok()
-        .expect("set freqHz parameter");
+        .expect("set k parameter");
 
     instance1
         .exit_initialization_mode()
