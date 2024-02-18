@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use arrow::{array::ArrayRef, record_batch::RecordBatch};
+use arrow::record_batch::RecordBatch;
 use fmi::fmi3::instance::{CoSimulation, Common, InstanceCS};
+use fmi::FmiImport as _;
 
+use super::input_state::StartValues;
 use super::{interpolation, options, params::SimParams, InputState, OutputState};
 
 struct SimState<'a> {
@@ -51,7 +53,7 @@ impl<'a> SimState<'a> {
 
     fn initialize(
         &mut self,
-        initial_values: Vec<(u32, ArrayRef)>,
+        start_values: StartValues,
         initial_fmu_state_file: Option<PathBuf>,
     ) -> anyhow::Result<()> {
         if let Some(_initial_state_file) = &initial_fmu_state_file {
@@ -61,7 +63,7 @@ impl<'a> SimState<'a> {
 
         // set start values
         self.input_state
-            .apply_start_values(&mut self.inst, initial_values)?;
+            .apply_start_values(&mut self.inst, &start_values)?;
 
         self.input_state.apply_input::<_, interpolation::Linear>(
             self.sim_params.start_time,
@@ -245,7 +247,7 @@ pub fn co_simulation(
     import: &fmi::fmi3::import::Fmi3Import,
     options: options::SimOptions,
 ) -> anyhow::Result<RecordBatch> {
-    let sim_params = SimParams::new_from_options(import, &options)?;
+    let sim_params = SimParams::new_from_options(&options, import.model_description())?;
 
     // Read optional input data from file
     let input_data = options
@@ -262,11 +264,11 @@ pub fn co_simulation(
         .ceil() as usize;
     let output_state = OutputState::new(import, num_output_points);
 
-    let initial_values = input_state.parse_start_values(&options.initial_values)?;
+    let start_values = StartValues::parse_start_values(import, &options.initial_values)?;
 
     let mut sim_state = SimState::new(import, sim_params, input_state, output_state)?;
 
-    sim_state.initialize(initial_values, options.initial_fmu_state_file)?;
+    sim_state.initialize(start_values, options.initial_fmu_state_file)?;
 
     sim_state.main_loop()?;
 

@@ -9,7 +9,10 @@ use arrow::{
     util,
 };
 use comfy_table::Table;
-use fmi::fmi3::{import::Fmi3Import, instance::Instance};
+use fmi::{
+    fmi3::{import::Fmi3Import, instance::Instance},
+    FmiImport as _,
+};
 use itertools::Itertools;
 
 use super::{
@@ -82,6 +85,68 @@ fn project_input_data(
 
     let input_data_schema = Arc::new(Schema::new(projected_fields));
     RecordBatch::try_new(input_data_schema, projected_columns).map_err(anyhow::Error::from)
+}
+
+/// Container for holding initial values for the FMU.
+pub struct StartValues {
+    structural_parameters: Vec<(u32, array::ArrayRef)>,
+    variables: Vec<(u32, array::ArrayRef)>,
+}
+
+impl StartValues {
+    /// Parse a list of "var=value" strings.
+    ///
+    /// # Returns
+    /// A tuple of two lists of (ValueReference, Array) tuples. The first list contains any variable with
+    /// `Causality = StructuralParameter` and the second list contains regular parameters.
+    pub fn parse_start_values(
+        import: &Fmi3Import,
+        start_values: &[String],
+    ) -> anyhow::Result<Self> {
+        use fmi_schema::fmi3::Causality;
+
+        let mut structural_parameters = vec![];
+        let mut variables = vec![];
+
+        for start_value in start_values {
+            let (name, value) = start_value
+                .split_once('=')
+                .ok_or_else(|| anyhow::anyhow!("Invalid start value"))?;
+
+            let var = import
+                .model_description()
+                .model_variables
+                .iter_abstract()
+                .find(|v| v.name() == name)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Invalid variable name: {name}. Valid variables are: {valid:?}",
+                        valid = import
+                            .model_description()
+                            .model_variables
+                            .iter_abstract()
+                            .map(|v| v.name())
+                            .collect::<Vec<_>>()
+                    )
+                })?;
+
+            let dt = arrow::datatypes::DataType::from(var.data_type());
+            let ary = StringArray::from(vec![value.to_string()]);
+            let ary = arrow::compute::cast(&ary, &dt)
+                .map_err(|_| anyhow::anyhow!("Error casting type"))?;
+
+            if var.causality() == Causality::StructuralParameter {
+                structural_parameters.push((var.value_reference(), ary));
+            } else {
+                variables.push((var.value_reference(), ary));
+            }
+        }
+
+        Ok(StartValues {
+            structural_parameters,
+            variables,
+        })
+    }
 }
 
 pub struct InputState {
@@ -180,57 +245,27 @@ impl InputState {
         Ok(())
     }
 
-    /// Parse a list of "var=value" strings into a list of (ValueReference, Array) tuples, suitable for `apply_start_values`.
-    pub fn parse_start_values(
-        &self,
-        start_values: &[String],
-    ) -> anyhow::Result<Vec<(u32, array::ArrayRef)>> {
-        start_values
-            .iter()
-            .map(|start_value| {
-                let (name, value) = start_value
-                    .split_once('=')
-                    .ok_or_else(|| anyhow::anyhow!("Invalid start value"))?;
-
-                let index = self.input_schema.index_of(name).map_err(|_| {
-                    anyhow::anyhow!(
-                        "Invalid variable name: {name}. Valid variables are: {valid:?}",
-                        valid = self
-                            .input_schema
-                            .fields()
-                            .iter()
-                            .map(|field| field.name().to_string())
-                            .collect::<Vec<_>>()
-                    )
-                })?;
-
-                let dt = self.input_schema.field(index).data_type();
-                let ary = StringArray::from(vec![value.to_string()]);
-                let ary = arrow::compute::cast(&ary, dt)
-                    .map_err(|_| anyhow::anyhow!("Error casting type"))?;
-
-                let vr = self
-                    .continuous_inputs
-                    .iter()
-                    .chain(self.discrete_inputs.iter())
-                    .find_map(|(col_idx, vr)| (col_idx == &index).then(|| *vr))
-                    .ok_or_else(|| anyhow::anyhow!("VR not found"))?;
-
-                Ok((vr, ary))
-            })
-            .collect::<anyhow::Result<Vec<_>>>()
-    }
-
     /// Apply a list of (ValueReference, Array) tuples to the instance.
     pub fn apply_start_values<Tag>(
         &self,
         instance: &mut Instance<'_, Tag>,
-        start_values: impl IntoIterator<Item = (u32, array::ArrayRef)>,
+        start_values: &StartValues,
     ) -> anyhow::Result<()> {
-        for (vr, ary) in start_values {
-            log::trace!("Setting start value `{}`", vr);
-            instance.set_array(&[vr], &ary);
+        if !start_values.structural_parameters.is_empty() {
+            unimplemented!("Structural parameters");
+            //instance.enter_configuration_mode()?;
+            //structural_parameters.for_each(|(vr, ary)| {
+            //    log::trace!("Setting structural parameter `{}`", vr);
+            //    instance.set_array(&[vr], &ary);
+            //});
+            //instance.exit_configuration_mode()?;
         }
+
+        start_values.variables.iter().for_each(|(vr, ary)| {
+            log::trace!("Setting start value `{}`", vr);
+            instance.set_array(&[*vr], &ary);
+        });
+
         Ok(())
     }
 
