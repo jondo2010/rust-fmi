@@ -1,5 +1,7 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
-use arrow::record_batch::RecordBatch;
+use arrow::{array::ArrayRef, record_batch::RecordBatch};
 use fmi::fmi3::instance::{CoSimulation, Common, InstanceCS};
 
 use super::{interpolation, options, params::SimParams, InputState, OutputState};
@@ -9,7 +11,6 @@ struct SimState<'a> {
     input_state: InputState,
     output_state: OutputState,
     inst: InstanceCS<'a>,
-    options: options::SimOptions,
 
     time: f64,
     nominals_of_continuous_states_changed: bool,
@@ -20,26 +21,16 @@ struct SimState<'a> {
 impl<'a> SimState<'a> {
     fn new(
         import: &'a fmi::fmi3::import::Fmi3Import,
-        options: options::SimOptions,
+        sim_params: SimParams,
+        input_state: InputState,
+        output_state: OutputState,
     ) -> anyhow::Result<Self> {
-        let sim_params = SimParams::new(import, &options)?;
-
-        let input_data = options
-            .input_file
-            .as_ref()
-            .map(|path| crate::sim::read_csv(path))
-            .transpose()
-            .context("Reading input file")?;
-
-        let input_state = InputState::new(import, input_data)?;
-        let output_state = OutputState::new(import, &sim_params);
-
         let inst = import.instantiate_cs(
             "inst1",
             true,
             true,
-            options.event_mode_used,
-            options.early_return_allowed,
+            sim_params.event_mode_used,
+            sim_params.early_return_allowed,
             &[],
         )?;
 
@@ -50,7 +41,6 @@ impl<'a> SimState<'a> {
             input_state,
             output_state,
             inst,
-            options,
 
             time,
             nominals_of_continuous_states_changed: false,
@@ -59,15 +49,20 @@ impl<'a> SimState<'a> {
         })
     }
 
-    fn initialize(&mut self) -> anyhow::Result<()> {
-        if let Some(_initial_state_file) = &self.options.initial_fmu_state_file {
+    fn initialize(
+        &mut self,
+        initial_values: Vec<(u32, ArrayRef)>,
+        initial_fmu_state_file: Option<PathBuf>,
+    ) -> anyhow::Result<()> {
+        if let Some(_initial_state_file) = &initial_fmu_state_file {
             unimplemented!("initial_fmu_state_file");
             // self.inst.restore_fmu_state_from_file(initial_state_file)?;
         }
 
         // set start values
         self.input_state
-            .apply_start_values(&mut self.inst, &self.options.initial_values)?;
+            .apply_start_values(&mut self.inst, initial_values)?;
+
         self.input_state.apply_input::<_, interpolation::Linear>(
             self.sim_params.start_time,
             &mut self.inst,
@@ -77,7 +72,7 @@ impl<'a> SimState<'a> {
         )?;
 
         // Default initialization
-        if self.options.initial_fmu_state_file.is_none() {
+        if initial_fmu_state_file.is_none() {
             self.default_initialize()?;
         }
 
@@ -99,7 +94,7 @@ impl<'a> SimState<'a> {
             .ok()
             .context("exit_initialization_mode")?;
 
-        if self.options.event_mode_used {
+        if self.sim_params.event_mode_used {
             // update discrete states
             let mut discrete_states_need_update = true;
             while discrete_states_need_update {
@@ -159,7 +154,7 @@ impl<'a> SimState<'a> {
             let mut early_return = false;
             let mut last_successful_time = 0.0;
 
-            if self.options.event_mode_used {
+            if self.sim_params.event_mode_used {
                 // self.input_state.unwrap()
             } else {
                 // self.input_state.apply_inputs
@@ -178,7 +173,7 @@ impl<'a> SimState<'a> {
                 .ok()
                 .context("do_step")?;
 
-            if early_return && !self.options.early_return_allowed {
+            if early_return && !self.sim_params.early_return_allowed {
                 anyhow::bail!("Early return is not allowed.");
             }
 
@@ -196,7 +191,7 @@ impl<'a> SimState<'a> {
                 num_steps += 1;
             }
 
-            if self.options.event_mode_used && (input_event || event_encountered) {
+            if self.sim_params.event_mode_used && (input_event || event_encountered) {
                 log::trace!("Event encountered at t = {}", self.time);
                 self.handle_events(input_event, &mut terminate_simulation)?;
             }
@@ -250,8 +245,28 @@ pub fn co_simulation(
     import: &fmi::fmi3::import::Fmi3Import,
     options: options::SimOptions,
 ) -> anyhow::Result<RecordBatch> {
-    let mut sim_state = SimState::new(import, options)?;
-    sim_state.initialize()?;
+    let sim_params = SimParams::new_from_options(import, &options)?;
+
+    // Read optional input data from file
+    let input_data = options
+        .input_file
+        .as_ref()
+        .map(|path| super::read_csv(path))
+        .transpose()
+        .context("Reading input file")?;
+
+    let input_state = InputState::new(import, input_data)?;
+
+    let num_output_points = ((sim_params.stop_time - sim_params.start_time)
+        / sim_params.output_interval)
+        .ceil() as usize;
+    let output_state = OutputState::new(import, num_output_points);
+
+    let initial_values = input_state.parse_start_values(&options.initial_values)?;
+
+    let mut sim_state = SimState::new(import, sim_params, input_state, output_state)?;
+
+    sim_state.initialize(initial_values, options.initial_fmu_state_file)?;
 
     sim_state.main_loop()?;
 

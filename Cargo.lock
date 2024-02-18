@@ -884,6 +884,7 @@ dependencies = [
  "num-traits",
  "sensible-env-logger",
  "structopt",
+ "test-data",
  "test-log",
 ]
 

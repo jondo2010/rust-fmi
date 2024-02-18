@@ -1,19 +1,23 @@
-use fmi::FmiImport;
-
-use super::options;
+use super::options::SimOptions;
+use fmi::FmiImport as _;
 
 pub struct SimParams {
     pub start_time: f64,
     pub stop_time: f64,
     pub output_interval: f64,
     pub tolerance: Option<f64>,
+
+    /// Use event mode
+    pub event_mode_used: bool,
+    /// Support early-return in Co-Simulation.
+    pub early_return_allowed: bool,
 }
 
 impl SimParams {
-    pub fn new(
+    pub fn new_from_options(
         import: &fmi::fmi3::import::Fmi3Import,
-        // import: &impl FmiModelDescription,
-        options: &options::SimOptions,
+        //import2: &impl FmiModelDescription,
+        options: &SimOptions,
     ) -> anyhow::Result<Self> {
         let md = import.model_description();
 
@@ -45,6 +49,8 @@ impl SimParams {
             stop_time,
             output_interval,
             tolerance,
+            event_mode_used: options.event_mode_used,
+            early_return_allowed: options.early_return_allowed,
         })
     }
 }

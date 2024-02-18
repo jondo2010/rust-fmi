@@ -14,13 +14,15 @@ use fmi::fmi3::{
     instance::{Common, Instance},
 };
 
+#[cfg(feature = "cs")]
 pub mod fmi3_cs;
+#[cfg(feature = "me")]
 pub mod fmi3_me;
 mod input_state;
 mod interpolation;
 pub mod options;
 mod output_state;
-mod params;
+pub mod params;
 mod schema_builder;
 
 pub use input_state::InputState;
@@ -155,7 +157,6 @@ impl<Tag> InstanceSetValues for Instance<'_, Tag> {
             DataType::Int8 => {
                 let array: Int8Array = array::downcast_array(&array);
                 let value = I::interpolate(&pl, &array);
-                dbg!(&value);
                 self.set_int8(&[vr], &[value]).ok()?;
             }
             DataType::Int16 => {
@@ -216,7 +217,7 @@ fn read_csv<P>(path: P) -> anyhow::Result<RecordBatch>
 where
     P: AsRef<Path>,
 {
-    let mut file = std::fs::File::open(path)?;
+    let mut file = std::fs::File::open(&path)?;
 
     // Infer the schema with the first 100 records
     let (file_schema, _) = Format::default()
@@ -224,40 +225,21 @@ where
         .infer_schema(&file, Some(100))?;
     file.rewind()?;
 
+    log::debug!(
+        "Read CSV file {:?}, with schema: {:?}",
+        path.as_ref(),
+        file_schema
+            .fields()
+            .iter()
+            .map(|f| f.name())
+            .collect::<Vec<_>>()
+    );
+
     let _time = Arc::new(arrow::datatypes::Field::new(
         "time",
         arrow::datatypes::DataType::Float64,
         false,
     ));
-
-    // Build a projection based on the input schema and the file schema.
-    // Input fields that are not in the file schema are ignored.
-    // let input_projection = input_schema
-    // .fields()
-    // .iter()
-    // .chain(std::iter::once(&time))
-    // .filter_map(|input_field| {
-    // file_schema.index_of(input_field.name()).ok().map(|idx| {
-    // let file_dt = file_schema.field(idx).data_type();
-    // let input_dt = input_field.data_type();
-    //
-    // Check if the file data type is compatible with the input data type.
-    // let dt_match = file_dt == input_dt
-    // || file_dt.primitive_width() >= input_dt.primitive_width()
-    // && file_dt.is_signed_integer() == input_dt.is_signed_integer()
-    // && file_dt.is_unsigned_integer() == input_dt.is_unsigned_integer()
-    // && file_dt.is_floating() == input_dt.is_floating();
-    //
-    // dt_match.then(|| idx).ok_or(anyhow::anyhow!(
-    // "Input field {} has type {:?} but file field {} has type {:?}",
-    // input_field.name(),
-    // input_field.data_type(),
-    // file_schema.field(idx).name(),
-    // file_schema.field(idx).data_type()
-    // ))
-    // })
-    // })
-    // .collect::<Result<Vec<usize>, _>>()?;
 
     let reader = ReaderBuilder::new(Arc::new(file_schema))
         .with_header(true)
@@ -270,4 +252,27 @@ where
         &batches[0].schema(),
         &batches,
     )?)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test_log::test]
+    fn test_read_csv() {
+        //let import = fmi::Import::new("../data/reference_fmus/3.0/Feedthrough.fmu")
+        //    .unwrap()
+        //    .as_fmi3()
+        //    .unwrap();
+
+        //let schema = import.inputs_schema();
+
+        let data = crate::sim::read_csv("../tests/data/feedthrough_in.csv").unwrap();
+
+        println!(
+            "{}",
+            arrow::util::pretty::pretty_format_batches(&[data]).unwrap()
+        );
+
+        // let time_array: Float64Array =
+        // arrow::array::downcast_array(data[0].column_by_name("time").unwrap());
+    }
 }

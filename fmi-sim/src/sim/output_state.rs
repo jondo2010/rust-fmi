@@ -14,7 +14,7 @@ use fmi::fmi3::{
     instance::{Common, Instance},
 };
 
-use super::{params::SimParams, schema_builder::FmiSchemaBuilder};
+use super::schema_builder::FmiSchemaBuilder;
 
 pub struct OutputState {
     output_schema: Schema,
@@ -23,11 +23,8 @@ pub struct OutputState {
 }
 
 impl OutputState {
-    pub fn new(import: &Fmi3Import, params: &SimParams) -> Self {
+    pub fn new(import: &Fmi3Import, num_points: usize) -> Self {
         let output_schema = import.outputs_schema();
-
-        let num_points =
-            ((params.stop_time - params.start_time) / params.output_interval).ceil() as usize;
 
         let recorders = output_schema
             .fields()

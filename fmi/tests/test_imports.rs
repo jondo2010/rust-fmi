@@ -32,7 +32,7 @@ fn test_fmi2_imports() {
             .expect("Expected FMI2 import");
         assert_eq!(import.model_description().fmi_version, "2.0");
 
-        //#[cfg(target_os = "linux")]
+        #[cfg(target_os = "linux")]
         {
             if import.model_description().model_exchange.is_some() {
                 let me = import.instantiate_me("inst1", false, true).unwrap();

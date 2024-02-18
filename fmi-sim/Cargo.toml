@@ -1,22 +1,46 @@
 [package]
 name = "fmi-sim"
-version = "0.2.0"
+version = "0.1.0"
+description = "A pure Rust FMI simulator"
+readme = "README.md"
+publish = true
 authors.workspace = true
+categories.workspace = true
 edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords.workspace = true
 license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["fmi3", "cs"]
+## Enable support for FMI 2.0
+fmi2 = ["fmi/fmi2"]
+## Enable support for FMI 3.0
+fmi3 = ["fmi/fmi3"]
+## Enable support for Model Exchange
+me = []
+## Enable support for Co-Simulation
+cs = []
+## Enable support for Scheduled Execution
+se = []
+
 
 [dependencies]
-anyhow = "1.0"
-arrow = { version = "49.0", features = ["csv", "prettyprint"] }
+anyhow = { workspace = true }
+arrow = { workspace = true, features = ["csv", "prettyprint"] }
+comfy-table = "7.1"
 env_logger = "0.10"
-fmi = { path = ".." }
-fmi-schema = { path = "../fmi-schema", features = ["arrow"] }
+fmi = { workspace = true, features = ["arrow"] }
+fmi-schema = { workspace = true, features = ["arrow"] }
+itertools = { workspace = true }
 log = "0.4"
 num-traits = "0.2"
 sensible-env-logger = "0.3"
 structopt = { version = "0.3", features = ["paw"] }
-itertools = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "2.0"
+test-data = { workspace = true }
 test-log = { workspace = true }
