@@ -253,26 +253,3 @@ where
         &batches,
     )?)
 }
-
-#[cfg(test)]
-mod tests {
-    #[test_log::test]
-    fn test_read_csv() {
-        //let import = fmi::Import::new("../data/reference_fmus/3.0/Feedthrough.fmu")
-        //    .unwrap()
-        //    .as_fmi3()
-        //    .unwrap();
-
-        //let schema = import.inputs_schema();
-
-        let data = crate::sim::read_csv("../tests/data/feedthrough_in.csv").unwrap();
-
-        println!(
-            "{}",
-            arrow::util::pretty::pretty_format_batches(&[data]).unwrap()
-        );
-
-        // let time_array: Float64Array =
-        // arrow::array::downcast_array(data[0].column_by_name("time").unwrap());
-    }
-}
