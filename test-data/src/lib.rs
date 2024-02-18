@@ -4,6 +4,7 @@ use fetch_data::{ctor, FetchData};
 use std::{
     fs::File,
     io::{Cursor, Read},
+    path::PathBuf,
 };
 
 use fmi::Import;
@@ -21,12 +22,13 @@ static STATIC_FETCH_DATA: FetchData = FetchData::new(
     "reference-fmus",
 );
 
+/// A Rust interface to the Modelica Reference-FMUs, downloaded as an archive using `fetch_data`
 pub struct ReferenceFmus {
     archive: zip::ZipArchive<File>,
 }
 
 impl ReferenceFmus {
-    /// Fetch the Reference-FMUs file
+    /// Fetch the released Modelica Reference-FMUs file
     pub fn new() -> anyhow::Result<Self> {
         let path = STATIC_FETCH_DATA.fetch_file(REF_ARCHIVE)?;
         let f = std::fs::File::open(&path)?;
@@ -41,6 +43,17 @@ impl ReferenceFmus {
         let mut buf = Vec::new();
         f.read_to_end(buf.as_mut())?;
         Ok(Import::new(Cursor::new(buf))?)
+    }
+
+    /// Extract a reference FMU from the reference archive, relative to the zip file, and returns the path
+    pub fn extract_reference_fmu(&mut self, name: &str, version: &str) -> anyhow::Result<PathBuf> {
+        let filename = format!("{}/{}.fmu", version, name);
+        let mut f = self.archive.by_name(&filename)?;
+        let mut buf = Vec::new();
+        f.read_to_end(buf.as_mut())?;
+        let path = STATIC_FETCH_DATA.cache_dir().unwrap().join(&filename);
+        std::fs::write(&path, buf)?;
+        Ok(path)
     }
 }
 
