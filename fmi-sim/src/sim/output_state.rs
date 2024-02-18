@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{default, sync::Arc};
 
 use arrow::{
     array::{
@@ -15,6 +15,18 @@ use fmi::fmi3::{
 };
 
 use super::schema_builder::FmiSchemaBuilder;
+
+macro_rules! impl_recorder {
+    ($getter:ident, $builder_type:ident, $inst:ident, $vr:ident, $self:ident, $column_index:ident) => {{
+        let mut value = [default::Default::default()];
+        $inst.$getter(&[*$vr], &mut value).ok()?;
+        $self.recorders[*$column_index]
+            .as_any_mut()
+            .downcast_mut::<$builder_type>()
+            .expect(concat!("column is not ", stringify!($builder_type)))
+            .append_value(value[0]);
+    }};
+}
 
 pub struct OutputState {
     output_schema: Schema,
@@ -63,106 +75,40 @@ impl OutputState {
 
             match col.data_type() {
                 DataType::Boolean => {
-                    let mut value = [false];
-                    inst.get_boolean(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<BooleanBuilder>()
-                        .expect("column is not Boolean")
-                        .append_value(value[0]);
+                    impl_recorder!(get_boolean, BooleanBuilder, inst, vr, self, column_index)
                 }
                 DataType::Int8 => {
-                    let mut value = [0];
-                    inst.get_int8(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<Int8Builder>()
-                        .expect("column is not Int8")
-                        .append_value(value[0]);
+                    impl_recorder!(get_int8, Int8Builder, inst, vr, self, column_index)
                 }
                 DataType::Int16 => {
-                    let mut value = [0];
-                    inst.get_int16(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<Int16Builder>()
-                        .expect("column is not Int16")
-                        .append_value(value[0]);
+                    impl_recorder!(get_int16, Int16Builder, inst, vr, self, column_index)
                 }
                 DataType::Int32 => {
-                    let mut value = [0];
-                    inst.get_int32(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<Int32Builder>()
-                        .expect("column is not Int32")
-                        .append_value(value[0]);
+                    impl_recorder!(get_int32, Int32Builder, inst, vr, self, column_index)
                 }
                 DataType::Int64 => {
-                    let mut value = [0];
-                    inst.get_int64(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<Int64Builder>()
-                        .expect("column is not Int64")
-                        .append_value(value[0]);
+                    impl_recorder!(get_int64, Int64Builder, inst, vr, self, column_index)
                 }
                 DataType::UInt8 => {
-                    let mut value = [0];
-                    inst.get_uint8(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<UInt8Builder>()
-                        .expect("column is not UInt8")
-                        .append_value(value[0]);
+                    impl_recorder!(get_uint8, UInt8Builder, inst, vr, self, column_index)
                 }
                 DataType::UInt16 => {
-                    let mut value = [0];
-                    inst.get_uint16(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<UInt16Builder>()
-                        .expect("column is not UInt16")
-                        .append_value(value[0]);
+                    impl_recorder!(get_uint16, UInt16Builder, inst, vr, self, column_index)
                 }
                 DataType::UInt32 => {
-                    let mut value = [0];
-                    inst.get_uint32(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<UInt32Builder>()
-                        .expect("column is not UInt32")
-                        .append_value(value[0]);
+                    impl_recorder!(get_uint32, UInt32Builder, inst, vr, self, column_index)
                 }
                 DataType::UInt64 => {
-                    let mut value = [0];
-                    inst.get_uint64(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<UInt64Builder>()
-                        .expect("column is not UInt64")
-                        .append_value(value[0]);
+                    impl_recorder!(get_uint64, UInt64Builder, inst, vr, self, column_index)
                 }
                 DataType::Float32 => {
-                    let mut value = [0.0];
-                    inst.get_float32(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<Float32Builder>()
-                        .expect("column is not Float32")
-                        .append_value(value[0]);
+                    impl_recorder!(get_float32, Float32Builder, inst, vr, self, column_index)
                 }
                 DataType::Float64 => {
-                    let mut value = [0.0];
-                    inst.get_float64(&[*vr], &mut value).ok()?;
-                    self.recorders[*column_index]
-                        .as_any_mut()
-                        .downcast_mut::<Float64Builder>()
-                        .expect("column is not Float64")
-                        .append_value(value[0]);
+                    impl_recorder!(get_float64, Float64Builder, inst, vr, self, column_index)
                 }
                 DataType::Binary => {
-                    let mut value = [vec![]];
+                    let mut value = [default::Default::default()];
                     inst.get_binary(&[*vr], &mut value).ok()?;
                     let [value] = value;
                     self.recorders[*column_index]
