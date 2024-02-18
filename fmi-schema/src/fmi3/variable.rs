@@ -235,8 +235,10 @@ pub enum Causality {
     /// The variable value can be provided by the importer.
     #[yaserde(rename = "input")]
     Input,
+    /// The values of these variables are computed in the FMU and they are designed to be used outside the FMU.
     #[yaserde(rename = "output")]
     Output,
+    /// Local variables of the FMU that must not be used for FMU connections
     #[yaserde(rename = "local")]
     #[default]
     Local,
@@ -246,8 +248,8 @@ pub enum Causality {
     #[yaserde(rename = "dependent")]
     Dependent,
     /// The variable value can only be changed in Configuration Mode or Reconfiguration Mode.
-    #[yaserde(rename = "structuredParameter")]
-    StructuredParameter,
+    #[yaserde(rename = "structuralParameter")]
+    StructuralParameter,
 }
 
 /// Enumeration that defines the time dependency of the variable, in other words, it defines the

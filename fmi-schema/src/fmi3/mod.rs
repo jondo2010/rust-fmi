@@ -35,6 +35,26 @@ impl FromStr for FmiModelDescription {
     }
 }
 
+impl crate::traits::DefaultExperiment for FmiModelDescription {
+    fn start_time(&self) -> Option<f64> {
+        self.default_experiment
+            .as_ref()
+            .and_then(|de| de.start_time)
+    }
+
+    fn stop_time(&self) -> Option<f64> {
+        self.default_experiment.as_ref().and_then(|de| de.stop_time)
+    }
+
+    fn tolerance(&self) -> Option<f64> {
+        self.default_experiment.as_ref().and_then(|de| de.tolerance)
+    }
+
+    fn step_size(&self) -> Option<f64> {
+        self.default_experiment.as_ref().and_then(|de| de.step_size)
+    }
+}
+
 impl VariableCounts for ModelVariables {
     fn model_counts(&self) -> Counts {
         let cts = Counts {

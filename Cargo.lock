@@ -839,7 +839,6 @@ dependencies = [
  "document-features",
  "env_logger 0.10.2",
  "fmi-schema",
- "fmi-sim",
  "fmi-sys",
  "itertools",
  "libc",
