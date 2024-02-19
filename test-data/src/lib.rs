@@ -1,5 +1,6 @@
 //! Utilities for fetching test data from Modelica's Reference-FMUs repository
 
+use anyhow::Context;
 use fetch_data::{ctor, FetchData};
 use std::{
     fs::File,
@@ -30,8 +31,10 @@ pub struct ReferenceFmus {
 impl ReferenceFmus {
     /// Fetch the released Modelica Reference-FMUs file
     pub fn new() -> anyhow::Result<Self> {
-        let path = STATIC_FETCH_DATA.fetch_file(REF_ARCHIVE)?;
-        let f = std::fs::File::open(&path)?;
+        let path = STATIC_FETCH_DATA
+            .fetch_file(REF_ARCHIVE)
+            .context(format!("Fetch {REF_ARCHIVE}"))?;
+        let f = std::fs::File::open(&path).context(format!("Open {:?}", path))?;
         let archive = zip::ZipArchive::new(f)?;
         Ok(Self { archive })
     }
@@ -48,11 +51,12 @@ impl ReferenceFmus {
     /// Extract a reference FMU from the reference archive, relative to the zip file, and returns the path
     pub fn extract_reference_fmu(&mut self, name: &str, version: &str) -> anyhow::Result<PathBuf> {
         let filename = format!("{}/{}.fmu", version, name);
-        let mut f = self.archive.by_name(&filename)?;
+        let mut f = self.archive.by_name(&filename).context("Open {filename}")?;
         let mut buf = Vec::new();
         f.read_to_end(buf.as_mut())?;
         let path = STATIC_FETCH_DATA.cache_dir().unwrap().join(&filename);
-        std::fs::write(&path, buf)?;
+        std::fs::create_dir_all(path.parent().unwrap())?;
+        std::fs::write(&path, buf).context(format!("Extracting {path:?}"))?;
         Ok(path)
     }
 }

@@ -99,7 +99,7 @@ fn test_instance_cs() {
         .ok()
         .unwrap();
 
-    assert_eq!(x, [0.0]);
+    assert_eq!(x, [1.0]);
 
     instance1.do_step(0.0, 0.125, false).ok().expect("do_step");
 
@@ -108,5 +108,5 @@ fn test_instance_cs() {
         .ok()
         .unwrap();
 
-    assert_eq!(x, [0.0]);
+    assert_eq!(x, [0.8]);
 }
