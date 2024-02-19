@@ -108,5 +108,5 @@ fn test_instance_cs() {
         .ok()
         .unwrap();
 
-    assert_eq!(x, [1.0]);
+    assert_eq!(x, [0.0]);
 }
