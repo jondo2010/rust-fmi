@@ -12,6 +12,7 @@ pub mod fmi2;
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
 pub mod minimal;
+pub mod traits;
 pub mod variable_counts;
 
 #[derive(Debug, Error)]

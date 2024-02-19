@@ -1,14 +1,12 @@
 use arrow::record_batch::RecordBatch;
 
-use crate::sim::params::SimParams;
-
-use super::options;
+use crate::options;
 
 pub fn me_simulation(
     import: &fmi::fmi3::import::Fmi3Import,
-    options: options::SimOptions,
+    options: options::CliOptions,
 ) -> anyhow::Result<RecordBatch> {
-    let _sim_params = SimParams::new(import, &options)?;
+    let _sim_params = options::SimOptions::new(import, &options)?;
 
     let mut _inst = import.instantiate_me("inst1", false, true)?;
 

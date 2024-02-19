@@ -2,19 +2,23 @@ use arrow::datatypes::{DataType, Field, Fields, Schema};
 use fmi::{fmi3::import::Fmi3Import, FmiImport};
 
 pub trait FmiSchemaBuilder {
+    type ValueReference;
+
     /// Build the schema for the inputs of the model.
     fn inputs_schema(&self) -> Schema;
     /// Build the schema for the outputs of the model.
     fn outputs_schema(&self) -> Schema;
-    /// Build a list of Schema column indices and value references for the continuous inputs.
-    fn continuous_inputs(&self, schema: &Schema) -> Vec<(usize, u32)>;
-    /// Build a list of Schema column indices and value references for the discrete inputs.
-    fn discrete_inputs(&self, schema: &Schema) -> Vec<(usize, u32)>;
-    /// Build a list of Schema column indices and value references for the outputs.
-    fn outputs(&self, schema: &Schema) -> Vec<(usize, u32)>;
+    /// Build a list of Schema column (index, ValueReference) for the continuous inputs.
+    fn continuous_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
+    /// Build a list of Schema column (index, ValueReference) for the discrete inputs.
+    fn discrete_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
+    /// Build a list of Schema column (index, ValueReference) for the outputs.
+    fn outputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
 }
 
 impl FmiSchemaBuilder for Fmi3Import {
+    type ValueReference = u32;
+
     fn inputs_schema(&self) -> Schema {
         let input_fields = self
             .model_description()
@@ -41,7 +45,7 @@ impl FmiSchemaBuilder for Fmi3Import {
         Schema::new(output_fields)
     }
 
-    fn continuous_inputs(&self, schema: &Schema) -> Vec<(usize, u32)> {
+    fn continuous_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)> {
         self.model_description()
             .model_variables
             .iter_abstract()
@@ -53,7 +57,7 @@ impl FmiSchemaBuilder for Fmi3Import {
             .collect::<Vec<_>>()
     }
 
-    fn discrete_inputs(&self, schema: &Schema) -> Vec<(usize, u32)> {
+    fn discrete_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)> {
         use fmi::fmi3::schema::{Causality, Variability};
         self.model_description()
             .model_variables
@@ -67,7 +71,7 @@ impl FmiSchemaBuilder for Fmi3Import {
             .collect::<Vec<_>>()
     }
 
-    fn outputs(&self, schema: &Schema) -> Vec<(usize, u32)> {
+    fn outputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)> {
         self.model_description()
             .model_variables
             .iter_abstract()
@@ -77,25 +81,4 @@ impl FmiSchemaBuilder for Fmi3Import {
             })
             .collect::<Vec<_>>()
     }
-}
-
-#[cfg(feature = "disable")]
-#[test_log::test]
-fn test_input_csv() {
-    let import = fmi::Import::new("../data/reference_fmus/3.0/Feedthrough.fmu")
-        .unwrap()
-        .as_fmi3()
-        .unwrap();
-
-    let schema = import.inputs_schema();
-
-    let data = crate::sim::read_csv("../data/feedthrough_in.csv").unwrap();
-
-    println!(
-        "{}",
-        arrow::util::pretty::pretty_format_batches(&[data]).unwrap()
-    );
-
-    // let time_array: Float64Array =
-    // arrow::array::downcast_array(data[0].column_by_name("time").unwrap());
 }

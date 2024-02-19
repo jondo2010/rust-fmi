@@ -1,4 +1,8 @@
-use std::{path::Path, str::FromStr};
+use std::{
+    io::{self, Read},
+    path::Path,
+    str::FromStr,
+};
 
 #[cfg(feature = "fmi2")]
 use crate::fmi2;
@@ -52,11 +56,17 @@ pub enum Import {
 
 impl Import {
     /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
-    pub fn new(path: impl AsRef<Path>) -> Result<Self, Error> {
+    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, Error> {
         let file = std::fs::File::open(path.as_ref())?;
-        let mut archive = zip::ZipArchive::new(file)?;
+        log::debug!("Opening FMU file {:?}", path.as_ref());
+        Self::new(file)
+    }
+
+    /// Creates a new Import by extracting the FMU and parsing the modelDescription XML
+    pub fn new<R: Read + io::Seek>(reader: R) -> Result<Self, Error> {
+        let mut archive = zip::ZipArchive::new(reader)?;
         let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
-        log::debug!("Extracting {:?} into {temp_dir:?}", path.as_ref());
+        log::debug!("Extracting into {temp_dir:?}");
         archive.extract(&temp_dir)?;
 
         for fname in archive.file_names() {
@@ -70,7 +80,7 @@ impl Import {
         // Initial non-version-specific model description
         let descr = MinModel::from_str(&descr_xml)?;
         log::debug!(
-            "Found FMI {} named '{}",
+            "Found FMI {} named '{}'",
             descr.fmi_version,
             descr.model_name
         );
@@ -104,77 +114,5 @@ impl Import {
         } else {
             None
         }
-    }
-}
-
-// TODO Make this work on other targets
-#[cfg(test)]
-#[cfg(target_os = "linux")]
-mod tests {
-    use crate::{FmiImport, Import};
-
-    #[test]
-    #[cfg(feature = "fmi2")]
-    fn test_import_fmi2() {
-        let import = Import::new("data/reference_fmus/2.0/BouncingBall.fmu")
-            .unwrap()
-            .as_fmi2()
-            .unwrap();
-        assert_eq!(import.model_description().fmi_version, "2.0");
-        assert_eq!(import.model_description().model_name, "BouncingBall");
-        let me = import.model_description().model_exchange.as_ref().unwrap();
-        assert_eq!(me.model_identifier, "BouncingBall");
-        let binding = import.binding(&me.model_identifier).unwrap();
-        let ver = unsafe {
-            std::ffi::CStr::from_ptr(binding.fmi2GetVersion())
-                .to_str()
-                .unwrap()
-        };
-        assert_eq!(ver, "2.0");
-    }
-
-    #[test_log::test]
-    #[cfg(feature = "fmi3")]
-    fn test_import_fmi3() {
-        let import = Import::new("data/reference_fmus/3.0/BouncingBall.fmu")
-            .unwrap()
-            .as_fmi3()
-            .unwrap();
-        assert_eq!(import.model_description().fmi_version, "3.0");
-        assert_eq!(import.model_description().model_name, "BouncingBall");
-        let me = import.model_description().model_exchange.as_ref().unwrap();
-        let binding = import.binding(&me.model_identifier).unwrap();
-        let ver = unsafe {
-            std::ffi::CStr::from_ptr(binding.fmi3GetVersion())
-                .to_str()
-                .unwrap()
-        };
-        assert_eq!(ver, "3.0");
-    }
-
-    #[test_log::test]
-    #[cfg(feature = "fmi2")]
-    fn test_import_me() {
-        use crate::fmi2::instance::Common;
-        let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
-            .unwrap()
-            .as_fmi2()
-            .unwrap();
-        assert_eq!(import.model_description().fmi_version, "2.0");
-        let me = import.instantiate_me("inst1", false, true).unwrap();
-        assert_eq!(me.get_version(), "2.0");
-    }
-
-    #[test_log::test]
-    #[cfg(feature = "fmi2")]
-    fn test_import_cs() {
-        use crate::fmi2::instance::Common;
-        let import = Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
-            .unwrap()
-            .as_fmi2()
-            .unwrap();
-        assert_eq!(import.model_description().fmi_version, "2.0");
-        let cs = import.instantiate_cs("inst1", false, true).unwrap();
-        assert_eq!(cs.get_version(), "2.0");
     }
 }

@@ -1,4 +1,6 @@
-//! Test `fmi-check` against the reference FMUs.
+//! Test `fmi-sim` against the reference FMUs.
+
+use std::{path::PathBuf, str::FromStr};
 
 use arrow::{
     array::AsArray,
@@ -8,19 +10,21 @@ use arrow::{
     },
 };
 use fmi_sim::{options::FmiCheckOptions, sim::options::SimOptions};
-use std::{path::PathBuf, str::FromStr};
 
 #[test_log::test]
 fn test_start_time() {
-    let model = PathBuf::from_str("../data/reference_fmus/3.0/BouncingBall.fmu")
-        .expect("Error building PathBuf");
-    let simulate = SimOptions {
+    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus
+        .extract_reference_fmu("BouncingBall", "3.0")
+        .unwrap();
+
+    let opts = SimOptions {
         start_time: Some(0.5),
         ..Default::default()
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Action::CS(simulate),
+        action: fmi_sim::options::Action::CS(opts),
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
@@ -36,15 +40,17 @@ fn test_start_time() {
 
 #[test_log::test]
 fn test_stop_time() {
-    let model = PathBuf::from_str("../data/reference_fmus/3.0/BouncingBall.fmu")
-        .expect("Error building PathBuf");
-    let simulate = SimOptions {
+    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus
+        .extract_reference_fmu("BouncingBall", "3.0")
+        .unwrap();
+    let opts = SimOptions {
         stop_time: Some(0.5),
         ..Default::default()
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Action::CS(simulate),
+        action: fmi_sim::options::Action::CS(opts),
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
@@ -57,8 +63,10 @@ fn test_stop_time() {
 
 #[test_log::test]
 fn test_start_value_types() {
-    let model = PathBuf::from_str("../data/reference_fmus/3.0/Feedthrough.fmu")
-        .expect("Error building PathBuf");
+    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus
+        .extract_reference_fmu("Feedthrough", "3.0")
+        .unwrap();
     let simulate = SimOptions {
         initial_values: [
             "Float64_continuous_input=-5e-1",
@@ -187,18 +195,19 @@ fn test_start_value_types() {
     );
 }
 
-#[cfg(feature = "disabled")]
 #[test_log::test]
 fn test_input_file() {
-    let model = PathBuf::from_str("../data/reference_fmus/3.0/Feedthrough.fmu")
-        .expect("Error building PathBuf");
+    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus
+        .extract_reference_fmu("Feedthrough", "3.0")
+        .unwrap();
     let simulate = SimOptions {
         input_file: Some(PathBuf::from_str("tests/data/feedthrough_in.csv").unwrap()),
         stop_time: Some(5.0),
         ..Default::default()
     };
     let options = FmiCheckOptions {
-        model,
+        model: model,
         action: fmi_sim::options::Action::CS(simulate),
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");

@@ -251,7 +251,6 @@ pub struct LogCategories {
 pub struct Category {
     #[yaserde(attribute)]
     pub name: String,
-
     #[yaserde(attribute)]
     pub description: String,
 }
@@ -260,10 +259,8 @@ pub struct Category {
 pub struct DefaultExperiment {
     #[yaserde(attribute, rename = "startTime")]
     pub start_time: f64,
-
     #[yaserde(attribute, default = "default_stop_time", rename = "stopTime")]
     pub stop_time: f64,
-
     #[yaserde(attribute, default = "default_tolerance", rename = "tolerance")]
     pub tolerance: f64,
 }

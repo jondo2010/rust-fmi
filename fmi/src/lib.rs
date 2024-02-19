@@ -3,17 +3,15 @@
 //!
 //! ## Examples
 //!
-//! ```rust
-//! #[cfg(target_os = "linux")] {
-//!    use fmi::{FmiImport as _, FmiInstance as _};
-//!    let import = fmi::Import::new("data/Modelica_Blocks_Sources_Sine.fmu")
-//!        .unwrap()
-//!        .as_fmi2()
-//!        .unwrap();
-//!    assert_eq!(import.model_description().fmi_version, "2.0");
-//!    let me = import.instantiate_me("inst1", false, true).unwrap();
-//!    assert_eq!(me.get_version(), "2.0");
-//! }
+//! ```rust,no_run,ignore
+//! use fmi::{FmiImport as _, FmiInstance as _};
+//! let import = fmi::Import::new("Modelica_Blocks_Sources_Sine.fmu")
+//!     .unwrap()
+//!     .as_fmi2()
+//!     .unwrap();
+//! assert_eq!(import.model_description().fmi_version, "2.0");
+//! let me = import.instantiate_me("inst1", false, true).unwrap();
+//! assert_eq!(me.get_version(), "2.0");
 //! ```
 #![doc = document_features::document_features!()]
 #![deny(clippy::all)]

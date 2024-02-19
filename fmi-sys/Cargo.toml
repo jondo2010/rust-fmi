@@ -3,12 +3,15 @@ name = "fmi-sys"
 version = "0.1.0"
 description = "Raw bindgen bindings to FMI 2.0 and 3.0"
 readme = "README.md"
-license.workspace = true
-edition.workspace = true
 authors.workspace = true
-repository.workspace = true
-keywords.workspace = true
 categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords.workspace = true
+license.workspace = true
+publish = true
+repository.workspace = true
 
 [features]
 default = ["fmi2", "fmi3"]

@@ -24,6 +24,11 @@ impl<'a> Instance<'a, ME> {
             .as_ref()
             .ok_or(Error::UnsupportedFmuType("ModelExchange".to_owned()))?;
 
+        log::debug!(
+            "Instantiating ME: {} '{name}'",
+            model_exchange.model_identifier
+        );
+
         let binding = import.binding(&model_exchange.model_identifier)?;
 
         let instance_name = CString::new(instance_name).expect("Invalid instance name");

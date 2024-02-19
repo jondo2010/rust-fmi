@@ -69,6 +69,11 @@ impl<'a> Instance<'a, CS> {
             .as_ref()
             .ok_or(Error::UnsupportedFmuType("CoSimulation".to_owned()))?;
 
+        log::debug!(
+            "Instantiating CS: {} '{name}'",
+            co_simulation.model_identifier
+        );
+
         let binding = import.binding(&co_simulation.model_identifier)?;
 
         let instance_name = CString::new(instance_name).expect("Invalid instance name");
