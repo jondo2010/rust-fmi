@@ -9,12 +9,9 @@ use arrow::{
     datatypes::{DataType, Schema},
     record_batch::RecordBatch,
 };
-use fmi::fmi3::{
-    import::Fmi3Import,
-    instance::{Common, Instance},
-};
+use fmi::fmi3::{import::Fmi3Import, instance::Common};
 
-use super::schema_builder::FmiSchemaBuilder;
+use super::{params::SimParams, traits::FmiSchemaBuilder};
 
 macro_rules! impl_recorder {
     ($getter:ident, $builder_type:ident, $inst:ident, $vr:ident, $self:ident, $column_index:ident) => {{
@@ -35,8 +32,12 @@ pub struct OutputState {
 }
 
 impl OutputState {
-    pub fn new(import: &Fmi3Import, num_points: usize) -> Self {
+    pub fn new(import: &Fmi3Import, sim_params: &SimParams) -> Self {
         let output_schema = import.outputs_schema();
+
+        let num_points = ((sim_params.stop_time - sim_params.start_time)
+            / sim_params.output_interval)
+            .ceil() as usize;
 
         let recorders = output_schema
             .fields()
@@ -53,9 +54,9 @@ impl OutputState {
         }
     }
 
-    pub fn record_variables<Tag>(
+    pub fn record_variables<Inst: Common>(
         &mut self,
-        inst: &mut Instance<'_, Tag>,
+        inst: &mut Inst,
         time: f64,
     ) -> anyhow::Result<()> {
         log::trace!("Recording variables at time {}", time);

@@ -1,24 +1,9 @@
 use arrow::datatypes::{DataType, Field, Fields, Schema};
-use fmi::{fmi3::import::Fmi3Import, FmiImport};
+use fmi::{fmi3::import::Fmi3Import, traits::FmiImport};
 
-pub trait FmiSchemaBuilder {
-    type ValueReference;
-
-    /// Build the schema for the inputs of the model.
-    fn inputs_schema(&self) -> Schema;
-    /// Build the schema for the outputs of the model.
-    fn outputs_schema(&self) -> Schema;
-    /// Build a list of Schema column (index, ValueReference) for the continuous inputs.
-    fn continuous_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
-    /// Build a list of Schema column (index, ValueReference) for the discrete inputs.
-    fn discrete_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
-    /// Build a list of Schema column (index, ValueReference) for the outputs.
-    fn outputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
-}
+use super::traits::FmiSchemaBuilder;
 
 impl FmiSchemaBuilder for Fmi3Import {
-    type ValueReference = u32;
-
     fn inputs_schema(&self) -> Schema {
         let input_fields = self
             .model_description()

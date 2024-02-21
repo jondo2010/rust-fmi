@@ -10,15 +10,14 @@ use arrow::{
 };
 use comfy_table::Table;
 use fmi::{
-    fmi3::{import::Fmi3Import, instance::Instance},
-    FmiImport as _,
+    fmi3::{import::Fmi3Import, instance::Common},
+    traits::{FmiImport, FmiInstance},
 };
 use itertools::Itertools;
 
 use super::{
     interpolation::{self, Interpolate, PreLookup},
-    schema_builder::FmiSchemaBuilder,
-    InstanceSetValues,
+    traits::FmiSchemaBuilder,
 };
 
 /// Format the projected fields in a human-readable format
@@ -149,17 +148,20 @@ impl StartValues {
     }
 }
 
-pub struct InputState {
+pub struct InputState<Inst: FmiInstance> {
     input_data: Option<RecordBatch>,
     input_schema: SchemaRef,
     // Map schema column index to ValueReference
-    continuous_inputs: Vec<(usize, u32)>,
+    continuous_inputs: Vec<(usize, Inst::ValueReference)>,
     // Map schema column index to ValueReference
-    discrete_inputs: Vec<(usize, u32)>,
+    discrete_inputs: Vec<(usize, Inst::ValueReference)>,
 }
 
-impl InputState {
-    pub fn new(import: &Fmi3Import, input_data: Option<RecordBatch>) -> anyhow::Result<Self> {
+impl<Inst: FmiInstance + Common> InputState<Inst>
+where
+    Inst::Import: FmiSchemaBuilder,
+{
+    pub fn new(import: &Inst::Import, input_data: Option<RecordBatch>) -> anyhow::Result<Self> {
         let model_input_schema = Arc::new(import.inputs_schema());
         let continuous_inputs = import.continuous_inputs(&model_input_schema);
         let discrete_inputs = import.discrete_inputs(&model_input_schema);
@@ -185,10 +187,10 @@ impl InputState {
         })
     }
 
-    pub fn apply_input<Tag, I: Interpolate>(
+    pub fn apply_input<I: Interpolate>(
         &self,
         time: f64,
-        instance: &mut Instance<'_, Tag>,
+        instance: &mut Inst,
         discrete: bool,
         continuous: bool,
         after_event: bool,
@@ -246,9 +248,9 @@ impl InputState {
     }
 
     /// Apply a list of (ValueReference, Array) tuples to the instance.
-    pub fn apply_start_values<Tag>(
+    pub fn apply_start_values(
         &self,
-        instance: &mut Instance<'_, Tag>,
+        instance: &mut Inst,
         start_values: &StartValues,
     ) -> anyhow::Result<()> {
         if !start_values.structural_parameters.is_empty() {
