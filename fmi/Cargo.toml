@@ -39,9 +39,3 @@ zip = { workspace = true }
 
 [build-dependencies]
 built = "0.7"
-
-[dev-dependencies]
-assert_approx_eq = "1.1"
-env_logger = "0.10"
-test-log = { workspace = true }
-test-data = { workspace = true }

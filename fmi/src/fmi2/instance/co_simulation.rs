@@ -2,7 +2,7 @@ use std::ffi::{CStr, CString};
 
 use crate::{
     fmi2::{import, CallbackFunctions, Fmi2Status},
-    import::FmiImport,
+    traits::FmiImport,
     Error,
 };
 
@@ -11,7 +11,7 @@ use super::{binding, traits, Instance, CS};
 impl<'a> Instance<'a, CS> {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &'a import::Fmi2,
+        import: &'a import::Fmi2Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,

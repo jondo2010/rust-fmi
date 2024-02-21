@@ -3,18 +3,19 @@
 #[cfg(target_os = "linux")]
 use fmi::{
     fmi2::instance::{CoSimulation as _, Common as _, Instance, CS, ME},
-    FmiImport as _,
+    traits::FmiImport as _,
 };
+#[cfg(target_os = "linux")]
+use fmi_test_data::ReferenceFmus;
+
+extern crate fmi;
+extern crate fmi_test_data;
 
 #[cfg(target_os = "linux")]
 #[test]
 fn test_instance_me() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus
-        .get_reference_fmu("Dahlquist", "2.0")
-        .unwrap()
-        .as_fmi2()
-        .unwrap();
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
+    let import = ref_fmus.get_reference_fmu_fmi2("Dahlquist").unwrap();
 
     let mut instance1 = Instance::<ME>::new(&import, "inst1", false, true).unwrap();
     assert_eq!(instance1.get_version(), "2.0");
@@ -52,12 +53,8 @@ fn test_instance_me() {
 #[cfg(target_os = "linux")]
 #[test]
 fn test_instance_cs() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus
-        .get_reference_fmu("Dahlquist", "2.0")
-        .unwrap()
-        .as_fmi2()
-        .unwrap();
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
+    let import = ref_fmus.get_reference_fmu_fmi2("Dahlquist").unwrap();
 
     let mut instance1 = Instance::<CS>::new(&import, "inst1", false, true).unwrap();
     assert_eq!(instance1.get_version(), "2.0");

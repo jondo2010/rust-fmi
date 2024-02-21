@@ -20,10 +20,13 @@
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
-mod import;
+pub mod import;
+pub mod traits;
 
-// Re-exports
-pub use import::{FmiImport, Import};
+pub mod built_info {
+    // The file has been placed there by the build script.
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -44,6 +47,9 @@ pub enum Error {
 
     #[error("FMI version of loaded API ({found}) doesn't match expected ({expected})")]
     FmiVersionMismatch { found: String, expected: String },
+
+    #[error("FMU archive structure is not as expected: {0}")]
+    ArchiveStructure(String),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -70,23 +76,4 @@ pub enum Error {
     #[cfg(feature = "fmi3")]
     #[error(transparent)]
     Fmi3Error(#[from] fmi3::Fmi3Error),
-}
-
-pub mod built_info {
-    // The file has been placed there by the build script.
-    include!(concat!(env!("OUT_DIR"), "/built.rs"));
-}
-
-/// Generic FMI instance trait
-pub trait FmiInstance {
-    type ModelDescription;
-
-    /// Get the name of the FMU
-    fn name(&self) -> &str;
-
-    /// Get the version of the FMU
-    fn get_version(&self) -> &str;
-
-    /// Get the model description of the FMU
-    fn model_description(&self) -> &Self::ModelDescription;
 }

@@ -1,4 +1,8 @@
-use fmi::{FmiImport as _, FmiInstance as _};
+use fmi::{traits::FmiImport, traits::FmiInstance as _};
+use fmi_test_data::ReferenceFmus;
+
+extern crate fmi;
+extern crate fmi_test_data;
 
 const FMU2_NAMES: [&str; 6] = [
     "BouncingBall",
@@ -22,13 +26,11 @@ const FMU3_NAMES: [&str; 8] = [
 
 #[test]
 fn test_fmi2_imports() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
 
     for &name in FMU2_NAMES.iter() {
         let import = ref_fmus
-            .get_reference_fmu(name, "2.0")
-            .unwrap()
-            .as_fmi2()
+            .get_reference_fmu_fmi2(name)
             .expect("Expected FMI2 import");
         assert_eq!(import.model_description().fmi_version, "2.0");
 
@@ -49,13 +51,11 @@ fn test_fmi2_imports() {
 
 #[test_log::test]
 fn test_fmi3_imports() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
 
     for &name in FMU3_NAMES.iter() {
         let import = ref_fmus
-            .get_reference_fmu(name, "3.0")
-            .unwrap()
-            .as_fmi3()
+            .get_reference_fmu_fmi3(name)
             .expect("Expected FMI3 import");
         assert_eq!(import.model_description().fmi_version, "3.0");
 

@@ -2,7 +2,7 @@ use std::ffi::CString;
 
 use crate::{
     fmi3::{binding, import, logger, Fmi3Error, Fmi3Status},
-    import::FmiImport as _,
+    traits::FmiImport,
     Error,
 };
 

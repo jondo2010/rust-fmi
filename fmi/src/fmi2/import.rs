@@ -4,21 +4,22 @@ use super::{
     binding,
     instance::{Instance, CS, ME},
 };
-use crate::{import::FmiImport, Error};
+use crate::{traits::FmiImport, Error};
 
 use fmi_schema::fmi2 as schema;
 
 #[derive(Debug)]
-pub struct Fmi2 {
+pub struct Fmi2Import {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
     model_description: schema::FmiModelDescription,
 }
 
-impl FmiImport for Fmi2 {
+impl FmiImport for Fmi2Import {
     type ModelDescription = schema::FmiModelDescription;
     type Binding = binding::Fmi2Binding;
+    type ValueReference = binding::fmi2ValueReference;
 
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error> {
         let schema = schema::FmiModelDescription::from_str(schema_xml)?;
@@ -70,7 +71,7 @@ impl FmiImport for Fmi2 {
     }
 }
 
-impl Fmi2 {
+impl Fmi2Import {
     /// Create a new instance of the FMU for Model-Exchange
     pub fn instantiate_me(
         &self,

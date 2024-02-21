@@ -2,7 +2,7 @@ use std::mem::MaybeUninit;
 
 use crate::fmi3::{binding, Fmi3Status};
 
-use super::{traits, Instance};
+use super::{Common, Instance};
 
 macro_rules! impl_getter_setter {
     ($ty:ty, $get:ident, $set:ident, $fmi_get:ident, $fmi_set:ident) => {
@@ -34,7 +34,7 @@ macro_rules! impl_getter_setter {
     };
 }
 
-impl<'a, Tag> traits::Common for Instance<'a, Tag> {
+impl<'a, Tag> Common for Instance<'a, Tag> {
     fn get_version(&self) -> &str {
         unsafe { std::ffi::CStr::from_ptr(self.binding.fmi3GetVersion()) }
             .to_str()

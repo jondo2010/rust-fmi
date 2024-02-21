@@ -1,11 +1,11 @@
 //! Traits for the different instance types.
 
-use crate::fmi3::Fmi3Error;
+use crate::{fmi3::Fmi3Error, traits::FmiInstance};
 
 use super::{binding, Fmi3Status};
 
 /// Interface common to all instance types
-pub trait Common {
+pub trait Common: FmiInstance {
     /// The FMI-standard version string
     fn get_version(&self) -> &str;
 
@@ -66,62 +66,39 @@ pub trait Common {
     fn reset(&mut self) -> Fmi3Status;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
-    fn get_boolean(
-        &mut self,
-        vrs: &[binding::fmi3ValueReference],
-        values: &mut [bool],
-    ) -> Fmi3Status;
-    fn get_float32(
-        &mut self,
-        vrs: &[binding::fmi3ValueReference],
-        values: &mut [f32],
-    ) -> Fmi3Status;
-    fn get_float64(
-        &mut self,
-        vrs: &[binding::fmi3ValueReference],
-        values: &mut [f64],
-    ) -> Fmi3Status;
-    fn get_int8(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i8]) -> Fmi3Status;
-    fn get_int16(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i16]) -> Fmi3Status;
-    fn get_int32(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i32]) -> Fmi3Status;
-    fn get_int64(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [i64]) -> Fmi3Status;
-    fn get_uint8(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u8]) -> Fmi3Status;
-    fn get_uint16(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u16])
-        -> Fmi3Status;
-    fn get_uint32(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u32])
-        -> Fmi3Status;
-    fn get_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [u64])
-        -> Fmi3Status;
-    fn get_string(
-        &mut self,
-        vrs: &[binding::fmi3ValueReference],
-        values: &mut [String],
-    ) -> Fmi3Status;
-    fn get_binary(
-        &mut self,
-        vrs: &[binding::fmi3ValueReference],
-        values: &mut [Vec<u8>],
-    ) -> Fmi3Status;
+    fn get_boolean(&mut self, vrs: &[Self::ValueReference], values: &mut [bool]) -> Fmi3Status;
+    fn get_float32(&mut self, vrs: &[Self::ValueReference], values: &mut [f32]) -> Fmi3Status;
+    fn get_float64(&mut self, vrs: &[Self::ValueReference], values: &mut [f64]) -> Fmi3Status;
+    fn get_int8(&mut self, vrs: &[Self::ValueReference], values: &mut [i8]) -> Fmi3Status;
+    fn get_int16(&mut self, vrs: &[Self::ValueReference], values: &mut [i16]) -> Fmi3Status;
+    fn get_int32(&mut self, vrs: &[Self::ValueReference], values: &mut [i32]) -> Fmi3Status;
+    fn get_int64(&mut self, vrs: &[Self::ValueReference], values: &mut [i64]) -> Fmi3Status;
+    fn get_uint8(&mut self, vrs: &[Self::ValueReference], values: &mut [u8]) -> Fmi3Status;
+    fn get_uint16(&mut self, vrs: &[Self::ValueReference], values: &mut [u16]) -> Fmi3Status;
+    fn get_uint32(&mut self, vrs: &[Self::ValueReference], values: &mut [u32]) -> Fmi3Status;
+    fn get_uint64(&mut self, vrs: &[Self::ValueReference], values: &mut [u64]) -> Fmi3Status;
+    fn get_string(&mut self, vrs: &[Self::ValueReference], values: &mut [String]) -> Fmi3Status;
+    fn get_binary(&mut self, vrs: &[Self::ValueReference], values: &mut [Vec<u8>]) -> Fmi3Status;
 
-    fn set_boolean(&mut self, vrs: &[binding::fmi3ValueReference], values: &[bool]) -> Fmi3Status;
-    fn set_float32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f32]) -> Fmi3Status;
-    fn set_float64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[f64]) -> Fmi3Status;
-    fn set_int8(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i8]) -> Fmi3Status;
-    fn set_int16(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i16]) -> Fmi3Status;
-    fn set_int32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i32]) -> Fmi3Status;
-    fn set_int64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[i64]) -> Fmi3Status;
-    fn set_uint8(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u8]) -> Fmi3Status;
-    fn set_uint16(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u16]) -> Fmi3Status;
-    fn set_uint32(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u32]) -> Fmi3Status;
-    fn set_uint64(&mut self, vrs: &[binding::fmi3ValueReference], values: &[u64]) -> Fmi3Status;
+    fn set_boolean(&mut self, vrs: &[Self::ValueReference], values: &[bool]) -> Fmi3Status;
+    fn set_float32(&mut self, vrs: &[Self::ValueReference], values: &[f32]) -> Fmi3Status;
+    fn set_float64(&mut self, vrs: &[Self::ValueReference], values: &[f64]) -> Fmi3Status;
+    fn set_int8(&mut self, vrs: &[Self::ValueReference], values: &[i8]) -> Fmi3Status;
+    fn set_int16(&mut self, vrs: &[Self::ValueReference], values: &[i16]) -> Fmi3Status;
+    fn set_int32(&mut self, vrs: &[Self::ValueReference], values: &[i32]) -> Fmi3Status;
+    fn set_int64(&mut self, vrs: &[Self::ValueReference], values: &[i64]) -> Fmi3Status;
+    fn set_uint8(&mut self, vrs: &[Self::ValueReference], values: &[u8]) -> Fmi3Status;
+    fn set_uint16(&mut self, vrs: &[Self::ValueReference], values: &[u16]) -> Fmi3Status;
+    fn set_uint32(&mut self, vrs: &[Self::ValueReference], values: &[u32]) -> Fmi3Status;
+    fn set_uint64(&mut self, vrs: &[Self::ValueReference], values: &[u64]) -> Fmi3Status;
     fn set_string<'b>(
         &mut self,
-        vrs: &[binding::fmi3ValueReference],
+        vrs: &[Self::ValueReference],
         values: impl Iterator<Item = &'b str>,
     ) -> Fmi3Status;
     fn set_binary<'b>(
         &mut self,
-        vrs: &[binding::fmi3ValueReference],
+        vrs: &[Self::ValueReference],
         values: impl Iterator<Item = &'b [u8]>,
     ) -> Fmi3Status;
 

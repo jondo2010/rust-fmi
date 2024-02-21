@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use tempfile::TempDir;
 
-use crate::{import::FmiImport, Error};
+use crate::{traits::FmiImport, Error};
 
 use super::{
     binding,
@@ -22,6 +22,7 @@ pub struct Fmi3Import {
 impl FmiImport for Fmi3Import {
     type ModelDescription = schema::FmiModelDescription;
     type Binding = binding::Fmi3Binding;
+    type ValueReference = binding::fmi3ValueReference;
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
     fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {

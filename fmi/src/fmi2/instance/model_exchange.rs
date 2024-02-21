@@ -3,14 +3,14 @@ use std::ffi::CString;
 use super::{binding, traits::ModelExchange, CallbackFunctions, Fmi2Status, Instance, ME};
 use crate::{
     fmi2::{import, EventInfo},
-    import::FmiImport,
+    traits::FmiImport,
     Error,
 };
 
 impl<'a> Instance<'a, ME> {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &'a import::Fmi2,
+        import: &'a import::Fmi2Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
