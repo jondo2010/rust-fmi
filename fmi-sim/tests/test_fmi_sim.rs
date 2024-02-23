@@ -11,12 +11,10 @@ use arrow::{
 };
 use fmi_sim::{options::FmiCheckOptions, sim::options::SimOptions};
 
-#[test_log::test]
+#[test]
 fn test_start_time() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
-    let model = ref_fmus
-        .extract_reference_fmu("BouncingBall", "3.0")
-        .unwrap();
+    let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap();
 
     let opts = SimOptions {
         start_time: Some(0.5),
@@ -40,10 +38,8 @@ fn test_start_time() {
 
 #[test_log::test]
 fn test_stop_time() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
-    let model = ref_fmus
-        .extract_reference_fmu("BouncingBall", "3.0")
-        .unwrap();
+    let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap();
     let opts = SimOptions {
         stop_time: Some(0.5),
         ..Default::default()
@@ -63,10 +59,8 @@ fn test_stop_time() {
 
 #[test_log::test]
 fn test_start_value_types() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
-    let model = ref_fmus
-        .extract_reference_fmu("Feedthrough", "3.0")
-        .unwrap();
+    let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus.extract_reference_fmu("Feedthrough", 3).unwrap();
     let simulate = SimOptions {
         initial_values: [
             "Float64_continuous_input=-5e-1",
@@ -197,10 +191,8 @@ fn test_start_value_types() {
 
 #[test_log::test]
 fn test_input_file() {
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
-    let model = ref_fmus
-        .extract_reference_fmu("Feedthrough", "3.0")
-        .unwrap();
+    let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
+    let model = ref_fmus.extract_reference_fmu("Feedthrough", 3).unwrap();
     let simulate = SimOptions {
         input_file: Some(PathBuf::from_str("tests/data/feedthrough_in.csv").unwrap()),
         stop_time: Some(5.0),

@@ -1,5 +1,5 @@
 [workspace]
-members = ["fmi", "fmi-schema", "fmi-sim", "fmi-sys", "test-data"]
+members = ["fmi", "fmi-schema", "fmi-sim", "fmi-sys", "fmi-test-data"]
 resolver = "2"
 
 [workspace.package]
@@ -26,11 +26,23 @@ fmi = { path = "fmi", version = "0.3.0" }
 fmi-schema = { path = "fmi-schema", version = "0.1.0" }
 fmi-sim = { path = "fmi-sim", version = "0.1.0" }
 fmi-sys = { path = "fmi-sys", version = "0.1.0" }
+fmi-test-data = { path = "fmi-test-data", version = "0.1.0" }
 itertools = "0.12"
 libloading = "0.8"
-test-data = { path = "test-data", version = "0.1.0" }
 test-log = { version = "0.2", features = ["trace"] }
 zip = "0.6"
 
 [patch.crates-io]
 arrow = { git = "https://github.com/jondo2010/arrow-rs.git", branch = "fine_grained_integer_inference" }
+
+[package]
+name = "fmi-workspace"
+version = "0.0.0"
+publish = false
+
+[dev-dependencies]
+#assert_approx_eq = "1.1"
+#env_logger = "0.10"
+fmi = { workspace = true }
+test-log = { workspace = true }
+fmi-test-data = { workspace = true }

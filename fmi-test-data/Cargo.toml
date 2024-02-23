@@ -1,5 +1,5 @@
 [package]
-name = "test-data"
+name = "fmi-test-data"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
@@ -12,5 +12,5 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 fetch-data = "0.1"
-fmi = { workspace = true }
+fmi = { workspace = true, features = ["fmi2", "fmi3"] }
 zip = { workspace = true }

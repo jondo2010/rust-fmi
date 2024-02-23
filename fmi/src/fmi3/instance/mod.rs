@@ -1,8 +1,8 @@
 //! FMI 3.0 instance interface
 
-use crate::FmiInstance;
+use crate::traits::{FmiImport, FmiInstance};
 
-use super::{binding, schema, Fmi3Status};
+use super::{binding, import::Fmi3Import, schema, Fmi3Status};
 
 mod co_simulation;
 mod scheduled_execution {}
@@ -41,7 +41,11 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
 }
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
-    type ModelDescription = &'a schema::FmiModelDescription;
+    type ModelDescription = schema::FmiModelDescription;
+
+    type Import = Fmi3Import;
+
+    type ValueReference = <Fmi3Import as FmiImport>::ValueReference;
 
     fn name(&self) -> &str {
         &self.name
@@ -52,7 +56,7 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     }
 
     fn model_description(&self) -> &Self::ModelDescription {
-        &self.model_description
+        self.model_description
     }
 }
 

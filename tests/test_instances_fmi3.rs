@@ -1,16 +1,16 @@
-#[test_log::test]
-fn test_instance() {
-    use fmi::{
-        fmi3::instance::{Common as _, ModelExchange as _},
-        FmiImport as _,
-    };
+use fmi::{
+    fmi3::instance::{Common as _, ModelExchange as _},
+    traits::FmiImport as _,
+};
+use fmi_test_data::ReferenceFmus;
 
-    let mut ref_fmus = test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus
-        .get_reference_fmu("Dahlquist", "3.0")
-        .unwrap()
-        .as_fmi3()
-        .unwrap();
+extern crate fmi;
+extern crate fmi_test_data;
+
+#[test]
+fn test_instance() {
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
+    let import = ref_fmus.get_reference_fmu_fmi3("Dahlquist").unwrap();
 
     let mut inst1 = import.instantiate_me("inst1", true, true).unwrap();
     assert_eq!(inst1.get_version(), "3.0");

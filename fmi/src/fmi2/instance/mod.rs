@@ -1,8 +1,11 @@
 //! FMI 2.0 instance interface
 
-use crate::{Error, FmiInstance};
+use crate::{
+    traits::{FmiImport, FmiInstance},
+    Error,
+};
 
-use super::{binding, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
+use super::{binding, import::Fmi2Import, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
 
 mod co_simulation;
 mod common;
@@ -39,7 +42,11 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
 }
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
-    type ModelDescription = &'a schema::FmiModelDescription;
+    type ModelDescription = schema::FmiModelDescription;
+
+    type Import = Fmi2Import;
+
+    type ValueReference = <Fmi2Import as FmiImport>::ValueReference;
 
     fn name(&self) -> &str {
         &self.name
@@ -50,7 +57,7 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     }
 
     fn model_description(&self) -> &Self::ModelDescription {
-        &self.model_description
+        self.model_description
     }
 }
 

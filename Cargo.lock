@@ -311,12 +311,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assert_approx_eq"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c07dab4369547dbe5114677b33fbbf724971019f3818172d59a97a61c774ffd"
-
-[[package]]
 name = "assert_cmd"
 version = "2.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -834,10 +828,8 @@ name = "fmi"
 version = "0.3.0"
 dependencies = [
  "arrow",
- "assert_approx_eq",
  "built",
  "document-features",
- "env_logger 0.10.2",
  "fmi-schema",
  "fmi-sys",
  "itertools",
@@ -845,8 +837,6 @@ dependencies = [
  "libloading",
  "log",
  "tempfile",
- "test-data",
- "test-log",
  "thiserror",
  "url",
  "zip",
@@ -878,12 +868,12 @@ dependencies = [
  "env_logger 0.10.2",
  "fmi",
  "fmi-schema",
+ "fmi-test-data",
  "itertools",
  "log",
  "num-traits",
  "sensible-env-logger",
  "structopt",
- "test-data",
  "test-log",
 ]
 
@@ -896,6 +886,25 @@ dependencies = [
  "document-features",
  "libloading",
  "log",
+]
+
+[[package]]
+name = "fmi-test-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fetch-data",
+ "fmi",
+ "zip",
+]
+
+[[package]]
+name = "fmi-workspace"
+version = "0.0.0"
+dependencies = [
+ "fmi",
+ "fmi-test-data",
+ "test-log",
 ]
 
 [[package]]
@@ -1994,16 +2003,6 @@ name = "termtree"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
-
-[[package]]
-name = "test-data"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "fetch-data",
- "fmi",
- "zip",
-]
 
 [[package]]
 name = "test-log"

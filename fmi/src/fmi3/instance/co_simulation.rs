@@ -2,11 +2,11 @@ use std::ffi::CString;
 
 use crate::{
     fmi3::{binding, import, logger, Fmi3Status},
-    import::FmiImport as _,
+    traits::FmiImport,
     Error,
 };
 
-use super::{traits, Instance, CS};
+use super::{CoSimulation, Instance, CS};
 
 impl<'a> Instance<'a, CS> {
     /// Returns a new CoSimulation instance.
@@ -118,7 +118,7 @@ impl<'a> Instance<'a, CS> {
     }
 }
 
-impl<'a> traits::CoSimulation for Instance<'a, CS> {
+impl<'a> CoSimulation for Instance<'a, CS> {
     fn enter_step_mode(&mut self) -> Fmi3Status {
         unsafe { self.binding.fmi3EnterStepMode(self.instance) }.into()
     }
