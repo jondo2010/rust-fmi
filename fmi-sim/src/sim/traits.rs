@@ -1,12 +1,14 @@
-use anyhow::Context;
-use arrow::{array::ArrayRef, datatypes::Schema};
+use arrow::{
+    array::ArrayRef,
+    datatypes::{Field, Schema},
+    record_batch::RecordBatch,
+};
 use fmi::traits::{FmiImport, FmiInstance};
 
 use super::{
     interpolation::{Interpolate, PreLookup},
-    options::SimOptions,
+    io::StartValues,
     params::SimParams,
-    InputState, OutputState,
 };
 
 pub trait FmiSchemaBuilder: FmiImport {
@@ -14,12 +16,22 @@ pub trait FmiSchemaBuilder: FmiImport {
     fn inputs_schema(&self) -> Schema;
     /// Build the schema for the outputs of the model.
     fn outputs_schema(&self) -> Schema;
-    /// Build a list of Schema column (index, ValueReference) for the continuous inputs.
-    fn continuous_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
+    /// Build a list of (Field, ValueReference) for the continuous inputs.
+    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
     /// Build a list of Schema column (index, ValueReference) for the discrete inputs.
-    fn discrete_inputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
+    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
     /// Build a list of Schema column (index, ValueReference) for the outputs.
-    fn outputs(&self, schema: &Schema) -> Vec<(usize, Self::ValueReference)>;
+    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
+
+    /// Parse a list of "var=value" strings.
+    ///
+    /// # Returns
+    /// A tuple of two lists of (ValueReference, Array) tuples. The first list contains any variable with
+    /// `Causality = StructuralParameter` and the second list contains regular parameters.
+    fn parse_start_values(
+        &self,
+        start_values: &[String],
+    ) -> anyhow::Result<StartValues<Self::ValueReference>>;
 }
 
 pub trait InstanceSetValues: FmiInstance {
@@ -36,16 +48,30 @@ pub trait InstanceSetValues: FmiInstance {
     ) -> anyhow::Result<()>;
 }
 
-pub trait InputState2 {
-    type Instance: InstanceSetValues;
+pub trait SimInput: Sized {
+    type Inst: FmiInstance;
+
+    fn new(
+        import: &<Self::Inst as FmiInstance>::Import,
+        input_data: Option<RecordBatch>,
+    ) -> anyhow::Result<Self>;
+
     fn apply_input<I: Interpolate>(
-        &self,
+        &mut self,
         time: f64,
-        instance: &mut Self::Instance,
+        inst: &mut Self::Inst,
         discrete: bool,
         continuous: bool,
         after_event: bool,
     ) -> anyhow::Result<()>;
+
+    fn next_input_event(&self, time: f64) -> f64;
+}
+
+pub trait SimOutput {
+    type Inst: FmiInstance;
+    fn new(import: &<Self::Inst as FmiInstance>::Import, sim_params: &SimParams) -> Self;
+    fn record_outputs(&mut self, time: f64, inst: &mut Self::Inst) -> anyhow::Result<()>;
 }
 
 pub trait SimTrait<'a>: Sized {
@@ -59,23 +85,6 @@ pub trait SimTrait<'a>: Sized {
         input_state: Self::InputState,
         output_state: Self::OutputState,
     ) -> anyhow::Result<Self>;
-
-    fn new_from_options(import: &'a Self::Import, options: &SimOptions) -> anyhow::Result<Self> {
-        let sim_params = SimParams::new_from_options(options, import.model_description())?;
-
-        // Read optional input data from file
-        let input_data = options
-            .input_file
-            .as_ref()
-            .map(|path| super::util::read_csv(path))
-            .transpose()
-            .context("Reading input file")?;
-
-        let input_state = InputState::new(import, input_data)?;
-        let output_state = OutputState::new(import, &sim_params);
-
-        Self::new(import, sim_params, input_state, output_state)
-    }
 
     fn main_loop(&mut self) -> anyhow::Result<()>;
 }

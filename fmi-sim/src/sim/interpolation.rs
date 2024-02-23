@@ -85,6 +85,7 @@ impl PreLookup {
         A::interpolate(self, array)
     }
 
+    #[allow(dead_code)]
     pub fn next_index(&self) -> usize {
         if self.1 < 1.0 {
             self.0

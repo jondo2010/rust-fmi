@@ -38,9 +38,12 @@ pub trait FmiImport: Sized {
 pub trait FmiInstance {
     type ModelDescription: DefaultExperiment;
 
-    type Import: FmiImport<ModelDescription = Self::ModelDescription>;
+    type Import: FmiImport<
+        ModelDescription = Self::ModelDescription,
+        ValueReference = Self::ValueReference,
+    >;
 
-    type ValueReference;
+    type ValueReference: Copy + From<u32> + Into<u32>;
 
     /// Get the name of the FMU
     fn name(&self) -> &str;

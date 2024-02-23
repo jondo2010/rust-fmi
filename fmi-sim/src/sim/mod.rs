@@ -1,16 +1,30 @@
-#[cfg(feature = "cs")]
-pub mod fmi3_cs;
-#[cfg(feature = "me")]
-pub mod fmi3_me;
-mod input_state;
+#[cfg(feature = "fmi2")]
+pub mod fmi2;
+#[cfg(feature = "fmi3")]
+pub mod fmi3;
 mod interpolation;
+mod io;
 pub mod options;
-mod output_state;
 pub mod params;
 mod schema_builder;
 pub mod set_values;
 mod traits;
 pub mod util;
 
-pub use input_state::InputState;
-pub use output_state::OutputState;
+use fmi::traits::FmiInstance;
+pub use io::{InputState, OutputState};
+
+use self::{params::SimParams, traits::FmiSchemaBuilder};
+
+pub struct SimState<Inst>
+where
+    Inst: FmiInstance,
+    Inst::Import: FmiSchemaBuilder,
+{
+    sim_params: SimParams,
+    input_state: InputState<Inst>,
+    output_state: OutputState<Inst>,
+    inst: Inst,
+    time: f64,
+    next_event_time: Option<f64>,
+}

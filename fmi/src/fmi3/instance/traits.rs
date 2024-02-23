@@ -2,7 +2,7 @@
 
 use crate::{fmi3::Fmi3Error, traits::FmiInstance};
 
-use super::{binding, Fmi3Status};
+use super::Fmi3Status;
 
 /// Interface common to all instance types
 pub trait Common: FmiInstance {

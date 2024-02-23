@@ -23,7 +23,7 @@ where
                 let values: BooleanArray = cast(values, &DataType::Boolean)
                     .map(|a| downcast_array(&a))
                     .expect("Error casting");
-                let values = values.into_iter().filter_map(|v| v).collect::<Vec<_>>();
+                let values = values.into_iter().flatten().collect::<Vec<_>>();
                 self.set_boolean(vrs, &values);
             }
             DataType::Int8 => {
@@ -93,7 +93,7 @@ where
                 let values: BinaryArray = cast(values, &DataType::Binary)
                     .map(|a| downcast_array(&a))
                     .expect("Error casting");
-                self.set_binary(vrs, values.iter().filter_map(|x| x));
+                self.set_binary(vrs, values.iter().flatten());
             }
             DataType::FixedSizeBinary(_) => todo!(),
             DataType::LargeBinary => todo!(),
@@ -101,7 +101,7 @@ where
                 let values: StringArray = cast(values, &DataType::Utf8)
                     .map(|a| downcast_array(&a))
                     .expect("Error casting");
-                self.set_string(vrs, values.iter().filter_map(|x| x));
+                self.set_string(vrs, values.iter().flatten());
             }
             DataType::LargeUtf8 => todo!(),
             _ => unimplemented!("Unsupported data type"),
@@ -118,52 +118,52 @@ where
             DataType::Boolean => todo!(),
             DataType::Int8 => {
                 let array: Int8Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_int8(&[vr], &[value]).ok()?;
             }
             DataType::Int16 => {
                 let array: Int16Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_int16(&[vr], &[value]).ok()?;
             }
             DataType::Int32 => {
                 let array: Int32Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_int32(&[vr], &[value]).ok()?;
             }
             DataType::Int64 => {
                 let array: Int64Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_int64(&[vr], &[value]).ok()?;
             }
             DataType::UInt8 => {
                 let array: UInt8Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_uint8(&[vr], &[value]).ok()?;
             }
             DataType::UInt16 => {
                 let array: UInt16Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_uint16(&[vr], &[value]).ok()?;
             }
             DataType::UInt32 => {
                 let array: UInt32Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_uint32(&[vr], &[value]).ok()?;
             }
             DataType::UInt64 => {
                 let array: UInt64Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_uint64(&[vr], &[value]).ok()?;
             }
             DataType::Float32 => {
                 let array: Float32Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_float32(&[vr], &[value]).ok()?;
             }
             DataType::Float64 => {
                 let array: Float64Array = downcast_array(&array);
-                let value = I::interpolate(&pl, &array);
+                let value = I::interpolate(pl, &array);
                 self.set_float64(&[vr], &[value]).ok()?;
             }
             DataType::Binary => todo!(),

@@ -56,7 +56,7 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     }
 
     fn model_description(&self) -> &Self::ModelDescription {
-        &self.model_description
+        self.model_description
     }
 }
 

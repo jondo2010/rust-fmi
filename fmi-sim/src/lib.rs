@@ -23,11 +23,11 @@ pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
             let import: fmi::fmi3::import::Fmi3Import = fmi::import::from_path(&args.model)?;
             match args.action {
                 #[cfg(feature = "me")]
-                options::Action::ME(options) => todo!(),
+                options::Action::ME(options) => sim::fmi3::model_exchange(&import, options),
                 #[cfg(feature = "cs")]
-                options::Action::CS(options) => sim::fmi3_cs::co_simulation(&import, options),
+                options::Action::CS(options) => sim::fmi3::co_simulation(&import, options),
                 #[cfg(feature = "se")]
-                options::Action::SE(options) => todo!(),
+                options::Action::SE(options) => unimplemented!(),
             }
         }
 
