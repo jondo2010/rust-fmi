@@ -13,9 +13,9 @@ pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
             let import: fmi::fmi2::import::Fmi2Import = fmi::import::from_path(&args.model)?;
             match args.action {
                 #[cfg(feature = "me")]
-                options::Action::ME(options) => todo!(),
+                options::Interface::ME(options) => todo!(),
                 #[cfg(feature = "cs")]
-                options::Action::CS(options) => todo!(),
+                options::Interface::CS(options) => todo!(),
             }
         }
         #[cfg(feature = "fmi3")]
@@ -23,11 +23,19 @@ pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
             let import: fmi::fmi3::import::Fmi3Import = fmi::import::from_path(&args.model)?;
             match args.action {
                 #[cfg(feature = "me")]
-                options::Action::ME(options) => sim::fmi3::model_exchange(&import, options),
+                options::Interface::ModelExchange { common } => {
+                    sim::fmi3::model_exchange(&import, common)
+                }
                 #[cfg(feature = "cs")]
-                options::Action::CS(options) => sim::fmi3::co_simulation(&import, options),
+                options::Interface::CoSimulation {
+                    common,
+                    event_mode_used,
+                    early_return_allowed,
+                } => {
+                    sim::fmi3::co_simulation(&import, common, event_mode_used, early_return_allowed)
+                }
                 #[cfg(feature = "se")]
-                options::Action::SE(options) => unimplemented!(),
+                options::Interface::ScheduledExecution(options) => unimplemented!(),
             }
         }
 

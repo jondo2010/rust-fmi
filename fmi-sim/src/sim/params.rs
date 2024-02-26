@@ -1,4 +1,6 @@
-use super::options::SimOptions;
+use fmi_schema::traits::DefaultExperiment;
+
+use crate::options::CommonOptions;
 
 pub struct SimParams {
     pub start_time: f64,
@@ -16,10 +18,15 @@ impl SimParams {
     /// Create a new `SimParams` from the given `SimOptions` and `DefaultExperiment`.
     ///
     /// Values from `SimOptions` take precedence over values from `DefaultExperiment`.
-    pub fn new_from_options<DE: fmi_schema::traits::DefaultExperiment>(
-        options: &SimOptions,
+    pub fn new_from_options<DE>(
+        options: &CommonOptions,
         default_experiment: &DE,
-    ) -> anyhow::Result<Self> {
+        event_mode_used: bool,
+        early_return_allowed: bool,
+    ) -> anyhow::Result<Self>
+    where
+        DE: DefaultExperiment,
+    {
         let start_time = options
             .start_time
             .or(default_experiment.start_time())
@@ -46,8 +53,8 @@ impl SimParams {
             stop_time,
             output_interval,
             tolerance,
-            event_mode_used: options.event_mode_used,
-            early_return_allowed: options.early_return_allowed,
+            event_mode_used,
+            early_return_allowed,
         })
     }
 }

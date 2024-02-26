@@ -6,10 +6,11 @@ use fmi::{
     traits::{FmiImport, FmiInstance},
 };
 
+use crate::options::CommonOptions;
+
 use super::{
     interpolation::Linear,
     io::StartValues,
-    options::SimOptions,
     params::SimParams,
     traits::{FmiSchemaBuilder, InstanceSetValues, SimInput, SimOutput, SimTrait},
     InputState, OutputState, SimState,
@@ -176,8 +177,18 @@ where
         OutputState = OutputState<Inst>,
     >,
 {
-    fn new_from_options(import: &'a Inst::Import, options: &SimOptions) -> anyhow::Result<Self> {
-        let sim_params = SimParams::new_from_options(options, import.model_description())?;
+    fn new_from_options(
+        import: &'a Inst::Import,
+        options: &CommonOptions,
+        event_mode_used: bool,
+        early_return_allowed: bool,
+    ) -> anyhow::Result<Self> {
+        let sim_params = SimParams::new_from_options(
+            options,
+            import.model_description(),
+            event_mode_used,
+            early_return_allowed,
+        )?;
 
         // Read optional input data from file
         let input_data = options

@@ -9,20 +9,24 @@ use arrow::{
         UInt32Type, UInt64Type, UInt8Type,
     },
 };
-use fmi_sim::{options::FmiCheckOptions, sim::options::SimOptions};
+use fmi_sim::options::{CommonOptions, FmiCheckOptions};
 
 #[test]
 fn test_start_time() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
     let model = ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap();
 
-    let opts = SimOptions {
+    let common = CommonOptions {
         start_time: Some(0.5),
         ..Default::default()
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Action::CS(opts),
+        action: fmi_sim::options::Interface::CoSimulation {
+            common,
+            event_mode_used: false,
+            early_return_allowed: false,
+        },
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
@@ -40,13 +44,17 @@ fn test_start_time() {
 fn test_stop_time() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
     let model = ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap();
-    let opts = SimOptions {
+    let common = CommonOptions {
         stop_time: Some(0.5),
         ..Default::default()
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Action::CS(opts),
+        action: fmi_sim::options::Interface::CoSimulation {
+            common,
+            event_mode_used: false,
+            early_return_allowed: false,
+        },
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
@@ -61,7 +69,7 @@ fn test_stop_time() {
 fn test_start_value_types() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
     let model = ref_fmus.extract_reference_fmu("Feedthrough", 3).unwrap();
-    let simulate = SimOptions {
+    let common = CommonOptions {
         initial_values: [
             "Float64_continuous_input=-5e-1",
             "Int32_input=2147483647",
@@ -86,7 +94,11 @@ fn test_start_value_types() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Action::CS(simulate),
+        action: fmi_sim::options::Interface::CoSimulation {
+            common,
+            event_mode_used: false,
+            early_return_allowed: false,
+        },
     };
 
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
@@ -193,14 +205,18 @@ fn test_start_value_types() {
 fn test_input_file() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
     let model = ref_fmus.extract_reference_fmu("Feedthrough", 3).unwrap();
-    let simulate = SimOptions {
+    let common = CommonOptions {
         input_file: Some(PathBuf::from_str("tests/data/feedthrough_in.csv").unwrap()),
         stop_time: Some(5.0),
         ..Default::default()
     };
     let options = FmiCheckOptions {
         model: model,
-        action: fmi_sim::options::Action::CS(simulate),
+        action: fmi_sim::options::Interface::CoSimulation {
+            common,
+            event_mode_used: false,
+            early_return_allowed: false,
+        },
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 

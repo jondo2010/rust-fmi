@@ -1,10 +1,10 @@
+use clap::Parser;
 use fmi_sim::{options, simulate};
-use structopt::StructOpt;
 
 fn main() -> anyhow::Result<()> {
     sensible_env_logger::try_init_timed!()?;
 
-    let args = options::FmiCheckOptions::from_args();
+    let args = options::FmiCheckOptions::try_parse()?;
     let output = simulate(args)?;
 
     println!(
