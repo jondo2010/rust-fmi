@@ -21,18 +21,15 @@ pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
         #[cfg(feature = "fmi3")]
         3 => {
             let import: fmi::fmi3::import::Fmi3Import = fmi::import::from_path(&args.model)?;
-            match args.action {
+
+            match args.interface {
                 #[cfg(feature = "me")]
-                options::Interface::ModelExchange { common } => {
-                    sim::fmi3::model_exchange(&import, common)
+                options::Interface::ModelExchange(options) => {
+                    sim::fmi3::model_exchange(&import, options)
                 }
                 #[cfg(feature = "cs")]
-                options::Interface::CoSimulation {
-                    common,
-                    event_mode_used,
-                    early_return_allowed,
-                } => {
-                    sim::fmi3::co_simulation(&import, common, event_mode_used, early_return_allowed)
+                options::Interface::CoSimulation(options) => {
+                    sim::fmi3::co_simulation(&import, options)
                 }
                 #[cfg(feature = "se")]
                 options::Interface::ScheduledExecution(options) => unimplemented!(),

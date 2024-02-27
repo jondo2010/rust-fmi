@@ -1,30 +1,34 @@
 use anyhow::Context;
 use arrow::record_batch::RecordBatch;
-use fmi::fmi3::{
-    import::Fmi3Import,
-    instance::{Common, InstanceME, ModelExchange},
+use fmi::{
+    fmi3::{
+        import::Fmi3Import,
+        instance::{Common, InstanceME, ModelExchange},
+    },
+    traits::FmiImport,
 };
 
 use crate::{
-    options::CommonOptions,
+    options::{ModelExchangeOptions, SolverArg},
     sim::{
         interpolation::Linear,
         params::SimParams,
+        solver::{self, Solver},
         traits::{FmiSchemaBuilder, SimInput, SimOutput, SimTrait},
-        InputState, OutputState, SimState,
+        util, InputState, OutputState, SimState,
     },
 };
 
-impl<'a> SimTrait<'a> for SimState<InstanceME<'a>> {
-    type Import = Fmi3Import;
-    type InputState = InputState<InstanceME<'a>>;
-    type OutputState = OutputState<InstanceME<'a>>;
-
+impl<'a, S> SimState<InstanceME<'a>, S>
+where
+    S: Solver<InstanceME<'a>>,
+{
     fn new(
-        import: &'a Self::Import,
+        import: &'a Fmi3Import,
         sim_params: SimParams,
-        input_state: Self::InputState,
-        output_state: Self::OutputState,
+        input_state: InputState<InstanceME<'a>>,
+        output_state: OutputState<InstanceME<'a>>,
+        solver: S,
     ) -> anyhow::Result<Self> {
         let inst = import.instantiate_me("inst1", true, true)?;
         let time = sim_params.start_time;
@@ -35,9 +39,15 @@ impl<'a> SimTrait<'a> for SimState<InstanceME<'a>> {
             inst,
             time,
             next_event_time: None,
+            solver,
         })
     }
+}
 
+impl<'a, S> SimTrait<'a> for SimState<InstanceME<'a>, S>
+where
+    S: Solver<InstanceME<'a>>,
+{
     /// Main loop of the model-exchange simulation
     fn main_loop(&mut self) -> anyhow::Result<()> {
         self.inst
@@ -118,11 +128,50 @@ impl<'a> SimTrait<'a> for SimState<InstanceME<'a>> {
 }
 
 /// Run a model-exchange simulation
-pub fn model_exchange(import: &Fmi3Import, options: CommonOptions) -> anyhow::Result<RecordBatch> {
-    let start_values = import.parse_start_values(&options.initial_values)?;
+pub fn model_exchange(
+    import: &Fmi3Import,
+    options: ModelExchangeOptions,
+) -> anyhow::Result<RecordBatch> {
+    let start_values = import.parse_start_values(&options.common.initial_values)?;
 
-    let mut sim_state = SimState::<InstanceME>::new_from_options(import, &options, true, false)?;
-    sim_state.initialize(start_values, options.initial_fmu_state_file)?;
+    let sim_params =
+        SimParams::new_from_options(&options.common, import.model_description(), true, false)?;
+
+    // Read optional input data from file
+    let input_data = options
+        .common
+        .input_file
+        .as_ref()
+        .map(util::read_csv)
+        .transpose()
+        .context("Reading input file")?;
+
+    let input_state = InputState::new(import, input_data)?;
+    let output_state = OutputState::new(import, &sim_params);
+
+    let nx = 0;
+    let nz = 0;
+
+    let mut sim_state = match options.solver {
+        SolverArg::Euler => {
+            let solver = solver::Euler::new(
+                sim_params.start_time,
+                sim_params.tolerance.unwrap_or_default(),
+                nx,
+                nz,
+            );
+
+            SimState::<InstanceME, solver::Euler>::new(
+                import,
+                sim_params,
+                input_state,
+                output_state,
+                solver,
+            )?
+        }
+    };
+
+    sim_state.initialize(start_values, options.common.initial_fmu_state_file)?;
     sim_state.main_loop()?;
 
     Ok(sim_state.output_state.finish())

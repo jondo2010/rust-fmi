@@ -1,30 +1,30 @@
 use anyhow::Context;
 use arrow::record_batch::RecordBatch;
-use fmi::fmi3::{
-    import::Fmi3Import,
-    instance::{CoSimulation, Common, InstanceCS},
+use fmi::{
+    fmi3::{
+        import::Fmi3Import,
+        instance::{CoSimulation, Common, InstanceCS},
+    },
+    traits::FmiImport,
 };
 
 use crate::{
-    options::CommonOptions,
+    options::CoSimulationOptions,
     sim::{
         interpolation::Linear,
         params::SimParams,
+        solver::Dummy,
         traits::{FmiSchemaBuilder, SimInput, SimOutput, SimTrait},
-        InputState, OutputState, SimState,
+        util, InputState, OutputState, SimState,
     },
 };
 
-impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>> {
-    type Import = Fmi3Import;
-    type InputState = InputState<InstanceCS<'a>>;
-    type OutputState = OutputState<InstanceCS<'a>>;
-
-    fn new(
-        import: &'a Self::Import,
+impl<'a> SimState<InstanceCS<'a>, Dummy> {
+    pub fn new(
+        import: &'a Fmi3Import,
         sim_params: SimParams,
-        input_state: Self::InputState,
-        output_state: Self::OutputState,
+        input_state: InputState<InstanceCS<'a>>,
+        output_state: OutputState<InstanceCS<'a>>,
     ) -> anyhow::Result<Self> {
         let inst = import.instantiate_cs(
             "inst1",
@@ -42,9 +42,12 @@ impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>> {
             inst,
             time,
             next_event_time: None,
+            solver: Dummy,
         })
     }
+}
 
+impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>, Dummy> {
     /// Main loop of the co-simulation
     fn main_loop(&mut self) -> anyhow::Result<()> {
         if self.sim_params.event_mode_used {
@@ -153,19 +156,32 @@ impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>> {
 /// Run a co-simulation simulation
 pub fn co_simulation(
     import: &Fmi3Import,
-    options: CommonOptions,
-    event_mode_used: bool,
-    early_return_allowed: bool,
+    options: CoSimulationOptions,
 ) -> anyhow::Result<RecordBatch> {
-    let start_values = import.parse_start_values(&options.initial_values)?;
+    let start_values = import.parse_start_values(&options.common.initial_values)?;
 
-    let mut sim_state = SimState::<InstanceCS>::new_from_options(
-        import,
-        &options,
-        event_mode_used,
-        early_return_allowed,
+    let sim_params = SimParams::new_from_options(
+        &options.common,
+        import.model_description(),
+        options.event_mode_used,
+        options.early_return_allowed,
     )?;
-    sim_state.initialize(start_values, options.initial_fmu_state_file)?;
+
+    // Read optional input data from file
+    let input_data = options
+        .common
+        .input_file
+        .as_ref()
+        .map(util::read_csv)
+        .transpose()
+        .context("Reading input file")?;
+
+    let input_state = InputState::new(import, input_data)?;
+    let output_state = OutputState::new(import, &sim_params);
+
+    let mut sim_state =
+        SimState::<InstanceCS, Dummy>::new(import, sim_params, input_state, output_state)?;
+    sim_state.initialize(start_values, options.common.initial_fmu_state_file)?;
     sim_state.main_loop()?;
 
     Ok(sim_state.output_state.finish())

@@ -75,6 +75,7 @@ pub trait SimOutput {
 }
 
 pub trait SimTrait<'a>: Sized {
+    /*
     type Import: FmiImport + FmiSchemaBuilder;
     type InputState;
     type OutputState;
@@ -85,6 +86,7 @@ pub trait SimTrait<'a>: Sized {
         input_state: Self::InputState,
         output_state: Self::OutputState,
     ) -> anyhow::Result<Self>;
+    */
 
     fn main_loop(&mut self) -> anyhow::Result<()>;
 }

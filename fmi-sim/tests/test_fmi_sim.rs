@@ -9,7 +9,7 @@ use arrow::{
         UInt32Type, UInt64Type, UInt8Type,
     },
 };
-use fmi_sim::options::{CommonOptions, FmiCheckOptions};
+use fmi_sim::options::{CoSimulationOptions, CommonOptions, FmiCheckOptions, Interface};
 
 #[test]
 fn test_start_time() {
@@ -22,11 +22,11 @@ fn test_start_time() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Interface::CoSimulation {
+        interface: Interface::CoSimulation(CoSimulationOptions {
             common,
             event_mode_used: false,
             early_return_allowed: false,
-        },
+        }),
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
@@ -50,11 +50,11 @@ fn test_stop_time() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Interface::CoSimulation {
+        interface: Interface::CoSimulation(CoSimulationOptions {
             common,
             event_mode_used: false,
             early_return_allowed: false,
-        },
+        }),
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
@@ -94,11 +94,11 @@ fn test_start_value_types() {
     };
     let options = FmiCheckOptions {
         model,
-        action: fmi_sim::options::Interface::CoSimulation {
+        interface: Interface::CoSimulation(CoSimulationOptions {
             common,
             event_mode_used: false,
             early_return_allowed: false,
-        },
+        }),
     };
 
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
@@ -212,11 +212,11 @@ fn test_input_file() {
     };
     let options = FmiCheckOptions {
         model: model,
-        action: fmi_sim::options::Interface::CoSimulation {
+        interface: Interface::CoSimulation(CoSimulationOptions {
             common,
             event_mode_used: false,
             early_return_allowed: false,
-        },
+        }),
     };
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 

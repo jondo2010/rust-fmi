@@ -1,27 +1,47 @@
+#[derive(Default, Debug, Clone, clap::ValueEnum)]
+pub enum SolverArg {
+    /// Euler solver
+    #[clap(name = "euler")]
+    #[default]
+    Euler,
+}
+
+#[derive(Default, Debug, clap::Args)]
+/// Perform a ModelExchange simulation
+pub struct ModelExchangeOptions {
+    #[command(flatten)]
+    pub common: CommonOptions,
+
+    /// The solver to use
+    #[arg(long, default_value = "euler")]
+    pub solver: SolverArg,
+}
+
+#[derive(Default, Debug, clap::Args)]
+/// Perform a CoSimulation simulation
+pub struct CoSimulationOptions {
+    #[command(flatten)]
+    pub common: CommonOptions,
+
+    /// Use event mode
+    #[arg(long)]
+    pub event_mode_used: bool,
+
+    /// Support early-return in Co-Simulation.
+    #[arg(long)]
+    pub early_return_allowed: bool,
+}
+
 #[derive(Debug, clap::Subcommand)]
 pub enum Interface {
-    /// Perform a ModelExchange simulation
     #[cfg(feature = "me")]
     #[command(alias = "me")]
-    ModelExchange {
-        #[command(flatten)]
-        common: CommonOptions,
-    },
-    /// Perform a CoSimulation simulation
+    ModelExchange(ModelExchangeOptions),
+
     #[cfg(feature = "cs")]
     #[command(alias = "cs")]
-    CoSimulation {
-        #[command(flatten)]
-        common: CommonOptions,
+    CoSimulation(CoSimulationOptions),
 
-        /// Use event mode
-        #[arg(long)]
-        event_mode_used: bool,
-
-        /// Support early-return in Co-Simulation.
-        #[arg(long)]
-        early_return_allowed: bool,
-    },
     /// Perform a ScheduledExecution simulation
     #[cfg(feature = "se")]
     ScheduledExecution(CommonOptions),
@@ -106,8 +126,9 @@ pub struct CommonOptions {
 #[derive(Debug, clap::Parser)]
 #[command(version, about)]
 pub struct FmiCheckOptions {
+    /// Which FMI interface to use
     #[command(subcommand)]
-    pub action: Interface,
+    pub interface: Interface,
     /// The FMU model to read
     #[arg(long)]
     pub model: std::path::PathBuf,

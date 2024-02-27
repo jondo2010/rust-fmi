@@ -1,19 +1,14 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use fmi::{
-    fmi3::instance::Common,
-    traits::{FmiImport, FmiInstance},
-};
-
-use crate::options::CommonOptions;
+use fmi::fmi3::instance::Common;
 
 use super::{
     interpolation::Linear,
     io::StartValues,
-    params::SimParams,
-    traits::{FmiSchemaBuilder, InstanceSetValues, SimInput, SimOutput, SimTrait},
-    InputState, OutputState, SimState,
+    solver::Solver,
+    traits::{FmiSchemaBuilder, InstanceSetValues, SimInput, SimOutput},
+    SimState,
 };
 
 #[cfg(feature = "cs")]
@@ -26,10 +21,11 @@ pub use cs::co_simulation;
 #[cfg(feature = "me")]
 pub use me::model_exchange;
 
-impl<Inst> SimState<Inst>
+impl<Inst, S> SimState<Inst, S>
 where
     Inst: Common,
     Inst::Import: FmiSchemaBuilder,
+    S: Solver<Inst>,
 {
     fn apply_start_values(
         &mut self,
@@ -166,10 +162,12 @@ where
     }
 }
 
-impl<'a, Inst> SimState<Inst>
+#[cfg(feature = "disable")]
+impl<'a, Inst, S> SimState<Inst, S>
 where
-    Inst: FmiInstance + Common,
+    Inst: FmiInstance + Common + Model,
     Inst::Import: FmiSchemaBuilder,
+    S: Solver<Inst>,
     Self: SimTrait<
         'a,
         Import = Inst::Import,

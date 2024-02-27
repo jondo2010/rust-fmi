@@ -14,12 +14,13 @@ pub mod util;
 use fmi::traits::FmiInstance;
 pub use io::{InputState, OutputState};
 
-use self::{params::SimParams, traits::FmiSchemaBuilder};
+use self::{params::SimParams, solver::Solver, traits::FmiSchemaBuilder};
 
-pub struct SimState<Inst>
+pub struct SimState<Inst, S>
 where
     Inst: FmiInstance,
     Inst::Import: FmiSchemaBuilder,
+    S: Solver<Inst>,
 {
     sim_params: SimParams,
     input_state: InputState<Inst>,
@@ -27,4 +28,5 @@ where
     inst: Inst,
     time: f64,
     next_event_time: Option<f64>,
+    solver: S,
 }
