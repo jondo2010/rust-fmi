@@ -63,3 +63,36 @@ impl<M: Model> Solver<M> for Euler {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct SimpleModel;
+
+    impl Model for SimpleModel {
+        fn get_continuous_states(&mut self, x: &mut [f64]) {
+            x[0] = 0.0;
+        }
+
+        fn set_continuous_states(&mut self, states: &[f64]) {
+            assert_eq!(states[0], 1.0);
+        }
+
+        fn get_continuous_state_derivatives(&mut self, dx: &mut [f64]) {
+            dx[0] = 1.0;
+        }
+
+        fn get_event_indicators(&mut self, z: &mut [f64]) {
+            z[0] = 0.0;
+        }
+    }
+
+    #[test]
+    fn test_euler() {
+        let mut euler = <Euler as Solver<SimpleModel>>::new(0.0, 1e-6, 1, 1);
+        let (time, state_event) = euler.step(&mut SimpleModel, 1.0).unwrap();
+        assert_eq!(time, 1.0);
+        assert_eq!(state_event, false);
+    }
+}

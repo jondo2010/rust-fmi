@@ -5,6 +5,8 @@ use arrow::{
 };
 use fmi::traits::{FmiImport, FmiInstance};
 
+use crate::Error;
+
 use super::{
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
@@ -88,5 +90,5 @@ pub trait SimTrait<'a>: Sized {
     ) -> anyhow::Result<Self>;
     */
 
-    fn main_loop(&mut self) -> anyhow::Result<()>;
+    fn main_loop(&mut self) -> Result<(), Error>;
 }

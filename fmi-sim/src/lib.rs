@@ -3,9 +3,23 @@ use arrow::record_batch::RecordBatch;
 pub mod options;
 pub mod sim;
 
-pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
+/// Sim error
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    //return Err(anyhow::anyhow!("`output_interval` must be positive."))?;
+    #[error(transparent)]
+    FmiError(#[from] fmi::Error),
+
+    #[error(transparent)]
+    SolverError(#[from] sim::solver::SolverError),
+
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+pub fn simulate(args: options::FmiCheckOptions) -> Result<RecordBatch, Error> {
     let mini_descr = fmi::import::peek_descr_path(&args.model)?;
-    let version = mini_descr.version()?;
+    let version = mini_descr.version().map_err(fmi::Error::from)?;
 
     match version.major {
         #[cfg(feature = "fmi2")]
@@ -36,6 +50,6 @@ pub fn simulate(args: options::FmiCheckOptions) -> anyhow::Result<RecordBatch> {
             }
         }
 
-        _ => anyhow::bail!("Unsupported FMI version: {version:?}"),
+        _ => Err(fmi::Error::UnsupportedFmiVersion(version.to_string()).into()),
     }
 }

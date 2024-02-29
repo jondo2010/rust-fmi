@@ -13,19 +13,20 @@ use crate::{
     sim::{
         interpolation::Linear,
         params::SimParams,
-        solver::Dummy,
+        solver::DummySolver,
         traits::{FmiSchemaBuilder, SimInput, SimOutput, SimTrait},
         util, InputState, OutputState, SimState,
     },
+    Error,
 };
 
-impl<'a> SimState<InstanceCS<'a>, Dummy> {
+impl<'a> SimState<InstanceCS<'a>, DummySolver> {
     pub fn new(
         import: &'a Fmi3Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS<'a>>,
         output_state: OutputState<InstanceCS<'a>>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, Error> {
         let inst = import.instantiate_cs(
             "inst1",
             true,
@@ -42,19 +43,16 @@ impl<'a> SimState<InstanceCS<'a>, Dummy> {
             inst,
             time,
             next_event_time: None,
-            solver: Dummy,
+            solver: DummySolver,
         })
     }
 }
 
-impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>, Dummy> {
+impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>, DummySolver> {
     /// Main loop of the co-simulation
-    fn main_loop(&mut self) -> anyhow::Result<()> {
+    fn main_loop(&mut self) -> Result<(), Error> {
         if self.sim_params.event_mode_used {
-            self.inst
-                .enter_step_mode()
-                .ok()
-                .context("enter_step_mode")?;
+            self.inst.enter_step_mode().ok().map_err(fmi::Error::from)?;
         }
 
         let mut num_steps = 0;
@@ -114,7 +112,7 @@ impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>, Dummy> {
                 .context("do_step")?;
 
             if early_return && !self.sim_params.early_return_allowed {
-                anyhow::bail!("Early return is not allowed.");
+                panic!("Early return is not allowed.");
             }
 
             if terminate_simulation {
@@ -157,7 +155,7 @@ impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>, Dummy> {
 pub fn co_simulation(
     import: &Fmi3Import,
     options: CoSimulationOptions,
-) -> anyhow::Result<RecordBatch> {
+) -> Result<RecordBatch, Error> {
     let start_values = import.parse_start_values(&options.common.initial_values)?;
 
     let sim_params = SimParams::new_from_options(
@@ -165,7 +163,7 @@ pub fn co_simulation(
         import.model_description(),
         options.event_mode_used,
         options.early_return_allowed,
-    )?;
+    );
 
     // Read optional input data from file
     let input_data = options
@@ -180,7 +178,7 @@ pub fn co_simulation(
     let output_state = OutputState::new(import, &sim_params);
 
     let mut sim_state =
-        SimState::<InstanceCS, Dummy>::new(import, sim_params, input_state, output_state)?;
+        SimState::<InstanceCS, DummySolver>::new(import, sim_params, input_state, output_state)?;
     sim_state.initialize(start_values, options.common.initial_fmu_state_file)?;
     sim_state.main_loop()?;
 

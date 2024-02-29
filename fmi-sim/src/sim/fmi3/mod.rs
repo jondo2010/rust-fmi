@@ -13,6 +13,7 @@ use super::{
 
 #[cfg(feature = "cs")]
 mod cs;
+mod io;
 #[cfg(feature = "me")]
 mod me;
 

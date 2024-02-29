@@ -17,6 +17,7 @@ use crate::{
         traits::{FmiSchemaBuilder, SimInput, SimOutput, SimTrait},
         util, InputState, OutputState, SimState,
     },
+    Error,
 };
 
 impl<'a, S> SimState<InstanceME<'a>, S>
@@ -49,11 +50,12 @@ where
     S: Solver<InstanceME<'a>>,
 {
     /// Main loop of the model-exchange simulation
-    fn main_loop(&mut self) -> anyhow::Result<()> {
+    fn main_loop(&mut self) -> Result<(), Error> {
         self.inst
             .enter_continuous_time_mode()
             .ok()
-            .context("enter_continuous_time_mode")?;
+            .map_err(fmi::Error::from)?;
+        //.context("enter_continuous_time_mode")?;
 
         let mut num_steps = 0;
 
@@ -74,17 +76,19 @@ where
             let input_event = next_regular_point >= next_input_event_time;
             let time_event = next_regular_point >= self.next_event_time.unwrap_or(f64::INFINITY);
 
-            let _next_communication_point = if input_event || time_event {
+            let next_communication_point = if input_event || time_event {
                 next_input_event_time.min(self.next_event_time.unwrap())
             } else {
                 next_regular_point
             };
 
-            //CALL(settings->solverStep(solver, nextCommunicationPoint, &time, &stateEvent));
-            //self.solver.setp(next_communication_point, &mut self.time)
-            let state_event = false;
+            let (time, state_event) = self.solver.step(&mut self.inst, next_communication_point)?;
+            self.time = time;
 
-            self.inst.set_time(self.time).ok()?;
+            self.inst
+                .set_time(self.time)
+                .ok()
+                .map_err(fmi::Error::from)?;
 
             self.input_state.apply_input::<Linear>(
                 self.time,
@@ -98,7 +102,10 @@ where
                 num_steps += 1;
             }
 
-            let (step_event, terminate) = self.inst.completed_integrator_step(true)?;
+            let (step_event, terminate) = self
+                .inst
+                .completed_integrator_step(true)
+                .map_err(fmi::Error::from)?;
 
             if terminate {
                 log::info!("Termination requested by FMU");
@@ -113,10 +120,13 @@ where
                     break;
                 }
 
-                self.inst.enter_continuous_time_mode().ok()?;
+                self.inst
+                    .enter_continuous_time_mode()
+                    .ok()
+                    .map_err(fmi::Error::from)?;
 
                 if reset_solver {
-                    //self.solver.reset(self.time);
+                    self.solver.reset(&mut self.inst, self.time)?;
                 }
             }
         }
@@ -131,11 +141,11 @@ where
 pub fn model_exchange(
     import: &Fmi3Import,
     options: ModelExchangeOptions,
-) -> anyhow::Result<RecordBatch> {
+) -> Result<RecordBatch, Error> {
     let start_values = import.parse_start_values(&options.common.initial_values)?;
 
     let sim_params =
-        SimParams::new_from_options(&options.common, import.model_description(), true, false)?;
+        SimParams::new_from_options(&options.common, import.model_description(), true, false);
 
     // Read optional input data from file
     let input_data = options
@@ -149,27 +159,30 @@ pub fn model_exchange(
     let input_state = InputState::new(import, input_data)?;
     let output_state = OutputState::new(import, &sim_params);
 
-    let nx = 0;
-    let nz = 0;
+    //TODO: add support in ModelDescription for arrays of state variables
+    let nx = import
+        .model_description()
+        .model_structure
+        .continuous_state_derivative
+        .len();
+    let nz = 1;
 
-    let mut sim_state = match options.solver {
-        SolverArg::Euler => {
-            let solver = solver::Euler::new(
-                sim_params.start_time,
-                sim_params.tolerance.unwrap_or_default(),
-                nx,
-                nz,
-            );
-
-            SimState::<InstanceME, solver::Euler>::new(
-                import,
-                sim_params,
-                input_state,
-                output_state,
-                solver,
-            )?
-        }
+    let solver = match options.solver {
+        SolverArg::Euler => <solver::Euler as solver::Solver<InstanceME>>::new(
+            sim_params.start_time,
+            sim_params.tolerance.unwrap_or_default(),
+            nx,
+            nz,
+        ),
     };
+
+    let mut sim_state = SimState::<InstanceME, solver::Euler>::new(
+        import,
+        sim_params,
+        input_state,
+        output_state,
+        solver,
+    )?;
 
     sim_state.initialize(start_values, options.common.initial_fmu_state_file)?;
     sim_state.main_loop()?;

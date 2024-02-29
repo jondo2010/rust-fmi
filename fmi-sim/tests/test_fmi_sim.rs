@@ -14,20 +14,18 @@ use fmi_sim::options::{CoSimulationOptions, CommonOptions, FmiCheckOptions, Inte
 #[test]
 fn test_start_time() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-    let model = ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap();
 
-    let common = CommonOptions {
-        start_time: Some(0.5),
-        ..Default::default()
-    };
     let options = FmiCheckOptions {
-        model,
+        model: ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap(),
         interface: Interface::CoSimulation(CoSimulationOptions {
-            common,
-            event_mode_used: false,
-            early_return_allowed: false,
+            common: CommonOptions {
+                start_time: Some(0.5),
+                ..Default::default()
+            },
+            ..Default::default()
         }),
     };
+
     let output = fmi_sim::simulate(options).expect("Error simulating FMU");
 
     assert_eq!(

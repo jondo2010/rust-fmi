@@ -29,8 +29,9 @@ impl<Inst: ModelExchange> Model for Inst {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum SolverError {
+    #[error("Step error")]
     StepError,
 }
 
@@ -56,9 +57,9 @@ pub trait Solver<M> {
 }
 
 /// A dummy solver that does nothing.
-pub struct Dummy;
+pub struct DummySolver;
 
-impl<M> Solver<M> for Dummy {
+impl<M> Solver<M> for DummySolver {
     fn new(_start_time: f64, _tolerance: f64, _nx: usize, _nz: usize) -> Self {
         Self
     }

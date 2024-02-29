@@ -23,7 +23,7 @@ impl SimParams {
         default_experiment: &DE,
         event_mode_used: bool,
         early_return_allowed: bool,
-    ) -> anyhow::Result<Self>
+    ) -> Self
     where
         DE: DefaultExperiment,
     {
@@ -43,18 +43,18 @@ impl SimParams {
             .unwrap_or_else(|| (stop_time - start_time) / 500.0);
 
         if output_interval <= 0.0 {
-            return Err(anyhow::anyhow!("`output_interval` must be positive."))?;
+            panic!("`output_interval` must be positive.");
         }
 
         let tolerance = options.tolerance.or(default_experiment.tolerance());
 
-        Ok(Self {
+        Self {
             start_time,
             stop_time,
             output_interval,
             tolerance,
             event_mode_used,
             early_return_allowed,
-        })
+        }
     }
 }
