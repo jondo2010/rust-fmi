@@ -16,16 +16,16 @@ repository.workspace = true
 [features]
 default = ["fmi2", "fmi3", "arrow"]
 ## Enable support for FMI 2.0
-fmi2 = ["libc"]
+fmi2 = ["fmi-schema/fmi2", "libc"]
 ## Enable support for FMI 3.0
-fmi3 = []
+fmi3 = ["fmi-schema/fmi3"]
 ## Enable support for Apache Arrow Schema
 arrow = ["dep:arrow"]
 
 [dependencies]
 arrow = { workspace = true, optional = true }
 document-features = { workspace = true }
-fmi-schema = { workspace = true }
+fmi-schema = { workspace = true, default_features = false }
 fmi-sys = { workspace = true }
 itertools = { workspace = true }
 # Note: libc is only used for FMI 2.0 support, needed for alloc
@@ -33,7 +33,7 @@ libc = { version = "0.2", features = ["align"], optional = true }
 libloading = { workspace = true }
 log = { version = "0.4", features = ["std", "serde"] }
 tempfile = "3.1"
-thiserror = "1.0"
+thiserror = { workspace = true }
 url = "2.2"
 zip = { workspace = true }
 

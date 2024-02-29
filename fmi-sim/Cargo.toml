@@ -39,6 +39,7 @@ itertools = { workspace = true }
 log = "0.4"
 num-traits = "0.2"
 sensible-env-logger = "0.3"
+thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = "2.0"

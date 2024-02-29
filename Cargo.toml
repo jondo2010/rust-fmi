@@ -23,13 +23,14 @@ anyhow = { version = "1.0" }
 arrow = { version = "50.0" }
 document-features = "0.2"
 fmi = { path = "fmi", version = "0.3.0" }
-fmi-schema = { path = "fmi-schema", version = "0.1.0" }
+fmi-schema = { path = "fmi-schema", version = "0.1.0", default_features = false }
 fmi-sim = { path = "fmi-sim", version = "0.1.0" }
 fmi-sys = { path = "fmi-sys", version = "0.1.0" }
 fmi-test-data = { path = "fmi-test-data", version = "0.1.0" }
 itertools = "0.12"
 libloading = "0.8"
 test-log = { version = "0.2", features = ["trace"] }
+thiserror = "1.0"
 zip = "0.6"
 
 [patch.crates-io]
@@ -41,8 +42,6 @@ version = "0.0.0"
 publish = false
 
 [dev-dependencies]
-#assert_approx_eq = "1.1"
-#env_logger = "0.10"
 fmi = { workspace = true }
-test-log = { workspace = true }
 fmi-test-data = { workspace = true }
+test-log = { workspace = true }

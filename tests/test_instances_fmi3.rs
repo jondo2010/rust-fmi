@@ -1,3 +1,5 @@
+//! Test the FMI3.0 instance API.
+
 use fmi::{
     fmi3::instance::{Common as _, ModelExchange as _},
     traits::FmiImport as _,

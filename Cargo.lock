@@ -939,6 +939,7 @@ dependencies = [
  "num-traits",
  "sensible-env-logger",
  "test-log",
+ "thiserror",
 ]
 
 [[package]]
