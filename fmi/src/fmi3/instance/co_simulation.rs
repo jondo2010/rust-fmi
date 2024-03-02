@@ -110,7 +110,7 @@ impl<'a> Instance<'a, CS> {
 
         Ok(Self {
             binding,
-            instance,
+            ptr: instance,
             model_description,
             name,
             _tag: std::marker::PhantomData,
@@ -120,7 +120,7 @@ impl<'a> Instance<'a, CS> {
 
 impl<'a> CoSimulation for Instance<'a, CS> {
     fn enter_step_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterStepMode(self.instance) }.into()
+        unsafe { self.binding.fmi3EnterStepMode(self.ptr) }.into()
     }
 
     fn do_step(
@@ -135,7 +135,7 @@ impl<'a> CoSimulation for Instance<'a, CS> {
     ) -> Fmi3Status {
         unsafe {
             self.binding.fmi3DoStep(
-                self.instance,
+                self.ptr,
                 current_communication_point,
                 communication_step_size,
                 no_set_fmustate_prior_to_current_point,

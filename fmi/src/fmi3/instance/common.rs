@@ -9,7 +9,7 @@ macro_rules! impl_getter_setter {
         fn $get(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [$ty]) -> Fmi3Status {
             unsafe {
                 self.binding.$fmi_get(
-                    self.instance,
+                    self.ptr,
                     vrs.as_ptr(),
                     vrs.len() as _,
                     values.as_mut_ptr(),
@@ -22,7 +22,7 @@ macro_rules! impl_getter_setter {
         fn $set(&mut self, vrs: &[binding::fmi3ValueReference], values: &[$ty]) -> Fmi3Status {
             unsafe {
                 self.binding.$fmi_set(
-                    self.instance,
+                    self.ptr,
                     vrs.as_ptr(),
                     vrs.len() as _,
                     values.as_ptr(),
@@ -54,7 +54,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
 
         unsafe {
             self.binding.fmi3SetDebugLogging(
-                self.instance,
+                self.ptr,
                 logging_on,
                 cats_vec_ptrs.len() as _,
                 cats_vec_ptrs.as_ptr() as *const binding::fmi3String,
@@ -71,7 +71,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
     ) -> Fmi3Status {
         unsafe {
             self.binding.fmi3EnterInitializationMode(
-                self.instance,
+                self.ptr,
                 tolerance.is_some(),
                 tolerance.unwrap_or_default(),
                 start_time,
@@ -83,19 +83,19 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
     }
 
     fn exit_initialization_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3ExitInitializationMode(self.instance) }.into()
+        unsafe { self.binding.fmi3ExitInitializationMode(self.ptr) }.into()
     }
 
     fn enter_event_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterEventMode(self.instance) }.into()
+        unsafe { self.binding.fmi3EnterEventMode(self.ptr) }.into()
     }
 
     fn terminate(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3Terminate(self.instance) }.into()
+        unsafe { self.binding.fmi3Terminate(self.ptr) }.into()
     }
 
     fn reset(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3Reset(self.instance) }.into()
+        unsafe { self.binding.fmi3Reset(self.ptr) }.into()
     }
 
     impl_getter_setter!(
@@ -137,7 +137,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             // Create a mutable vec of fmi3String with uninitialized values to pass to ffi
             let mut ret_values = MaybeUninit::<Vec<binding::fmi3String>>::uninit();
             let stat = self.binding.fmi3GetString(
-                self.instance,
+                self.ptr,
                 vrs.as_ptr(),
                 vrs.len() as _,
                 ret_values.assume_init_mut().as_mut_ptr(),
@@ -170,7 +170,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
 
         unsafe {
             self.binding.fmi3SetString(
-                self.instance,
+                self.ptr,
                 vrs.as_ptr(),
                 vrs.len() as _,
                 ptrs.as_ptr(),
@@ -194,7 +194,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
 
         let status: Fmi3Status = unsafe {
             self.binding.fmi3GetBinary(
-                self.instance,
+                self.ptr,
                 vrs.as_ptr(),
                 vrs.len() as _,
                 value_sizes.as_mut_ptr(),
@@ -228,7 +228,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         let value_sizes = values.iter().map(|v| v.len()).collect::<Vec<_>>();
         unsafe {
             self.binding.fmi3SetBinary(
-                self.instance,
+                self.ptr,
                 vrs.as_ptr(),
                 vrs.len() as _,
                 value_sizes.as_ptr(),
@@ -260,7 +260,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
 
         let status: Fmi3Status = unsafe {
             self.binding.fmi3UpdateDiscreteStates(
-                self.instance,
+                self.ptr,
                 discrete_states_need_update as _,
                 terminate_simulation as _,
                 nominals_of_continuous_states_changed as _,

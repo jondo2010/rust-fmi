@@ -277,4 +277,21 @@ pub trait CoSimulation: Common {
 }
 
 /// Interface for Scheduled instances
-pub trait ScheduledExecution: Common {}
+///
+/// The Scheduled Execution interface provides support for concurrent computation of model partitions on a single computational resource (e.g. CPU-core).
+///
+/// See [https://fmi-standard.org/docs/3.0.1/#fmi-for-scheduled-execution]
+pub trait ScheduledExecution: Common {
+    /// Each `activate_model_partition` call relates to one input Clock which triggers the computation of its associated model partition.
+    ///
+    /// Arguments:
+    /// * `clock_reference`: `ValueReference` of the input Clock associated with the model partition which shall be activated.
+    /// * `activation_time`: value of the independent variable of the assigned Clock tick time 𝑡𝑖 [typically: simulation (i.e. virtual) time] (which is known to the simulation algorithm).
+    ///
+    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3ActivateModelPartition]
+    fn activate_model_partition(
+        &mut self,
+        clock_reference: Self::ValueReference,
+        activation_time: f64,
+    ) -> Fmi3Status;
+}

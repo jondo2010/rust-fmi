@@ -55,7 +55,7 @@ impl<'a> Instance<'a, ME> {
 
         Ok(Self {
             binding,
-            instance,
+            ptr: instance,
             model_description: schema,
             name,
             _tag: std::marker::PhantomData,
@@ -65,15 +65,15 @@ impl<'a> Instance<'a, ME> {
 
 impl<'a> traits::ModelExchange for Instance<'a, ME> {
     fn enter_continuous_time_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterContinuousTimeMode(self.instance) }.into()
+        unsafe { self.binding.fmi3EnterContinuousTimeMode(self.ptr) }.into()
     }
 
     fn enter_event_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterEventMode(self.instance) }.into()
+        unsafe { self.binding.fmi3EnterEventMode(self.ptr) }.into()
     }
 
     fn enter_configuration_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterConfigurationMode(self.instance) }.into()
+        unsafe { self.binding.fmi3EnterConfigurationMode(self.ptr) }.into()
     }
 
     fn completed_integrator_step(
@@ -84,7 +84,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
         let mut terminate_simulation = false;
         let res: Fmi3Status = unsafe {
             self.binding.fmi3CompletedIntegratorStep(
-                self.instance,
+                self.ptr,
                 no_set_fmu_state_prior,
                 &mut enter_event_mode,
                 &mut terminate_simulation,
@@ -95,7 +95,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
     }
 
     fn set_time(&mut self, time: f64) -> Fmi3Status {
-        unsafe { self.binding.fmi3SetTime(self.instance, time) }.into()
+        unsafe { self.binding.fmi3SetTime(self.ptr, time) }.into()
     }
 
     fn set_continuous_states(&mut self, states: &[f64]) -> Fmi3Status {
@@ -110,7 +110,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
 
         unsafe {
             self.binding
-                .fmi3SetContinuousStates(self.instance, states.as_ptr(), states.len())
+                .fmi3SetContinuousStates(self.ptr, states.as_ptr(), states.len())
         }
         .into()
     }
@@ -127,7 +127,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
 
         unsafe {
             self.binding.fmi3GetContinuousStates(
-                self.instance,
+                self.ptr,
                 continuous_states.as_mut_ptr(),
                 continuous_states.len(),
             )
@@ -147,7 +147,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
 
         unsafe {
             self.binding.fmi3GetContinuousStateDerivatives(
-                self.instance,
+                self.ptr,
                 derivatives.as_mut_ptr(),
                 derivatives.len(),
             )
@@ -167,7 +167,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
 
         unsafe {
             self.binding.fmi3GetNominalsOfContinuousStates(
-                self.instance,
+                self.ptr,
                 nominals.as_mut_ptr(),
                 nominals.len(),
             )
@@ -184,7 +184,7 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
 
         unsafe {
             self.binding.fmi3GetEventIndicators(
-                self.instance,
+                self.ptr,
                 event_indicators.as_mut_ptr(),
                 event_indicators.len(),
             )

@@ -5,9 +5,9 @@ use crate::traits::{FmiImport, FmiInstance};
 use super::{binding, import::Fmi3Import, schema, Fmi3Status};
 
 mod co_simulation;
-mod scheduled_execution {}
 mod common;
 mod model_exchange;
+mod scheduled_execution;
 mod traits;
 
 pub use traits::{CoSimulation, Common, ModelExchange, ScheduledExecution};
@@ -23,7 +23,7 @@ pub struct Instance<'a, Tag> {
     /// Raw FMI 3.0 bindings
     binding: binding::Fmi3Binding,
     /// Pointer to the raw FMI 3.0 instance
-    instance: binding::fmi3Instance,
+    ptr: binding::fmi3Instance,
     /// Model description
     model_description: &'a schema::FmiModelDescription,
     /// Instance name
@@ -34,8 +34,8 @@ pub struct Instance<'a, Tag> {
 impl<'a, Tag> Drop for Instance<'a, Tag> {
     fn drop(&mut self) {
         unsafe {
-            log::trace!("Freeing instance {:?}", self.instance);
-            self.binding.fmi3FreeInstance(self.instance);
+            log::trace!("Freeing instance {:?}", self.ptr);
+            self.binding.fmi3FreeInstance(self.ptr);
         }
     }
 }
@@ -76,7 +76,7 @@ impl<'a, Tag> Drop for Fmu3State<'a, Tag> {
             log::trace!("Freeing state {:?}", self.state);
             self.instance
                 .binding
-                .fmi3FreeFMUState(self.instance.instance, &mut self.state);
+                .fmi3FreeFMUState(self.instance.ptr, &mut self.state);
         }
     }
 }
