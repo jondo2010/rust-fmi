@@ -36,11 +36,14 @@ pub enum SolverError {
 }
 
 pub trait Solver<M> {
+    /// Solver parameters
+    type Params;
+
     /// Create a new Solver instance.
     /// # Arguments
     /// * `nx` - The number of continuous states.
     /// * `nz` - The number of event indicators.
-    fn new(start_time: f64, tolerance: f64, nx: usize, nz: usize) -> Self;
+    fn new(start_time: f64, tolerance: f64, nx: usize, nz: usize, params: Self::Params) -> Self;
 
     /// Perform a single step of the solver.
     ///
@@ -60,7 +63,14 @@ pub trait Solver<M> {
 pub struct DummySolver;
 
 impl<M> Solver<M> for DummySolver {
-    fn new(_start_time: f64, _tolerance: f64, _nx: usize, _nz: usize) -> Self {
+    type Params = ();
+    fn new(
+        _start_time: f64,
+        _tolerance: f64,
+        _nx: usize,
+        _nz: usize,
+        _params: Self::Params,
+    ) -> Self {
         Self
     }
 

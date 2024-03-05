@@ -28,5 +28,5 @@ where
     inst: Inst,
     time: f64,
     next_event_time: Option<f64>,
-    solver: S,
+    _phantom: std::marker::PhantomData<S>,
 }

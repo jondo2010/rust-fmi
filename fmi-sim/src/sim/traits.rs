@@ -5,8 +5,6 @@ use arrow::{
 };
 use fmi::traits::{FmiImport, FmiInstance};
 
-use crate::Error;
-
 use super::{
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
@@ -74,21 +72,4 @@ pub trait SimOutput {
     type Inst: FmiInstance;
     fn new(import: &<Self::Inst as FmiInstance>::Import, sim_params: &SimParams) -> Self;
     fn record_outputs(&mut self, time: f64, inst: &mut Self::Inst) -> anyhow::Result<()>;
-}
-
-pub trait SimTrait<'a>: Sized {
-    /*
-    type Import: FmiImport + FmiSchemaBuilder;
-    type InputState;
-    type OutputState;
-
-    fn new(
-        import: &'a Self::Import,
-        sim_params: SimParams,
-        input_state: Self::InputState,
-        output_state: Self::OutputState,
-    ) -> anyhow::Result<Self>;
-    */
-
-    fn main_loop(&mut self) -> Result<(), Error>;
 }

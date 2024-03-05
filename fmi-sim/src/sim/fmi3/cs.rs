@@ -14,8 +14,8 @@ use crate::{
         interpolation::Linear,
         params::SimParams,
         solver::DummySolver,
-        traits::{FmiSchemaBuilder, SimInput, SimOutput, SimTrait},
-        util, InputState, OutputState, SimState,
+        traits::{FmiSchemaBuilder, SimInput, SimOutput},
+        InputState, OutputState, SimState,
     },
     Error,
 };
@@ -43,12 +43,10 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
             inst,
             time,
             next_event_time: None,
-            solver: DummySolver,
+            _phantom: std::marker::PhantomData,
         })
     }
-}
 
-impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>, DummySolver> {
     /// Main loop of the co-simulation
     fn main_loop(&mut self) -> Result<(), Error> {
         if self.sim_params.event_mode_used {
@@ -155,6 +153,7 @@ impl<'a> SimTrait<'a> for SimState<InstanceCS<'a>, DummySolver> {
 pub fn co_simulation(
     import: &Fmi3Import,
     options: CoSimulationOptions,
+    input_data: Option<RecordBatch>,
 ) -> Result<RecordBatch, Error> {
     let start_values = import.parse_start_values(&options.common.initial_values)?;
 
@@ -164,15 +163,6 @@ pub fn co_simulation(
         options.event_mode_used,
         options.early_return_allowed,
     );
-
-    // Read optional input data from file
-    let input_data = options
-        .common
-        .input_file
-        .as_ref()
-        .map(util::read_csv)
-        .transpose()
-        .context("Reading input file")?;
 
     let input_state = InputState::new(import, input_data)?;
     let output_state = OutputState::new(import, &sim_params);

@@ -37,7 +37,16 @@ where
         false,
     ));
 
-    let reader = ReaderBuilder::new(Arc::new(file_schema))
+    // Create a non-nullible schema from the file schema
+    let file_schema = Arc::new(Schema::new(
+        file_schema
+            .fields()
+            .iter()
+            .map(|f| Arc::new(Field::new(f.name(), f.data_type().clone(), false)) as Arc<Field>)
+            .collect::<Vec<_>>(),
+    ));
+
+    let reader = ReaderBuilder::new(file_schema)
         .with_header(true)
         //.with_projection(input_projection)
         .build(file)?;

@@ -47,16 +47,30 @@ pub enum Interface {
     ScheduledExecution(CommonOptions),
 }
 
+impl Default for Interface {
+    fn default() -> Self {
+        // if only CS is enabled, use CS as default
+        #[cfg(all(not(feature = "me"), feature = "cs"))]
+        {
+            Self::CoSimulation(Default::default())
+        }
+
+        // if both ME and CS are enabled, use CS as default
+        #[cfg(all(feature = "me", feature = "cs"))]
+        {
+            Self::CoSimulation(Default::default())
+        }
+
+        // if only ME is enabled, use ME as default
+        #[cfg(all(feature = "me", not(feature = "cs")))]
+        {
+            Self::ModelExchange(Default::default())
+        }
+    }
+}
+
 #[derive(Default, Debug, clap::Args)]
 pub struct CommonOptions {
-    /// Name of the CSV file name with input data.
-    #[arg(short = 'i', long)]
-    pub input_file: Option<std::path::PathBuf>,
-
-    /// Simulation result output CSV file name. Default is to use standard output.
-    #[arg(short = 'o', long)]
-    pub output_file: Option<std::path::PathBuf>,
-
     /// File containing initial serialized FMU state.
     #[arg(long)]
     pub initial_fmu_state_file: Option<std::path::PathBuf>,
@@ -64,15 +78,6 @@ pub struct CommonOptions {
     /// File to write final serialized FMU state.
     #[arg(long)]
     pub final_fmu_state_file: Option<std::path::PathBuf>,
-
-    /// Separator to be used in CSV input/output.
-    #[arg(short = 'c', default_value = ",")]
-    pub separator: String,
-
-    /// Mangle variable names to avoid quoting (needed for some CSV importing applications, but not
-    /// according to the CrossCheck rules).
-    #[arg(short = 'm')]
-    pub mangle_names: bool,
 
     /// List of initial values to set before simulation starts. The format is
     /// "variableName=value", where variableName is the name of the variable and value is the
@@ -123,13 +128,26 @@ pub struct CommonOptions {
 }
 
 /// Simulate an FMU
-#[derive(Debug, clap::Parser)]
+#[derive(Default, Debug, clap::Parser)]
 #[command(version, about)]
-pub struct FmiCheckOptions {
+pub struct FmiSimOptions {
     /// Which FMI interface to use
     #[command(subcommand)]
     pub interface: Interface,
     /// The FMU model to read
     #[arg(long)]
     pub model: std::path::PathBuf,
+    /// Name of the CSV file name with input data.
+    #[arg(short = 'i', long)]
+    pub input_file: Option<std::path::PathBuf>,
+    /// Simulation result output CSV file name. Default is to use standard output.
+    #[arg(short = 'o', long)]
+    pub output_file: Option<std::path::PathBuf>,
+    /// Separator to be used in CSV input/output.
+    #[arg(short = 'c', default_value = ",")]
+    pub separator: char,
+    /// Mangle variable names to avoid quoting (needed for some CSV importing applications, but not
+    /// according to the CrossCheck rules).
+    #[arg(short = 'm')]
+    pub mangle_names: bool,
 }

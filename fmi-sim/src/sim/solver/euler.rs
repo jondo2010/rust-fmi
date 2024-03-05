@@ -9,11 +9,14 @@ pub struct Euler {
     dx: Vec<f64>,
     /// Event indicators
     z: Vec<f64>,
+    /// Previous event indicators
     prez: Vec<f64>,
 }
 
 impl<M: Model> Solver<M> for Euler {
-    fn new(start_time: f64, _tol: f64, nx: usize, nz: usize) -> Self {
+    type Params = ();
+
+    fn new(start_time: f64, _tol: f64, nx: usize, nz: usize, _solver_params: Self::Params) -> Self {
         Self {
             time: start_time,
             x: vec![0.0; nx],
@@ -90,7 +93,7 @@ mod tests {
 
     #[test]
     fn test_euler() {
-        let mut euler = <Euler as Solver<SimpleModel>>::new(0.0, 1e-6, 1, 1);
+        let mut euler = <Euler as Solver<SimpleModel>>::new(0.0, 1e-6, 1, 1, ());
         let (time, state_event) = euler.step(&mut SimpleModel, 1.0).unwrap();
         assert_eq!(time, 1.0);
         assert_eq!(state_event, false);
