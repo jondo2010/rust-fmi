@@ -29,7 +29,7 @@ impl<M: Model> Solver<M> for Euler {
     fn step(&mut self, model: &mut M, next_time: f64) -> Result<(f64, bool), SolverError> {
         let dt = next_time - self.time;
 
-        if self.x.len() > 0 {
+        if !self.x.is_empty() {
             model.get_continuous_states(&mut self.x);
             model.get_continuous_state_derivatives(&mut self.dx);
 
@@ -42,17 +42,20 @@ impl<M: Model> Solver<M> for Euler {
 
         let mut state_event = false;
 
-        if self.z.len() > 0 {
+        if !self.z.is_empty() {
             model.get_event_indicators(&mut self.z);
 
-            for i in 0..self.z.len() {
-                if self.prez[i] <= 0.0 && self.z[i] > 0.0 {
-                    state_event = true; // -\+
-                } else if self.prez[i] > 0.0 && self.z[i] <= 0.0 {
-                    state_event = true; // +/-
-                }
-                self.prez[i] = self.z[i];
-            }
+            self.z
+                .iter()
+                .zip(self.prez.iter_mut())
+                .for_each(|(z, prez)| {
+                    // crossed zero going positive
+                    let cross_pos = *prez <= 0.0 && *z > 0.0;
+                    // crossed zero going negative
+                    let cross_neg = *prez > 0.0 && *z <= 0.0;
+                    state_event = cross_pos || cross_neg || state_event;
+                    *prez = *z;
+                });
         }
         self.time = next_time;
 
@@ -60,7 +63,7 @@ impl<M: Model> Solver<M> for Euler {
     }
 
     fn reset(&mut self, model: &mut M, _time: f64) -> Result<(), SolverError> {
-        if self.z.len() > 0 {
+        if !self.z.is_empty() {
             model.get_event_indicators(&mut self.z);
         }
         Ok(())

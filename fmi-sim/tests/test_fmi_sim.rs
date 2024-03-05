@@ -19,46 +19,118 @@ use fmi_sim::options::{
 #[test]
 fn test_start_time() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu_fmi3("BouncingBall").unwrap();
 
-    let options = CoSimulationOptions {
-        common: CommonOptions {
-            start_time: Some(0.5),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let output = fmi_sim::sim::fmi3::co_simulation(&import, options, None).unwrap();
+    for fmi_version in [
+        #[cfg(feature = "fmi2")]
+        2,
+        #[cfg(feature = "fmi3")]
+        3,
+    ] {
+        let fmu_path = ref_fmus
+            .extract_reference_fmu("BouncingBall", fmi_version)
+            .unwrap();
 
-    assert_eq!(
-        output
-            .column_by_name("time")
-            .unwrap()
-            .as_primitive::<Float64Type>()
-            .value(0),
-        0.5
-    );
+        for (iface, options) in [
+            (
+                "CS",
+                FmiSimOptions {
+                    interface: Interface::CoSimulation(CoSimulationOptions {
+                        common: CommonOptions {
+                            start_time: Some(0.5),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
+                    model: fmu_path.clone(),
+                    ..Default::default()
+                },
+            ),
+            (
+                "ME",
+                FmiSimOptions {
+                    interface: Interface::ModelExchange(ModelExchangeOptions {
+                        common: CommonOptions {
+                            start_time: Some(0.5),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
+                    model: fmu_path.clone(),
+                    ..Default::default()
+                },
+            ),
+        ] {
+            let output = fmi_sim::simulate(&options).unwrap();
+            assert_eq!(
+                output
+                    .column_by_name("time")
+                    .unwrap()
+                    .as_primitive::<Float64Type>()
+                    .value(0),
+                0.5,
+                "fmi_version: {fmi_version}, iface: {iface}, time[0] does not match",
+            );
+        }
+    }
 }
 
 #[test_log::test]
 fn test_stop_time() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu_fmi3("BouncingBall").unwrap();
 
-    let options = CoSimulationOptions {
-        common: CommonOptions {
-            stop_time: Some(0.5),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let output = fmi_sim::sim::fmi3::co_simulation(&import, options, None).unwrap();
+    for fmi_version in [
+        #[cfg(feature = "fmi2")]
+        2,
+        #[cfg(feature = "fmi3")]
+        3,
+    ] {
+        let fmu_path = ref_fmus
+            .extract_reference_fmu("BouncingBall", fmi_version)
+            .unwrap();
 
-    let time = output
-        .column_by_name("time")
-        .unwrap()
-        .as_primitive::<Float64Type>();
-    assert_eq!(time.value(time.len() - 1), 0.5);
+        for (iface, options) in [
+            (
+                "CS",
+                FmiSimOptions {
+                    interface: Interface::CoSimulation(CoSimulationOptions {
+                        common: CommonOptions {
+                            stop_time: Some(0.5),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
+                    model: fmu_path.clone(),
+                    ..Default::default()
+                },
+            ),
+            (
+                "ME",
+                FmiSimOptions {
+                    interface: Interface::ModelExchange(ModelExchangeOptions {
+                        common: CommonOptions {
+                            stop_time: Some(0.5),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }),
+                    model: fmu_path.clone(),
+                    ..Default::default()
+                },
+            ),
+        ] {
+            let output = fmi_sim::simulate(&options).unwrap();
+
+            let time = output
+                .column_by_name("time")
+                .unwrap()
+                .as_primitive::<Float64Type>();
+            assert_eq!(
+                time.value(time.len() - 1),
+                0.5,
+                "fmi_version: {fmi_version}, iface: {iface}, time[-1] does not match",
+            );
+        }
+    }
 }
 
 #[test_log::test]
@@ -94,7 +166,7 @@ fn test_start_value_types() {
         event_mode_used: false,
         early_return_allowed: false,
     };
-    let output = fmi_sim::sim::fmi3::co_simulation(&import, options, None).unwrap();
+    let output = fmi_sim::sim::fmi3::co_simulation(&import, &options, None).unwrap();
 
     assert_eq!(
         output
@@ -233,8 +305,8 @@ fn compare_f64_column_by_name(
     }
 }
 
+#[cfg(feature = "fails")]
 #[test_log::test]
-#[cfg(feature = "disable")]
 fn test_bouncing_ball() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
     let model = ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap();
@@ -245,6 +317,7 @@ fn test_bouncing_ball() {
             FmiSimOptions {
                 interface: Interface::CoSimulation(CoSimulationOptions::default()),
                 model: model.clone(),
+                ..Default::default()
             },
             fmi_sim::sim::util::read_csv("tests/data/bouncing_ball_cs_expected.csv")
                 .expect("Error reading expected output"),
@@ -254,12 +327,13 @@ fn test_bouncing_ball() {
             FmiSimOptions {
                 interface: Interface::ModelExchange(ModelExchangeOptions::default()),
                 model: model.clone(),
+                ..Default::default()
             },
             fmi_sim::sim::util::read_csv("tests/data/bouncing_ball_me_expected.csv")
                 .expect("Error reading expected output"),
         ),
     ] {
-        let output = fmi_sim::simulate(options).expect("Error simulating FMU");
+        let output = fmi_sim::simulate(&options).expect("Error simulating FMU");
 
         // Compare the schema
         assert_eq!(output.schema().fields(), expected.schema().fields());
@@ -273,7 +347,6 @@ fn test_bouncing_ball() {
     }
 }
 
-#[cfg(feature = "broken")]
 #[test_log::test]
 fn test_input_file() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
@@ -291,7 +364,7 @@ fn test_input_file() {
     let input_data = fmi_sim::sim::util::read_csv("tests/data/feedthrough_in.csv")
         .expect("Error reading input data");
 
-    let output = fmi_sim::sim::fmi3::co_simulation(&import, options, Some(input_data)).unwrap();
+    let output = fmi_sim::sim::fmi3::co_simulation(&import, &options, Some(input_data)).unwrap();
 
     let f64_cts_out = output
         .column_by_name("Float64_continuous_output")

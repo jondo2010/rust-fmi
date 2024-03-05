@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::Context;
 use fmi::fmi3::instance::Common;
@@ -49,11 +49,14 @@ where
         Ok(())
     }
 
-    fn initialize(
+    fn initialize<P>(
         &mut self,
         start_values: StartValues<Inst::ValueReference>,
-        initial_fmu_state_file: Option<PathBuf>,
-    ) -> anyhow::Result<()> {
+        initial_fmu_state_file: Option<P>,
+    ) -> anyhow::Result<()>
+    where
+        P: AsRef<Path>,
+    {
         if let Some(_initial_state_file) = &initial_fmu_state_file {
             unimplemented!("initial_fmu_state_file");
             // self.inst.restore_fmu_state_from_file(initial_state_file)?;
