@@ -191,4 +191,14 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
         }
         .into()
     }
+
+    fn get_number_of_event_indicators(&self) -> Result<usize, Fmi3Error> {
+        let mut number_of_event_indicators = 0;
+        let res: Fmi3Status = unsafe {
+            self.binding
+                .fmi3GetNumberOfEventIndicators(self.ptr, &mut number_of_event_indicators)
+        }
+        .into();
+        res.ok().map(|_| number_of_event_indicators)
+    }
 }

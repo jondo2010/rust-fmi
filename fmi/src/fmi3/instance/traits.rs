@@ -252,6 +252,11 @@ pub trait ModelExchange: Common {
     ///
     /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3GetEventIndicators]
     fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Fmi3Status;
+
+    /// This function returns the number of event indicators.
+    ///
+    /// See: [https://fmi-standard.org/docs/3.0/#fmi3GetNumberOfEventIndicators]
+    fn get_number_of_event_indicators(&self) -> Result<usize, Fmi3Error>;
 }
 
 /// Interface for Co-Simulation instances

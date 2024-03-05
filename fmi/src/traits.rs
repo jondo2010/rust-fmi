@@ -53,4 +53,10 @@ pub trait FmiInstance {
 
     /// Get the model description of the FMU
     fn model_description(&self) -> &Self::ModelDescription;
+
+    /// Get the number of values required to store the continuous states. Array dimensions are expanded.
+    fn get_number_of_continuous_state_values(&mut self) -> usize;
+
+    /// Get the number of values required to store the event indicators. Array dimensions are expanded.
+    fn get_number_of_event_indicator_values(&mut self) -> usize;
 }

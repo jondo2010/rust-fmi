@@ -4,7 +4,7 @@ use super::{
     AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
     Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiBinary, FmiBoolean,
     FmiFloat32, FmiFloat64, FmiInt16, FmiInt32, FmiInt64, FmiInt8, FmiString, FmiUInt16, FmiUInt32,
-    FmiUInt64, FmiUInt8,
+    FmiUInt64, FmiUInt8, InitializableVariableTrait,
 };
 
 #[derive(Default, Debug, YaDeserialize)]
@@ -205,6 +205,18 @@ impl ModelVariables {
             self.boolean.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.string.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.binary.iter().map(|v| v as &dyn AbstractVariableTrait),
+        )
+    }
+
+    /// Returns an iterator over all the float32 and float64 variables in the model description
+    pub fn iter_floating(&self) -> impl Iterator<Item = &dyn InitializableVariableTrait> {
+        itertools::chain!(
+            self.float32
+                .iter()
+                .map(|v| v as &dyn InitializableVariableTrait),
+            self.float64
+                .iter()
+                .map(|v| v as &dyn InitializableVariableTrait),
         )
     }
 }

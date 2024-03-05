@@ -59,6 +59,14 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     fn model_description(&self) -> &Self::ModelDescription {
         self.model_description
     }
+
+    fn get_number_of_continuous_state_values(&mut self) -> usize {
+        self.model_description.num_states()
+    }
+
+    fn get_number_of_event_indicator_values(&mut self) -> usize {
+        self.model_description.num_event_indicators()
+    }
 }
 
 impl Default for CallbackFunctions {

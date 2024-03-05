@@ -10,6 +10,7 @@ mod model_exchange;
 mod scheduled_execution;
 mod traits;
 
+use itertools::Itertools;
 pub use traits::{CoSimulation, Common, ModelExchange, ScheduledExecution};
 
 /// Tag for Model Exchange instances
@@ -40,6 +41,49 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
     }
 }
 
+impl<'a, Tag> Instance<'a, Tag>
+where
+    Self: Common,
+{
+    /// Get the sum of the product of the dimensions of the variables with the given value references.
+    pub fn get_variable_dimensions<'b>(&mut self, var_refs: &[u32]) -> usize {
+        let var_dims = var_refs.iter().map(|vr| {
+            self.model_description
+                .model_variables
+                .iter_floating()
+                .find(|fv| fv.value_reference() == *vr)
+                .map(|fv| fv.dimensions().iter())
+                .expect("Variable not found")
+        });
+
+        var_dims
+            .map(|dims| {
+                dims.map(
+                    |schema::Dimension {
+                         start,
+                         value_reference,
+                     }| {
+                        match (start, value_reference) {
+                            // If the dimension has a start and no value reference, it is a constant
+                            (&Some(start), None) => start as usize,
+                            // If the dimension has a ValueRef, then it could be dynamically set during configuration mode
+                            (None, &Some(vr)) => {
+                                let mut dim_val = [0];
+                                self.get_uint64(&[vr.into()], &mut dim_val)
+                                    .ok()
+                                    .expect("Error getting dimension");
+                                dim_val[0] as usize
+                            }
+                            _ => panic!("Invalid Dimension"),
+                        }
+                    },
+                )
+                .fold(1, |acc, n_dim| acc * n_dim)
+            })
+            .sum()
+    }
+}
+
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     type ModelDescription = schema::FmiModelDescription;
 
@@ -57,6 +101,28 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
 
     fn model_description(&self) -> &Self::ModelDescription {
         self.model_description
+    }
+
+    fn get_number_of_continuous_state_values(&mut self) -> usize {
+        let md = self.model_description();
+        let cts_vars = md
+            .model_structure
+            .continuous_state_derivative
+            .iter()
+            .map(|csd| csd.value_reference)
+            .collect_vec();
+        self.get_variable_dimensions(&cts_vars)
+    }
+
+    fn get_number_of_event_indicator_values(&mut self) -> usize {
+        let md = self.model_description();
+        let event_vars = md
+            .model_structure
+            .event_indicator
+            .iter()
+            .map(|ei| ei.value_reference)
+            .collect_vec();
+        self.get_variable_dimensions(&event_vars)
     }
 }
 
