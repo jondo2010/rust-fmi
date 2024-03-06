@@ -42,9 +42,10 @@ jobs:
         with:
           reporter: 'github-pr-review'
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          clippy_flags: -- -Dwarnings
 
       - name: build
-        run: cargo build --verbose
+        run: cargo build --all --verbose
 
       - name: test
         run: cargo test --all --verbose
