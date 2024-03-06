@@ -26,7 +26,7 @@ fn test_start_time() {
         #[cfg(feature = "fmi3")]
         3,
     ] {
-        let fmu_path = ref_fmus
+        let fmu_file = ref_fmus
             .extract_reference_fmu("BouncingBall", fmi_version)
             .unwrap();
 
@@ -41,7 +41,7 @@ fn test_start_time() {
                         },
                         ..Default::default()
                     }),
-                    model: fmu_path.clone(),
+                    model: fmu_file.path().to_path_buf(),
                     ..Default::default()
                 },
             ),
@@ -55,7 +55,7 @@ fn test_start_time() {
                         },
                         ..Default::default()
                     }),
-                    model: fmu_path.clone(),
+                    model: fmu_file.path().to_path_buf(),
                     ..Default::default()
                 },
             ),
@@ -84,7 +84,7 @@ fn test_stop_time() {
         #[cfg(feature = "fmi3")]
         3,
     ] {
-        let fmu_path = ref_fmus
+        let fmu_file = ref_fmus
             .extract_reference_fmu("BouncingBall", fmi_version)
             .unwrap();
 
@@ -99,7 +99,7 @@ fn test_stop_time() {
                         },
                         ..Default::default()
                     }),
-                    model: fmu_path.clone(),
+                    model: fmu_file.path().to_path_buf(),
                     ..Default::default()
                 },
             ),
@@ -113,7 +113,7 @@ fn test_stop_time() {
                         },
                         ..Default::default()
                     }),
-                    model: fmu_path.clone(),
+                    model: fmu_file.path().to_path_buf(),
                     ..Default::default()
                 },
             ),

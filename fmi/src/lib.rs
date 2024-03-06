@@ -45,6 +45,9 @@ pub enum Error {
     #[error("Unsupported FMI version: {0}")]
     UnsupportedFmiVersion(String),
 
+    #[error("Unsupported Interface type: {0}")]
+    UnsupportedInterface(String),
+
     #[error("FMI version of loaded API ({found}) doesn't match expected ({expected})")]
     FmiVersionMismatch { found: String, expected: String },
 

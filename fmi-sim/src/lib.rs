@@ -37,9 +37,14 @@ pub fn simulate(options: &options::FmiSimOptions) -> Result<RecordBatch, Error> 
             let import: fmi::fmi2::import::Fmi2Import = fmi::import::from_path(&options.model)?;
             match &options.interface {
                 #[cfg(feature = "me")]
-                options::Interface::ME(options) => todo!(),
+                options::Interface::ModelExchange(options) => {
+                    sim::fmi2::model_exchange(&import, options, input_data)
+                }
                 #[cfg(feature = "cs")]
-                options::Interface::CS(options) => todo!(),
+                options::Interface::CoSimulation(options) => {
+                    sim::fmi2::co_simulation(&import, options, input_data)
+                }
+                _ => Err(fmi::Error::UnsupportedInterface(format!("{}", options.interface)).into()),
             }
         }
         #[cfg(feature = "fmi3")]

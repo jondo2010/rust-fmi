@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Default, Debug, Clone, clap::ValueEnum)]
 pub enum SolverArg {
     /// Euler solver
@@ -65,6 +67,19 @@ impl Default for Interface {
         #[cfg(all(feature = "me", not(feature = "cs")))]
         {
             Self::ModelExchange(Default::default())
+        }
+    }
+}
+
+impl Display for Interface {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            #[cfg(feature = "me")]
+            Self::ModelExchange(_) => write!(f, "ModelExchange"),
+            #[cfg(feature = "cs")]
+            Self::CoSimulation(_) => write!(f, "CoSimulation"),
+            #[cfg(feature = "se")]
+            Self::ScheduledExecution(_) => write!(f, "ScheduledExecution"),
         }
     }
 }

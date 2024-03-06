@@ -148,11 +148,10 @@ pub fn model_exchange(
     options: &ModelExchangeOptions,
     input_data: Option<RecordBatch>,
 ) -> Result<RecordBatch, Error> {
-    let start_values = import.parse_start_values(&options.common.initial_values)?;
-
     let sim_params =
         SimParams::new_from_options(&options.common, import.model_description(), true, false);
 
+    let start_values = import.parse_start_values(&options.common.initial_values)?;
     let input_state = InputState::new(import, input_data)?;
     let output_state = OutputState::new(import, &sim_params);
 
