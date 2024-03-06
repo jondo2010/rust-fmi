@@ -46,7 +46,7 @@ where
     Self: Common,
 {
     /// Get the sum of the product of the dimensions of the variables with the given value references.
-    pub fn get_variable_dimensions<'b>(&mut self, var_refs: &[u32]) -> usize {
+    pub fn get_variable_dimensions(&mut self, var_refs: &[u32]) -> usize {
         let var_dims = var_refs.iter().map(|vr| {
             self.model_description
                 .model_variables
@@ -78,7 +78,7 @@ where
                         }
                     },
                 )
-                .fold(1, |acc, n_dim| acc * n_dim)
+                .product::<usize>()
             })
             .sum()
     }

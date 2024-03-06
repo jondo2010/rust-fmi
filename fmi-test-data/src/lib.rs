@@ -6,8 +6,8 @@ use fmi::{fmi2::import::Fmi2Import, fmi3::import::Fmi3Import};
 use std::{
     fs::File,
     io::{Cursor, Read},
-    path::PathBuf,
 };
+use tempfile::NamedTempFile;
 
 const REF_ARCHIVE: &str = "Reference-FMUs-0.0.29.zip";
 const REF_URL: &str = "https://github.com/modelica/Reference-FMUs/releases/download/v0.0.29/";
@@ -65,17 +65,19 @@ impl ReferenceFmus {
         Ok(fmi::import::new(Cursor::new(buf))?)
     }
 
-    /// Extract a reference FMU from the reference archive, relative to the zip file, and returns the path
-    pub fn extract_reference_fmu(&mut self, name: &str, version: usize) -> anyhow::Result<PathBuf> {
+    /// Extract a reference FMU from the reference archive into a temporary file
+    pub fn extract_reference_fmu(
+        &mut self,
+        name: &str,
+        version: usize,
+    ) -> anyhow::Result<NamedTempFile> {
         let v = version_str(version)?;
         let filename = format!("{v}/{name}.fmu");
-        let mut f = self.archive.by_name(&filename).context("Open {filename}")?;
-        let mut buf = Vec::new();
-        f.read_to_end(buf.as_mut())?;
-        let path = STATIC_FETCH_DATA.cache_dir().unwrap().join(&filename);
-        std::fs::create_dir_all(path.parent().unwrap())?;
-        std::fs::write(&path, buf).context(format!("Extracting {path:?}"))?;
-        Ok(path)
+        let mut fin = self.archive.by_name(&filename).context("Open {filename}")?;
+        let mut fout = tempfile::NamedTempFile::new()?;
+        std::io::copy(fin.by_ref(), fout.as_file_mut())
+            .context("Extracting {path:?} to tempfile")?;
+        Ok(fout)
     }
 }
 

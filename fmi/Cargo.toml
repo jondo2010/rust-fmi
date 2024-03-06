@@ -32,7 +32,7 @@ itertools = { workspace = true }
 libc = { version = "0.2", features = ["align"], optional = true }
 libloading = { workspace = true }
 log = { version = "0.4", features = ["std", "serde"] }
-tempfile = "3.1"
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 url = "2.2"
 zip = { workspace = true }

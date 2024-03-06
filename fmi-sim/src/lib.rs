@@ -1,3 +1,5 @@
+use arrow::array::RecordBatch;
+
 pub mod options;
 pub mod sim;
 
@@ -18,29 +20,38 @@ pub enum Error {
     Other(#[from] anyhow::Error),
 }
 
-pub fn simulate(args: options::FmiSimOptions) -> Result<(), Error> {
-    let mini_descr = fmi::import::peek_descr_path(&args.model)?;
+pub fn simulate(options: &options::FmiSimOptions) -> Result<RecordBatch, Error> {
+    let mini_descr = fmi::import::peek_descr_path(&options.model)?;
     let version = mini_descr.version().map_err(fmi::Error::from)?;
 
     // Read optional input data
-    let input_data = args.input_file.map(sim::util::read_csv).transpose()?;
+    let input_data = options
+        .input_file
+        .as_ref()
+        .map(sim::util::read_csv)
+        .transpose()?;
 
     let outputs = match version.major {
         #[cfg(feature = "fmi2")]
         2 => {
-            let import: fmi::fmi2::import::Fmi2Import = fmi::import::from_path(&args.model)?;
-            match args.action {
+            let import: fmi::fmi2::import::Fmi2Import = fmi::import::from_path(&options.model)?;
+            match &options.interface {
                 #[cfg(feature = "me")]
-                options::Interface::ME(options) => todo!(),
+                options::Interface::ModelExchange(options) => {
+                    sim::fmi2::model_exchange(&import, options, input_data)
+                }
                 #[cfg(feature = "cs")]
-                options::Interface::CS(options) => todo!(),
+                options::Interface::CoSimulation(options) => {
+                    sim::fmi2::co_simulation(&import, options, input_data)
+                }
+                _ => Err(fmi::Error::UnsupportedInterface(format!("{}", options.interface)).into()),
             }
         }
         #[cfg(feature = "fmi3")]
         3 => {
-            let import: fmi::fmi3::import::Fmi3Import = fmi::import::from_path(&args.model)?;
+            let import: fmi::fmi3::import::Fmi3Import = fmi::import::from_path(&options.model)?;
 
-            match args.interface {
+            match &options.interface {
                 #[cfg(feature = "me")]
                 options::Interface::ModelExchange(options) => {
                     sim::fmi3::model_exchange(&import, options, input_data)
@@ -57,19 +68,5 @@ pub fn simulate(args: options::FmiSimOptions) -> Result<(), Error> {
         _ => Err(fmi::Error::UnsupportedFmiVersion(version.to_string()).into()),
     }?;
 
-    if args.output_file.is_some() {
-        let file = std::fs::File::create(&args.output_file.unwrap()).unwrap();
-        arrow::csv::writer::WriterBuilder::new()
-            .with_delimiter(args.separator as _)
-            .with_header(true)
-            .build(file)
-            .write(&outputs)?;
-    } else {
-        println!(
-            "Outputs:\n{}",
-            arrow::util::pretty::pretty_format_batches(&[outputs]).unwrap()
-        );
-    }
-
-    Ok(())
+    Ok(outputs)
 }

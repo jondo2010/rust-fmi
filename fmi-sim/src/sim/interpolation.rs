@@ -13,7 +13,7 @@ where
     T::Native: NumCast,
 {
     let mut row = 0;
-    for i in 0..array.len() {
+    for i in 1..array.len() {
         if array.value(i) >= value {
             break;
         }
@@ -67,6 +67,9 @@ impl PreLookup {
         T::Native: NumCast,
     {
         let index = find_index_ref(array, value, after_event);
+        if index == array.len() - 1 {
+            return Self(index, 1.0);
+        }
         let t0: f64 = NumCast::from(array.value(index)).unwrap();
         let t1: f64 = NumCast::from(array.value(index + 1)).unwrap();
         let value: f64 = NumCast::from(value).unwrap();
@@ -127,7 +130,7 @@ impl Interpolate for Linear {
         T: ArrowPrimitiveType,
         T::Native: NumCast,
     {
-        let (index, fraction) = (pre.0.min(array.len() - 1), pre.1);
+        let (index, fraction) = (pre.0.min(array.len() - 2), pre.1);
         let t0: f64 = NumCast::from(array.value(index)).unwrap();
         let t1: f64 = NumCast::from(array.value(index + 1)).unwrap();
         NumCast::from(t0 + fraction * (t1 - t0)).unwrap()
@@ -143,7 +146,7 @@ impl Interpolate for Cubic {
         T: ArrowPrimitiveType,
         T::Native: NumCast,
     {
-        let (index, fraction) = (pre.0.min(array.len() - 1), pre.1);
+        let (index, fraction) = (pre.0.min(array.len() - 4), pre.1);
         let t0: f64 = NumCast::from(array.value(index)).unwrap();
         let t1: f64 = NumCast::from(array.value(index + 1)).unwrap();
         let t2: f64 = NumCast::from(array.value(index + 2)).unwrap();
@@ -158,7 +161,6 @@ impl Interpolate for Cubic {
     }
 }
 
-#[cfg(feature = "disable")]
 #[cfg(test)]
 mod tests {
     use super::{Interpolate, Linear, PreLookup};
@@ -173,11 +175,11 @@ mod tests {
         assert_eq!(PreLookup::new(&array, 0.5, false), PreLookup(0, 0.5));
         assert_eq!(PreLookup::new(&array, 1.0, false), PreLookup(0, 1.0));
         assert_eq!(PreLookup::new(&array, 1.5, false), PreLookup(1, 0.5));
-        assert_eq!(PreLookup::new(&array, 2.0, false), PreLookup(2, 0.0));
+        assert_eq!(PreLookup::new(&array, 2.0, false), PreLookup(1, 1.0));
         assert_eq!(PreLookup::new(&array, 2.5, false), PreLookup(2, 0.5));
-        assert_eq!(PreLookup::new(&array, 3.0, false), PreLookup(3, 0.0));
+        assert_eq!(PreLookup::new(&array, 3.0, false), PreLookup(2, 1.0));
         assert_eq!(PreLookup::new(&array, 3.5, false), PreLookup(3, 0.5));
-        assert_eq!(PreLookup::new(&array, 4.0, false), PreLookup(4, 0.0));
+        assert_eq!(PreLookup::new(&array, 4.0, false), PreLookup(3, 1.0));
         assert_eq!(PreLookup::new(&array, 5.0, false), PreLookup(4, 1.0));
     }
 
