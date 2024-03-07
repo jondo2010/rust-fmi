@@ -14,7 +14,7 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["fmi3", "cs", "me"]
+default = ["fmi2", "fmi3", "cs", "me"]
 ## Enable support for FMI 2.0
 fmi2 = ["fmi/fmi2"]
 ## Enable support for FMI 3.0

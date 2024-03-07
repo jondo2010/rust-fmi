@@ -1,7 +1,6 @@
 use arrow::{
     array::ArrayRef,
     datatypes::{Field, Schema},
-    record_batch::RecordBatch,
 };
 use fmi::traits::{FmiImport, FmiInstance};
 
@@ -11,6 +10,7 @@ use super::{
     params::SimParams,
 };
 
+/// Interface for building the Arrow schema for the inputs and outputs of an FMU.
 pub trait FmiSchemaBuilder: FmiImport {
     /// Build the schema for the inputs of the model.
     fn inputs_schema(&self) -> Schema;
@@ -22,7 +22,6 @@ pub trait FmiSchemaBuilder: FmiImport {
     fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
     /// Build a list of Schema column (index, ValueReference) for the outputs.
     fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
-
     /// Parse a list of "var=value" strings.
     ///
     /// # Returns
@@ -46,26 +45,6 @@ pub trait InstanceSetValues: FmiInstance {
         pl: &PreLookup,
         array: &ArrayRef,
     ) -> anyhow::Result<()>;
-}
-
-pub trait SimInput: Sized {
-    type Inst: FmiInstance;
-
-    fn new(
-        import: &<Self::Inst as FmiInstance>::Import,
-        input_data: Option<RecordBatch>,
-    ) -> anyhow::Result<Self>;
-
-    fn apply_input<I: Interpolate>(
-        &mut self,
-        time: f64,
-        inst: &mut Self::Inst,
-        discrete: bool,
-        continuous: bool,
-        after_event: bool,
-    ) -> anyhow::Result<()>;
-
-    fn next_input_event(&self, time: f64) -> f64;
 }
 
 pub trait SimOutput {

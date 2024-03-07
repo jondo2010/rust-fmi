@@ -26,6 +26,10 @@ fn test_instance() {
         .map(|x| x.name.as_str())
         .collect();
     inst1.set_debug_logging(true, &log_cats).ok().unwrap();
+
+    inst1.enter_configuration_mode().ok().unwrap();
+    inst1.exit_configuration_mode().ok().unwrap();
+
     inst1
         .enter_initialization_mode(None, 0.0, None)
         .ok()

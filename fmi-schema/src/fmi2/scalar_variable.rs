@@ -112,6 +112,19 @@ impl Default for ScalarVariableElement {
     }
 }
 
+#[cfg(feature = "arrow")]
+impl ScalarVariableElement {
+    pub fn data_type(&self) -> arrow::datatypes::DataType {
+        match self {
+            ScalarVariableElement::Real(_) => arrow::datatypes::DataType::Float64,
+            ScalarVariableElement::Integer(_) => arrow::datatypes::DataType::Int32,
+            ScalarVariableElement::Boolean(_) => arrow::datatypes::DataType::Boolean,
+            ScalarVariableElement::String => arrow::datatypes::DataType::Utf8,
+            ScalarVariableElement::Enumeration => arrow::datatypes::DataType::Int32,
+        }
+    }
+}
+
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct ScalarVariable {
     /// The full, unique name of the variable.

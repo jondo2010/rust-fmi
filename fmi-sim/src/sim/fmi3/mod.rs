@@ -1,13 +1,13 @@
 use std::path::Path;
 
 use anyhow::Context;
-use fmi::fmi3::instance::Common;
+use fmi::{fmi3::instance::Common, traits::FmiInstance};
 
 use super::{
     interpolation::Linear,
     io::StartValues,
     solver::Solver,
-    traits::{FmiSchemaBuilder, InstanceSetValues, SimInput, SimOutput},
+    traits::{FmiSchemaBuilder, InstanceSetValues, SimOutput},
     SimState,
 };
 
@@ -16,11 +16,20 @@ mod cs;
 mod io;
 #[cfg(feature = "me")]
 mod me;
+mod schema;
 
 #[cfg(feature = "cs")]
 pub use cs::co_simulation;
 #[cfg(feature = "me")]
 pub use me::model_exchange;
+
+impl<Inst, S> SimState<Inst, S>
+where
+    Inst: FmiInstance + InstanceSetValues,
+    Inst::Import: FmiSchemaBuilder,
+    S: Solver<Inst>,
+{
+}
 
 impl<Inst, S> SimState<Inst, S>
 where
@@ -33,13 +42,12 @@ where
         start_values: &StartValues<Inst::ValueReference>,
     ) -> anyhow::Result<()> {
         if !start_values.structural_parameters.is_empty() {
-            unimplemented!("Structural parameters");
-            //instance.enter_configuration_mode()?;
-            //structural_parameters.for_each(|(vr, ary)| {
-            //    log::trace!("Setting structural parameter `{}`", vr);
-            //    instance.set_array(&[vr], &ary);
-            //});
-            //instance.exit_configuration_mode()?;
+            self.inst.enter_configuration_mode().ok()?;
+            for (vr, ary) in &start_values.structural_parameters {
+                log::trace!("Setting structural parameter `{}`", (*vr).into());
+                self.inst.set_array(&[(*vr)], &ary);
+            }
+            self.inst.exit_configuration_mode().ok()?;
         }
 
         start_values.variables.iter().for_each(|(vr, ary)| {

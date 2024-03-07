@@ -1,7 +1,5 @@
 //! FMI3-specific input and output implementation
 
-use std::sync::Arc;
-
 use anyhow::Context;
 use arrow::{
     array::{
@@ -11,7 +9,6 @@ use arrow::{
     },
     datatypes::DataType,
     downcast_primitive_array,
-    record_batch::RecordBatch,
 };
 use fmi::fmi3::instance::Common;
 
@@ -19,135 +16,9 @@ use crate::sim::{
     interpolation::{find_index, Interpolate, PreLookup},
     io::Recorder,
     params::SimParams,
-    traits::{FmiSchemaBuilder, InstanceSetValues, SimInput, SimOutput},
-    util::project_input_data,
+    traits::{FmiSchemaBuilder, InstanceSetValues, SimOutput},
     InputState, OutputState,
 };
-
-impl<Inst> SimInput for InputState<Inst>
-where
-    Inst: Common + InstanceSetValues,
-    Inst::Import: FmiSchemaBuilder,
-{
-    type Inst = Inst;
-
-    fn new(import: &Inst::Import, input_data: Option<RecordBatch>) -> anyhow::Result<Self> {
-        let model_input_schema = Arc::new(import.inputs_schema());
-        let continuous_inputs = import.continuous_inputs().collect();
-        let discrete_inputs = import.discrete_inputs().collect();
-
-        let input_data = if let Some(input_data) = input_data {
-            let rb = project_input_data(&input_data, model_input_schema.clone())?;
-
-            log::debug!(
-                "Input data:\n{}",
-                arrow::util::pretty::pretty_format_batches(&[input_data])?
-            );
-
-            Some(rb)
-        } else {
-            None
-        };
-
-        Ok(Self {
-            input_data,
-            continuous_inputs,
-            discrete_inputs,
-        })
-    }
-
-    fn apply_input<I: Interpolate>(
-        &mut self,
-        time: f64,
-        inst: &mut Self::Inst,
-        discrete: bool,
-        continuous: bool,
-        after_event: bool,
-    ) -> anyhow::Result<()> {
-        if let Some(input_data) = &self.input_data {
-            let time_array: Float64Array = downcast_array(
-                input_data
-                    .column_by_name("time")
-                    .context("Input data must have a column named 'time' with the time values")?,
-            );
-
-            if continuous {
-                let pl = PreLookup::new(&time_array, time, after_event);
-
-                for (field, vr) in &self.continuous_inputs {
-                    if let Some(input_col) = input_data.column_by_name(field.name()) {
-                        log::trace!(
-                            "Applying continuous input {}={input_col:?} at time {time}",
-                            field.name()
-                        );
-
-                        let ary = arrow::compute::cast(input_col, field.data_type())
-                            .map_err(|_| anyhow::anyhow!("Error casting type"))?;
-
-                        inst.set_interpolated::<I>(*vr, &pl, &ary)?;
-                    }
-                }
-            }
-
-            if discrete {
-                // TODO: Refactor the interpolation code to separate index lookup from interpolation
-                let input_idx = find_index(&time_array, time, after_event);
-
-                for (field, vr) in &self.discrete_inputs {
-                    if let Some(input_col) = input_data.column_by_name(field.name()) {
-                        log::trace!(
-                            "Applying discrete input {}={input_col:?} at time {time}",
-                            field.name()
-                        );
-
-                        let ary = arrow::compute::cast(input_col, field.data_type())
-                            .map_err(|_| anyhow::anyhow!("Error casting type"))?;
-
-                        inst.set_array(&[*vr], &ary.slice(input_idx, 1));
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn next_input_event(&self, time: f64) -> f64 {
-        if let Some(input_data) = &self.input_data {
-            let time_array: Float64Array =
-                downcast_array(input_data.column_by_name("time").unwrap());
-
-            for i in 0..(time_array.len() - 1) {
-                let t0 = time_array.value(i);
-                let t1 = time_array.value(i + 1);
-
-                if time >= t1 {
-                    continue;
-                }
-
-                if t0 == t1 {
-                    return t0; // discrete change of a continuous variable
-                }
-
-                // TODO: This could be computed once and cached
-
-                // skip continuous variables
-                for (field, _vr) in &self.discrete_inputs {
-                    if let Some(input_col) = input_data.column_by_name(field.name()) {
-                        use arrow::datatypes as arrow_schema;
-                        if downcast_primitive_array!(
-                            input_col => input_col.value(i) != input_col.value(i + 1),
-                            t => panic!("Unsupported datatype {}", t)
-                        ) {
-                            return t1;
-                        }
-                    }
-                }
-            }
-        }
-        f64::INFINITY
-    }
-}
 
 macro_rules! impl_recorder {
     ($getter:ident, $builder_type:ident, $inst:expr, $vr:ident, $builder:ident) => {{

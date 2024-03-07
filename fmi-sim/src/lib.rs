@@ -44,6 +44,7 @@ pub fn simulate(options: &options::FmiSimOptions) -> Result<RecordBatch, Error> 
                 options::Interface::CoSimulation(options) => {
                     sim::fmi2::co_simulation(&import, options, input_data)
                 }
+                #[cfg(any(not(feature = "me"), not(feature = "cs")))]
                 _ => Err(fmi::Error::UnsupportedInterface(format!("{}", options.interface)).into()),
             }
         }

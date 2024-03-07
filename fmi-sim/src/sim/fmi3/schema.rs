@@ -2,9 +2,13 @@ use arrow::{
     array::{ArrayRef, StringArray},
     datatypes::{DataType, Field, Fields, Schema},
 };
-use fmi::{fmi3::import::Fmi3Import, traits::FmiImport};
+use fmi::{
+    fmi3::{import::Fmi3Import, schema::Causality},
+    traits::FmiImport,
+};
+use fmi_schema::fmi3::Variability;
 
-use super::{io::StartValues, traits::FmiSchemaBuilder};
+use crate::sim::{io::StartValues, traits::FmiSchemaBuilder};
 
 impl FmiSchemaBuilder for Fmi3Import
 where
@@ -15,7 +19,7 @@ where
             .model_description()
             .model_variables
             .iter_abstract()
-            .filter(|v| v.causality() == fmi::fmi3::schema::Causality::Input)
+            .filter(|v| v.causality() == Causality::Input)
             .map(|v| Field::new(v.name(), v.data_type().into(), false))
             .collect::<Fields>();
 
@@ -28,7 +32,7 @@ where
             .model_description()
             .model_variables
             .iter_abstract()
-            .filter(|v| v.causality() == fmi::fmi3::schema::Causality::Output)
+            .filter(|v| v.causality() == Causality::Output)
             .map(|v| Field::new(v.name(), v.data_type().into(), false))
             .chain(std::iter::once(time))
             .collect::<Fields>();
@@ -41,7 +45,7 @@ where
             .model_variables
             .iter_abstract()
             .filter(|v| {
-                v.causality() == fmi::fmi3::schema::Causality::Input
+                v.causality() == Causality::Input
                     && v.variability() == fmi::fmi3::schema::Variability::Continuous
             })
             .map(|v| {
@@ -53,7 +57,6 @@ where
     }
 
     fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
-        use fmi::fmi3::schema::{Causality, Variability};
         self.model_description()
             .model_variables
             .iter_abstract()
@@ -74,7 +77,7 @@ where
         self.model_description()
             .model_variables
             .iter_abstract()
-            .filter(|v| v.causality() == fmi::fmi3::schema::Causality::Output)
+            .filter(|v| v.causality() == Causality::Output)
             .map(|v| {
                 (
                     Field::new(v.name(), v.data_type().into(), false),
@@ -87,8 +90,6 @@ where
         &self,
         start_values: &[String],
     ) -> anyhow::Result<StartValues<Self::ValueReference>> {
-        use fmi_schema::fmi3::Causality;
-
         let mut structural_parameters: Vec<(Self::ValueReference, ArrayRef)> = vec![];
         let mut variables: Vec<(Self::ValueReference, ArrayRef)> = vec![];
 

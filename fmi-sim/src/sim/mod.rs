@@ -5,7 +5,6 @@ pub mod fmi3;
 mod interpolation;
 mod io;
 pub mod params;
-mod schema_builder;
 pub mod set_values;
 pub mod solver;
 mod traits;
