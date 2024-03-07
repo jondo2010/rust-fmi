@@ -72,10 +72,6 @@ impl<'a> traits::ModelExchange for Instance<'a, ME> {
         unsafe { self.binding.fmi3EnterEventMode(self.ptr) }.into()
     }
 
-    fn enter_configuration_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterConfigurationMode(self.ptr) }.into()
-    }
-
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
