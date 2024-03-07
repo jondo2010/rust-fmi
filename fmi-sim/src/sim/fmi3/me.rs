@@ -11,6 +11,7 @@ use fmi::{
 use crate::{
     options::ModelExchangeOptions,
     sim::{
+        fmi3::Fmi3Sim,
         interpolation::Linear,
         params::SimParams,
         solver::{self, Solver},

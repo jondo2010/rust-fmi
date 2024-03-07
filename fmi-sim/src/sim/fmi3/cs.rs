@@ -17,6 +17,8 @@ use crate::{
     Error,
 };
 
+use super::Fmi3Sim;
+
 impl<'a> SimState<InstanceCS<'a>, DummySolver> {
     pub fn new(
         import: &'a Fmi3Import,

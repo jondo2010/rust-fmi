@@ -23,15 +23,28 @@ pub use cs::co_simulation;
 #[cfg(feature = "me")]
 pub use me::model_exchange;
 
-impl<Inst, S> SimState<Inst, S>
-where
-    Inst: FmiInstance + InstanceSetValues,
-    Inst::Import: FmiSchemaBuilder,
-    S: Solver<Inst>,
-{
+trait Fmi3Sim<Inst: FmiInstance> {
+    fn apply_start_values(
+        &mut self,
+        start_values: &StartValues<Inst::ValueReference>,
+    ) -> anyhow::Result<()>;
+
+    fn initialize<P: AsRef<Path>>(
+        &mut self,
+        start_values: StartValues<Inst::ValueReference>,
+        initial_fmu_state_file: Option<P>,
+    ) -> anyhow::Result<()>;
+
+    fn default_initialize(&mut self) -> anyhow::Result<()>;
+
+    fn handle_events(
+        &mut self,
+        input_event: bool,
+        terminate_simulation: &mut bool,
+    ) -> Result<bool, anyhow::Error>;
 }
 
-impl<Inst, S> SimState<Inst, S>
+impl<Inst, S> Fmi3Sim<Inst> for SimState<Inst, S>
 where
     Inst: Common,
     Inst::Import: FmiSchemaBuilder,
