@@ -1,11 +1,11 @@
 //! Traits for different instance types ([ModelExchange], [CoSimulation]).
 
-use crate::{fmi2::EventInfo, Error};
+use crate::{fmi2::EventInfo, traits::FmiInstance, Error};
 
 use super::{binding, Fmi2Status};
 
 /// Interface common to both ModelExchange and CoSimulation
-pub trait Common {
+pub trait Common: FmiInstance {
     /// The instance name
     fn name(&self) -> &str;
 

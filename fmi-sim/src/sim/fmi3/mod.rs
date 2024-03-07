@@ -7,7 +7,7 @@ use super::{
     interpolation::Linear,
     io::StartValues,
     solver::Solver,
-    traits::{FmiSchemaBuilder, InstanceSetValues, SimOutput},
+    traits::{FmiSchemaBuilder, InstanceSetValues},
     SimState,
 };
 

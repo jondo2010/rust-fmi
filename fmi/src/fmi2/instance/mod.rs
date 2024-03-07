@@ -19,6 +19,9 @@ pub struct ME;
 /// Tag for Co-Simulation instances
 pub struct CS;
 
+pub type InstanceME<'a> = Instance<'a, ME>;
+pub type InstanceCS<'a> = Instance<'a, CS>;
+
 pub struct Instance<'a, Tag> {
     /// Raw FMI 2.0 bindings
     binding: binding::Fmi2Binding,

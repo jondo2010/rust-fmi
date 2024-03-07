@@ -118,7 +118,7 @@ where
             let dt = arrow::datatypes::DataType::from(var.data_type());
             let ary = StringArray::from(vec![value.to_string()]);
             let ary = arrow::compute::cast(&ary, &dt)
-                .map_err(|_| anyhow::anyhow!("Error casting type"))?;
+                .map_err(|e| anyhow::anyhow!("Error casting type: {e}"))?;
 
             if var.causality() == Causality::StructuralParameter {
                 structural_parameters.push((var.value_reference(), ary));

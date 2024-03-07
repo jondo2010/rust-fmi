@@ -10,13 +10,13 @@ use arrow::{
     datatypes::DataType,
     downcast_primitive_array,
 };
-use fmi::fmi3::instance::Common;
+use fmi::{fmi3::instance::Common, traits::FmiInstance};
 
 use crate::sim::{
     interpolation::{find_index, Interpolate, PreLookup},
     io::Recorder,
     params::SimParams,
-    traits::{FmiSchemaBuilder, InstanceSetValues, SimOutput},
+    traits::{FmiSchemaBuilder, InstanceSetValues},
     InputState, OutputState,
 };
 
@@ -32,36 +32,12 @@ macro_rules! impl_recorder {
     }};
 }
 
-impl<Inst> SimOutput for OutputState<Inst>
+impl<Inst> OutputState<Inst>
 where
     Inst: Common,
     Inst::Import: FmiSchemaBuilder,
 {
-    type Inst = Inst;
-
-    fn new(import: &Inst::Import, sim_params: &SimParams) -> Self {
-        let num_points = ((sim_params.stop_time - sim_params.start_time)
-            / sim_params.output_interval)
-            .ceil() as usize;
-
-        let time = Float64Builder::with_capacity(num_points);
-
-        let recorders = import
-            .outputs()
-            .map(|(field, vr)| {
-                let builder = make_builder(field.data_type(), num_points);
-                Recorder {
-                    field,
-                    value_reference: vr,
-                    builder,
-                }
-            })
-            .collect();
-
-        Self { time, recorders }
-    }
-
-    fn record_outputs(&mut self, time: f64, inst: &mut Self::Inst) -> anyhow::Result<()> {
+    pub fn record_outputs(&mut self, time: f64, inst: &mut Inst) -> anyhow::Result<()> {
         log::trace!("Recording variables at time {}", time);
 
         self.time.append_value(time);

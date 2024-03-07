@@ -7,7 +7,6 @@ use fmi::traits::{FmiImport, FmiInstance};
 use super::{
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
-    params::SimParams,
 };
 
 /// Interface for building the Arrow schema for the inputs and outputs of an FMU.
@@ -45,10 +44,4 @@ pub trait InstanceSetValues: FmiInstance {
         pl: &PreLookup,
         array: &ArrayRef,
     ) -> anyhow::Result<()>;
-}
-
-pub trait SimOutput {
-    type Inst: FmiInstance;
-    fn new(import: &<Self::Inst as FmiInstance>::Import, sim_params: &SimParams) -> Self;
-    fn record_outputs(&mut self, time: f64, inst: &mut Self::Inst) -> anyhow::Result<()>;
 }

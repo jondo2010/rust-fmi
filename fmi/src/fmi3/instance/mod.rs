@@ -20,6 +20,10 @@ pub struct CS;
 /// Tag for Scheduled Execution instances
 pub struct SE;
 
+pub type InstanceME<'a> = Instance<'a, ME>;
+pub type InstanceCS<'a> = Instance<'a, CS>;
+pub type InstanceSE<'a> = Instance<'a, SE>;
+
 pub struct Instance<'a, Tag> {
     /// Raw FMI 3.0 bindings
     binding: binding::Fmi3Binding,
@@ -125,10 +129,6 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         self.get_variable_dimensions(&event_vars)
     }
 }
-
-pub type InstanceME<'a> = Instance<'a, ME>;
-pub type InstanceCS<'a> = Instance<'a, CS>;
-pub type InstanceSE<'a> = Instance<'a, SE>;
 
 pub struct Fmu3State<'a, Tag> {
     instance: Instance<'a, Tag>,

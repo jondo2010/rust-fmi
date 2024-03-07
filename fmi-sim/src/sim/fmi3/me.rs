@@ -14,7 +14,7 @@ use crate::{
         interpolation::Linear,
         params::SimParams,
         solver::{self, Solver},
-        traits::{FmiSchemaBuilder, SimOutput},
+        traits::FmiSchemaBuilder,
         InputState, OutputState, SimState,
     },
     Error,

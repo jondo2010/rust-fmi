@@ -11,10 +11,7 @@ use fmi::{
 use crate::{
     options::CoSimulationOptions,
     sim::{
-        interpolation::Linear,
-        params::SimParams,
-        solver::DummySolver,
-        traits::{FmiSchemaBuilder, SimOutput},
+        interpolation::Linear, params::SimParams, solver::DummySolver, traits::FmiSchemaBuilder,
         InputState, OutputState, SimState,
     },
     Error,

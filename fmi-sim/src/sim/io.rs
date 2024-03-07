@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use arrow::{
-    array::{downcast_array, ArrayBuilder, ArrayRef, Float64Array, Float64Builder},
+    array::{downcast_array, make_builder, ArrayBuilder, ArrayRef, Float64Array, Float64Builder},
     datatypes::{DataType, Field, Schema},
     downcast_primitive_array,
     record_batch::RecordBatch,
@@ -11,6 +11,7 @@ use fmi::traits::FmiInstance;
 
 use super::{
     interpolation::{find_index, Interpolate, PreLookup},
+    params::SimParams,
     traits::{FmiSchemaBuilder, InstanceSetValues},
     util::project_input_data,
 };
@@ -168,7 +169,30 @@ pub struct OutputState<Inst: FmiInstance> {
 impl<Inst> OutputState<Inst>
 where
     Inst: FmiInstance,
+    Inst::Import: FmiSchemaBuilder,
 {
+    pub fn new(import: &Inst::Import, sim_params: &SimParams) -> Self {
+        let num_points = ((sim_params.stop_time - sim_params.start_time)
+            / sim_params.output_interval)
+            .ceil() as usize;
+
+        let time = Float64Builder::with_capacity(num_points);
+
+        let recorders = import
+            .outputs()
+            .map(|(field, vr)| {
+                let builder = make_builder(field.data_type(), num_points);
+                Recorder {
+                    field,
+                    value_reference: vr,
+                    builder,
+                }
+            })
+            .collect();
+
+        Self { time, recorders }
+    }
+
     /// Finish the output state and return the RecordBatch.
     pub fn finish(self) -> RecordBatch {
         let Self {
