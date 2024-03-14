@@ -1,6 +1,9 @@
 //! Traits for different instance types ([ModelExchange], [CoSimulation]).
 
-use crate::{fmi2::EventInfo, traits::FmiInstance, Error};
+use crate::{
+    fmi2::{EventInfo, Fmi2Error},
+    traits::FmiInstance,
+};
 
 use super::{binding, Fmi2Status};
 
@@ -129,10 +132,10 @@ pub trait Common: FmiInstance {
         values: &[binding::fmi2Boolean],
     ) -> Fmi2Status;
 
-    fn set_string(
+    fn set_string<'b>(
         &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: &[binding::fmi2String],
+        values: impl Iterator<Item = &'b str>,
     ) -> Fmi2Status;
 
     // fn get_fmu_state(&self) -> Result<FmuState>;
@@ -159,7 +162,7 @@ pub trait Common: FmiInstance {
         dv_unknown_values: &mut [binding::fmi2Real],
     ) -> Fmi2Status;
 
-    #[cfg(feature = "arrow")]
+    #[cfg(feature = "disabled")]
     fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef);
 }
 
@@ -282,20 +285,20 @@ pub trait CoSimulation: Common {
     /// Can be called when the [`CoSimulation::do_step`] function returned fmi2Pending. The function
     /// delivers fmi2Pending if the computation is not finished. Otherwise the function returns the
     /// result of the asynchronously executed [`CoSimulation::do_step`] call.
-    fn do_step_status(&mut self) -> Result<Fmi2Status, Error>;
+    fn do_step_status(&mut self) -> Result<Fmi2Status, Fmi2Error>;
 
     /// Can be called when the fmi2DoStep function returned fmi2Pending. The function delivers a
     /// string which informs about the status of the currently running asynchronous fmi2DoStep
     /// computation.
-    fn pending_status(&mut self) -> Result<&str, Error>;
+    fn pending_status(&mut self) -> Result<&str, Fmi2Error>;
 
     /// Returns the end time of the last successfully completed communication step. Can be called
     /// after fmi2DoStep(..) returned fmi2Discard.
-    fn last_successful_time(&mut self) -> Result<f64, Error>;
+    fn last_successful_time(&mut self) -> Result<f64, Fmi2Error>;
 
     /// Returns `true`, if the slave wants to terminate the simulation. Can be called after
     /// [`CoSimulation::do_step(..)`] returned `Fmi2Status::Discard`. Use
     /// [`CoSimulation::last_successful_time()`] to determine the time instant at which the slave
     /// terminated.
-    fn terminated(&mut self) -> Result<bool, Error>;
+    fn terminated(&mut self) -> Result<bool, Fmi2Error>;
 }

@@ -1,7 +1,7 @@
 use std::ffi::{CStr, CString};
 
 use crate::{
-    fmi2::{import, CallbackFunctions, Fmi2Status},
+    fmi2::{import, CallbackFunctions, Fmi2Error, Fmi2Status},
     traits::FmiImport,
     Error,
 };
@@ -84,7 +84,7 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
         Fmi2Status(unsafe { self.binding.fmi2CancelStep(self.component) })
     }
 
-    fn do_step_status(&mut self) -> Result<Fmi2Status, Error> {
+    fn do_step_status(&mut self) -> Result<Fmi2Status, Fmi2Error> {
         let mut ret = binding::fmi2Status_fmi2OK;
         Fmi2Status(unsafe {
             self.binding.fmi2GetStatus(
@@ -93,11 +93,11 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
                 &mut ret,
             )
         })
-        .ok()?;
-        Ok(Fmi2Status(ret))
+        .ok()
+        .map(|_| Fmi2Status(ret))
     }
 
-    fn pending_status(&mut self) -> Result<&str, Error> {
+    fn pending_status(&mut self) -> Result<&str, Fmi2Error> {
         let str_ret = CStr::from_bytes_with_nul(b"\0").unwrap();
         Fmi2Status(unsafe {
             self.binding.fmi2GetStringStatus(
@@ -106,11 +106,11 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
                 &mut str_ret.as_ptr(),
             )
         })
-        .ok()?;
-        Ok(str_ret.to_str()?)
+        .ok()
+        .map(|_| str_ret.to_str().unwrap())
     }
 
-    fn last_successful_time(&mut self) -> Result<f64, Error> {
+    fn last_successful_time(&mut self) -> Result<f64, Fmi2Error> {
         let mut ret = 0.0;
         Fmi2Status(unsafe {
             self.binding.fmi2GetRealStatus(
@@ -119,11 +119,11 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
                 &mut ret,
             )
         })
-        .ok()?;
-        Ok(ret)
+        .ok()
+        .map(|_| ret)
     }
 
-    fn terminated(&mut self) -> Result<bool, Error> {
+    fn terminated(&mut self) -> Result<bool, Fmi2Error> {
         let mut ret = 0i32;
         Fmi2Status(unsafe {
             self.binding.fmi2GetBooleanStatus(
@@ -132,7 +132,7 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
                 &mut ret,
             )
         })
-        .ok()?;
-        Ok(ret != 0)
+        .ok()
+        .map(|_| ret != 0)
     }
 }

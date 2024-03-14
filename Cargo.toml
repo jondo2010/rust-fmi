@@ -35,7 +35,7 @@ thiserror = "1.0"
 zip = "0.6"
 
 [patch.crates-io]
-arrow = { git = "https://github.com/jondo2010/arrow-rs.git", branch = "fine_grained_integer_inference" }
+#arrow = { git = "https://github.com/jondo2010/arrow-rs.git", branch = "fine_grained_integer_inference" }
 
 [package]
 name = "fmi-workspace"

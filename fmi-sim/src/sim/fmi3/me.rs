@@ -15,11 +15,29 @@ use crate::{
         interpolation::Linear,
         params::SimParams,
         solver::{self, Solver},
-        traits::FmiSchemaBuilder,
-        InputState, OutputState, SimState,
+        traits::{FmiSchemaBuilder, InstanceRecordValues},
+        InputState, RecorderState, SimState,
     },
     Error,
 };
+
+impl solver::Model for InstanceME<'_> {
+    fn get_continuous_states(&mut self, x: &mut [f64]) {
+        ModelExchange::get_continuous_states(self, x);
+    }
+
+    fn set_continuous_states(&mut self, states: &[f64]) {
+        ModelExchange::set_continuous_states(self, states);
+    }
+
+    fn get_continuous_state_derivatives(&mut self, dx: &mut [f64]) {
+        ModelExchange::get_continuous_state_derivatives(self, dx);
+    }
+
+    fn get_event_indicators(&mut self, z: &mut [f64]) {
+        ModelExchange::get_event_indicators(self, z);
+    }
+}
 
 impl<'a, S> SimState<InstanceME<'a>, S>
 where
@@ -29,16 +47,14 @@ where
         import: &'a Fmi3Import,
         sim_params: SimParams,
         input_state: InputState<InstanceME<'a>>,
-        output_state: OutputState<InstanceME<'a>>,
+        recorder_state: RecorderState<InstanceME<'a>>,
     ) -> anyhow::Result<Self> {
         let inst = import.instantiate_me("inst1", true, true)?;
-        let time = sim_params.start_time;
         Ok(Self {
             sim_params,
             input_state,
-            output_state,
+            recorder_state,
             inst,
-            time,
             next_event_time: None,
             _phantom: std::marker::PhantomData,
         })
@@ -63,19 +79,19 @@ where
         );
 
         let mut num_steps = 0;
+        let mut time = self.sim_params.start_time;
 
         loop {
-            self.output_state
-                .record_outputs(self.time, &mut self.inst)?;
+            self.inst.record_outputs(time, &mut self.recorder_state)?;
 
-            if self.time >= self.sim_params.stop_time {
+            if time >= self.sim_params.stop_time {
                 break;
             }
 
             // calculate next time point
             let next_regular_point = self.sim_params.start_time
                 + (num_steps + 1) as f64 * self.sim_params.output_interval;
-            let next_input_event_time = self.input_state.next_input_event(self.time);
+            let next_input_event_time = self.input_state.next_input_event(time);
 
             // use `next_input_event` if it is earlier than `next_regular_point`
             let input_event = next_regular_point >= next_input_event_time;
@@ -87,23 +103,16 @@ where
                 next_regular_point
             };
 
-            let (time, state_event) = solver.step(&mut self.inst, next_communication_point)?;
-            self.time = time;
+            let (time_reached, state_event) =
+                solver.step(&mut self.inst, next_communication_point)?;
+            time = time_reached;
 
-            self.inst
-                .set_time(self.time)
-                .ok()
-                .map_err(fmi::Error::from)?;
+            self.inst.set_time(time).ok().map_err(fmi::Error::from)?;
 
-            self.input_state.apply_input::<Linear>(
-                self.time,
-                &mut self.inst,
-                false,
-                true,
-                false,
-            )?;
+            self.input_state
+                .apply_input::<Linear>(time, &mut self.inst, false, true, false)?;
 
-            if self.time == next_regular_point {
+            if time == next_regular_point {
                 num_steps += 1;
             }
 
@@ -118,9 +127,9 @@ where
             }
 
             if input_event || time_event || state_event || step_event {
-                log::trace!("Event encountered at t = {}. [INPUT/TIME/STATE/STEP] = [{input_event}/{time_event}/{state_event}/{step_event}]", self.time);
+                log::trace!("Event encountered at t = {time}. [INPUT/TIME/STATE/STEP] = [{input_event}/{time_event}/{state_event}/{step_event}]");
                 let mut terminate = false;
-                let reset_solver = self.handle_events(input_event, &mut terminate)?;
+                let reset_solver = self.handle_events(time, input_event, &mut terminate)?;
 
                 if terminate {
                     break;
@@ -132,7 +141,7 @@ where
                     .map_err(fmi::Error::from)?;
 
                 if reset_solver {
-                    solver.reset(&mut self.inst, self.time)?;
+                    solver.reset(&mut self.inst, time)?;
                 }
             }
         }
@@ -154,13 +163,17 @@ pub fn model_exchange(
 
     let start_values = import.parse_start_values(&options.common.initial_values)?;
     let input_state = InputState::new(import, input_data)?;
-    let output_state = OutputState::new(import, &sim_params);
+    let recorder_state = RecorderState::new(import, &sim_params);
 
-    let mut sim_state =
-        SimState::<InstanceME, solver::Euler>::new(import, sim_params, input_state, output_state)?;
+    let mut sim_state = SimState::<InstanceME, solver::Euler>::new(
+        import,
+        sim_params,
+        input_state,
+        recorder_state,
+    )?;
 
     sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
     sim_state.main_loop(())?;
 
-    Ok(sim_state.output_state.finish())
+    Ok(sim_state.recorder_state.finish())
 }

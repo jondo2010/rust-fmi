@@ -6,7 +6,6 @@ pub mod sim;
 /// Sim error
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    //return Err(anyhow::anyhow!("`output_interval` must be positive."))?;
     #[error(transparent)]
     FmiError(#[from] fmi::Error),
 
@@ -20,6 +19,7 @@ pub enum Error {
     Other(#[from] anyhow::Error),
 }
 
+/// Simulate an FMI model parameterized by the given options
 pub fn simulate(options: &options::FmiSimOptions) -> Result<RecordBatch, Error> {
     let mini_descr = fmi::import::peek_descr_path(&options.model)?;
     let version = mini_descr.version().map_err(fmi::Error::from)?;

@@ -104,10 +104,15 @@ pub enum Fmi2Error {
 pub struct Fmi2Status(binding::fmi2Status);
 
 impl Fmi2Status {
-    /// Convert to [`Result<Fmi2Res, Fmi2Err>`]
+    /// Convert to [`Result<Fmi2Res, Fmi2Error>`]
     #[inline]
     pub fn ok(self) -> Result<Fmi2Res, Fmi2Error> {
         self.into()
+    }
+
+    #[inline]
+    pub fn is_error(&self) -> bool {
+        self.0 == binding::fmi2Status_fmi2Error || self.0 == binding::fmi2Status_fmi2Fatal
     }
 }
 

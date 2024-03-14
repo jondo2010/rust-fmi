@@ -7,7 +7,7 @@ use super::{
     interpolation::Linear,
     io::StartValues,
     solver::Solver,
-    traits::{FmiSchemaBuilder, InstanceSetValues},
+    traits::{FmiSchemaBuilder, InstanceRecordValues, InstanceSetValues},
     SimState,
 };
 
@@ -39,6 +39,7 @@ trait Fmi3Sim<Inst: FmiInstance> {
 
     fn handle_events(
         &mut self,
+        time: f64,
         input_event: bool,
         terminate_simulation: &mut bool,
     ) -> Result<bool, anyhow::Error>;
@@ -46,7 +47,7 @@ trait Fmi3Sim<Inst: FmiInstance> {
 
 impl<Inst, S> Fmi3Sim<Inst> for SimState<Inst, S>
 where
-    Inst: Common,
+    Inst: Common + InstanceSetValues + InstanceRecordValues,
     Inst::Import: FmiSchemaBuilder,
     S: Solver<Inst>,
 {
@@ -106,7 +107,7 @@ where
         self.inst
             .enter_initialization_mode(
                 self.sim_params.tolerance,
-                self.time,
+                self.sim_params.start_time,
                 Some(self.sim_params.stop_time),
             )
             .ok()
@@ -148,18 +149,18 @@ where
 
     fn handle_events(
         &mut self,
+        time: f64,
         input_event: bool,
         terminate_simulation: &mut bool,
     ) -> Result<bool, anyhow::Error> {
-        self.output_state
-            .record_outputs(self.time, &mut self.inst)?;
+        self.inst.record_outputs(time, &mut self.recorder_state)?;
         self.inst
             .enter_event_mode()
             .ok()
             .context("enter_event_mode")?;
         if input_event {
             self.input_state
-                .apply_input::<Linear>(self.time, &mut self.inst, true, true, true)?;
+                .apply_input::<Linear>(time, &mut self.inst, true, true, true)?;
         }
         let mut reset_solver = false;
         let mut discrete_states_need_update = true;

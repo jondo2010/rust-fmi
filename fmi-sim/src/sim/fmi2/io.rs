@@ -1,13 +1,20 @@
-use std::sync::Arc;
+//! FMI2-specific input and output implementation
 
-use arrow::{array::BooleanBuilder, datatypes::DataType, record_batch::RecordBatch};
-use fmi::fmi2::instance::Common;
+use arrow::{
+    array::{
+        downcast_array, ArrayRef, AsArray, BooleanBuilder, Float64Array, Float64Builder,
+        Int32Builder,
+    },
+    datatypes::{DataType, Float64Type, Int32Type},
+};
+use fmi::{fmi2::instance::Common, traits::FmiInstance};
+use itertools::Itertools;
 
 use crate::sim::{
+    interpolation::{Interpolate, PreLookup},
     io::Recorder,
-    traits::{FmiSchemaBuilder, InstanceSetValues},
-    util::project_input_data,
-    InputState, OutputState,
+    traits::{InstanceRecordValues, InstanceSetValues},
+    RecorderState,
 };
 
 macro_rules! impl_recorder {
@@ -22,71 +29,106 @@ macro_rules! impl_recorder {
     }};
 }
 
-#[cfg(feature = "disable")]
-impl<Inst> OutputState<Inst>
-where
-    Inst: Common,
-    Inst::Import: FmiSchemaBuilder,
-{
-    pub fn record_outputs(&mut self, time: f64, inst: &mut Inst) -> anyhow::Result<()> {
-        log::trace!("Recording variables at time {}", time);
+macro_rules! impl_record_values {
+    ($inst:ty) => {
+        impl InstanceRecordValues for $inst {
+            fn record_outputs(
+                &mut self,
+                time: f64,
+                recorder: &mut RecorderState<Self>,
+            ) -> anyhow::Result<()> {
+                log::trace!("Recording variables at time {}", time);
 
-        self.time.append_value(time);
-
-        for Recorder {
-            field,
-            value_reference: vr,
-            builder,
-        } in &mut self.recorders
-        {
-            match field.data_type() {
-                DataType::Boolean => {
-                    impl_recorder!(get_boolean, BooleanBuilder, inst, vr, builder)
+                recorder.time.append_value(time);
+                for Recorder {
+                    field,
+                    value_reference: vr,
+                    builder,
+                } in &mut recorder.recorders
+                {
+                    match field.data_type() {
+                        DataType::Boolean => {
+                            let mut value = [std::default::Default::default()];
+                            self.get_boolean(&[*vr], &mut value).ok()?;
+                            builder
+                                .as_any_mut()
+                                .downcast_mut::<BooleanBuilder>()
+                                .expect(concat!("column is not ", stringify!($builder_type)))
+                                .append_value(value[0] > 0);
+                        }
+                        DataType::Int32 => {
+                            impl_recorder!(get_integer, Int32Builder, self, vr, builder)
+                        }
+                        DataType::Float64 => {
+                            impl_recorder!(get_real, Float64Builder, self, vr, builder)
+                        }
+                        _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
+                    }
                 }
-                DataType::Int8 => {
-                    impl_recorder!(get_int8, Int8Builder, inst, vr, builder)
-                }
-                DataType::Int16 => {
-                    impl_recorder!(get_int16, Int16Builder, inst, vr, builder)
-                }
-                DataType::Int32 => {
-                    impl_recorder!(get_int32, Int32Builder, inst, vr, builder)
-                }
-                DataType::Int64 => {
-                    impl_recorder!(get_int64, Int64Builder, inst, vr, builder)
-                }
-                DataType::UInt8 => {
-                    impl_recorder!(get_uint8, UInt8Builder, inst, vr, builder)
-                }
-                DataType::UInt16 => {
-                    impl_recorder!(get_uint16, UInt16Builder, inst, vr, builder)
-                }
-                DataType::UInt32 => {
-                    impl_recorder!(get_uint32, UInt32Builder, inst, vr, builder)
-                }
-                DataType::UInt64 => {
-                    impl_recorder!(get_uint64, UInt64Builder, inst, vr, builder)
-                }
-                DataType::Float32 => {
-                    impl_recorder!(get_float32, Float32Builder, inst, vr, builder)
-                }
-                DataType::Float64 => {
-                    impl_recorder!(get_float64, Float64Builder, inst, vr, builder)
-                }
-                DataType::Binary => {
-                    let mut value = [std::default::Default::default()];
-                    inst.get_binary(&[*vr], &mut value).ok()?;
-                    let [value] = value;
-                    builder
-                        .as_any_mut()
-                        .downcast_mut::<BinaryBuilder>()
-                        .expect("column is not Binary")
-                        .append_value(value);
-                }
-                _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
+                Ok(())
             }
         }
-
-        Ok(())
-    }
+    };
 }
+
+macro_rules! impl_set_values {
+    ($t:ty) => {
+        impl InstanceSetValues for $t {
+            fn set_array(&mut self, vrs: &[Self::ValueReference], values: &ArrayRef) {
+                match values.data_type() {
+                    DataType::Boolean => {
+                        let values = values
+                            .as_boolean()
+                            .iter()
+                            .map(|x| x.unwrap() as i32)
+                            .collect_vec();
+                        self.set_boolean(vrs, &values);
+                    }
+                    DataType::Int32 => {
+                        self.set_integer(vrs, values.as_primitive::<Int32Type>().values());
+                    }
+                    DataType::Float64 => {
+                        self.set_real(vrs, values.as_primitive::<Float64Type>().values());
+                    }
+                    DataType::Utf8 => {
+                        self.set_string(vrs, values.as_string::<i32>().iter().flatten());
+                    }
+                    _ => unimplemented!("Unsupported data type"),
+                }
+            }
+
+            fn set_interpolated<I: Interpolate>(
+                &mut self,
+                vr: <Self as FmiInstance>::ValueReference,
+                pl: &PreLookup,
+                array: &ArrayRef,
+            ) -> anyhow::Result<()> {
+                match array.data_type() {
+                    DataType::Boolean => todo!(),
+                    DataType::Int32 => {
+                        let array = array.as_primitive::<Int32Type>();
+                        let value = I::interpolate(pl, &array);
+                        self.set_integer(&[vr], &[value]).ok()?;
+                    }
+                    DataType::Float64 => {
+                        let array: Float64Array = downcast_array(&array);
+                        let value = I::interpolate(pl, &array);
+                        self.set_real(&[vr], &[value]).ok()?;
+                    }
+                    _ => unimplemented!("Unsupported data type: {:?}", array.data_type()),
+                }
+                Ok(())
+            }
+        }
+    };
+}
+
+#[cfg(feature = "cs")]
+impl_set_values!(fmi::fmi2::instance::InstanceCS<'_>);
+#[cfg(feature = "cs")]
+impl_record_values!(fmi::fmi2::instance::InstanceCS<'_>);
+
+#[cfg(feature = "me")]
+impl_set_values!(fmi::fmi2::instance::InstanceME<'_>);
+#[cfg(feature = "me")]
+impl_record_values!(fmi::fmi2::instance::InstanceME<'_>);

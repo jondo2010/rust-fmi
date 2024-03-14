@@ -161,12 +161,12 @@ pub struct Recorder<Inst: FmiInstance> {
     pub(crate) builder: Box<dyn ArrayBuilder>,
 }
 
-pub struct OutputState<Inst: FmiInstance> {
+pub struct RecorderState<Inst: FmiInstance> {
     pub(crate) time: Float64Builder,
     pub(crate) recorders: Vec<Recorder<Inst>>,
 }
 
-impl<Inst> OutputState<Inst>
+impl<Inst> RecorderState<Inst>
 where
     Inst: FmiInstance,
     Inst::Import: FmiSchemaBuilder,

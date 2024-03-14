@@ -158,16 +158,25 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         })
     }
 
-    fn set_string(
+    fn set_string<'b>(
         &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: &[binding::fmi2String],
+        values: impl Iterator<Item = &'b str>,
     ) -> Fmi2Status {
-        assert_eq!(vrs.len(), values.len());
-        Fmi2Status(unsafe {
+        let values = values
+            .map(|s| std::ffi::CString::new(s.as_bytes()).expect("Error building CString"))
+            .collect::<Vec<_>>();
+
+        let ptrs = values
+            .iter()
+            .map(|s| s.as_c_str().as_ptr())
+            .collect::<Vec<_>>();
+
+        unsafe {
             self.binding
-                .fmi2SetString(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
-        })
+                .fmi2SetString(self.component, vrs.as_ptr(), vrs.len() as _, ptrs.as_ptr())
+        }
+        .into()
     }
 
     // fn get_fmu_state(&self, state: *mut fmi2FMUstate) -> FmiResult<()> {}
@@ -196,7 +205,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         })
     }
 
-    #[cfg(feature = "arrow")]
+    #[cfg(feature = "disabled")]
     fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef) {
         use arrow::datatypes::DataType;
         match values.data_type() {
