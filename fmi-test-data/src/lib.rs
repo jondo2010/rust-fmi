@@ -2,7 +2,7 @@
 
 use anyhow::Context;
 use fetch_data::{ctor, FetchData};
-use fmi::{fmi2::import::Fmi2Import, fmi3::import::Fmi3Import};
+use fmi::{schema::MajorVersion, traits::FmiImport};
 use std::{
     fs::File,
     io::{Cursor, Read},
@@ -27,12 +27,11 @@ pub struct ReferenceFmus {
     archive: zip::ZipArchive<File>,
 }
 
-fn version_str(version: usize) -> anyhow::Result<&'static str> {
-    match version {
-        1 => anyhow::bail!("Version 1.0 is not supported"),
-        2 => Ok("2.0"),
-        3 => Ok("3.0"),
-        _ => anyhow::bail!("Invalid version"),
+impl std::fmt::Debug for ReferenceFmus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReferenceFmus")
+            .field("archive", &self.archive.comment())
+            .finish()
     }
 }
 
@@ -47,18 +46,9 @@ impl ReferenceFmus {
         Ok(Self { archive })
     }
 
-    /// Get a 2.0 reference FMU from the archive
-    pub fn get_reference_fmu_fmi2(&mut self, name: &str) -> anyhow::Result<Fmi2Import> {
-        let mut f = self.archive.by_name(&format!("{}/{}.fmu", "2.0", name))?;
-        // Read f into a Vec<u8> that can be used to create a new Import
-        let mut buf = Vec::new();
-        f.read_to_end(buf.as_mut())?;
-        Ok(fmi::import::new(Cursor::new(buf))?)
-    }
-
-    /// Get a 3.0 reference FMU from the archive
-    pub fn get_reference_fmu_fmi3(&mut self, name: &str) -> anyhow::Result<Fmi3Import> {
-        let mut f = self.archive.by_name(&format!("{}/{}.fmu", "3.0", name))?;
+    pub fn get_reference_fmu<Imp: FmiImport>(&mut self, name: &str) -> anyhow::Result<Imp> {
+        let version = Imp::MAJOR_VERSION.to_string();
+        let mut f = self.archive.by_name(&format!("{version}/{name}.fmu"))?;
         // Read f into a Vec<u8> that can be used to create a new Import
         let mut buf = Vec::new();
         f.read_to_end(buf.as_mut())?;
@@ -69,10 +59,10 @@ impl ReferenceFmus {
     pub fn extract_reference_fmu(
         &mut self,
         name: &str,
-        version: usize,
+        version: MajorVersion,
     ) -> anyhow::Result<NamedTempFile> {
-        let v = version_str(version)?;
-        let filename = format!("{v}/{name}.fmu");
+        let version = version.to_string();
+        let filename = format!("{version}/{name}.fmu");
         let mut fin = self.archive.by_name(&filename).context("Open {filename}")?;
         let mut fout = tempfile::NamedTempFile::new()?;
         std::io::copy(fin.by_ref(), fout.as_file_mut())
@@ -85,9 +75,13 @@ impl ReferenceFmus {
 fn test_reference_fmus() {
     use fmi::traits::FmiImport;
     let mut reference_fmus = ReferenceFmus::new().unwrap();
-    let fmu = reference_fmus
-        .get_reference_fmu_fmi2("BouncingBall")
-        .unwrap();
+    let fmu: fmi::fmi2::import::Fmi2Import =
+        reference_fmus.get_reference_fmu("BouncingBall").unwrap();
+    assert_eq!(fmu.model_description().fmi_version, "2.0");
+    assert_eq!(fmu.model_description().model_name, "BouncingBall");
+    let fmu: fmi::fmi3::import::Fmi3Import =
+        reference_fmus.get_reference_fmu("BouncingBall").unwrap();
+    assert_eq!(fmu.model_description().fmi_version, "3.0");
     assert_eq!(fmu.model_description().model_name, "BouncingBall");
 }
 

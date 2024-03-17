@@ -19,13 +19,16 @@ pub struct ME;
 /// Tag for Co-Simulation instances
 pub struct CS;
 
+pub type InstanceME<'a> = Instance<'a, ME>;
+pub type InstanceCS<'a> = Instance<'a, CS>;
+
 pub struct Instance<'a, Tag> {
     /// Raw FMI 2.0 bindings
     binding: binding::Fmi2Binding,
     /// Pointer to the raw FMI 2.0 instance
     component: binding::fmi2Component,
     /// Model description
-    model_description: &'a schema::FmiModelDescription,
+    model_description: &'a schema::Fmi2ModelDescription,
     /// Callbacks struct
     #[allow(dead_code)]
     callbacks: Box<CallbackFunctions>,
@@ -42,7 +45,7 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
 }
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
-    type ModelDescription = schema::FmiModelDescription;
+    type ModelDescription = schema::Fmi2ModelDescription;
 
     type Import = Fmi2Import;
 

@@ -8,7 +8,7 @@ use std::{
 
 use crate::{traits::FmiImport, Error};
 
-use fmi_schema::minimal::ModelDescription as MinModel;
+use fmi_schema::minimal::MinModelDescription as MinModel;
 
 const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 

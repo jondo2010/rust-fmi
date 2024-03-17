@@ -27,7 +27,7 @@ use crate::{
     Error,
 };
 
-impl FromStr for FmiModelDescription {
+impl FromStr for Fmi3ModelDescription {
     type Err = crate::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -35,7 +35,7 @@ impl FromStr for FmiModelDescription {
     }
 }
 
-impl crate::traits::DefaultExperiment for FmiModelDescription {
+impl crate::traits::DefaultExperiment for Fmi3ModelDescription {
     fn start_time(&self) -> Option<f64> {
         self.default_experiment
             .as_ref()

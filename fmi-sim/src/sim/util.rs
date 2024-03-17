@@ -103,10 +103,10 @@ pub fn project_input_data(
         false,
     ));
 
-    let (projected_fields, projected_columns): (Vec<_>, Vec<_>) = model_input_schema
-        .fields()
-        .iter()
-        .chain(std::iter::once(&time_field))
+    // Create an iterator over the fields of the input data, starting with the time field
+    let fields_iter = std::iter::once(&time_field).chain(model_input_schema.fields().iter());
+
+    let (projected_fields, projected_columns): (Vec<_>, Vec<_>) = fields_iter
         .filter_map(|field| {
             input_data.column_by_name(field.name()).map(|col| {
                 arrow::compute::cast(col, field.data_type())

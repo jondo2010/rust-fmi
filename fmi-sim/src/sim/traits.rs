@@ -1,16 +1,21 @@
 use arrow::{
-    array::ArrayRef,
+    array::{ArrayRef, RecordBatch},
     datatypes::{Field, Schema},
-    record_batch::RecordBatch,
 };
 use fmi::traits::{FmiImport, FmiInstance};
+
+use crate::{
+    options::{CoSimulationOptions, ModelExchangeOptions},
+    Error,
+};
 
 use super::{
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
-    params::SimParams,
+    RecorderState,
 };
 
+/// Interface for building the Arrow schema for the inputs and outputs of an FMU.
 pub trait FmiSchemaBuilder: FmiImport {
     /// Build the schema for the inputs of the model.
     fn inputs_schema(&self) -> Schema;
@@ -22,7 +27,6 @@ pub trait FmiSchemaBuilder: FmiImport {
     fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
     /// Build a list of Schema column (index, ValueReference) for the outputs.
     fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
-
     /// Parse a list of "var=value" strings.
     ///
     /// # Returns
@@ -48,28 +52,26 @@ pub trait InstanceSetValues: FmiInstance {
     ) -> anyhow::Result<()>;
 }
 
-pub trait SimInput: Sized {
-    type Inst: FmiInstance;
-
-    fn new(
-        import: &<Self::Inst as FmiInstance>::Import,
-        input_data: Option<RecordBatch>,
-    ) -> anyhow::Result<Self>;
-
-    fn apply_input<I: Interpolate>(
+pub trait InstanceRecordValues: FmiInstance + Sized {
+    fn record_outputs(
         &mut self,
         time: f64,
-        inst: &mut Self::Inst,
-        discrete: bool,
-        continuous: bool,
-        after_event: bool,
+        recorder: &mut RecorderState<Self>,
     ) -> anyhow::Result<()>;
-
-    fn next_input_event(&self, time: f64) -> f64;
 }
 
-pub trait SimOutput {
-    type Inst: FmiInstance;
-    fn new(import: &<Self::Inst as FmiInstance>::Import, sim_params: &SimParams) -> Self;
-    fn record_outputs(&mut self, time: f64, inst: &mut Self::Inst) -> anyhow::Result<()>;
+pub trait FmiSim {
+    /// Simulate the model using Model Exchange.
+    fn simulate_me(
+        &self,
+        options: &ModelExchangeOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error>;
+
+    /// Simulate the model using Co-Simulation.
+    fn simulate_cs(
+        &self,
+        options: &CoSimulationOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error>;
 }

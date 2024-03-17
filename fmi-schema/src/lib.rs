@@ -15,6 +15,24 @@ pub mod minimal;
 pub mod traits;
 pub mod variable_counts;
 
+/// The major version of the FMI standard
+#[derive(Debug, PartialEq, Eq)]
+pub enum MajorVersion {
+    FMI1,
+    FMI2,
+    FMI3,
+}
+
+impl ToString for MajorVersion {
+    fn to_string(&self) -> String {
+        match self {
+            MajorVersion::FMI1 => "1.0".to_string(),
+            MajorVersion::FMI2 => "2.0".to_string(),
+            MajorVersion::FMI3 => "3.0".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Variable {0} not found")]

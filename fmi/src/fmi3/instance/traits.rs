@@ -14,6 +14,21 @@ pub trait Common: FmiInstance {
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging]
     fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi3Status;
 
+    /// Changes state to Reconfiguration Mode.
+    ///
+    /// If the importer needs to change structural parameters, it must move the FMU into Configuration Mode using `enter_configuration_mode()`.
+    ///
+    /// [`Common::enter_configuration_mode()`] must not be called if the FMU contains no tunable structural parameters (i.e. with `causality` =
+    /// [`crate::fmi3::schema::Causality::StructuralParameter`] and `variability` = [`crate::fmi3::schema::Variability::Tunable`]).
+    ///
+    /// See [https://fmi-standard.org/docs/3.0/#fmi3EnterConfigurationMode]
+    fn enter_configuration_mode(&mut self) -> Fmi3Status;
+
+    /// Exits the Configuration Mode and returns to state Instantiated.
+    ///
+    /// See [https://fmi-standard.org/docs/3.0/#fmi3ExitConfigurationMode]
+    fn exit_configuration_mode(&mut self) -> Fmi3Status;
+
     /// Changes state to `Initialization Mode`.
     ///
     /// tolerance depend on the interface type:
@@ -145,14 +160,6 @@ pub trait ModelExchange: Common {
     ///
     /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3EnterEventMode]
     fn enter_event_mode(&mut self) -> Fmi3Status;
-
-    /// Changes state to Reconfiguration Mode in Model Exchange.
-    ///
-    /// [`ModelExchange::enter_configuration_mode()`] must not be called if the FMU contains no
-    /// tunable structural parameters (i.e. with `causality` =
-    /// [`crate::fmi3::schema::Causality::StructuredParameter`] and `variability` =
-    /// [`crate::fmi3::schema::Variability::Tunable`]).
-    fn enter_configuration_mode(&mut self) -> Fmi3Status;
 
     /// This function is called after every completed step of the integrator provided the capability
     /// flag [`schema::interface_type::Fmi3ModelExchange::needs_completed_integrator_step`] =

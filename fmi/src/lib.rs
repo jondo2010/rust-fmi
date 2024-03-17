@@ -16,6 +16,11 @@
 #![doc = document_features::document_features!()]
 #![deny(clippy::all)]
 
+// Re-export the fmi-schema crate
+pub use fmi_schema as schema;
+
+use schema::MajorVersion;
+
 #[cfg(feature = "fmi2")]
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
@@ -42,8 +47,8 @@ pub enum Error {
     #[error("Unsupported platform {os}/{arch}")]
     UnsupportedPlatform { os: String, arch: String },
 
-    #[error("Unsupported FMI version: {0}")]
-    UnsupportedFmiVersion(String),
+    #[error("Unsupported FMI version: {0:?}")]
+    UnsupportedFmiVersion(MajorVersion),
 
     #[error("Unsupported Interface type: {0}")]
     UnsupportedInterface(String),

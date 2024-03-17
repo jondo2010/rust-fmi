@@ -1,13 +1,22 @@
 use std::path::Path;
 
 use anyhow::Context;
-use fmi::fmi3::instance::Common;
+use arrow::array::RecordBatch;
+use fmi::{
+    fmi3::{import::Fmi3Import, instance::Common},
+    traits::FmiInstance,
+};
+
+use crate::{
+    options::{CoSimulationOptions, ModelExchangeOptions},
+    Error,
+};
 
 use super::{
     interpolation::Linear,
     io::StartValues,
     solver::Solver,
-    traits::{FmiSchemaBuilder, InstanceSetValues, SimInput, SimOutput},
+    traits::{FmiSchemaBuilder, FmiSim, InstanceRecordValues, InstanceSetValues},
     SimState,
 };
 
@@ -16,15 +25,38 @@ mod cs;
 mod io;
 #[cfg(feature = "me")]
 mod me;
+mod schema;
 
 #[cfg(feature = "cs")]
 pub use cs::co_simulation;
 #[cfg(feature = "me")]
 pub use me::model_exchange;
 
-impl<Inst, S> SimState<Inst, S>
+trait Fmi3Sim<Inst: FmiInstance> {
+    fn apply_start_values(
+        &mut self,
+        start_values: &StartValues<Inst::ValueReference>,
+    ) -> anyhow::Result<()>;
+
+    fn initialize<P: AsRef<Path>>(
+        &mut self,
+        start_values: StartValues<Inst::ValueReference>,
+        initial_fmu_state_file: Option<P>,
+    ) -> anyhow::Result<()>;
+
+    fn default_initialize(&mut self) -> anyhow::Result<()>;
+
+    fn handle_events(
+        &mut self,
+        time: f64,
+        input_event: bool,
+        terminate_simulation: &mut bool,
+    ) -> Result<bool, anyhow::Error>;
+}
+
+impl<Inst, S> Fmi3Sim<Inst> for SimState<Inst, S>
 where
-    Inst: Common,
+    Inst: Common + InstanceSetValues + InstanceRecordValues,
     Inst::Import: FmiSchemaBuilder,
     S: Solver<Inst>,
 {
@@ -33,13 +65,12 @@ where
         start_values: &StartValues<Inst::ValueReference>,
     ) -> anyhow::Result<()> {
         if !start_values.structural_parameters.is_empty() {
-            unimplemented!("Structural parameters");
-            //instance.enter_configuration_mode()?;
-            //structural_parameters.for_each(|(vr, ary)| {
-            //    log::trace!("Setting structural parameter `{}`", vr);
-            //    instance.set_array(&[vr], &ary);
-            //});
-            //instance.exit_configuration_mode()?;
+            self.inst.enter_configuration_mode().ok()?;
+            for (vr, ary) in &start_values.structural_parameters {
+                log::trace!("Setting structural parameter `{}`", (*vr).into());
+                self.inst.set_array(&[(*vr)], ary);
+            }
+            self.inst.exit_configuration_mode().ok()?;
         }
 
         start_values.variables.iter().for_each(|(vr, ary)| {
@@ -85,7 +116,7 @@ where
         self.inst
             .enter_initialization_mode(
                 self.sim_params.tolerance,
-                self.time,
+                self.sim_params.start_time,
                 Some(self.sim_params.stop_time),
             )
             .ok()
@@ -127,18 +158,18 @@ where
 
     fn handle_events(
         &mut self,
+        time: f64,
         input_event: bool,
         terminate_simulation: &mut bool,
     ) -> Result<bool, anyhow::Error> {
-        self.output_state
-            .record_outputs(self.time, &mut self.inst)?;
+        self.inst.record_outputs(time, &mut self.recorder_state)?;
         self.inst
             .enter_event_mode()
             .ok()
             .context("enter_event_mode")?;
         if input_event {
             self.input_state
-                .apply_input::<Linear>(self.time, &mut self.inst, true, true, true)?;
+                .apply_input::<Linear>(time, &mut self.inst, true, true, true)?;
         }
         let mut reset_solver = false;
         let mut discrete_states_need_update = true;
@@ -166,43 +197,20 @@ where
     }
 }
 
-#[cfg(feature = "disable")]
-impl<'a, Inst, S> SimState<Inst, S>
-where
-    Inst: FmiInstance + Common + Model,
-    Inst::Import: FmiSchemaBuilder,
-    S: Solver<Inst>,
-    Self: SimTrait<
-        'a,
-        Import = Inst::Import,
-        InputState = InputState<Inst>,
-        OutputState = OutputState<Inst>,
-    >,
-{
-    fn new_from_options(
-        import: &'a Inst::Import,
-        options: &CommonOptions,
-        event_mode_used: bool,
-        early_return_allowed: bool,
-    ) -> anyhow::Result<Self> {
-        let sim_params = SimParams::new_from_options(
-            options,
-            import.model_description(),
-            event_mode_used,
-            early_return_allowed,
-        )?;
+impl FmiSim for Fmi3Import {
+    fn simulate_me(
+        &self,
+        options: &ModelExchangeOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error> {
+        model_exchange(self, options, input_data)
+    }
 
-        // Read optional input data from file
-        let input_data = options
-            .input_file
-            .as_ref()
-            .map(super::util::read_csv)
-            .transpose()
-            .context("Reading input file")?;
-
-        let input_state = InputState::new(import, input_data)?;
-        let output_state = OutputState::new(import, &sim_params);
-
-        SimState::<Inst>::new(import, sim_params, input_state, output_state)
+    fn simulate_cs(
+        &self,
+        options: &CoSimulationOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error> {
+        co_simulation(self, options, input_data)
     }
 }

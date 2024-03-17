@@ -20,13 +20,17 @@ pub struct CS;
 /// Tag for Scheduled Execution instances
 pub struct SE;
 
+pub type InstanceME<'a> = Instance<'a, ME>;
+pub type InstanceCS<'a> = Instance<'a, CS>;
+pub type InstanceSE<'a> = Instance<'a, SE>;
+
 pub struct Instance<'a, Tag> {
     /// Raw FMI 3.0 bindings
     binding: binding::Fmi3Binding,
     /// Pointer to the raw FMI 3.0 instance
     ptr: binding::fmi3Instance,
     /// Model description
-    model_description: &'a schema::FmiModelDescription,
+    model_description: &'a schema::Fmi3ModelDescription,
     /// Instance name
     name: String,
     _tag: std::marker::PhantomData<&'a Tag>,
@@ -85,7 +89,7 @@ where
 }
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
-    type ModelDescription = schema::FmiModelDescription;
+    type ModelDescription = schema::Fmi3ModelDescription;
 
     type Import = Fmi3Import;
 
@@ -125,10 +129,6 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         self.get_variable_dimensions(&event_vars)
     }
 }
-
-pub type InstanceME<'a> = Instance<'a, ME>;
-pub type InstanceCS<'a> = Instance<'a, CS>;
-pub type InstanceSE<'a> = Instance<'a, SE>;
 
 pub struct Fmu3State<'a, Tag> {
     instance: Instance<'a, Tag>,
