@@ -6,13 +6,20 @@ mod interpolation;
 mod io;
 pub mod params;
 pub mod solver;
-mod traits;
+pub mod traits;
 pub mod util;
 
+use arrow::array::RecordBatch;
 use fmi::traits::FmiInstance;
 pub use io::{InputState, RecorderState};
 
-use self::{params::SimParams, solver::Solver, traits::FmiSchemaBuilder};
+use crate::{options, Error};
+
+use self::{
+    params::SimParams,
+    solver::Solver,
+    traits::{FmiSchemaBuilder, FmiSim},
+};
 
 pub struct SimState<Inst, S>
 where
@@ -36,4 +43,22 @@ pub struct SimStats {
     pub num_steps: usize,
     /// Number of events handled
     pub num_events: usize,
+}
+
+/// Lower-level simulation function that takes an FMI import and a set of options.
+pub fn simulate_with<Imp: FmiSim>(
+    input_data: Option<RecordBatch>,
+    interface: &options::Interface,
+    import: Imp,
+) -> Result<RecordBatch, Error> {
+    match interface {
+        #[cfg(feature = "me")]
+        options::Interface::ModelExchange(options) => import.simulate_me(options, input_data),
+        #[cfg(feature = "cs")]
+        options::Interface::CoSimulation(options) => import.simulate_cs(options, input_data),
+        #[cfg(feature = "se")]
+        options::Interface::ScheduledExecution(options) => unimplemented!(),
+        #[cfg(any(not(feature = "me"), not(feature = "cs")))]
+        _ => Err(fmi::Error::UnsupportedInterface(format!("{}", interface)).into()),
+    }
 }

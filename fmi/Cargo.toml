@@ -20,7 +20,7 @@ fmi2 = ["fmi-schema/fmi2", "libc"]
 ## Enable support for FMI 3.0
 fmi3 = ["fmi-schema/fmi3"]
 ## Enable support for Apache Arrow Schema
-arrow = ["dep:arrow"]
+arrow = ["dep:arrow", "fmi-schema/arrow"]
 
 [dependencies]
 arrow = { workspace = true, optional = true }

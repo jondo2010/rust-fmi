@@ -61,18 +61,17 @@ where
 
     /// Main loop of the model-exchange simulation
     fn main_loop(&mut self, solver_params: S::Params) -> Result<(), Fmi2Error> {
+        todo!();
+
         let mut new_discrete_states_needed = true;
         while new_discrete_states_needed {
             //self.inst.new_discrete_states()
         }
 
         self.inst.enter_continuous_time_mode().ok()?;
-
-        todo!();
     }
 }
 
-/// Run a model-exchange simulation
 pub fn model_exchange(
     import: &Fmi2Import,
     options: &ModelExchangeOptions,

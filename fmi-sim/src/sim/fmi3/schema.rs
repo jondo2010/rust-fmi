@@ -4,9 +4,9 @@ use arrow::{
 };
 use fmi::{
     fmi3::{import::Fmi3Import, schema::Causality},
+    schema::fmi3::Variability,
     traits::FmiImport,
 };
-use fmi_schema::fmi3::Variability;
 
 use crate::sim::{io::StartValues, traits::FmiSchemaBuilder};
 

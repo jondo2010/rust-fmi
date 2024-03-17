@@ -1,13 +1,17 @@
-use fmi_schema::traits::DefaultExperiment;
+use fmi::schema::traits::DefaultExperiment;
 
 use crate::options::CommonOptions;
 
+#[derive(Debug, Clone)]
 pub struct SimParams {
+    /// Start time of the simulation
     pub start_time: f64,
+    /// Stop time of the simulation
     pub stop_time: f64,
+    /// Output interval
     pub output_interval: f64,
+    /// Tolerance
     pub tolerance: Option<f64>,
-
     /// Use event mode
     pub event_mode_used: bool,
     /// Support early-return in Co-Simulation.

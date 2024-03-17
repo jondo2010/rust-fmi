@@ -1,13 +1,22 @@
 use std::path::Path;
 
 use anyhow::Context;
-use fmi::{fmi3::instance::Common, traits::FmiInstance};
+use arrow::array::RecordBatch;
+use fmi::{
+    fmi3::{import::Fmi3Import, instance::Common},
+    traits::FmiInstance,
+};
+
+use crate::{
+    options::{CoSimulationOptions, ModelExchangeOptions},
+    Error,
+};
 
 use super::{
     interpolation::Linear,
     io::StartValues,
     solver::Solver,
-    traits::{FmiSchemaBuilder, InstanceRecordValues, InstanceSetValues},
+    traits::{FmiSchemaBuilder, FmiSim, InstanceRecordValues, InstanceSetValues},
     SimState,
 };
 
@@ -59,7 +68,7 @@ where
             self.inst.enter_configuration_mode().ok()?;
             for (vr, ary) in &start_values.structural_parameters {
                 log::trace!("Setting structural parameter `{}`", (*vr).into());
-                self.inst.set_array(&[(*vr)], &ary);
+                self.inst.set_array(&[(*vr)], ary);
             }
             self.inst.exit_configuration_mode().ok()?;
         }
@@ -188,43 +197,20 @@ where
     }
 }
 
-#[cfg(feature = "disable")]
-impl<'a, Inst, S> SimState<Inst, S>
-where
-    Inst: FmiInstance + Common + Model,
-    Inst::Import: FmiSchemaBuilder,
-    S: Solver<Inst>,
-    Self: SimTrait<
-        'a,
-        Import = Inst::Import,
-        InputState = InputState<Inst>,
-        OutputState = OutputState<Inst>,
-    >,
-{
-    fn new_from_options(
-        import: &'a Inst::Import,
-        options: &CommonOptions,
-        event_mode_used: bool,
-        early_return_allowed: bool,
-    ) -> anyhow::Result<Self> {
-        let sim_params = SimParams::new_from_options(
-            options,
-            import.model_description(),
-            event_mode_used,
-            early_return_allowed,
-        )?;
+impl FmiSim for Fmi3Import {
+    fn simulate_me(
+        &self,
+        options: &ModelExchangeOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error> {
+        model_exchange(self, options, input_data)
+    }
 
-        // Read optional input data from file
-        let input_data = options
-            .input_file
-            .as_ref()
-            .map(super::util::read_csv)
-            .transpose()
-            .context("Reading input file")?;
-
-        let input_state = InputState::new(import, input_data)?;
-        let output_state = OutputState::new(import, &sim_params);
-
-        SimState::<Inst>::new(import, sim_params, input_state, output_state)
+    fn simulate_cs(
+        &self,
+        options: &CoSimulationOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error> {
+        co_simulation(self, options, input_data)
     }
 }

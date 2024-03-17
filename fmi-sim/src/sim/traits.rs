@@ -1,8 +1,13 @@
 use arrow::{
-    array::ArrayRef,
+    array::{ArrayRef, RecordBatch},
     datatypes::{Field, Schema},
 };
 use fmi::traits::{FmiImport, FmiInstance};
+
+use crate::{
+    options::{CoSimulationOptions, ModelExchangeOptions},
+    Error,
+};
 
 use super::{
     interpolation::{Interpolate, PreLookup},
@@ -53,4 +58,20 @@ pub trait InstanceRecordValues: FmiInstance + Sized {
         time: f64,
         recorder: &mut RecorderState<Self>,
     ) -> anyhow::Result<()>;
+}
+
+pub trait FmiSim {
+    /// Simulate the model using Model Exchange.
+    fn simulate_me(
+        &self,
+        options: &ModelExchangeOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error>;
+
+    /// Simulate the model using Co-Simulation.
+    fn simulate_cs(
+        &self,
+        options: &CoSimulationOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error>;
 }

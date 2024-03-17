@@ -53,7 +53,7 @@ where
             .map(|v| {
                 (
                     Field::new(&v.name, v.elem.data_type(), false),
-                    v.value_reference.into(),
+                    v.value_reference,
                 )
             })
     }
@@ -71,7 +71,7 @@ where
             .map(|v| {
                 (
                     Field::new(&v.name, v.elem.data_type(), false),
-                    v.value_reference.into(),
+                    v.value_reference,
                 )
             })
     }
@@ -85,7 +85,7 @@ where
             .map(|v| {
                 (
                     Field::new(&v.name, v.elem.data_type(), false),
-                    v.value_reference.into(),
+                    v.value_reference,
                 )
             })
     }

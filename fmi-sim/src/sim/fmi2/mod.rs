@@ -7,22 +7,26 @@ mod schema;
 
 use std::path::Path;
 
+use arrow::array::RecordBatch;
 #[cfg(feature = "cs")]
 pub use cs::co_simulation;
 use fmi::{
-    fmi2::{instance::Common, Fmi2Error},
+    fmi2::{import::Fmi2Import, instance::Common, Fmi2Error},
     traits::FmiInstance,
 };
 #[cfg(feature = "me")]
 pub use me::model_exchange;
 
-use crate::Error;
+use crate::{
+    options::{CoSimulationOptions, ModelExchangeOptions},
+    Error,
+};
 
 use super::{
     interpolation::Linear,
     io::StartValues,
     solver::Solver,
-    traits::{FmiSchemaBuilder, InstanceRecordValues, InstanceSetValues},
+    traits::{FmiSchemaBuilder, FmiSim, InstanceRecordValues, InstanceSetValues},
     SimState,
 };
 
@@ -77,6 +81,8 @@ where
         start_values: StartValues<<Inst as fmi::traits::FmiInstance>::ValueReference>,
         initial_fmu_state_file: Option<P>,
     ) -> Result<(), Fmi2Error> {
+        log::trace!("Initializing FMI model");
+
         if let Some(_initial_state_file) = &initial_fmu_state_file {
             unimplemented!("initial_fmu_state_file");
             // self.inst.restore_fmu_state_from_file(initial_state_file)?;
@@ -122,5 +128,23 @@ where
         terminate_simulation: &mut bool,
     ) -> Result<bool, Error> {
         todo!()
+    }
+}
+
+impl FmiSim for Fmi2Import {
+    fn simulate_me(
+        &self,
+        options: &ModelExchangeOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error> {
+        model_exchange(self, options, input_data)
+    }
+
+    fn simulate_cs(
+        &self,
+        options: &CoSimulationOptions,
+        input_data: Option<RecordBatch>,
+    ) -> Result<RecordBatch, Error> {
+        co_simulation(self, options, input_data)
     }
 }

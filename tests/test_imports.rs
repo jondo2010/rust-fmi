@@ -1,4 +1,4 @@
-use fmi::{traits::FmiImport, traits::FmiInstance as _};
+use fmi::traits::{FmiImport, FmiInstance as _};
 use fmi_test_data::ReferenceFmus;
 
 extern crate fmi;
@@ -29,8 +29,8 @@ fn test_fmi2_imports() {
     let mut ref_fmus = ReferenceFmus::new().unwrap();
 
     for &name in FMU2_NAMES.iter() {
-        let import = ref_fmus
-            .get_reference_fmu_fmi2(name)
+        let import: fmi::fmi2::import::Fmi2Import = ref_fmus
+            .get_reference_fmu(name)
             .expect("Expected FMI2 import");
         assert_eq!(import.model_description().fmi_version, "2.0");
 
@@ -54,8 +54,8 @@ fn test_fmi3_imports() {
     let mut ref_fmus = ReferenceFmus::new().unwrap();
 
     for &name in FMU3_NAMES.iter() {
-        let import = ref_fmus
-            .get_reference_fmu_fmi3(name)
+        let import: fmi::fmi3::import::Fmi3Import = ref_fmus
+            .get_reference_fmu(name)
             .expect("Expected FMI3 import");
         assert_eq!(import.model_description().fmi_version, "3.0");
 

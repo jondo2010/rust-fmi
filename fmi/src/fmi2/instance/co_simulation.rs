@@ -50,7 +50,7 @@ impl<'a> Instance<'a, CS> {
         if component.is_null() {
             return Err(Error::Instantiation);
         }
-        log::trace!("Created CS component {:?}", component);
+        log::trace!("Created FMI2.0 CS component {:?}", component);
 
         Ok(Self {
             binding,

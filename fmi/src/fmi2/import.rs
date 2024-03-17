@@ -6,23 +6,24 @@ use super::{
 };
 use crate::{traits::FmiImport, Error};
 
-use fmi_schema::fmi2 as schema;
+use fmi_schema::{fmi2 as schema, MajorVersion};
 
 #[derive(Debug)]
 pub struct Fmi2Import {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
-    model_description: schema::FmiModelDescription,
+    model_description: schema::Fmi2ModelDescription,
 }
 
 impl FmiImport for Fmi2Import {
-    type ModelDescription = schema::FmiModelDescription;
+    const MAJOR_VERSION: MajorVersion = MajorVersion::FMI2;
+    type ModelDescription = schema::Fmi2ModelDescription;
     type Binding = binding::Fmi2Binding;
     type ValueReference = binding::fmi2ValueReference;
 
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error> {
-        let schema = schema::FmiModelDescription::from_str(schema_xml)?;
+        let schema = schema::Fmi2ModelDescription::from_str(schema_xml)?;
         Ok(Self {
             dir,
             model_description: schema,

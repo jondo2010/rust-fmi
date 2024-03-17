@@ -24,6 +24,7 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
         input_state: InputState<InstanceCS<'a>>,
         recorder_state: RecorderState<InstanceCS<'a>>,
     ) -> Result<Self, Error> {
+        log::trace!("Instantiating CS Simulation: {sim_params:#?}");
         let inst = import.instantiate_cs("inst1", true, true)?;
         Ok(Self {
             sim_params,
@@ -103,6 +104,8 @@ pub fn co_simulation(
     let start_values = import.parse_start_values(&options.common.initial_values)?;
     let input_state = InputState::new(import, input_data)?;
     let recorder_state = RecorderState::new(import, &sim_params);
+
+    log::debug!("{input_state}");
 
     let mut sim_state =
         SimState::<InstanceCS, DummySolver>::new(import, sim_params, input_state, recorder_state)?;

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
 use anyhow::Context;
 use arrow::{
@@ -30,6 +30,39 @@ pub struct InputState<Inst: FmiInstance> {
     pub(crate) discrete_inputs: Vec<(Field, Inst::ValueReference)>,
 }
 
+impl<Inst> Display for InputState<Inst>
+where
+    Inst: FmiInstance,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let continuous_inputs = self
+            .continuous_inputs
+            .iter()
+            .map(|(field, _)| field.name())
+            .collect::<Vec<_>>();
+
+        let discrete_inputs = self
+            .discrete_inputs
+            .iter()
+            .map(|(field, _)| field.name())
+            .collect::<Vec<_>>();
+
+        f.write_str("InputState {\n")?;
+        if let Some(input_data) = &self.input_data {
+            writeln!(
+                f,
+                "input_data:\n{}",
+                arrow::util::pretty::pretty_format_batches(&[input_data.clone()]).unwrap()
+            )?;
+        } else {
+            writeln!(f, "input_data: None")?;
+        }
+        writeln!(f, "continuous_inputs: {continuous_inputs:?}")?;
+        writeln!(f, "discrete_inputs: {discrete_inputs:?}")?;
+        write!(f, "}}")
+    }
+}
+
 impl<Inst> InputState<Inst>
 where
     Inst: FmiInstance,
@@ -42,13 +75,7 @@ where
 
         let input_data = input_data
             .map(|input_data| project_input_data(&input_data, model_input_schema.clone()))
-            .transpose()?
-            .inspect(|input_data| {
-                log::debug!(
-                    "Input data:\n{}",
-                    arrow::util::pretty::pretty_format_batches(&[input_data.clone()]).unwrap()
-                );
-            });
+            .transpose()?;
 
         Ok(Self {
             input_data,
@@ -82,13 +109,10 @@ where
 
                 for (field, vr) in &self.continuous_inputs {
                     if let Some(input_col) = input_data.column_by_name(field.name()) {
-                        log::trace!(
-                            "Applying continuous input {}={input_col:?} at time {time}",
-                            field.name()
-                        );
-
                         let ary = arrow::compute::cast(input_col, field.data_type())
                             .map_err(|_| anyhow::anyhow!("Error casting type"))?;
+
+                        //log::trace!( "Applying continuous input {}={input_col:?} at time {time}", field.name());
 
                         inst.set_interpolated::<I>(*vr, &pl, &ary)?;
                     }
@@ -101,15 +125,14 @@ where
 
                 for (field, vr) in &self.discrete_inputs {
                     if let Some(input_col) = input_data.column_by_name(field.name()) {
-                        log::trace!(
-                            "Applying discrete input {}={input_col:?} at time {time}",
-                            field.name()
-                        );
-
                         let ary = arrow::compute::cast(input_col, field.data_type())
                             .map_err(|_| anyhow::anyhow!("Error casting type"))?;
 
-                        inst.set_array(&[*vr], &ary.slice(input_idx, 1));
+                        let values = &ary.slice(input_idx, 1);
+
+                        //log::trace!( "Applying discrete input {}={values:#?} at time {time:.2}", field.name());
+
+                        inst.set_array(&[*vr], values);
                     }
                 }
             }

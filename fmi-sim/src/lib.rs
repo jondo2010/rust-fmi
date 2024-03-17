@@ -1,4 +1,5 @@
 use arrow::array::RecordBatch;
+use fmi::schema::{traits::FmiModelDescription, MajorVersion};
 
 pub mod options;
 pub mod sim;
@@ -19,55 +20,34 @@ pub enum Error {
     Other(#[from] anyhow::Error),
 }
 
-/// Simulate an FMI model parameterized by the given options
+/// Simulate an FMI model parameterized by the given top-level options.
 pub fn simulate(options: &options::FmiSimOptions) -> Result<RecordBatch, Error> {
     let mini_descr = fmi::import::peek_descr_path(&options.model)?;
-    let version = mini_descr.version().map_err(fmi::Error::from)?;
+    let version = mini_descr.major_version().map_err(fmi::Error::from)?;
+
+    log::debug!("Loaded {:?}", mini_descr);
 
     // Read optional input data
     let input_data = options
         .input_file
         .as_ref()
+        .inspect(|p| log::debug!("Reading input data from {}", p.display()))
         .map(sim::util::read_csv)
         .transpose()?;
 
-    let outputs = match version.major {
+    match version {
+        MajorVersion::FMI1 => Err(fmi::Error::UnsupportedFmiVersion(version).into()),
+
         #[cfg(feature = "fmi2")]
-        2 => {
+        MajorVersion::FMI2 => {
             let import: fmi::fmi2::import::Fmi2Import = fmi::import::from_path(&options.model)?;
-            match &options.interface {
-                #[cfg(feature = "me")]
-                options::Interface::ModelExchange(options) => {
-                    sim::fmi2::model_exchange(&import, options, input_data)
-                }
-                #[cfg(feature = "cs")]
-                options::Interface::CoSimulation(options) => {
-                    sim::fmi2::co_simulation(&import, options, input_data)
-                }
-                #[cfg(any(not(feature = "me"), not(feature = "cs")))]
-                _ => Err(fmi::Error::UnsupportedInterface(format!("{}", options.interface)).into()),
-            }
+            sim::simulate_with(input_data, &options.interface, import)
         }
+
         #[cfg(feature = "fmi3")]
-        3 => {
+        MajorVersion::FMI3 => {
             let import: fmi::fmi3::import::Fmi3Import = fmi::import::from_path(&options.model)?;
-
-            match &options.interface {
-                #[cfg(feature = "me")]
-                options::Interface::ModelExchange(options) => {
-                    sim::fmi3::model_exchange(&import, options, input_data)
-                }
-                #[cfg(feature = "cs")]
-                options::Interface::CoSimulation(options) => {
-                    sim::fmi3::co_simulation(&import, options, input_data)
-                }
-                #[cfg(feature = "se")]
-                options::Interface::ScheduledExecution(options) => unimplemented!(),
-            }
+            sim::simulate_with(input_data, &options.interface, import)
         }
-
-        _ => Err(fmi::Error::UnsupportedFmiVersion(version.to_string()).into()),
-    }?;
-
-    Ok(outputs)
+    }
 }

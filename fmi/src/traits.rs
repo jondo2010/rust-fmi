@@ -1,10 +1,16 @@
-use fmi_schema::traits::DefaultExperiment;
+use fmi_schema::{
+    traits::{DefaultExperiment, FmiModelDescription},
+    MajorVersion,
+};
 
 use crate::Error;
 
 pub trait FmiImport: Sized {
+    /// The type of the major version
+    const MAJOR_VERSION: MajorVersion;
+
     /// The raw parsed XML schema type
-    type ModelDescription: DefaultExperiment;
+    type ModelDescription: FmiModelDescription + DefaultExperiment;
 
     /// The raw FMI bindings type
     type Binding;
@@ -36,7 +42,7 @@ pub trait FmiImport: Sized {
 
 /// Generic FMI instance trait
 pub trait FmiInstance {
-    type ModelDescription: DefaultExperiment;
+    type ModelDescription: FmiModelDescription + DefaultExperiment;
 
     type Import: FmiImport<
         ModelDescription = Self::ModelDescription,

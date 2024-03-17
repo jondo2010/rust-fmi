@@ -30,7 +30,7 @@ pub struct Instance<'a, Tag> {
     /// Pointer to the raw FMI 3.0 instance
     ptr: binding::fmi3Instance,
     /// Model description
-    model_description: &'a schema::FmiModelDescription,
+    model_description: &'a schema::Fmi3ModelDescription,
     /// Instance name
     name: String,
     _tag: std::marker::PhantomData<&'a Tag>,
@@ -89,7 +89,7 @@ where
 }
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
-    type ModelDescription = schema::FmiModelDescription;
+    type ModelDescription = schema::Fmi3ModelDescription;
 
     type Import = Fmi3Import;
 
