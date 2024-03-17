@@ -28,7 +28,7 @@ use crate::{
 pub type ScalarVariableMap<'a> = std::collections::HashMap<String, &'a ScalarVariable>;
 pub type UnknownsTuple<'a> = (&'a ScalarVariable, Vec<&'a ScalarVariable>);
 
-impl FromStr for FmiModelDescription {
+impl FromStr for Fmi2ModelDescription {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -36,7 +36,7 @@ impl FromStr for FmiModelDescription {
     }
 }
 
-impl crate::traits::DefaultExperiment for FmiModelDescription {
+impl crate::traits::DefaultExperiment for Fmi2ModelDescription {
     fn start_time(&self) -> Option<f64> {
         self.default_experiment.as_ref().map(|de| de.start_time)
     }

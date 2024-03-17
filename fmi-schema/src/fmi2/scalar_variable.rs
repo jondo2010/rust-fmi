@@ -19,22 +19,30 @@ pub enum Causality {
     Unknown,
 }
 
-/// Enumeration that defines the time dependency of the variable
+/// Enumeration that defines the time dependency of the variable, in other words it defines the time instants when a variable can change its value.
+///
+/// The default is [`Variability::Continuous`].
 #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Variability {
+    /// The value of the variable never changes.
     #[yaserde(rename = "constant")]
     Constant,
+    /// The value of the variable is fixed after initialization, in other words after `exit_initialization_mode()` was called the variable value does not change anymore.
     #[yaserde(rename = "fixed")]
     Fixed,
+    /// The value of the variable is constant between external events (ModelExchange) and between Communication Points (CoSimulation) due to changing variables with causality = "parameter" or "input" and variability = "tunable".
     #[yaserde(rename = "tunable")]
     Tunable,
+    /// * ModelExchange: The value of the variable is constant between external and internal events (= time, state, step events defined implicitly in the FMU).
+    /// * CoSimulation: By convention, the variable is from a “real” sampled data system and its value is only changed at Communication Points (also inside the slave).
     #[yaserde(rename = "discrete")]
     Discrete,
+    /// Only a variable of type = "Real" can be "continuous".
+    /// * ModelExchange: No restrictions on value changes.
+    /// * CoSimulation: By convention, the variable is from a differential
+    #[default]
     #[yaserde(rename = "continuous")]
     Continuous,
-    #[default]
-    #[yaserde(rename = "unknown")]
-    Unknown,
 }
 
 #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]

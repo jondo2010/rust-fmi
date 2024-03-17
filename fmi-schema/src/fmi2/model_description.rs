@@ -1,13 +1,13 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use crate::Error;
+use crate::{traits::FmiModelDescription, Error};
 
 use super::{
     CoSimulation, Fmi2Unit, Fmi2VariableDependency, ModelExchange, ScalarVariable, SimpleType,
 };
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
-pub struct FmiModelDescription {
+pub struct Fmi2ModelDescription {
     /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
     /// as "2.0").
     #[yaserde(attribute, rename = "fmiVersion")]
@@ -85,12 +85,7 @@ pub struct FmiModelDescription {
     pub model_structure: ModelStructure,
 }
 
-impl FmiModelDescription {
-    /// The model name
-    pub fn model_name(&self) -> &str {
-        &self.model_name
-    }
-
+impl Fmi2ModelDescription {
     /// Total number of variables
     pub fn num_variables(&self) -> usize {
         self.model_variables.variables.len()
@@ -241,6 +236,16 @@ impl FmiModelDescription {
     }
 }
 
+impl FmiModelDescription for Fmi2ModelDescription {
+    fn model_name(&self) -> &str {
+        &self.model_name
+    }
+
+    fn version_string(&self) -> &str {
+        &self.fmi_version
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct LogCategories {
     #[yaserde(rename = "Category")]
@@ -341,7 +346,7 @@ mod tests {
     <InitialUnknowns />
 </ModelStructure>
 </fmiModelDescription>"##;
-        let md: FmiModelDescription = yaserde::de::from_str(s).unwrap();
+        let md: Fmi2ModelDescription = yaserde::de::from_str(s).unwrap();
         assert_eq!(md.fmi_version, "2.0");
         assert_eq!(md.model_name, "MyLibrary.SpringMassDamper");
         assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}");
