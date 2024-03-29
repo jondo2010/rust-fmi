@@ -9,6 +9,8 @@ use arrow::{
 };
 use fmi::traits::FmiInstance;
 
+use crate::Error;
+
 use super::{
     interpolation::{find_index, Interpolate, PreLookup},
     params::SimParams,
@@ -96,7 +98,7 @@ where
         discrete: bool,
         continuous: bool,
         after_event: bool,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), Error> {
         if let Some(input_data) = &self.input_data {
             let time_array: Float64Array = downcast_array(
                 input_data
@@ -109,12 +111,13 @@ where
 
                 for (field, vr) in &self.continuous_inputs {
                     if let Some(input_col) = input_data.column_by_name(field.name()) {
-                        let ary = arrow::compute::cast(input_col, field.data_type())
-                            .map_err(|_| anyhow::anyhow!("Error casting type"))?;
+                        assert_eq!(input_col.data_type(), field.data_type());
+
+                        //let ary = arrow::compute::cast(input_col, field.data_type()).map_err(|_| anyhow::anyhow!("Error casting type"))?;
 
                         //log::trace!( "Applying continuous input {}={input_col:?} at time {time}", field.name());
 
-                        inst.set_interpolated::<I>(*vr, &pl, &ary)?;
+                        inst.set_interpolated::<I>(*vr, &pl, &input_col)?;
                     }
                 }
             }

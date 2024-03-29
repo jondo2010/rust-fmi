@@ -16,9 +16,10 @@ pub use io::{InputState, RecorderState};
 use crate::{options, Error};
 
 use self::{
+    interpolation::Linear,
     params::SimParams,
     solver::Solver,
-    traits::{FmiSchemaBuilder, FmiSim},
+    traits::{FmiSchemaBuilder, FmiSim, InstanceSetValues},
 };
 
 pub struct SimState<Inst, S>
@@ -33,6 +34,51 @@ where
     inst: Inst,
     next_event_time: Option<f64>,
     _phantom: std::marker::PhantomData<S>,
+}
+
+pub trait SimStateTrait<Inst: FmiInstance> {
+    fn params(&mut self) -> &mut SimParams;
+
+    fn inst(&mut self) -> &mut Inst;
+
+    fn apply_input(
+        &mut self,
+        time: f64,
+        discrete: bool,
+        continuous: bool,
+        input_event: bool,
+    ) -> Result<(), Error>;
+}
+
+impl<Inst, S> SimStateTrait<Inst> for SimState<Inst, S>
+where
+    Inst: FmiInstance + InstanceSetValues,
+    Inst::Import: FmiSchemaBuilder,
+    S: Solver<Inst>,
+{
+    fn params(&mut self) -> &mut SimParams {
+        &mut self.sim_params
+    }
+
+    fn inst(&mut self) -> &mut Inst {
+        &mut self.inst
+    }
+
+    fn apply_input(
+        &mut self,
+        time: f64,
+        discrete: bool,
+        continuous: bool,
+        input_event: bool,
+    ) -> Result<(), Error> {
+        self.input_state.apply_input::<Linear>(
+            time,
+            &mut self.inst,
+            discrete,
+            continuous,
+            input_event,
+        )
+    }
 }
 
 #[derive(Default, Debug)]

@@ -17,7 +17,7 @@ pub struct CallbackFunctions {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 pub struct EventInfo {
     pub new_discrete_states_needed: binding::fmi2Boolean,
     pub terminate_simulation: binding::fmi2Boolean,

@@ -17,13 +17,16 @@ use crate::{
 
 use super::Fmi2Sim;
 
-impl<'a> SimState<InstanceCS<'a>, DummySolver> {
-    pub fn new(
+impl<'a> Fmi2Sim<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>, DummySolver> {
+    fn new(
         import: &'a Fmi2Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS<'a>>,
         recorder_state: RecorderState<InstanceCS<'a>>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, fmi::Error>
+    where
+        Self: Sized,
+    {
         log::trace!("Instantiating CS Simulation: {sim_params:#?}");
         let inst = import.instantiate_cs("inst1", true, true)?;
         Ok(Self {
@@ -36,6 +39,22 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
         })
     }
 
+    fn default_initialize(&mut self) -> Result<(), Fmi2Error> {
+        self.inst
+            .setup_experiment(
+                self.sim_params.tolerance,
+                self.sim_params.start_time,
+                Some(self.sim_params.stop_time),
+            )
+            .ok()?;
+        self.inst.enter_initialization_mode().ok()?;
+        self.inst.exit_initialization_mode().ok()?;
+
+        Ok(())
+    }
+}
+
+impl<'a> SimState<InstanceCS<'a>, DummySolver> {
     /// Main loop of the co-simulation
     fn main_loop(&mut self) -> Result<SimStats, Fmi2Error> {
         let mut stats = SimStats::default();
