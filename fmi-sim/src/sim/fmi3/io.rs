@@ -12,7 +12,10 @@ use arrow::{
         UInt32Type, UInt64Type, UInt8Type,
     },
 };
-use fmi::{fmi3::instance::Common, traits::FmiInstance};
+use fmi::{
+    fmi3::instance::Common,
+    traits::{FmiInstance, FmiStatus},
+};
 
 use crate::sim::{
     interpolation::{Interpolate, PreLookup},

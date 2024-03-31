@@ -1,6 +1,9 @@
 use std::mem::MaybeUninit;
 
-use crate::fmi3::{binding, Fmi3Status};
+use crate::{
+    fmi3::{binding, Fmi3Status},
+    traits::FmiStatus,
+};
 
 use super::{Common, Instance};
 

@@ -24,7 +24,7 @@ impl FmiImport for Fmi3Import {
     const MAJOR_VERSION: MajorVersion = MajorVersion::FMI3;
     type ModelDescription = schema::Fmi3ModelDescription;
     type Binding = binding::Fmi3Binding;
-    type ValueReference = binding::fmi3ValueReference;
+    type ValueRef = binding::fmi3ValueReference;
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
     fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {

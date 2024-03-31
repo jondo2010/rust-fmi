@@ -2,10 +2,10 @@ use arrow::record_batch::RecordBatch;
 use fmi::{
     fmi2::{
         import::Fmi2Import,
-        instance::{Common, InstanceME, ModelExchange},
-        EventInfo, Fmi2Error,
+        instance::{Common, InstanceME},
+        Fmi2Error,
     },
-    traits::{FmiImport, FmiInstance},
+    traits::{FmiImport, FmiInstance, FmiModelExchange, FmiStatus},
 };
 
 use crate::{
@@ -15,39 +15,19 @@ use crate::{
         params::SimParams,
         solver::{self, Solver},
         traits::FmiSchemaBuilder,
-        InputState, RecorderState, SimState,
+        InputState, RecorderState, SimState, SimStats,
     },
     Error,
 };
 
-impl solver::Model for InstanceME<'_> {
-    fn get_continuous_states(&mut self, x: &mut [f64]) {
-        ModelExchange::get_continuous_states(self, x);
-    }
-
-    fn set_continuous_states(&mut self, states: &[f64]) {
-        ModelExchange::set_continuous_states(self, states);
-    }
-
-    fn get_continuous_state_derivatives(&mut self, dx: &mut [f64]) {
-        ModelExchange::get_derivatives(self, dx);
-    }
-
-    fn get_event_indicators(&mut self, z: &mut [f64]) {
-        ModelExchange::get_event_indicators(self, z);
-    }
-}
-
-impl<'a, S> Fmi2Sim<'a, InstanceME<'a>> for SimState<InstanceME<'a>, S>
-where
-    S: Solver<InstanceME<'a>>,
-{
+impl<'a> Fmi2Sim<'a, InstanceME<'a>> for SimState<InstanceME<'a>> {
     fn new(
         import: &'a Fmi2Import,
         sim_params: SimParams,
         input_state: InputState<InstanceME<'a>>,
         recorder_state: RecorderState<InstanceME<'a>>,
     ) -> Result<Self, fmi::Error> {
+        log::trace!("Instantiating ME Simulation: {sim_params:#?}");
         let inst = import.instantiate_me("inst1", true, true)?;
         Ok(Self {
             sim_params,
@@ -55,7 +35,6 @@ where
             recorder_state,
             inst,
             next_event_time: None,
-            _phantom: std::marker::PhantomData,
         })
     }
 
@@ -74,7 +53,7 @@ where
         event_info.new_discrete_states_needed = 1;
 
         while event_info.new_discrete_states_needed > 0 {
-            self.inst.new_discrete_states(&mut event_info).ok()?;
+            //self.inst.new_discrete_states(&mut event_info).ok()?;
         }
 
         self.next_event_time =
@@ -89,12 +68,14 @@ where
     }
 }
 
-impl<'a, S> SimState<InstanceME<'a>, S>
-where
-    S: Solver<InstanceME<'a>>,
-{
+impl<'a> SimState<InstanceME<'a>> {
     /// Main loop of the model-exchange simulation
-    fn main_loop(&mut self, solver_params: S::Params) -> Result<(), Fmi2Error> {
+    fn main_loop<S>(&mut self, solver_params: S::Params) -> Result<SimStats, Fmi2Error>
+    where
+        S: Solver<InstanceME<'a>>,
+    {
+        let mut stats = SimStats::default();
+
         let nx = self.inst.get_number_of_continuous_state_values();
         let nz = self.inst.get_number_of_event_indicator_values();
 
@@ -109,7 +90,7 @@ where
         let mut num_steps = 0;
         let mut time = self.sim_params.start_time;
 
-        Ok(())
+        Ok(stats)
     }
 }
 
@@ -125,13 +106,19 @@ pub fn model_exchange(
     let input_state = InputState::new(import, input_data)?;
     let output_state = RecorderState::new(import, &sim_params);
 
-    let mut sim_state =
-        SimState::<InstanceME, solver::Euler>::new(import, sim_params, input_state, output_state)?;
-
+    let mut sim_state = SimState::<InstanceME>::new(import, sim_params, input_state, output_state)?;
     sim_state
         .initialize(start_values, options.common.initial_fmu_state_file.as_ref())
         .map_err(fmi::Error::from)?;
-    sim_state.main_loop(()).map_err(fmi::Error::from)?;
+    let stats = sim_state
+        .main_loop::<solver::Euler>(())
+        .map_err(fmi::Error::from)?;
+
+    log::info!(
+        "Simulation finished at t = {:.1} after {} steps.",
+        stats.end_time,
+        stats.num_steps
+    );
 
     Ok(sim_state.recorder_state.finish())
 }

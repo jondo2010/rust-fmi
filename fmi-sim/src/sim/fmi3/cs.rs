@@ -3,9 +3,9 @@ use arrow::record_batch::RecordBatch;
 use fmi::{
     fmi3::{
         import::Fmi3Import,
-        instance::{CoSimulation, Common, InstanceCS},
+        instance::{CoSimulation, InstanceCS},
     },
-    traits::FmiImport,
+    traits::{FmiImport, FmiInstance, FmiStatus},
 };
 
 use crate::{
@@ -13,7 +13,6 @@ use crate::{
     sim::{
         interpolation::Linear,
         params::SimParams,
-        solver::DummySolver,
         traits::{FmiSchemaBuilder, InstanceRecordValues},
         InputState, RecorderState, SimState,
     },
@@ -22,7 +21,7 @@ use crate::{
 
 use super::Fmi3Sim;
 
-impl<'a> SimState<InstanceCS<'a>, DummySolver> {
+impl<'a> SimState<InstanceCS<'a>> {
     pub fn new(
         import: &'a Fmi3Import,
         sim_params: SimParams,
@@ -43,7 +42,6 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
             recorder_state: output_state,
             inst,
             next_event_time: None,
-            _phantom: std::marker::PhantomData,
         })
     }
 
@@ -153,8 +151,7 @@ pub fn co_simulation(
     let input_state = InputState::new(import, input_data)?;
     let output_state = RecorderState::new(import, &sim_params);
 
-    let mut sim_state =
-        SimState::<InstanceCS, DummySolver>::new(import, sim_params, input_state, output_state)?;
+    let mut sim_state = SimState::<InstanceCS>::new(import, sim_params, input_state, output_state)?;
     sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
     sim_state.main_loop()?;
 

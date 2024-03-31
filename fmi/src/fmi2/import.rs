@@ -20,7 +20,7 @@ impl FmiImport for Fmi2Import {
     const MAJOR_VERSION: MajorVersion = MajorVersion::FMI2;
     type ModelDescription = schema::Fmi2ModelDescription;
     type Binding = binding::Fmi2Binding;
-    type ValueReference = binding::fmi2ValueReference;
+    type ValueRef = binding::fmi2ValueReference;
 
     fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error> {
         let schema = schema::Fmi2ModelDescription::from_str(schema_xml)?;

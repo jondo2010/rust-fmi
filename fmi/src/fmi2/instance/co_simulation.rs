@@ -2,7 +2,7 @@ use std::ffi::{CStr, CString};
 
 use crate::{
     fmi2::{import, CallbackFunctions, Fmi2Error, Fmi2Status},
-    traits::FmiImport,
+    traits::{FmiImport, FmiStatus},
     Error,
 };
 
@@ -58,6 +58,7 @@ impl<'a> Instance<'a, CS> {
             model_description: schema,
             callbacks,
             name,
+            saved_states: Vec::new(),
             _tag: std::marker::PhantomData,
         })
     }
@@ -70,18 +71,19 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
         communication_step_size: f64,
         new_step: bool,
     ) -> Fmi2Status {
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding.fmi2DoStep(
                 self.component,
                 current_communication_point,
                 communication_step_size,
                 new_step as _,
             )
-        })
+        }
+        .into()
     }
 
     fn cancel_step(&self) -> Fmi2Status {
-        Fmi2Status(unsafe { self.binding.fmi2CancelStep(self.component) })
+        unsafe { self.binding.fmi2CancelStep(self.component) }.into()
     }
 
     fn do_step_status(&mut self) -> Result<Fmi2Status, Fmi2Error> {

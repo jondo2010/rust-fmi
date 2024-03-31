@@ -9,6 +9,8 @@ pub mod model;
 pub use fmi_schema::fmi3 as schema;
 pub use fmi_sys::fmi3 as binding;
 
+use crate::traits::FmiStatus;
+
 #[derive(Debug)]
 pub enum Fmi3Res {
     /// The call was successful. The output argument values are defined.
@@ -51,15 +53,18 @@ pub enum Fmi3Error {
 #[derive(Debug)]
 pub struct Fmi3Status(binding::fmi3Status);
 
-impl Fmi3Status {
+impl FmiStatus for Fmi3Status {
+    type Res = Fmi3Res;
+    type Err = Fmi3Error;
+
     /// Convert to [`Result<Fmi3Res, Fmi3Err>`]
     #[inline]
-    pub fn ok(self) -> Result<Fmi3Res, Fmi3Error> {
+    fn ok(self) -> Result<Fmi3Res, Fmi3Error> {
         self.into()
     }
 
     #[inline]
-    pub fn is_error(&self) -> bool {
+    fn is_error(&self) -> bool {
         self.0 == binding::fmi3Status_fmi3Error || self.0 == binding::fmi3Status_fmi3Fatal
     }
 }

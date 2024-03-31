@@ -27,9 +27,9 @@ pub struct StartValues<VR> {
 pub struct InputState<Inst: FmiInstance> {
     pub(crate) input_data: Option<RecordBatch>,
     // Map schema column index to ValueReference
-    pub(crate) continuous_inputs: Vec<(Field, Inst::ValueReference)>,
+    pub(crate) continuous_inputs: Vec<(Field, Inst::ValueRef)>,
     // Map schema column index to ValueReference
-    pub(crate) discrete_inputs: Vec<(Field, Inst::ValueReference)>,
+    pub(crate) discrete_inputs: Vec<(Field, Inst::ValueRef)>,
 }
 
 impl<Inst> Display for InputState<Inst>
@@ -183,7 +183,7 @@ where
 
 pub struct Recorder<Inst: FmiInstance> {
     pub(crate) field: Field,
-    pub(crate) value_reference: Inst::ValueReference,
+    pub(crate) value_reference: Inst::ValueRef,
     pub(crate) builder: Box<dyn ArrayBuilder>,
 }
 

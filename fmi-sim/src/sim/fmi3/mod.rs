@@ -4,7 +4,7 @@ use anyhow::Context;
 use arrow::array::RecordBatch;
 use fmi::{
     fmi3::{import::Fmi3Import, instance::Common},
-    traits::FmiInstance,
+    traits::{FmiInstance, FmiStatus},
 };
 
 use crate::{
@@ -15,9 +15,8 @@ use crate::{
 use super::{
     interpolation::Linear,
     io::StartValues,
-    solver::Solver,
     traits::{FmiSchemaBuilder, FmiSim, InstanceRecordValues, InstanceSetValues},
-    SimState,
+    SimState, SimStateTrait,
 };
 
 #[cfg(feature = "cs")]
@@ -32,15 +31,15 @@ pub use cs::co_simulation;
 #[cfg(feature = "me")]
 pub use me::model_exchange;
 
-trait Fmi3Sim<Inst: FmiInstance> {
+trait Fmi3Sim<Inst: FmiInstance + InstanceSetValues>: SimStateTrait<Inst> {
     fn apply_start_values(
         &mut self,
-        start_values: &StartValues<Inst::ValueReference>,
+        start_values: &StartValues<Inst::ValueRef>,
     ) -> anyhow::Result<()>;
 
     fn initialize<P: AsRef<Path>>(
         &mut self,
-        start_values: StartValues<Inst::ValueReference>,
+        start_values: StartValues<Inst::ValueRef>,
         initial_fmu_state_file: Option<P>,
     ) -> anyhow::Result<()>;
 
@@ -51,18 +50,17 @@ trait Fmi3Sim<Inst: FmiInstance> {
         time: f64,
         input_event: bool,
         terminate_simulation: &mut bool,
-    ) -> Result<bool, anyhow::Error>;
+    ) -> Result<bool, Error>;
 }
 
-impl<Inst, S> Fmi3Sim<Inst> for SimState<Inst, S>
+impl<Inst> Fmi3Sim<Inst> for SimState<Inst>
 where
     Inst: Common + InstanceSetValues + InstanceRecordValues,
     Inst::Import: FmiSchemaBuilder,
-    S: Solver<Inst>,
 {
     fn apply_start_values(
         &mut self,
-        start_values: &StartValues<Inst::ValueReference>,
+        start_values: &StartValues<Inst::ValueRef>,
     ) -> anyhow::Result<()> {
         if !start_values.structural_parameters.is_empty() {
             self.inst.enter_configuration_mode().ok()?;
@@ -82,7 +80,7 @@ where
 
     fn initialize<P>(
         &mut self,
-        start_values: StartValues<Inst::ValueReference>,
+        start_values: StartValues<Inst::ValueRef>,
         initial_fmu_state_file: Option<P>,
     ) -> anyhow::Result<()>
     where
@@ -147,7 +145,7 @@ where
                     .context("update_discrete_states")?;
 
                 if terminate_simulation {
-                    self.inst.terminate().ok().context("terminate")?;
+                    self.inst.terminate().ok().map_err(Into::into)?;
                     anyhow::bail!("update_discrete_states() requested termination.");
                 }
             }
@@ -161,12 +159,12 @@ where
         time: f64,
         input_event: bool,
         terminate_simulation: &mut bool,
-    ) -> Result<bool, anyhow::Error> {
+    ) -> Result<bool, Error> {
         self.inst.record_outputs(time, &mut self.recorder_state)?;
         self.inst
             .enter_event_mode()
             .ok()
-            .context("enter_event_mode")?;
+            .map_err(fmi::Error::from)?;
         if input_event {
             self.input_state
                 .apply_input::<Linear>(time, &mut self.inst, true, true, true)?;

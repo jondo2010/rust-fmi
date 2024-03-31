@@ -12,7 +12,7 @@ use crate::sim::{io::StartValues, traits::FmiSchemaBuilder};
 
 impl FmiSchemaBuilder for Fmi3Import
 where
-    Self::ValueReference: From<u32>,
+    Self::ValueRef: From<u32>,
 {
     fn inputs_schema(&self) -> Schema {
         let input_fields = self
@@ -40,7 +40,7 @@ where
         Schema::new(output_fields)
     }
 
-    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
+    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_ {
         self.model_description()
             .model_variables
             .iter_abstract()
@@ -56,7 +56,7 @@ where
             })
     }
 
-    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
+    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_ {
         self.model_description()
             .model_variables
             .iter_abstract()
@@ -73,7 +73,7 @@ where
             })
     }
 
-    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> {
+    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> {
         self.model_description()
             .model_variables
             .iter_abstract()
@@ -89,9 +89,9 @@ where
     fn parse_start_values(
         &self,
         start_values: &[String],
-    ) -> anyhow::Result<StartValues<Self::ValueReference>> {
-        let mut structural_parameters: Vec<(Self::ValueReference, ArrayRef)> = vec![];
-        let mut variables: Vec<(Self::ValueReference, ArrayRef)> = vec![];
+    ) -> anyhow::Result<StartValues<Self::ValueRef>> {
+        let mut structural_parameters: Vec<(Self::ValueRef, ArrayRef)> = vec![];
+        let mut variables: Vec<(Self::ValueRef, ArrayRef)> = vec![];
 
         for start_value in start_values {
             let (name, value) = start_value

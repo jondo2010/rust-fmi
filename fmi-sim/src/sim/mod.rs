@@ -18,22 +18,19 @@ use crate::{options, Error};
 use self::{
     interpolation::Linear,
     params::SimParams,
-    solver::Solver,
     traits::{FmiSchemaBuilder, FmiSim, InstanceSetValues},
 };
 
-pub struct SimState<Inst, S>
+pub struct SimState<Inst>
 where
     Inst: FmiInstance,
     Inst::Import: FmiSchemaBuilder,
-    S: Solver<Inst>,
 {
     sim_params: SimParams,
     input_state: InputState<Inst>,
     recorder_state: RecorderState<Inst>,
     inst: Inst,
     next_event_time: Option<f64>,
-    _phantom: std::marker::PhantomData<S>,
 }
 
 pub trait SimStateTrait<Inst: FmiInstance> {
@@ -50,11 +47,10 @@ pub trait SimStateTrait<Inst: FmiInstance> {
     ) -> Result<(), Error>;
 }
 
-impl<Inst, S> SimStateTrait<Inst> for SimState<Inst, S>
+impl<Inst> SimStateTrait<Inst> for SimState<Inst>
 where
     Inst: FmiInstance + InstanceSetValues,
     Inst::Import: FmiSchemaBuilder,
-    S: Solver<Inst>,
 {
     fn params(&mut self) -> &mut SimParams {
         &mut self.sim_params

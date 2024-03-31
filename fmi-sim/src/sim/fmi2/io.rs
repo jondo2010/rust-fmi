@@ -7,7 +7,10 @@ use arrow::{
     },
     datatypes::{DataType, Float64Type, Int32Type},
 };
-use fmi::{fmi2::instance::Common, traits::FmiInstance};
+use fmi::{
+    fmi2::instance::Common,
+    traits::{FmiInstance, FmiStatus},
+};
 use itertools::Itertools;
 
 use crate::sim::{
@@ -74,7 +77,7 @@ macro_rules! impl_record_values {
 macro_rules! impl_set_values {
     ($t:ty) => {
         impl InstanceSetValues for $t {
-            fn set_array(&mut self, vrs: &[Self::ValueReference], values: &ArrayRef) {
+            fn set_array(&mut self, vrs: &[Self::ValueRef], values: &ArrayRef) {
                 match values.data_type() {
                     DataType::Boolean => {
                         let values = values
@@ -99,7 +102,7 @@ macro_rules! impl_set_values {
 
             fn set_interpolated<I: Interpolate>(
                 &mut self,
-                vr: <Self as FmiInstance>::ValueReference,
+                vr: <Self as FmiInstance>::ValueRef,
                 pl: &PreLookup,
                 array: &ArrayRef,
             ) -> anyhow::Result<()> {

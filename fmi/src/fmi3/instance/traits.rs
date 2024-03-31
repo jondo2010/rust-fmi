@@ -1,6 +1,6 @@
 //! Traits for the different instance types.
 
-use crate::{fmi3::Fmi3Error, traits::FmiInstance};
+use crate::traits::FmiInstance;
 
 use super::Fmi3Status;
 
@@ -81,39 +81,39 @@ pub trait Common: FmiInstance {
     fn reset(&mut self) -> Fmi3Status;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
-    fn get_boolean(&mut self, vrs: &[Self::ValueReference], values: &mut [bool]) -> Fmi3Status;
-    fn get_float32(&mut self, vrs: &[Self::ValueReference], values: &mut [f32]) -> Fmi3Status;
-    fn get_float64(&mut self, vrs: &[Self::ValueReference], values: &mut [f64]) -> Fmi3Status;
-    fn get_int8(&mut self, vrs: &[Self::ValueReference], values: &mut [i8]) -> Fmi3Status;
-    fn get_int16(&mut self, vrs: &[Self::ValueReference], values: &mut [i16]) -> Fmi3Status;
-    fn get_int32(&mut self, vrs: &[Self::ValueReference], values: &mut [i32]) -> Fmi3Status;
-    fn get_int64(&mut self, vrs: &[Self::ValueReference], values: &mut [i64]) -> Fmi3Status;
-    fn get_uint8(&mut self, vrs: &[Self::ValueReference], values: &mut [u8]) -> Fmi3Status;
-    fn get_uint16(&mut self, vrs: &[Self::ValueReference], values: &mut [u16]) -> Fmi3Status;
-    fn get_uint32(&mut self, vrs: &[Self::ValueReference], values: &mut [u32]) -> Fmi3Status;
-    fn get_uint64(&mut self, vrs: &[Self::ValueReference], values: &mut [u64]) -> Fmi3Status;
-    fn get_string(&mut self, vrs: &[Self::ValueReference], values: &mut [String]) -> Fmi3Status;
-    fn get_binary(&mut self, vrs: &[Self::ValueReference], values: &mut [Vec<u8>]) -> Fmi3Status;
+    fn get_boolean(&mut self, vrs: &[Self::ValueRef], values: &mut [bool]) -> Fmi3Status;
+    fn get_float32(&mut self, vrs: &[Self::ValueRef], values: &mut [f32]) -> Fmi3Status;
+    fn get_float64(&mut self, vrs: &[Self::ValueRef], values: &mut [f64]) -> Fmi3Status;
+    fn get_int8(&mut self, vrs: &[Self::ValueRef], values: &mut [i8]) -> Fmi3Status;
+    fn get_int16(&mut self, vrs: &[Self::ValueRef], values: &mut [i16]) -> Fmi3Status;
+    fn get_int32(&mut self, vrs: &[Self::ValueRef], values: &mut [i32]) -> Fmi3Status;
+    fn get_int64(&mut self, vrs: &[Self::ValueRef], values: &mut [i64]) -> Fmi3Status;
+    fn get_uint8(&mut self, vrs: &[Self::ValueRef], values: &mut [u8]) -> Fmi3Status;
+    fn get_uint16(&mut self, vrs: &[Self::ValueRef], values: &mut [u16]) -> Fmi3Status;
+    fn get_uint32(&mut self, vrs: &[Self::ValueRef], values: &mut [u32]) -> Fmi3Status;
+    fn get_uint64(&mut self, vrs: &[Self::ValueRef], values: &mut [u64]) -> Fmi3Status;
+    fn get_string(&mut self, vrs: &[Self::ValueRef], values: &mut [String]) -> Fmi3Status;
+    fn get_binary(&mut self, vrs: &[Self::ValueRef], values: &mut [Vec<u8>]) -> Fmi3Status;
 
-    fn set_boolean(&mut self, vrs: &[Self::ValueReference], values: &[bool]) -> Fmi3Status;
-    fn set_float32(&mut self, vrs: &[Self::ValueReference], values: &[f32]) -> Fmi3Status;
-    fn set_float64(&mut self, vrs: &[Self::ValueReference], values: &[f64]) -> Fmi3Status;
-    fn set_int8(&mut self, vrs: &[Self::ValueReference], values: &[i8]) -> Fmi3Status;
-    fn set_int16(&mut self, vrs: &[Self::ValueReference], values: &[i16]) -> Fmi3Status;
-    fn set_int32(&mut self, vrs: &[Self::ValueReference], values: &[i32]) -> Fmi3Status;
-    fn set_int64(&mut self, vrs: &[Self::ValueReference], values: &[i64]) -> Fmi3Status;
-    fn set_uint8(&mut self, vrs: &[Self::ValueReference], values: &[u8]) -> Fmi3Status;
-    fn set_uint16(&mut self, vrs: &[Self::ValueReference], values: &[u16]) -> Fmi3Status;
-    fn set_uint32(&mut self, vrs: &[Self::ValueReference], values: &[u32]) -> Fmi3Status;
-    fn set_uint64(&mut self, vrs: &[Self::ValueReference], values: &[u64]) -> Fmi3Status;
+    fn set_boolean(&mut self, vrs: &[Self::ValueRef], values: &[bool]) -> Fmi3Status;
+    fn set_float32(&mut self, vrs: &[Self::ValueRef], values: &[f32]) -> Fmi3Status;
+    fn set_float64(&mut self, vrs: &[Self::ValueRef], values: &[f64]) -> Fmi3Status;
+    fn set_int8(&mut self, vrs: &[Self::ValueRef], values: &[i8]) -> Fmi3Status;
+    fn set_int16(&mut self, vrs: &[Self::ValueRef], values: &[i16]) -> Fmi3Status;
+    fn set_int32(&mut self, vrs: &[Self::ValueRef], values: &[i32]) -> Fmi3Status;
+    fn set_int64(&mut self, vrs: &[Self::ValueRef], values: &[i64]) -> Fmi3Status;
+    fn set_uint8(&mut self, vrs: &[Self::ValueRef], values: &[u8]) -> Fmi3Status;
+    fn set_uint16(&mut self, vrs: &[Self::ValueRef], values: &[u16]) -> Fmi3Status;
+    fn set_uint32(&mut self, vrs: &[Self::ValueRef], values: &[u32]) -> Fmi3Status;
+    fn set_uint64(&mut self, vrs: &[Self::ValueRef], values: &[u64]) -> Fmi3Status;
     fn set_string<'b>(
         &mut self,
-        vrs: &[Self::ValueReference],
+        vrs: &[Self::ValueRef],
         values: impl Iterator<Item = &'b str>,
     ) -> Fmi3Status;
     fn set_binary<'b>(
         &mut self,
-        vrs: &[Self::ValueReference],
+        vrs: &[Self::ValueRef],
         values: impl Iterator<Item = &'b [u8]>,
     ) -> Fmi3Status;
 
@@ -145,21 +145,7 @@ pub trait Common: FmiInstance {
 
 /// Interface for Model Exchange instances
 pub trait ModelExchange: Common {
-    /// This function must be called to change from Event Mode into Continuous-Time Mode in Model
-    /// Exchange.
     fn enter_continuous_time_mode(&mut self) -> Fmi3Status;
-
-    /// This function changes the state to Event Mode.
-    ///
-    /// The importer must call `enter_event_mode()` when any of the following conditions are met:
-    /// * time has reached nextEventTime as returned by fmi3UpdateDiscreteStates, or
-    /// * the signs of the event indicators signal an event according to Section 3.1.1, or
-    /// * the FMU returned with enterEventMode = fmi3True from fmi3CompletedIntegratorStep , or
-    /// * the importer plans discrete changes to inputs, or
-    /// * an input Clock needs to be set.
-    ///
-    /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3EnterEventMode]
-    fn enter_event_mode(&mut self) -> Fmi3Status;
 
     /// This function is called after every completed step of the integrator provided the capability
     /// flag [`schema::interface_type::Fmi3ModelExchange::needs_completed_integrator_step`] =
@@ -173,17 +159,16 @@ pub trait ModelExchange: Common {
     /// * `no_set_fmu_state_prior`: if `set_fmu_state()` will no longer be called for time instants
     ///   prior to current time in this simulation run.
     ///
-    /// Returns: `(enter_event_mode, terminate_simulation)`
-    ///
-    /// The return value `enter_event_mode` signals that the importer must call
-    /// [`Common::enter_event_mode()`] to handle a step event.
+    /// `enter_event_mode` signals that the importer must call [`Common::enter_event_mode()`] to handle a step event.
     ///
     /// When `terminate_simulation` = true, the FMU requests to stop the simulation and the
     /// importer must call [`Common::terminate()`].
     fn completed_integrator_step(
         &mut self,
         no_set_fmu_state_prior: bool,
-    ) -> Result<(bool, bool), Fmi3Error>;
+        enter_event_mode: &mut bool,
+        terminate_simulation: &mut bool,
+    ) -> Self::Status;
 
     /// Set a new value for the independent variable (typically a time instant).
     ///
@@ -263,7 +248,7 @@ pub trait ModelExchange: Common {
     /// This function returns the number of event indicators.
     ///
     /// See: [https://fmi-standard.org/docs/3.0/#fmi3GetNumberOfEventIndicators]
-    fn get_number_of_event_indicators(&self) -> Result<usize, Fmi3Error>;
+    fn get_number_of_event_indicators(&self, number_of_event_indicators: &mut usize) -> Fmi3Status;
 }
 
 /// Interface for Co-Simulation instances
@@ -303,7 +288,7 @@ pub trait ScheduledExecution: Common {
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3ActivateModelPartition]
     fn activate_model_partition(
         &mut self,
-        clock_reference: Self::ValueReference,
+        clock_reference: Self::ValueRef,
         activation_time: f64,
     ) -> Fmi3Status;
 }

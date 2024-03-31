@@ -14,7 +14,7 @@ use crate::sim::{io::StartValues, traits::FmiSchemaBuilder};
 
 impl FmiSchemaBuilder for Fmi2Import
 where
-    Self::ValueReference: From<u32>,
+    Self::ValueRef: From<u32>,
 {
     fn inputs_schema(&self) -> Schema {
         let input_fields = self
@@ -44,7 +44,7 @@ where
         Schema::new(output_fields)
     }
 
-    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
+    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_ {
         self.model_description()
             .model_variables
             .variables
@@ -58,7 +58,7 @@ where
             })
     }
 
-    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
+    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_ {
         self.model_description()
             .model_variables
             .variables
@@ -76,7 +76,7 @@ where
             })
     }
 
-    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
+    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_ {
         self.model_description()
             .model_variables
             .variables
@@ -93,7 +93,7 @@ where
     fn parse_start_values(
         &self,
         start_values: &[String],
-    ) -> anyhow::Result<crate::sim::io::StartValues<Self::ValueReference>> {
+    ) -> anyhow::Result<crate::sim::io::StartValues<Self::ValueRef>> {
         let mut variables = vec![];
 
         for start_value in start_values {

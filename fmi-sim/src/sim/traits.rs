@@ -22,11 +22,11 @@ pub trait FmiSchemaBuilder: FmiImport {
     /// Build the schema for the outputs of the model.
     fn outputs_schema(&self) -> Schema;
     /// Build a list of (Field, ValueReference) for the continuous inputs.
-    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
+    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_;
     /// Build a list of Schema column (index, ValueReference) for the discrete inputs.
-    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
+    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_;
     /// Build a list of Schema column (index, ValueReference) for the outputs.
-    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_;
+    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_;
     /// Parse a list of "var=value" strings.
     ///
     /// # Returns
@@ -35,18 +35,18 @@ pub trait FmiSchemaBuilder: FmiImport {
     fn parse_start_values(
         &self,
         start_values: &[String],
-    ) -> anyhow::Result<StartValues<Self::ValueReference>>;
+    ) -> anyhow::Result<StartValues<Self::ValueRef>>;
 }
 
 pub trait InstanceSetValues: FmiInstance {
     fn set_array(
         &mut self,
-        vrs: &[<Self as FmiInstance>::ValueReference],
+        vrs: &[<Self as FmiInstance>::ValueRef],
         values: &arrow::array::ArrayRef,
     );
     fn set_interpolated<I: Interpolate>(
         &mut self,
-        vr: <Self as FmiInstance>::ValueReference,
+        vr: <Self as FmiInstance>::ValueRef,
         pl: &PreLookup,
         array: &ArrayRef,
     ) -> anyhow::Result<()>;

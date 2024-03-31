@@ -1,6 +1,7 @@
 use arrow::record_batch::RecordBatch;
 use fmi::fmi2::instance::{CoSimulation, Common, InstanceCS};
 use fmi::fmi2::Fmi2Error;
+use fmi::traits::FmiStatus;
 use fmi::{fmi2::import::Fmi2Import, traits::FmiImport};
 
 use crate::sim::interpolation::Linear;
@@ -8,25 +9,19 @@ use crate::sim::traits::InstanceRecordValues;
 use crate::sim::SimStats;
 use crate::{
     options::CoSimulationOptions,
-    sim::{
-        params::SimParams, solver::DummySolver, traits::FmiSchemaBuilder, InputState,
-        RecorderState, SimState,
-    },
+    sim::{params::SimParams, traits::FmiSchemaBuilder, InputState, RecorderState, SimState},
     Error,
 };
 
 use super::Fmi2Sim;
 
-impl<'a> Fmi2Sim<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>, DummySolver> {
+impl<'a> Fmi2Sim<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>> {
     fn new(
         import: &'a Fmi2Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS<'a>>,
         recorder_state: RecorderState<InstanceCS<'a>>,
-    ) -> Result<Self, fmi::Error>
-    where
-        Self: Sized,
-    {
+    ) -> Result<Self, fmi::Error> {
         log::trace!("Instantiating CS Simulation: {sim_params:#?}");
         let inst = import.instantiate_cs("inst1", true, true)?;
         Ok(Self {
@@ -35,7 +30,6 @@ impl<'a> Fmi2Sim<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>, DummySolver> {
             recorder_state,
             inst,
             next_event_time: None,
-            _phantom: std::marker::PhantomData,
         })
     }
 
@@ -54,7 +48,7 @@ impl<'a> Fmi2Sim<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>, DummySolver> {
     }
 }
 
-impl<'a> SimState<InstanceCS<'a>, DummySolver> {
+impl<'a> SimState<InstanceCS<'a>> {
     /// Main loop of the co-simulation
     fn main_loop(&mut self) -> Result<SimStats, Fmi2Error> {
         let mut stats = SimStats::default();
@@ -124,10 +118,8 @@ pub fn co_simulation(
     let input_state = InputState::new(import, input_data)?;
     let recorder_state = RecorderState::new(import, &sim_params);
 
-    log::debug!("{input_state}");
-
     let mut sim_state =
-        SimState::<InstanceCS, DummySolver>::new(import, sim_params, input_state, recorder_state)?;
+        SimState::<InstanceCS>::new(import, sim_params, input_state, recorder_state)?;
     sim_state
         .initialize(start_values, options.common.initial_fmu_state_file.as_ref())
         .map_err(fmi::Error::from)?;

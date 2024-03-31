@@ -41,7 +41,7 @@ trait Fmi2Sim<'a, Inst: FmiInstance + InstanceSetValues>: SimStateTrait<Inst> {
 
     fn apply_start_values(
         &mut self,
-        start_values: &StartValues<Inst::ValueReference>,
+        start_values: &StartValues<Inst::ValueRef>,
     ) -> Result<(), Fmi2Error> {
         start_values.variables.iter().for_each(|(vr, ary)| {
             self.inst().set_array(&[*vr], ary);
@@ -51,7 +51,7 @@ trait Fmi2Sim<'a, Inst: FmiInstance + InstanceSetValues>: SimStateTrait<Inst> {
 
     fn initialize<P: AsRef<Path>>(
         &mut self,
-        start_values: StartValues<Inst::ValueReference>,
+        start_values: StartValues<Inst::ValueRef>,
         initial_fmu_state_file: Option<P>,
     ) -> Result<(), Fmi2Error> {
         log::trace!("Initializing FMI model");
