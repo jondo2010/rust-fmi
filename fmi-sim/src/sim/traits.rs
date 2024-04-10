@@ -41,7 +41,7 @@ pub trait ImportSchemaBuilder: FmiImport {
     ) -> anyhow::Result<StartValues<Self::ValueRef>>;
 }
 
-pub trait InstanceSetValues: FmiInstance {
+pub trait InstSetValues: FmiInstance {
     fn set_array(
         &mut self,
         vrs: &[<Self as FmiInstance>::ValueRef],
@@ -55,7 +55,7 @@ pub trait InstanceSetValues: FmiInstance {
     ) -> anyhow::Result<()>;
 }
 
-pub trait InstanceRecordValues: FmiInstance + Sized {
+pub trait InstRecordValues: FmiInstance + Sized {
     fn record_outputs(
         &mut self,
         time: f64,
@@ -100,18 +100,20 @@ pub trait SimInitialize<Inst: FmiInstance>: SimDefaultInitialize {
     ) -> Result<(), Error>;
 }
 
-pub trait FmiSim {
+pub trait FmiSim: FmiImport + ImportSchemaBuilder {
     /// Simulate the model using Model Exchange.
+    #[cfg(feature = "me")]
     fn simulate_me(
         &self,
         options: &ModelExchangeOptions,
         input_data: Option<RecordBatch>,
-    ) -> Result<RecordBatch, Error>;
+    ) -> Result<(RecordBatch, SimStats), Error>;
 
     /// Simulate the model using Co-Simulation.
+    #[cfg(feature = "cs")]
     fn simulate_cs(
         &self,
         options: &CoSimulationOptions,
         input_data: Option<RecordBatch>,
-    ) -> Result<RecordBatch, Error>;
+    ) -> Result<(RecordBatch, SimStats), Error>;
 }

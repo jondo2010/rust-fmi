@@ -13,8 +13,9 @@ use arrow::{
     },
 };
 use fmi::{fmi2::import::Fmi2Import, fmi3::import::Fmi3Import, schema::MajorVersion};
-use fmi_sim::options::{
-    CoSimulationOptions, CommonOptions, FmiSimOptions, Interface, ModelExchangeOptions,
+use fmi_sim::{
+    options::{CoSimulationOptions, CommonOptions, FmiSimOptions, Interface, ModelExchangeOptions},
+    sim::traits::FmiSim,
 };
 
 #[rstest::fixture]
@@ -42,7 +43,7 @@ fn test_start_time(
         ..Default::default()
     };
 
-    let output = fmi_sim::simulate(&options).unwrap();
+    let (output, _) = fmi_sim::simulate(&options).unwrap();
     assert_eq!(
         output
             .column_by_name("time")
@@ -73,7 +74,7 @@ fn test_stop_time(
         ..Default::default()
     };
 
-    let output = fmi_sim::simulate(&options).unwrap();
+    let (output, _) = fmi_sim::simulate(&options).unwrap();
 
     let time = output
         .column_by_name("time")
@@ -85,7 +86,7 @@ fn test_stop_time(
 #[test_log::test]
 fn test_start_value_types() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
+    let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
 
     let common = CommonOptions {
         initial_values: [
@@ -115,7 +116,7 @@ fn test_start_value_types() {
         event_mode_used: false,
         early_return_allowed: false,
     };
-    let output = fmi_sim::sim::fmi3::co_simulation(&import, &options, None).unwrap();
+    let (output, _) = import.simulate_cs(&options, None).unwrap();
 
     assert_eq!(
         output
@@ -312,7 +313,7 @@ fn test_input_data(
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
     #[case] interface: Interface,
 ) {
-    let output = match fmi_version {
+    let (output, _) = match fmi_version {
         MajorVersion::FMI1 => unimplemented!(),
         MajorVersion::FMI2 => {
             let import: Fmi2Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();

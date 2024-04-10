@@ -14,7 +14,7 @@ use crate::Error;
 use super::{
     interpolation::{find_index, Interpolate, PreLookup},
     params::SimParams,
-    traits::{ImportSchemaBuilder, InstanceSetValues},
+    traits::{ImportSchemaBuilder, InstSetValues},
     util::project_input_data,
 };
 
@@ -89,7 +89,7 @@ where
 
 impl<Inst> InputState<Inst>
 where
-    Inst: InstanceSetValues,
+    Inst: InstSetValues,
 {
     pub fn apply_input<I: Interpolate>(
         &mut self,
@@ -117,7 +117,7 @@ where
 
                         //log::trace!( "Applying continuous input {}={input_col:?} at time {time}", field.name());
 
-                        inst.set_interpolated::<I>(*vr, &pl, &input_col)?;
+                        inst.set_interpolated::<I>(*vr, &pl, input_col)?;
                     }
                 }
             }

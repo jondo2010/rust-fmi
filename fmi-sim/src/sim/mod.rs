@@ -10,9 +10,7 @@ use crate::{options, Error};
 use self::{
     interpolation::Linear,
     params::SimParams,
-    traits::{
-        FmiSim, InstanceRecordValues, InstanceSetValues, SimDefaultInitialize, SimHandleEvents,
-    },
+    traits::{FmiSim, InstRecordValues, InstSetValues, SimDefaultInitialize, SimHandleEvents},
 };
 
 #[cfg(feature = "fmi2")]
@@ -51,7 +49,7 @@ pub trait SimStateTrait<'a, Inst: FmiInstance> {
 
 impl<Inst> SimHandleEvents for SimState<Inst>
 where
-    Inst: FmiEventHandler + InstanceSetValues + InstanceRecordValues,
+    Inst: FmiEventHandler + InstSetValues + InstRecordValues,
 {
     fn handle_events(
         &mut self,
@@ -106,7 +104,7 @@ pub fn simulate_with<Imp: FmiSim>(
     input_data: Option<RecordBatch>,
     interface: &options::Interface,
     import: Imp,
-) -> Result<RecordBatch, Error> {
+) -> Result<(RecordBatch, SimStats), Error> {
     match interface {
         #[cfg(feature = "me")]
         options::Interface::ModelExchange(options) => import.simulate_me(options, input_data),

@@ -1,5 +1,6 @@
 use arrow::array::RecordBatch;
 use fmi::schema::{traits::FmiModelDescription, MajorVersion};
+use sim::SimStats;
 
 pub mod options;
 pub mod sim;
@@ -21,7 +22,10 @@ pub enum Error {
 }
 
 /// Simulate an FMI model parameterized by the given top-level options.
-pub fn simulate(options: &options::FmiSimOptions) -> Result<RecordBatch, Error> {
+///
+/// # Returns
+/// A tuple of the record batch of the simulation results and the statistics of the simulation.
+pub fn simulate(options: &options::FmiSimOptions) -> Result<(RecordBatch, SimStats), Error> {
     let mini_descr = fmi::import::peek_descr_path(&options.model)?;
     let version = mini_descr.major_version().map_err(fmi::Error::from)?;
 

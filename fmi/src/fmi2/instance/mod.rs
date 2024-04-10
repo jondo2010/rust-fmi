@@ -120,7 +120,7 @@ impl Default for CallbackFunctions {
 }
 
 impl<'a, Tag> Instance<'a, Tag> {
-    fn get_fmu_state(&mut self) -> Result<FmuState, Fmi2Error> {
+    pub fn get_fmu_state(&mut self) -> Result<FmuState, Fmi2Error> {
         let mut state = std::ptr::null_mut();
         Fmi2Status(unsafe { self.binding.fmi2GetFMUstate(self.component, &mut state) }).ok()?;
 
@@ -133,17 +133,17 @@ impl<'a, Tag> Instance<'a, Tag> {
         }
     }
 
-    fn set_fmu_state(&mut self, state: &FmuState) -> Fmi2Status {
+    pub fn set_fmu_state(&mut self, state: &FmuState) -> Fmi2Status {
         let state = self.saved_states.get(state.0).unwrap();
         unsafe { self.binding.fmi2SetFMUstate(self.component, *state) }.into()
     }
 
-    fn update_fmu_state(&mut self, state: &FmuState) -> Fmi2Status {
+    pub fn update_fmu_state(&mut self, state: &FmuState) -> Fmi2Status {
         let state = self.saved_states.get_mut(state.0).unwrap();
         unsafe { self.binding.fmi2GetFMUstate(self.component, state) }.into()
     }
 
-    fn serialize_fmu_state(&mut self, state: &FmuState) -> Result<Vec<u8>, Fmi2Error> {
+    pub fn serialize_fmu_state(&mut self, state: &FmuState) -> Result<Vec<u8>, Fmi2Error> {
         let state = self.saved_states.get_mut(state.0).unwrap();
         let mut size = 0;
         Fmi2Status(unsafe {
@@ -166,7 +166,7 @@ impl<'a, Tag> Instance<'a, Tag> {
         Ok(buffer)
     }
 
-    fn deserialize_fmu_state(&mut self, buffer: &[u8]) -> Result<FmuState, Fmi2Error> {
+    pub fn deserialize_fmu_state(&mut self, buffer: &[u8]) -> Result<FmuState, Fmi2Error> {
         let mut state = std::ptr::null_mut();
         Fmi2Status(unsafe {
             self.binding.fmi2DeSerializeFMUstate(

@@ -16,7 +16,7 @@ use itertools::Itertools;
 use crate::sim::{
     interpolation::{Interpolate, PreLookup},
     io::Recorder,
-    traits::{InstanceRecordValues, InstanceSetValues},
+    traits::{InstRecordValues, InstSetValues},
     RecorderState,
 };
 
@@ -34,7 +34,7 @@ macro_rules! impl_recorder {
 
 macro_rules! impl_record_values {
     ($inst:ty) => {
-        impl InstanceRecordValues for $inst {
+        impl InstRecordValues for $inst {
             fn record_outputs(
                 &mut self,
                 time: f64,
@@ -76,7 +76,7 @@ macro_rules! impl_record_values {
 
 macro_rules! impl_set_values {
     ($t:ty) => {
-        impl InstanceSetValues for $t {
+        impl InstSetValues for $t {
             fn set_array(&mut self, vrs: &[Self::ValueRef], values: &ArrayRef) {
                 match values.data_type() {
                     DataType::Boolean => {

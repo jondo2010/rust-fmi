@@ -7,16 +7,13 @@ use crate::Error;
 use super::{
     interpolation::Linear,
     solver::Solver,
-    traits::{
-        ImportSchemaBuilder, InstanceRecordValues, InstanceSetValues, SimHandleEvents, SimMe,
-    },
+    traits::{ImportSchemaBuilder, InstRecordValues, InstSetValues, SimHandleEvents, SimMe},
     SimState, SimStats,
 };
 
 impl<Inst> SimMe<Inst> for SimState<Inst>
 where
-    Inst:
-        FmiInstance + FmiModelExchange + InstanceSetValues + InstanceRecordValues + FmiEventHandler,
+    Inst: FmiInstance + FmiModelExchange + InstSetValues + InstRecordValues + FmiEventHandler,
     Inst::Import: ImportSchemaBuilder,
 {
     fn main_loop<S>(&mut self, solver_params: S::Params) -> Result<SimStats, Error>
@@ -54,12 +51,12 @@ where
                 + (stats.num_steps + 1) as f64 * self.sim_params.output_interval;
             let next_input_event_time = self.input_state.next_input_event(time);
 
-            // use `next_input_event` if it is earlier than `next_regular_point`
             let input_event = next_regular_point >= next_input_event_time;
             let time_event = next_regular_point >= self.next_event_time.unwrap_or(f64::INFINITY);
 
+            // Use the earliest of [next_input_event, next_event_time, and next_regular_point]
             let next_communication_point = if input_event || time_event {
-                next_input_event_time.min(self.next_event_time.unwrap())
+                next_input_event_time.min(self.next_event_time.unwrap_or(f64::INFINITY))
             } else {
                 next_regular_point
             };
