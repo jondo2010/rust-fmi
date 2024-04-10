@@ -3,7 +3,7 @@
 #[cfg(target_os = "linux")]
 use fmi::{
     fmi2::instance::{CoSimulation as _, Common as _, Instance, CS, ME},
-    traits::FmiImport as _,
+    traits::{FmiImport as _, FmiStatus},
 };
 #[cfg(target_os = "linux")]
 use fmi_test_data::ReferenceFmus;
