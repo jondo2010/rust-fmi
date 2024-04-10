@@ -44,7 +44,7 @@ pub trait FmiImport: Sized {
 /// FMI status trait
 pub trait FmiStatus {
     type Res;
-    type Err: Into<Error>;
+    type Err: Into<Error> + std::fmt::Debug;
     /// Convert to [`Result<Self::Res, Self::Err>`]
     fn ok(self) -> Result<Self::Res, Self::Err>;
     /// Check if the status is an error
@@ -71,6 +71,15 @@ pub trait FmiInstance {
     ///
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging]
     fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Self::Status;
+
+    fn enter_initialization_mode(
+        &mut self,
+        tolerance: Option<f64>,
+        start_time: f64,
+        stop_time: Option<f64>,
+    ) -> Self::Status;
+
+    fn exit_initialization_mode(&mut self) -> Self::Status;
 
     /// Changes state to [`Terminated`](https://fmi-standard.org/docs/3.0.1/#Terminated).
     ///
@@ -130,5 +139,19 @@ pub trait FmiModelExchange: FmiInstance {
     fn get_number_of_event_indicators(
         &self,
         number_of_event_indicators: &mut usize,
+    ) -> Self::Status;
+}
+
+/// Event handling interface for ME in FMI2.0 and both ME and CS interfaces in FMI3.0
+pub trait FmiEventHandler: FmiInstance {
+    fn enter_event_mode(&mut self) -> Self::Status;
+
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
     ) -> Self::Status;
 }

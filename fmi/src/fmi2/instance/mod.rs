@@ -84,6 +84,20 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         self.model_description.num_event_indicators()
     }
 
+    fn enter_initialization_mode(
+        &mut self,
+        tolerance: Option<f64>,
+        start_time: f64,
+        stop_time: Option<f64>,
+    ) -> Self::Status {
+        Common::setup_experiment(self, tolerance, start_time, stop_time);
+        Common::enter_initialization_mode(self)
+    }
+
+    fn exit_initialization_mode(&mut self) -> Self::Status {
+        Common::exit_initialization_mode(self)
+    }
+
     fn terminate(&mut self) -> Fmi2Status {
         Common::terminate(self)
     }
@@ -119,14 +133,58 @@ impl<'a, Tag> Instance<'a, Tag> {
         }
     }
 
-    fn set_fmu_state(&mut self, state: FmuState) -> Fmi2Status {
+    fn set_fmu_state(&mut self, state: &FmuState) -> Fmi2Status {
         let state = self.saved_states.get(state.0).unwrap();
         unsafe { self.binding.fmi2SetFMUstate(self.component, *state) }.into()
     }
 
-    fn update_fmu_state(&mut self, state: FmuState) -> Fmi2Status {
+    fn update_fmu_state(&mut self, state: &FmuState) -> Fmi2Status {
         let state = self.saved_states.get_mut(state.0).unwrap();
         unsafe { self.binding.fmi2GetFMUstate(self.component, state) }.into()
+    }
+
+    fn serialize_fmu_state(&mut self, state: &FmuState) -> Result<Vec<u8>, Fmi2Error> {
+        let state = self.saved_states.get_mut(state.0).unwrap();
+        let mut size = 0;
+        Fmi2Status(unsafe {
+            self.binding
+                .fmi2SerializedFMUstateSize(self.component, *state, &mut size)
+        })
+        .ok()?;
+
+        let mut buffer: Vec<u8> = vec![0; size];
+        Fmi2Status(unsafe {
+            self.binding.fmi2SerializeFMUstate(
+                self.component,
+                *state,
+                buffer.as_mut_ptr() as _,
+                size,
+            )
+        })
+        .ok()?;
+
+        Ok(buffer)
+    }
+
+    fn deserialize_fmu_state(&mut self, buffer: &[u8]) -> Result<FmuState, Fmi2Error> {
+        let mut state = std::ptr::null_mut();
+        Fmi2Status(unsafe {
+            self.binding.fmi2DeSerializeFMUstate(
+                self.component,
+                buffer.as_ptr() as _,
+                buffer.len() as _,
+                &mut state,
+            )
+        })
+        .ok()?;
+
+        if state.is_null() {
+            log::error!("FMU returned a null state");
+            Err(Fmi2Error::Fatal)
+        } else {
+            self.saved_states.push(state);
+            Ok(FmuState(self.saved_states.len() - 1))
+        }
     }
 
     /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions

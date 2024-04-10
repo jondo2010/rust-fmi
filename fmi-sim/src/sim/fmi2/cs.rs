@@ -1,27 +1,28 @@
 use arrow::record_batch::RecordBatch;
-use fmi::fmi2::instance::{CoSimulation, Common, InstanceCS};
+use fmi::fmi2::instance::{CoSimulation, InstanceCS};
 use fmi::fmi2::Fmi2Error;
-use fmi::traits::FmiStatus;
+use fmi::traits::{FmiInstance, FmiStatus};
 use fmi::{fmi2::import::Fmi2Import, traits::FmiImport};
 
 use crate::sim::interpolation::Linear;
-use crate::sim::traits::InstanceRecordValues;
-use crate::sim::SimStats;
+use crate::sim::io::StartValues;
+use crate::sim::traits::{
+    InstanceRecordValues, InstanceSetValues, SimApplyStartValues, SimInitialize,
+};
+use crate::sim::{SimStateTrait, SimStats};
 use crate::{
     options::CoSimulationOptions,
-    sim::{params::SimParams, traits::FmiSchemaBuilder, InputState, RecorderState, SimState},
+    sim::{params::SimParams, traits::ImportSchemaBuilder, InputState, RecorderState, SimState},
     Error,
 };
 
-use super::Fmi2Sim;
-
-impl<'a> Fmi2Sim<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>> {
+impl<'a> SimStateTrait<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>> {
     fn new(
         import: &'a Fmi2Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS<'a>>,
         recorder_state: RecorderState<InstanceCS<'a>>,
-    ) -> Result<Self, fmi::Error> {
+    ) -> Result<Self, Error> {
         log::trace!("Instantiating CS Simulation: {sim_params:#?}");
         let inst = import.instantiate_cs("inst1", true, true)?;
         Ok(Self {
@@ -32,18 +33,16 @@ impl<'a> Fmi2Sim<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>> {
             next_event_time: None,
         })
     }
+}
 
-    fn default_initialize(&mut self) -> Result<(), Fmi2Error> {
-        self.inst
-            .setup_experiment(
-                self.sim_params.tolerance,
-                self.sim_params.start_time,
-                Some(self.sim_params.stop_time),
-            )
-            .ok()?;
-        self.inst.enter_initialization_mode().ok()?;
-        self.inst.exit_initialization_mode().ok()?;
-
+impl SimApplyStartValues<InstanceCS<'_>> for SimState<InstanceCS<'_>> {
+    fn apply_start_values(
+        &mut self,
+        start_values: &StartValues<<InstanceCS as FmiInstance>::ValueRef>,
+    ) -> Result<(), Error> {
+        start_values.variables.iter().for_each(|(vr, ary)| {
+            self.inst.set_array(&[*vr], ary);
+        });
         Ok(())
     }
 }
@@ -120,9 +119,7 @@ pub fn co_simulation(
 
     let mut sim_state =
         SimState::<InstanceCS>::new(import, sim_params, input_state, recorder_state)?;
-    sim_state
-        .initialize(start_values, options.common.initial_fmu_state_file.as_ref())
-        .map_err(fmi::Error::from)?;
+    sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
     let stats = sim_state.main_loop().map_err(fmi::Error::from)?;
 
     log::info!(

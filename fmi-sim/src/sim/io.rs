@@ -14,7 +14,7 @@ use crate::Error;
 use super::{
     interpolation::{find_index, Interpolate, PreLookup},
     params::SimParams,
-    traits::{FmiSchemaBuilder, InstanceSetValues},
+    traits::{ImportSchemaBuilder, InstanceSetValues},
     util::project_input_data,
 };
 
@@ -68,7 +68,7 @@ where
 impl<Inst> InputState<Inst>
 where
     Inst: FmiInstance,
-    Inst::Import: FmiSchemaBuilder,
+    Inst::Import: ImportSchemaBuilder,
 {
     pub fn new(import: &Inst::Import, input_data: Option<RecordBatch>) -> anyhow::Result<Self> {
         let model_input_schema = Arc::new(import.inputs_schema());
@@ -195,7 +195,7 @@ pub struct RecorderState<Inst: FmiInstance> {
 impl<Inst> RecorderState<Inst>
 where
     Inst: FmiInstance,
-    Inst::Import: FmiSchemaBuilder,
+    Inst::Import: ImportSchemaBuilder,
 {
     pub fn new(import: &Inst::Import, sim_params: &SimParams) -> Self {
         let num_points = ((sim_params.stop_time - sim_params.start_time)

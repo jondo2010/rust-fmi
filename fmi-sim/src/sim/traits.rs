@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use arrow::{
     array::{ArrayRef, RecordBatch},
     datatypes::{Field, Schema},
@@ -12,11 +14,12 @@ use crate::{
 use super::{
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
-    RecorderState,
+    solver::Solver,
+    RecorderState, SimStats,
 };
 
 /// Interface for building the Arrow schema for the inputs and outputs of an FMU.
-pub trait FmiSchemaBuilder: FmiImport {
+pub trait ImportSchemaBuilder: FmiImport {
     /// Build the schema for the inputs of the model.
     fn inputs_schema(&self) -> Schema;
     /// Build the schema for the outputs of the model.
@@ -58,6 +61,43 @@ pub trait InstanceRecordValues: FmiInstance + Sized {
         time: f64,
         recorder: &mut RecorderState<Self>,
     ) -> anyhow::Result<()>;
+}
+
+/// Interface for handling events in the simulation.
+/// Implemented by ME in fmi2 and ME+CS in fmi3.
+pub trait SimHandleEvents {
+    fn handle_events(
+        &mut self,
+        time: f64,
+        input_event: bool,
+        terminate_simulation: &mut bool,
+    ) -> Result<bool, Error>;
+}
+
+pub trait SimMe<Inst> {
+    /// Main loop of the model-exchange simulation
+    fn main_loop<S>(&mut self, solver_params: S::Params) -> Result<SimStats, Error>
+    where
+        S: Solver<Inst>;
+}
+
+pub trait SimDefaultInitialize {
+    fn default_initialize(&mut self) -> Result<(), Error>;
+}
+
+pub trait SimApplyStartValues<Inst: FmiInstance> {
+    fn apply_start_values(
+        &mut self,
+        start_values: &StartValues<Inst::ValueRef>,
+    ) -> Result<(), Error>;
+}
+
+pub trait SimInitialize<Inst: FmiInstance>: SimDefaultInitialize {
+    fn initialize<P: AsRef<Path>>(
+        &mut self,
+        start_values: StartValues<Inst::ValueRef>,
+        fmu_state_file: Option<P>,
+    ) -> Result<(), Error>;
 }
 
 pub trait FmiSim {

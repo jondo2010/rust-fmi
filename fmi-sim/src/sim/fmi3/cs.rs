@@ -13,16 +13,14 @@ use crate::{
     sim::{
         interpolation::Linear,
         params::SimParams,
-        traits::{FmiSchemaBuilder, InstanceRecordValues},
-        InputState, RecorderState, SimState,
+        traits::{ImportSchemaBuilder, InstanceRecordValues, SimHandleEvents, SimInitialize},
+        InputState, RecorderState, SimState, SimStateTrait, SimStats,
     },
     Error,
 };
 
-use super::Fmi3Sim;
-
-impl<'a> SimState<InstanceCS<'a>> {
-    pub fn new(
+impl<'a> SimStateTrait<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>> {
+    fn new(
         import: &'a Fmi3Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS<'a>>,
@@ -44,14 +42,17 @@ impl<'a> SimState<InstanceCS<'a>> {
             next_event_time: None,
         })
     }
+}
 
+impl<'a> SimState<InstanceCS<'a>> {
     /// Main loop of the co-simulation
-    fn main_loop(&mut self) -> Result<(), Error> {
+    fn main_loop(&mut self) -> Result<SimStats, Error> {
+        let mut stats = SimStats::default();
+
         if self.sim_params.event_mode_used {
             self.inst.enter_step_mode().ok().map_err(fmi::Error::from)?;
         }
 
-        let mut num_steps = 0;
         let mut time = self.sim_params.start_time;
 
         loop {
@@ -63,7 +64,7 @@ impl<'a> SimState<InstanceCS<'a>> {
 
             // calculate next time point
             let next_regular_point = self.sim_params.start_time
-                + (num_steps + 1) as f64 * self.sim_params.output_interval;
+                + (stats.num_steps + 1) as f64 * self.sim_params.output_interval;
             let next_input_event_time = self.input_state.next_input_event(time);
             // use `next_input_event` if it is earlier than `next_regular_point`
             let next_communication_point = next_input_event_time.min(next_regular_point);
@@ -112,7 +113,7 @@ impl<'a> SimState<InstanceCS<'a>> {
             }
 
             if time == next_regular_point {
-                num_steps += 1;
+                stats.num_steps += 1;
             }
 
             if self.sim_params.event_mode_used && (input_event || event_encountered) {
@@ -126,11 +127,10 @@ impl<'a> SimState<InstanceCS<'a>> {
             }
         }
 
-        log::info!("Simulation finished at t = {time:.1} after {num_steps} steps.");
-
         self.inst.terminate().ok().context("terminate")?;
 
-        Ok(())
+        stats.end_time = time;
+        Ok(stats)
     }
 }
 
@@ -153,7 +153,13 @@ pub fn co_simulation(
 
     let mut sim_state = SimState::<InstanceCS>::new(import, sim_params, input_state, output_state)?;
     sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
-    sim_state.main_loop()?;
+    let stats = sim_state.main_loop()?;
+
+    log::info!(
+        "Simulation finished at t = {:.1} after {} steps.",
+        stats.end_time,
+        stats.num_steps
+    );
 
     Ok(sim_state.recorder_state.finish())
 }

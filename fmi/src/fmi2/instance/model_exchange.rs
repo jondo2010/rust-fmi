@@ -3,7 +3,7 @@ use std::ffi::CString;
 use super::{binding, traits::ModelExchange, CallbackFunctions, Instance, ME};
 use crate::{
     fmi2::import,
-    traits::{FmiImport, FmiModelExchange},
+    traits::{FmiEventHandler, FmiImport, FmiModelExchange},
     Error,
 };
 
@@ -72,12 +72,30 @@ impl ModelExchange for Instance<'_, ME> {
         unsafe { self.binding.fmi2EnterEventMode(self.component) }.into()
     }
 
-    fn new_discrete_states(&mut self, event_info: &mut binding::fmi2EventInfo) -> Self::Status {
-        unsafe {
+    fn new_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Self::Status {
+        let mut event_info = binding::fmi2EventInfo::default();
+        let status = unsafe {
             self.binding
-                .fmi2NewDiscreteStates(self.component, event_info)
+                .fmi2NewDiscreteStates(self.component, &mut event_info)
         }
-        .into()
+        .into();
+        *discrete_states_need_update = event_info.newDiscreteStatesNeeded != 0;
+        *terminate_simulation = event_info.terminateSimulation != 0;
+        *nominals_of_continuous_states_changed = event_info.nominalsOfContinuousStatesChanged != 0;
+        *values_of_continuous_states_changed = event_info.valuesOfContinuousStatesChanged != 0;
+        *next_event_time = if event_info.nextEventTimeDefined != 0 {
+            Some(event_info.nextEventTime)
+        } else {
+            None
+        };
+        status
     }
 
     fn completed_integrator_step(
@@ -176,25 +194,14 @@ impl FmiModelExchange for Instance<'_, ME> {
         values_of_continuous_states_changed: &mut bool,
         next_event_time: &mut Option<f64>,
     ) -> Self::Status {
-        let mut event_info = binding::fmi2EventInfo {
-            newDiscreteStatesNeeded: 0,
-            terminateSimulation: 0,
-            nominalsOfContinuousStatesChanged: 0,
-            valuesOfContinuousStatesChanged: 0,
-            nextEventTimeDefined: 0,
-            nextEventTime: 0.0,
-        };
-        let status = ModelExchange::new_discrete_states(self, &mut event_info);
-        *discrete_states_need_update = event_info.newDiscreteStatesNeeded != 0;
-        *terminate_simulation = event_info.terminateSimulation != 0;
-        *nominals_of_continuous_states_changed = event_info.nominalsOfContinuousStatesChanged != 0;
-        *values_of_continuous_states_changed = event_info.valuesOfContinuousStatesChanged != 0;
-        *next_event_time = if event_info.nextEventTimeDefined != 0 {
-            Some(event_info.nextEventTime)
-        } else {
-            None
-        };
-        status
+        ModelExchange::new_discrete_states(
+            self,
+            discrete_states_need_update,
+            terminate_simulation,
+            nominals_of_continuous_states_changed,
+            values_of_continuous_states_changed,
+            next_event_time,
+        )
     }
 
     fn completed_integrator_step(
@@ -237,8 +244,32 @@ impl FmiModelExchange for Instance<'_, ME> {
 
     fn get_number_of_event_indicators(
         &self,
-        number_of_event_indicators: &mut usize,
+        _number_of_event_indicators: &mut usize,
     ) -> Self::Status {
         todo!()
+    }
+}
+
+impl FmiEventHandler for Instance<'_, ME> {
+    fn enter_event_mode(&mut self) -> Self::Status {
+        ModelExchange::enter_event_mode(self)
+    }
+
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Self::Status {
+        ModelExchange::new_discrete_states(
+            self,
+            discrete_states_need_update,
+            terminate_simulation,
+            nominals_of_continuous_states_changed,
+            values_of_continuous_states_changed,
+            next_event_time,
+        )
     }
 }

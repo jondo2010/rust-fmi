@@ -8,9 +8,9 @@ use fmi::{
     traits::FmiImport,
 };
 
-use crate::sim::{io::StartValues, traits::FmiSchemaBuilder};
+use crate::sim::{io::StartValues, traits::ImportSchemaBuilder};
 
-impl FmiSchemaBuilder for Fmi3Import
+impl ImportSchemaBuilder for Fmi3Import
 where
     Self::ValueRef: From<u32>,
 {

@@ -2,11 +2,11 @@ use std::ffi::CString;
 
 use crate::{
     fmi3::{binding, import, logger},
-    traits::FmiImport,
+    traits::{FmiEventHandler, FmiImport, FmiModelExchange},
     Error,
 };
 
-use super::{traits::ModelExchange, Instance, ME};
+use super::{traits::ModelExchange, Common, Instance, ME};
 
 impl<'a> Instance<'a, ME> {
     pub fn new(
@@ -152,5 +152,104 @@ impl ModelExchange for Instance<'_, ME> {
                 .fmi3GetNumberOfEventIndicators(self.ptr, number_of_event_indicators)
         }
         .into()
+    }
+}
+
+impl FmiModelExchange for Instance<'_, ME> {
+    fn enter_continuous_time_mode(&mut self) -> Self::Status {
+        ModelExchange::enter_continuous_time_mode(self)
+    }
+
+    fn enter_event_mode(&mut self) -> Self::Status {
+        Common::enter_event_mode(self)
+    }
+
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Self::Status {
+        Common::update_discrete_states(
+            self,
+            discrete_states_need_update,
+            terminate_simulation,
+            nominals_of_continuous_states_changed,
+            values_of_continuous_states_changed,
+            next_event_time,
+        )
+    }
+
+    fn completed_integrator_step(
+        &mut self,
+        no_set_fmu_state_prior: bool,
+        enter_event_mode: &mut bool,
+        terminate_simulation: &mut bool,
+    ) -> Self::Status {
+        ModelExchange::completed_integrator_step(
+            self,
+            no_set_fmu_state_prior,
+            enter_event_mode,
+            terminate_simulation,
+        )
+    }
+
+    fn set_time(&mut self, time: f64) -> Self::Status {
+        ModelExchange::set_time(self, time)
+    }
+
+    fn get_continuous_states(&mut self, continuous_states: &mut [f64]) -> Self::Status {
+        ModelExchange::get_continuous_states(self, continuous_states)
+    }
+
+    fn set_continuous_states(&mut self, states: &[f64]) -> Self::Status {
+        ModelExchange::set_continuous_states(self, states)
+    }
+
+    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Self::Status {
+        ModelExchange::get_continuous_state_derivatives(self, derivatives)
+    }
+
+    fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Self::Status {
+        ModelExchange::get_nominals_of_continuous_states(self, nominals)
+    }
+
+    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Self::Status {
+        ModelExchange::get_event_indicators(self, event_indicators)
+    }
+
+    fn get_number_of_event_indicators(
+        &self,
+        number_of_event_indicators: &mut usize,
+    ) -> Self::Status {
+        ModelExchange::get_number_of_event_indicators(self, number_of_event_indicators)
+    }
+}
+
+impl FmiEventHandler for Instance<'_, ME> {
+    #[inline]
+    fn enter_event_mode(&mut self) -> Self::Status {
+        Common::enter_event_mode(self)
+    }
+
+    #[inline]
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Self::Status {
+        Common::update_discrete_states(
+            self,
+            discrete_states_need_update,
+            terminate_simulation,
+            nominals_of_continuous_states_changed,
+            values_of_continuous_states_changed,
+            next_event_time,
+        )
     }
 }

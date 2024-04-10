@@ -171,7 +171,7 @@ pub trait ModelExchange: Common {
     /// dense time before a call to [`ModelExchange::new_discrete_states`] was `(tR,tI)` then
     /// the time instant after the call is `(tR,tI + 1)`.
     ///
-    /// If returned EventInfo.new_discrete_states_needed = true, the FMU should stay in Event Mode
+    /// If returned `new_discrete_states_needed = true`, the FMU should stay in Event Mode
     /// and the FMU requires to set new inputs to the FMU (`set_XXX` on inputs), to compute and
     /// get the outputs (`get_XXX` on outputs) and to call `new_discrete_states()` again.
     ///
@@ -181,7 +181,14 @@ pub trait ModelExchange: Common {
     ///   * call [`ModelExchange::enter_continuous_time_mode`] if all FMUs return
     ///     `new_discrete_states_needed = false`.
     ///   * stay in Event Mode otherwise.
-    fn new_discrete_states(&mut self, event_info: &mut binding::fmi2EventInfo) -> Fmi2Status;
+    fn new_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Fmi2Status;
 
     /// The model enters Continuous-Time Mode and all discrete-time equations become inactive and
     /// all relations are "frozen".

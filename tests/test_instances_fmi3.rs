@@ -5,7 +5,7 @@ use fmi::{
         import::Fmi3Import,
         instance::{Common as _, ModelExchange as _},
     },
-    traits::FmiImport as _,
+    traits::{FmiImport as _, FmiStatus},
 };
 use fmi_test_data::ReferenceFmus;
 
@@ -50,7 +50,12 @@ fn test_instance() {
         .collect::<Vec<_>>();
 
     inst1.set_continuous_states(&states).ok().unwrap();
-    let (enter_event_mode, terminate_simulation) = inst1.completed_integrator_step(false).unwrap();
+    let mut enter_event_mode = false;
+    let mut terminate_simulation = false;
+    inst1
+        .completed_integrator_step(false, &mut enter_event_mode, &mut terminate_simulation)
+        .ok()
+        .unwrap();
     assert_eq!(enter_event_mode, false);
     assert_eq!(terminate_simulation, false);
 

@@ -1,32 +1,30 @@
 use arrow::record_batch::RecordBatch;
 use fmi::{
-    fmi2::{
-        import::Fmi2Import,
-        instance::{Common, InstanceME},
-        Fmi2Error,
-    },
-    traits::{FmiImport, FmiInstance, FmiModelExchange, FmiStatus},
+    fmi2::{import::Fmi2Import, instance::InstanceME},
+    traits::{FmiImport, FmiInstance},
 };
 
 use crate::{
     options::ModelExchangeOptions,
     sim::{
-        fmi2::Fmi2Sim,
+        io::StartValues,
         params::SimParams,
-        solver::{self, Solver},
-        traits::FmiSchemaBuilder,
-        InputState, RecorderState, SimState, SimStats,
+        solver,
+        traits::{
+            ImportSchemaBuilder, InstanceSetValues, SimApplyStartValues, SimInitialize, SimMe,
+        },
+        InputState, RecorderState, SimState, SimStateTrait,
     },
     Error,
 };
 
-impl<'a> Fmi2Sim<'a, InstanceME<'a>> for SimState<InstanceME<'a>> {
+impl<'a> SimStateTrait<'a, InstanceME<'a>> for SimState<InstanceME<'a>> {
     fn new(
         import: &'a Fmi2Import,
         sim_params: SimParams,
         input_state: InputState<InstanceME<'a>>,
         recorder_state: RecorderState<InstanceME<'a>>,
-    ) -> Result<Self, fmi::Error> {
+    ) -> Result<Self, Error> {
         log::trace!("Instantiating ME Simulation: {sim_params:#?}");
         let inst = import.instantiate_me("inst1", true, true)?;
         Ok(Self {
@@ -37,60 +35,17 @@ impl<'a> Fmi2Sim<'a, InstanceME<'a>> for SimState<InstanceME<'a>> {
             next_event_time: None,
         })
     }
-
-    fn default_initialize(&mut self) -> Result<(), Fmi2Error> {
-        self.inst
-            .setup_experiment(
-                self.sim_params.tolerance,
-                self.sim_params.start_time,
-                Some(self.sim_params.stop_time),
-            )
-            .ok()?;
-        self.inst.enter_initialization_mode().ok()?;
-        self.inst.exit_initialization_mode().ok()?;
-
-        let mut event_info = EventInfo::default();
-        event_info.new_discrete_states_needed = 1;
-
-        while event_info.new_discrete_states_needed > 0 {
-            //self.inst.new_discrete_states(&mut event_info).ok()?;
-        }
-
-        self.next_event_time =
-            (event_info.next_event_time_defined > 0).then(|| event_info.next_event_time);
-
-        self.inst
-            .enter_continuous_time_mode()
-            .ok()
-            .map_err(Into::into)?;
-
-        Ok(())
-    }
 }
 
-impl<'a> SimState<InstanceME<'a>> {
-    /// Main loop of the model-exchange simulation
-    fn main_loop<S>(&mut self, solver_params: S::Params) -> Result<SimStats, Fmi2Error>
-    where
-        S: Solver<InstanceME<'a>>,
-    {
-        let mut stats = SimStats::default();
-
-        let nx = self.inst.get_number_of_continuous_state_values();
-        let nz = self.inst.get_number_of_event_indicator_values();
-
-        let mut solver = S::new(
-            self.sim_params.start_time,
-            self.sim_params.tolerance.unwrap_or_default(),
-            nx,
-            nz,
-            solver_params,
-        );
-
-        let mut num_steps = 0;
-        let mut time = self.sim_params.start_time;
-
-        Ok(stats)
+impl SimApplyStartValues<InstanceME<'_>> for SimState<InstanceME<'_>> {
+    fn apply_start_values(
+        &mut self,
+        start_values: &StartValues<<InstanceME as FmiInstance>::ValueRef>,
+    ) -> Result<(), Error> {
+        start_values.variables.iter().for_each(|(vr, ary)| {
+            self.inst.set_array(&[*vr], ary);
+        });
+        Ok(())
     }
 }
 
@@ -107,12 +62,8 @@ pub fn model_exchange(
     let output_state = RecorderState::new(import, &sim_params);
 
     let mut sim_state = SimState::<InstanceME>::new(import, sim_params, input_state, output_state)?;
-    sim_state
-        .initialize(start_values, options.common.initial_fmu_state_file.as_ref())
-        .map_err(fmi::Error::from)?;
-    let stats = sim_state
-        .main_loop::<solver::Euler>(())
-        .map_err(fmi::Error::from)?;
+    sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
+    let stats = sim_state.main_loop::<solver::Euler>(())?;
 
     log::info!(
         "Simulation finished at t = {:.1} after {} steps.",
