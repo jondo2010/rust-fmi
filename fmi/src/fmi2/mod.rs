@@ -6,6 +6,8 @@ pub mod instance;
 pub use fmi_schema::fmi2 as schema;
 pub use fmi_sys::fmi2 as binding;
 
+use crate::traits::FmiStatus;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct CallbackFunctions {
@@ -14,17 +16,6 @@ pub struct CallbackFunctions {
     pub free_memory: binding::fmi2CallbackFreeMemory,
     pub step_finished: binding::fmi2StepFinished,
     pub component_environment: binding::fmi2ComponentEnvironment,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct EventInfo {
-    pub new_discrete_states_needed: binding::fmi2Boolean,
-    pub terminate_simulation: binding::fmi2Boolean,
-    pub nominals_of_continuous_states_changed: binding::fmi2Boolean,
-    pub values_of_continuous_states_changed: binding::fmi2Boolean,
-    pub next_event_time_defined: binding::fmi2Boolean,
-    pub next_event_time: binding::fmi2Real,
 }
 
 #[repr(C)]
@@ -103,11 +94,20 @@ pub enum Fmi2Error {
 #[derive(Debug)]
 pub struct Fmi2Status(binding::fmi2Status);
 
-impl Fmi2Status {
-    /// Convert to [`Result<Fmi2Res, Fmi2Err>`]
+impl FmiStatus for Fmi2Status {
+    type Res = Fmi2Res;
+
+    type Err = Fmi2Error;
+
+    /// Convert to [`Result<Fmi2Res, Fmi2Error>`]
     #[inline]
-    pub fn ok(self) -> Result<Fmi2Res, Fmi2Error> {
+    fn ok(self) -> Result<Fmi2Res, Fmi2Error> {
         self.into()
+    }
+
+    #[inline]
+    fn is_error(&self) -> bool {
+        self.0 == binding::fmi2Status_fmi2Error || self.0 == binding::fmi2Status_fmi2Fatal
     }
 }
 

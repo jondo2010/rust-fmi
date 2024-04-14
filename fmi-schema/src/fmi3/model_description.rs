@@ -1,5 +1,7 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
+use crate::traits::FmiModelDescription;
+
 use super::{
     AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
     Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiBinary, FmiBoolean,
@@ -9,7 +11,7 @@ use super::{
 
 #[derive(Default, Debug, YaDeserialize)]
 #[yaserde(rename = "fmiModelDescription")]
-pub struct FmiModelDescription {
+pub struct Fmi3ModelDescription {
     /// Version of FMI that was used to generate the XML file.
     #[yaserde(attribute, rename = "fmiVersion")]
     pub fmi_version: String,
@@ -98,6 +100,16 @@ pub struct FmiModelDescription {
 
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
+}
+
+impl FmiModelDescription for Fmi3ModelDescription {
+    fn model_name(&self) -> &str {
+        &self.model_name
+    }
+
+    fn version_string(&self) -> &str {
+        &self.fmi_version
+    }
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -257,7 +269,7 @@ fn test_model_descr() {
         </ModelStructure>
     </fmiModelDescription>"#;
 
-    let md: FmiModelDescription = yaserde::de::from_str(xml).unwrap();
+    let md: Fmi3ModelDescription = yaserde::de::from_str(xml).unwrap();
 
     assert_eq!(md.fmi_version, "3.0-beta.2");
     assert_eq!(md.model_name, "FMI3");

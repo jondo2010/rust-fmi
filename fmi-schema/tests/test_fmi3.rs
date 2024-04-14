@@ -4,8 +4,8 @@
 #[cfg(feature = "fmi3")]
 fn test_fmi3() {
     use fmi_schema::fmi3::{
-        AbstractVariableTrait, BaseTypeTrait, BaseUnit, DependenciesKind, Fmi3ModelExchange,
-        FmiModelDescription, Variability,
+        AbstractVariableTrait, BaseTypeTrait, BaseUnit, DependenciesKind, Fmi3ModelDescription,
+        Fmi3ModelExchange, Variability,
     };
 
     let test_file = std::env::current_dir()
@@ -13,7 +13,7 @@ fn test_fmi3() {
         .unwrap();
     let file = std::fs::File::open(test_file).unwrap();
     let buf_reader = std::io::BufReader::new(file);
-    let model: FmiModelDescription = yaserde::de::from_reader(buf_reader).unwrap();
+    let model: Fmi3ModelDescription = yaserde::de::from_reader(buf_reader).unwrap();
 
     let model_exchange = model.model_exchange.unwrap();
     assert_eq!(

@@ -2,11 +2,11 @@ use std::ffi::CString;
 
 use crate::{
     fmi3::{binding, import, logger, Fmi3Status},
-    traits::FmiImport,
+    traits::{FmiEventHandler, FmiImport},
     Error,
 };
 
-use super::{CoSimulation, Instance, CS};
+use super::{CoSimulation, Common, Instance, CS};
 
 impl<'a> Instance<'a, CS> {
     /// Returns a new CoSimulation instance.
@@ -118,7 +118,7 @@ impl<'a> Instance<'a, CS> {
     }
 }
 
-impl<'a> CoSimulation for Instance<'a, CS> {
+impl CoSimulation for Instance<'_, CS> {
     fn enter_step_mode(&mut self) -> Fmi3Status {
         unsafe { self.binding.fmi3EnterStepMode(self.ptr) }.into()
     }
@@ -146,5 +146,31 @@ impl<'a> CoSimulation for Instance<'a, CS> {
             )
         }
         .into()
+    }
+}
+
+impl FmiEventHandler for Instance<'_, CS> {
+    #[inline]
+    fn enter_event_mode(&mut self) -> Self::Status {
+        Common::enter_event_mode(self)
+    }
+
+    #[inline]
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Self::Status {
+        Common::update_discrete_states(
+            self,
+            discrete_states_need_update,
+            terminate_simulation,
+            nominals_of_continuous_states_changed,
+            values_of_continuous_states_changed,
+            next_event_time,
+        )
     }
 }

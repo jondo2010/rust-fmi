@@ -1,5 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 
+use fmi_schema::MajorVersion;
 use tempfile::TempDir;
 
 use crate::{traits::FmiImport, Error};
@@ -16,20 +17,21 @@ pub struct Fmi3Import {
     /// Path to the unzipped FMU on disk
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
-    model_description: schema::FmiModelDescription,
+    model_description: schema::Fmi3ModelDescription,
 }
 
 impl FmiImport for Fmi3Import {
-    type ModelDescription = schema::FmiModelDescription;
+    const MAJOR_VERSION: MajorVersion = MajorVersion::FMI3;
+    type ModelDescription = schema::Fmi3ModelDescription;
     type Binding = binding::Fmi3Binding;
-    type ValueReference = binding::fmi3ValueReference;
+    type ValueRef = binding::fmi3ValueReference;
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
     fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {
-        let schema = schema::FmiModelDescription::from_str(schema_xml)?;
+        let model_description = schema::Fmi3ModelDescription::from_str(schema_xml)?;
         Ok(Self {
             dir,
-            model_description: schema,
+            model_description,
         })
     }
 

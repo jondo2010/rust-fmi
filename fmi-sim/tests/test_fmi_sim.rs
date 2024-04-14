@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
-use std::{path::PathBuf, str::FromStr};
+use std::{io::Cursor, path::PathBuf, str::FromStr};
 
 use arrow::{
     array::{AsArray, Float64Array},
@@ -12,131 +12,81 @@ use arrow::{
         UInt16Type, UInt32Type, UInt64Type, UInt8Type,
     },
 };
-use fmi_sim::options::{
-    CoSimulationOptions, CommonOptions, FmiSimOptions, Interface, ModelExchangeOptions,
+use fmi::{fmi2::import::Fmi2Import, fmi3::import::Fmi3Import, schema::MajorVersion};
+use fmi_sim::{
+    options::{CoSimulationOptions, CommonOptions, FmiSimOptions, Interface, ModelExchangeOptions},
+    sim::traits::FmiSim,
 };
 
-#[test]
-fn test_start_time() {
-    let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-
-    for fmi_version in [
-        #[cfg(feature = "fmi2")]
-        2,
-        #[cfg(feature = "fmi3")]
-        3,
-    ] {
-        let fmu_file = ref_fmus
-            .extract_reference_fmu("BouncingBall", fmi_version)
-            .unwrap();
-
-        for (iface, options) in [
-            (
-                "CS",
-                FmiSimOptions {
-                    interface: Interface::CoSimulation(CoSimulationOptions {
-                        common: CommonOptions {
-                            start_time: Some(0.5),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }),
-                    model: fmu_file.path().to_path_buf(),
-                    ..Default::default()
-                },
-            ),
-            (
-                "ME",
-                FmiSimOptions {
-                    interface: Interface::ModelExchange(ModelExchangeOptions {
-                        common: CommonOptions {
-                            start_time: Some(0.5),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }),
-                    model: fmu_file.path().to_path_buf(),
-                    ..Default::default()
-                },
-            ),
-        ] {
-            let output = fmi_sim::simulate(&options).unwrap();
-            assert_eq!(
-                output
-                    .column_by_name("time")
-                    .unwrap()
-                    .as_primitive::<Float64Type>()
-                    .value(0),
-                0.5,
-                "fmi_version: {fmi_version}, iface: {iface}, time[0] does not match",
-            );
-        }
-    }
+#[rstest::fixture]
+fn ref_fmus() -> fmi_test_data::ReferenceFmus {
+    fmi_test_data::ReferenceFmus::new().unwrap()
 }
 
+#[rstest::rstest]
+#[case::cs(Interface::CoSimulation(CoSimulationOptions {common: CommonOptions { start_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
+#[case::me(Interface::ModelExchange(ModelExchangeOptions {common: CommonOptions { start_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
+#[trace]
 #[test_log::test]
-fn test_stop_time() {
-    let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
+fn test_start_time(
+    mut ref_fmus: fmi_test_data::ReferenceFmus,
+    #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
+    #[case] interface: Interface,
+) {
+    let fmu_file = ref_fmus
+        .extract_reference_fmu("BouncingBall", fmi_version)
+        .unwrap();
 
-    for fmi_version in [
-        #[cfg(feature = "fmi2")]
-        2,
-        #[cfg(feature = "fmi3")]
-        3,
-    ] {
-        let fmu_file = ref_fmus
-            .extract_reference_fmu("BouncingBall", fmi_version)
-            .unwrap();
+    let options = FmiSimOptions {
+        interface,
+        model: fmu_file.path().to_path_buf(),
+        ..Default::default()
+    };
 
-        for (iface, options) in [
-            (
-                "CS",
-                FmiSimOptions {
-                    interface: Interface::CoSimulation(CoSimulationOptions {
-                        common: CommonOptions {
-                            stop_time: Some(0.5),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }),
-                    model: fmu_file.path().to_path_buf(),
-                    ..Default::default()
-                },
-            ),
-            (
-                "ME",
-                FmiSimOptions {
-                    interface: Interface::ModelExchange(ModelExchangeOptions {
-                        common: CommonOptions {
-                            stop_time: Some(0.5),
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }),
-                    model: fmu_file.path().to_path_buf(),
-                    ..Default::default()
-                },
-            ),
-        ] {
-            let output = fmi_sim::simulate(&options).unwrap();
+    let (output, _) = fmi_sim::simulate(&options).unwrap();
+    assert_eq!(
+        output
+            .column_by_name("time")
+            .unwrap()
+            .as_primitive::<Float64Type>()
+            .value(0),
+        0.5,
+    );
+}
 
-            let time = output
-                .column_by_name("time")
-                .unwrap()
-                .as_primitive::<Float64Type>();
-            assert_eq!(
-                time.value(time.len() - 1),
-                0.5,
-                "fmi_version: {fmi_version}, iface: {iface}, time[-1] does not match",
-            );
-        }
-    }
+#[rstest::rstest]
+#[case::cs(Interface::CoSimulation(CoSimulationOptions {common: CommonOptions { stop_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
+#[case::me(Interface::ModelExchange(ModelExchangeOptions {common: CommonOptions { stop_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
+#[trace]
+#[test_log::test]
+fn test_stop_time(
+    mut ref_fmus: fmi_test_data::ReferenceFmus,
+    #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
+    #[case] interface: Interface,
+) {
+    let fmu_file = ref_fmus
+        .extract_reference_fmu("BouncingBall", fmi_version)
+        .unwrap();
+
+    let options = FmiSimOptions {
+        interface,
+        model: fmu_file.path().to_path_buf(),
+        ..Default::default()
+    };
+
+    let (output, _) = fmi_sim::simulate(&options).unwrap();
+
+    let time = output
+        .column_by_name("time")
+        .unwrap()
+        .as_primitive::<Float64Type>();
+    assert_eq!(time.value(time.len() - 1), 0.5,);
 }
 
 #[test_log::test]
 fn test_start_value_types() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu_fmi3("Feedthrough").unwrap();
+    let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
 
     let common = CommonOptions {
         initial_values: [
@@ -166,7 +116,7 @@ fn test_start_value_types() {
         event_mode_used: false,
         early_return_allowed: false,
     };
-    let output = fmi_sim::sim::fmi3::co_simulation(&import, &options, None).unwrap();
+    let (output, _) = import.simulate_cs(&options, None).unwrap();
 
     assert_eq!(
         output
@@ -347,24 +297,72 @@ fn test_bouncing_ball() {
     }
 }
 
-#[test_log::test]
-fn test_input_file() {
-    let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu_fmi3("Feedthrough").unwrap();
+#[rstest::fixture]
+fn input_data() -> arrow::record_batch::RecordBatch {
+    fmi_sim::sim::util::read_csv_file("tests/data/feedthrough_in.csv")
+        .expect("Error reading input data")
+}
 
-    let options = CoSimulationOptions {
-        common: CommonOptions {
-            stop_time: Some(5.0),
-            ..Default::default()
-        },
-        event_mode_used: false,
-        early_return_allowed: false,
+#[rstest::fixture]
+fn feedthrough_output_data(
+    #[default(Interface::CoSimulation(Default::default()))] iface: Interface,
+) -> arrow::record_batch::RecordBatch {
+    let expected = match iface {
+        Interface::ModelExchange(..) => {
+            r#""time","Float32_continuous_output","Float32_discrete_output","Float64_continuous_output","Float64_discrete_output","Int8_output","UInt8_output","Int16_output","UInt16_output","Int32_output","UInt32_output","Int64_output","UInt64_output","Boolean_output","Binary_output","Enumeration_output"
+0,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+1,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+1,0,0,2,2,0,0,0,0,1,0,0,0,0,666f6f,1
+2,0,0,3,2,0,0,0,0,1,0,0,0,0,666f6f,1
+2,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+3,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+3,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
+4,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
+5,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1"#
+        }
+        Interface::CoSimulation(..) => {
+            r#""time","Float32_continuous_output","Float32_discrete_output","Float64_continuous_output","Float64_discrete_output","Int8_output","UInt8_output","Int16_output","UInt16_output","Int32_output","UInt32_output","Int64_output","UInt64_output","Boolean_output","Binary_output","Enumeration_output"
+0,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+1,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+2,0,0,2,2,0,0,0,0,1,0,0,0,0,666f6f,1
+3,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+4,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
+5,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1"#
+        }
+    };
+    let mut cur = Cursor::new(expected);
+    fmi_sim::sim::util::read_csv(&mut cur).expect("Error reading output data")
+}
+
+#[rstest::rstest]
+#[case::cs(Interface::CoSimulation(CoSimulationOptions {common: CommonOptions { stop_time: Some(5.0), output_interval: Some(1.0), ..Default::default() }, ..Default::default()}))]
+#[case::me(Interface::ModelExchange(ModelExchangeOptions {common: CommonOptions { stop_time: Some(5.0), output_interval: Some(1.0), ..Default::default() }, ..Default::default()}))]
+//#[trace]
+#[test_log::test]
+fn test_input_data(
+    mut ref_fmus: fmi_test_data::ReferenceFmus,
+    #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
+    #[case] interface: Interface,
+    input_data: arrow::record_batch::RecordBatch,
+    //#[with(interface)] feedthrough_output_data: arrow::record_batch::RecordBatch,
+) {
+    let (output, _) = match fmi_version {
+        MajorVersion::FMI1 => unimplemented!(),
+        MajorVersion::FMI2 => {
+            let import: Fmi2Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
+            fmi_sim::sim::simulate_with(Some(input_data), &interface, import).unwrap()
+        }
+        MajorVersion::FMI3 => {
+            let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
+            fmi_sim::sim::simulate_with(Some(input_data), &interface, import).unwrap()
+        }
     };
 
-    let input_data = fmi_sim::sim::util::read_csv("tests/data/feedthrough_in.csv")
-        .expect("Error reading input data");
-
-    let output = fmi_sim::sim::fmi3::co_simulation(&import, &options, Some(input_data)).unwrap();
+    // Pretty-print the output
+    println!(
+        "Outputs:\n{}",
+        arrow::util::pretty::pretty_format_batches(&[output.clone()]).unwrap()
+    );
 
     let f64_cts_out = output
         .column_by_name("Float64_continuous_output")

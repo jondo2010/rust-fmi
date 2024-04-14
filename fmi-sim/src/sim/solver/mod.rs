@@ -1,8 +1,7 @@
-use fmi::fmi3::instance::ModelExchange;
-
 mod euler;
 
 pub use euler::Euler;
+use fmi::traits::FmiModelExchange;
 
 pub trait Model {
     fn get_continuous_states(&mut self, x: &mut [f64]);
@@ -11,21 +10,21 @@ pub trait Model {
     fn get_event_indicators(&mut self, z: &mut [f64]);
 }
 
-impl<Inst: ModelExchange> Model for Inst {
+impl<Inst: FmiModelExchange> Model for Inst {
     fn get_continuous_states(&mut self, x: &mut [f64]) {
-        ModelExchange::get_continuous_states(self, x);
+        FmiModelExchange::get_continuous_states(self, x);
     }
 
     fn set_continuous_states(&mut self, states: &[f64]) {
-        ModelExchange::set_continuous_states(self, states);
+        FmiModelExchange::set_continuous_states(self, states);
     }
 
     fn get_continuous_state_derivatives(&mut self, dx: &mut [f64]) {
-        ModelExchange::get_continuous_state_derivatives(self, dx);
+        FmiModelExchange::get_continuous_state_derivatives(self, dx);
     }
 
     fn get_event_indicators(&mut self, z: &mut [f64]) {
-        ModelExchange::get_event_indicators(self, z);
+        FmiModelExchange::get_event_indicators(self, z);
     }
 }
 

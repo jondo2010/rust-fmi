@@ -4,7 +4,13 @@ fn main() -> anyhow::Result<()> {
     sensible_env_logger::try_init_timed!()?;
 
     let options = fmi_sim::options::FmiSimOptions::try_parse()?;
-    let outputs = fmi_sim::simulate(&options)?;
+    let (outputs, stats) = fmi_sim::simulate(&options)?;
+
+    log::info!(
+        "Simulation finished at t = {:.1} after {} steps.",
+        stats.end_time,
+        stats.num_steps
+    );
 
     if let Some(output_file) = options.output_file {
         let file = std::fs::File::create(output_file).unwrap();

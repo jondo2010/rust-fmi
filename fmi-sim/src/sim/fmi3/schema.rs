@@ -2,20 +2,24 @@ use arrow::{
     array::{ArrayRef, StringArray},
     datatypes::{DataType, Field, Fields, Schema},
 };
-use fmi::{fmi3::import::Fmi3Import, traits::FmiImport};
+use fmi::{
+    fmi3::{import::Fmi3Import, schema::Causality},
+    schema::fmi3::Variability,
+    traits::FmiImport,
+};
 
-use super::{io::StartValues, traits::FmiSchemaBuilder};
+use crate::sim::{io::StartValues, traits::ImportSchemaBuilder};
 
-impl FmiSchemaBuilder for Fmi3Import
+impl ImportSchemaBuilder for Fmi3Import
 where
-    Self::ValueReference: From<u32>,
+    Self::ValueRef: From<u32>,
 {
     fn inputs_schema(&self) -> Schema {
         let input_fields = self
             .model_description()
             .model_variables
             .iter_abstract()
-            .filter(|v| v.causality() == fmi::fmi3::schema::Causality::Input)
+            .filter(|v| v.causality() == Causality::Input)
             .map(|v| Field::new(v.name(), v.data_type().into(), false))
             .collect::<Fields>();
 
@@ -28,7 +32,7 @@ where
             .model_description()
             .model_variables
             .iter_abstract()
-            .filter(|v| v.causality() == fmi::fmi3::schema::Causality::Output)
+            .filter(|v| v.causality() == Causality::Output)
             .map(|v| Field::new(v.name(), v.data_type().into(), false))
             .chain(std::iter::once(time))
             .collect::<Fields>();
@@ -36,12 +40,12 @@ where
         Schema::new(output_fields)
     }
 
-    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
+    fn continuous_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_ {
         self.model_description()
             .model_variables
             .iter_abstract()
             .filter(|v| {
-                v.causality() == fmi::fmi3::schema::Causality::Input
+                v.causality() == Causality::Input
                     && v.variability() == fmi::fmi3::schema::Variability::Continuous
             })
             .map(|v| {
@@ -52,8 +56,7 @@ where
             })
     }
 
-    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> + '_ {
-        use fmi::fmi3::schema::{Causality, Variability};
+    fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_ {
         self.model_description()
             .model_variables
             .iter_abstract()
@@ -70,11 +73,11 @@ where
             })
     }
 
-    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueReference)> {
+    fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> {
         self.model_description()
             .model_variables
             .iter_abstract()
-            .filter(|v| v.causality() == fmi::fmi3::schema::Causality::Output)
+            .filter(|v| v.causality() == Causality::Output)
             .map(|v| {
                 (
                     Field::new(v.name(), v.data_type().into(), false),
@@ -86,11 +89,9 @@ where
     fn parse_start_values(
         &self,
         start_values: &[String],
-    ) -> anyhow::Result<StartValues<Self::ValueReference>> {
-        use fmi_schema::fmi3::Causality;
-
-        let mut structural_parameters: Vec<(Self::ValueReference, ArrayRef)> = vec![];
-        let mut variables: Vec<(Self::ValueReference, ArrayRef)> = vec![];
+    ) -> anyhow::Result<StartValues<Self::ValueRef>> {
+        let mut structural_parameters: Vec<(Self::ValueRef, ArrayRef)> = vec![];
+        let mut variables: Vec<(Self::ValueRef, ArrayRef)> = vec![];
 
         for start_value in start_values {
             let (name, value) = start_value
@@ -117,7 +118,7 @@ where
             let dt = arrow::datatypes::DataType::from(var.data_type());
             let ary = StringArray::from(vec![value.to_string()]);
             let ary = arrow::compute::cast(&ary, &dt)
-                .map_err(|_| anyhow::anyhow!("Error casting type"))?;
+                .map_err(|e| anyhow::anyhow!("Error casting type: {e}"))?;
 
             if var.causality() == Causality::StructuralParameter {
                 structural_parameters.push((var.value_reference(), ary));

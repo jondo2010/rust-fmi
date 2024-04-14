@@ -1,21 +1,19 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 
 use crate::fmi2::{binding, Fmi2Status};
 
-use super::{traits, Instance};
+use super::{Common, Instance};
 
-impl<'a, Tag> traits::Common for Instance<'a, Tag> {
-    fn name(&self) -> &str {
-        &self.model_description.model_name
-    }
-
+impl<'a, Tag> Common for Instance<'a, Tag> {
     fn get_version(&self) -> &str {
+        // Safety: The FMI API guarantees that the pointer is valid within the lifetime of the FMU
         unsafe { CStr::from_ptr(self.binding.fmi2GetVersion()) }
             .to_str()
             .expect("Error converting string")
     }
 
     fn get_types_platform(&self) -> &str {
+        // Safety: The FMI API guarantees that the pointer is valid within the lifetime of the FMU
         unsafe { CStr::from_ptr(self.binding.fmi2GetTypesPlatform()) }
             .to_str()
             .expect("Error converting string")
@@ -24,19 +22,20 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi2Status {
         let category_cstr = categories
             .iter()
-            .map(|c| CString::new(*c).unwrap())
+            .map(|c| std::ffi::CString::new(*c).expect("Error building CString"))
             .collect::<Vec<_>>();
 
         let category_ptrs: Vec<_> = category_cstr.iter().map(|c| c.as_ptr()).collect();
 
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding.fmi2SetDebugLogging(
                 self.component,
                 logging_on as binding::fmi2Boolean,
                 category_ptrs.len(),
                 category_ptrs.as_ptr(),
             )
-        })
+        }
+        .into()
     }
 
     fn setup_experiment(
@@ -45,7 +44,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         start_time: f64,
         stop_time: Option<f64>,
     ) -> Fmi2Status {
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding.fmi2SetupExperiment(
                 self.component,
                 tolerance.is_some() as binding::fmi2Boolean,
@@ -54,23 +53,24 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
                 stop_time.is_some() as binding::fmi2Boolean,
                 stop_time.unwrap_or(0.0),
             )
-        })
+        }
+        .into()
     }
 
     fn enter_initialization_mode(&mut self) -> Fmi2Status {
-        Fmi2Status(unsafe { self.binding.fmi2EnterInitializationMode(self.component) })
+        unsafe { self.binding.fmi2EnterInitializationMode(self.component) }.into()
     }
 
     fn exit_initialization_mode(&mut self) -> Fmi2Status {
-        Fmi2Status(unsafe { self.binding.fmi2ExitInitializationMode(self.component) })
-    }
-
-    fn terminate(&mut self) -> Fmi2Status {
-        Fmi2Status(unsafe { self.binding.fmi2Terminate(self.component) })
+        unsafe { self.binding.fmi2ExitInitializationMode(self.component) }.into()
     }
 
     fn reset(&mut self) -> Fmi2Status {
-        Fmi2Status(unsafe { self.binding.fmi2Reset(self.component) })
+        unsafe { self.binding.fmi2Reset(self.component) }.into()
+    }
+
+    fn terminate(&mut self) -> Fmi2Status {
+        unsafe { self.binding.fmi2Terminate(self.component) }.into()
     }
 
     fn get_real(
@@ -79,10 +79,11 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         values: &mut [binding::fmi2Real],
     ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding
                 .fmi2GetReal(self.component, vrs.as_ptr(), vrs.len(), values.as_mut_ptr())
-        })
+        }
+        .into()
     }
 
     fn get_integer(
@@ -90,14 +91,15 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         vrs: &[binding::fmi2ValueReference],
         values: &mut [binding::fmi2Integer],
     ) -> Fmi2Status {
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding.fmi2GetInteger(
                 self.component,
                 vrs.as_ptr(),
                 vrs.len(),
                 values.as_mut_ptr(),
             )
-        })
+        }
+        .into()
     }
 
     fn get_boolean(
@@ -105,10 +107,11 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2Boolean],
     ) -> Fmi2Status {
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding
                 .fmi2GetBoolean(self.component, sv.as_ptr(), sv.len(), v.as_mut_ptr())
-        })
+        }
+        .into()
     }
 
     fn get_string(
@@ -116,10 +119,11 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         sv: &[binding::fmi2ValueReference],
         v: &mut [binding::fmi2String],
     ) -> Fmi2Status {
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding
                 .fmi2GetString(self.component, sv.as_ptr(), sv.len(), v.as_mut_ptr())
-        })
+        }
+        .into()
     }
 
     fn set_real(
@@ -128,10 +132,11 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         values: &[binding::fmi2Real],
     ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding
                 .fmi2SetReal(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
-        })
+        }
+        .into()
     }
 
     fn set_integer(
@@ -140,10 +145,11 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         values: &[binding::fmi2Integer],
     ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding
                 .fmi2SetInteger(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
-        })
+        }
+        .into()
     }
 
     fn set_boolean(
@@ -152,27 +158,33 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
         values: &[binding::fmi2Boolean],
     ) -> Fmi2Status {
         assert_eq!(vrs.len(), values.len());
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding
                 .fmi2SetBoolean(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
-        })
+        }
+        .into()
     }
 
-    fn set_string(
+    fn set_string<'b>(
         &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: &[binding::fmi2String],
+        values: impl Iterator<Item = &'b str>,
     ) -> Fmi2Status {
-        assert_eq!(vrs.len(), values.len());
-        Fmi2Status(unsafe {
+        let values = values
+            .map(|s| std::ffi::CString::new(s.as_bytes()).expect("Error building CString"))
+            .collect::<Vec<_>>();
+
+        let ptrs = values
+            .iter()
+            .map(|s| s.as_c_str().as_ptr())
+            .collect::<Vec<_>>();
+
+        unsafe {
             self.binding
-                .fmi2SetString(self.component, vrs.as_ptr(), values.len(), values.as_ptr())
-        })
+                .fmi2SetString(self.component, vrs.as_ptr(), vrs.len() as _, ptrs.as_ptr())
+        }
+        .into()
     }
-
-    // fn get_fmu_state(&self, state: *mut fmi2FMUstate) -> FmiResult<()> {}
-
-    // fn set_fmu_state(&self, state: &[u8]) -> FmiResult<()> {}
 
     fn get_directional_derivative(
         &self,
@@ -183,7 +195,7 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
     ) -> Fmi2Status {
         assert!(unknown_vrs.len() == dv_unknown_values.len());
         assert!(known_vrs.len() == dv_unknown_values.len());
-        Fmi2Status(unsafe {
+        unsafe {
             self.binding.fmi2GetDirectionalDerivative(
                 self.component,
                 unknown_vrs.as_ptr(),
@@ -193,10 +205,11 @@ impl<'a, Tag> traits::Common for Instance<'a, Tag> {
                 dv_known_values.as_ptr(),
                 dv_unknown_values.as_mut_ptr(),
             )
-        })
+        }
+        .into()
     }
 
-    #[cfg(feature = "arrow")]
+    #[cfg(feature = "disabled")]
     fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef) {
         use arrow::datatypes::DataType;
         match values.data_type() {

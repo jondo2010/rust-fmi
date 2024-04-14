@@ -79,7 +79,7 @@ impl<'a> Instance<'a, SE> {
 impl<'a> ScheduledExecution for Instance<'a, SE> {
     fn activate_model_partition(
         &mut self,
-        clock_reference: Self::ValueReference,
+        clock_reference: Self::ValueRef,
         activation_time: f64,
     ) -> crate::fmi3::Fmi3Status {
         unsafe {

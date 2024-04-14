@@ -1,8 +1,11 @@
 //! Test the FMI3.0 instance API.
 
 use fmi::{
-    fmi3::instance::{Common as _, ModelExchange as _},
-    traits::FmiImport as _,
+    fmi3::{
+        import::Fmi3Import,
+        instance::{Common as _, ModelExchange as _},
+    },
+    traits::{FmiImport as _, FmiStatus},
 };
 use fmi_test_data::ReferenceFmus;
 
@@ -12,8 +15,7 @@ extern crate fmi_test_data;
 #[test]
 fn test_instance() {
     let mut ref_fmus = ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu_fmi3("Dahlquist").unwrap();
-
+    let import: Fmi3Import = ref_fmus.get_reference_fmu("Dahlquist").unwrap();
     let mut inst1 = import.instantiate_me("inst1", true, true).unwrap();
     assert_eq!(inst1.get_version(), "3.0");
     let log_cats: Vec<_> = import
@@ -26,6 +28,10 @@ fn test_instance() {
         .map(|x| x.name.as_str())
         .collect();
     inst1.set_debug_logging(true, &log_cats).ok().unwrap();
+
+    inst1.enter_configuration_mode().ok().unwrap();
+    inst1.exit_configuration_mode().ok().unwrap();
+
     inst1
         .enter_initialization_mode(None, 0.0, None)
         .ok()
@@ -44,7 +50,12 @@ fn test_instance() {
         .collect::<Vec<_>>();
 
     inst1.set_continuous_states(&states).ok().unwrap();
-    let (enter_event_mode, terminate_simulation) = inst1.completed_integrator_step(false).unwrap();
+    let mut enter_event_mode = false;
+    let mut terminate_simulation = false;
+    inst1
+        .completed_integrator_step(false, &mut enter_event_mode, &mut terminate_simulation)
+        .ok()
+        .unwrap();
     assert_eq!(enter_event_mode, false);
     assert_eq!(terminate_simulation, false);
 

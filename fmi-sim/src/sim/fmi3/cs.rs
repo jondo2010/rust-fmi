@@ -1,31 +1,28 @@
 use anyhow::Context;
-use arrow::record_batch::RecordBatch;
 use fmi::{
     fmi3::{
         import::Fmi3Import,
-        instance::{CoSimulation, Common, InstanceCS},
+        instance::{CoSimulation, InstanceCS},
     },
-    traits::FmiImport,
+    traits::{FmiInstance, FmiStatus},
 };
 
 use crate::{
-    options::CoSimulationOptions,
     sim::{
         interpolation::Linear,
         params::SimParams,
-        solver::DummySolver,
-        traits::{FmiSchemaBuilder, SimInput, SimOutput},
-        InputState, OutputState, SimState,
+        traits::{InstRecordValues, SimHandleEvents},
+        InputState, RecorderState, SimState, SimStateTrait, SimStats,
     },
     Error,
 };
 
-impl<'a> SimState<InstanceCS<'a>, DummySolver> {
-    pub fn new(
+impl<'a> SimStateTrait<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>> {
+    fn new(
         import: &'a Fmi3Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS<'a>>,
-        output_state: OutputState<InstanceCS<'a>>,
+        output_state: RecorderState<InstanceCS<'a>>,
     ) -> Result<Self, Error> {
         let inst = import.instantiate_cs(
             "inst1",
@@ -35,43 +32,43 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
             sim_params.early_return_allowed,
             &[],
         )?;
-        let time = sim_params.start_time;
         Ok(Self {
             sim_params,
             input_state,
-            output_state,
+            recorder_state: output_state,
             inst,
-            time,
             next_event_time: None,
-            _phantom: std::marker::PhantomData,
         })
     }
+}
 
+impl<'a> SimState<InstanceCS<'a>> {
     /// Main loop of the co-simulation
-    fn main_loop(&mut self) -> Result<(), Error> {
+    pub fn main_loop(&mut self) -> Result<SimStats, Error> {
+        let mut stats = SimStats::default();
+
         if self.sim_params.event_mode_used {
             self.inst.enter_step_mode().ok().map_err(fmi::Error::from)?;
         }
 
-        let mut num_steps = 0;
+        let mut time = self.sim_params.start_time;
 
         loop {
-            self.output_state
-                .record_outputs(self.time, &mut self.inst)?;
+            self.inst.record_outputs(time, &mut self.recorder_state)?;
 
-            if self.time >= self.sim_params.stop_time {
+            if time >= self.sim_params.stop_time {
                 break;
             }
 
             // calculate next time point
             let next_regular_point = self.sim_params.start_time
-                + (num_steps + 1) as f64 * self.sim_params.output_interval;
-            let next_input_event_time = self.input_state.next_input_event(self.time);
+                + (stats.num_steps + 1) as f64 * self.sim_params.output_interval;
+            let next_input_event_time = self.input_state.next_input_event(time);
             // use `next_input_event` if it is earlier than `next_regular_point`
             let next_communication_point = next_input_event_time.min(next_regular_point);
             let input_event = next_regular_point > next_input_event_time;
 
-            let step_size = next_communication_point - self.time;
+            let step_size = next_communication_point - time;
 
             let mut event_encountered = false;
             let mut terminate_simulation = false;
@@ -79,26 +76,16 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
             let mut last_successful_time = 0.0;
 
             if self.sim_params.event_mode_used {
-                self.input_state.apply_input::<Linear>(
-                    self.time,
-                    &mut self.inst,
-                    false,
-                    true,
-                    false,
-                )?;
+                self.input_state
+                    .apply_input::<Linear>(time, &mut self.inst, false, true, false)?;
             } else {
-                self.input_state.apply_input::<Linear>(
-                    self.time,
-                    &mut self.inst,
-                    true,
-                    true,
-                    true,
-                )?;
+                self.input_state
+                    .apply_input::<Linear>(time, &mut self.inst, true, true, true)?;
             }
 
             self.inst
                 .do_step(
-                    self.time,
+                    time,
                     step_size,
                     true,
                     &mut event_encountered,
@@ -118,18 +105,18 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
             }
 
             if early_return && last_successful_time < next_communication_point {
-                self.time = last_successful_time;
+                time = last_successful_time;
             } else {
-                self.time = next_communication_point;
+                time = next_communication_point;
             }
 
-            if self.time == next_regular_point {
-                num_steps += 1;
+            if time == next_regular_point {
+                stats.num_steps += 1;
             }
 
             if self.sim_params.event_mode_used && (input_event || event_encountered) {
-                log::trace!("Event encountered at t = {}", self.time);
-                self.handle_events(input_event, &mut terminate_simulation)?;
+                log::trace!("Event encountered at t = {time}");
+                self.handle_events(time, input_event, &mut terminate_simulation)?;
 
                 self.inst
                     .enter_step_mode()
@@ -138,38 +125,9 @@ impl<'a> SimState<InstanceCS<'a>, DummySolver> {
             }
         }
 
-        log::info!(
-            "Simulation finished at t = {:.1} after {num_steps} steps.",
-            self.time
-        );
-
         self.inst.terminate().ok().context("terminate")?;
 
-        Ok(())
+        stats.end_time = time;
+        Ok(stats)
     }
-}
-
-/// Run a co-simulation simulation
-pub fn co_simulation(
-    import: &Fmi3Import,
-    options: &CoSimulationOptions,
-    input_data: Option<RecordBatch>,
-) -> Result<RecordBatch, Error> {
-    let sim_params = SimParams::new_from_options(
-        &options.common,
-        import.model_description(),
-        options.event_mode_used,
-        options.early_return_allowed,
-    );
-
-    let start_values = import.parse_start_values(&options.common.initial_values)?;
-    let input_state = InputState::new(import, input_data)?;
-    let output_state = OutputState::new(import, &sim_params);
-
-    let mut sim_state =
-        SimState::<InstanceCS, DummySolver>::new(import, sim_params, input_state, output_state)?;
-    sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
-    sim_state.main_loop()?;
-
-    Ok(sim_state.output_state.finish())
 }

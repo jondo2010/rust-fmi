@@ -1,6 +1,9 @@
 use std::mem::MaybeUninit;
 
-use crate::fmi3::{binding, Fmi3Status};
+use crate::{
+    fmi3::{binding, Fmi3Status},
+    traits::FmiStatus,
+};
 
 use super::{Common, Instance};
 
@@ -61,6 +64,14 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             )
         }
         .into()
+    }
+
+    fn enter_configuration_mode(&mut self) -> Fmi3Status {
+        unsafe { self.binding.fmi3EnterConfigurationMode(self.ptr) }.into()
+    }
+
+    fn exit_configuration_mode(&mut self) -> Fmi3Status {
+        unsafe { self.binding.fmi3ExitConfigurationMode(self.ptr) }.into()
     }
 
     fn enter_initialization_mode(

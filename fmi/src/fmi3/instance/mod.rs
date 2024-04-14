@@ -1,6 +1,6 @@
 //! FMI 3.0 instance interface
 
-use crate::traits::{FmiImport, FmiInstance};
+use crate::traits::{FmiImport, FmiInstance, FmiStatus};
 
 use super::{binding, import::Fmi3Import, schema, Fmi3Status};
 
@@ -20,13 +20,17 @@ pub struct CS;
 /// Tag for Scheduled Execution instances
 pub struct SE;
 
+pub type InstanceME<'a> = Instance<'a, ME>;
+pub type InstanceCS<'a> = Instance<'a, CS>;
+pub type InstanceSE<'a> = Instance<'a, SE>;
+
 pub struct Instance<'a, Tag> {
     /// Raw FMI 3.0 bindings
     binding: binding::Fmi3Binding,
     /// Pointer to the raw FMI 3.0 instance
     ptr: binding::fmi3Instance,
     /// Model description
-    model_description: &'a schema::FmiModelDescription,
+    model_description: &'a schema::Fmi3ModelDescription,
     /// Instance name
     name: String,
     _tag: std::marker::PhantomData<&'a Tag>,
@@ -85,22 +89,43 @@ where
 }
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
-    type ModelDescription = schema::FmiModelDescription;
-
+    type ModelDescription = schema::Fmi3ModelDescription;
     type Import = Fmi3Import;
-
-    type ValueReference = <Fmi3Import as FmiImport>::ValueReference;
+    type ValueRef = <Fmi3Import as FmiImport>::ValueRef;
+    type Status = Fmi3Status;
 
     fn name(&self) -> &str {
         &self.name
     }
 
     fn get_version(&self) -> &str {
-        <Self as Common>::get_version(self)
+        Common::get_version(self)
     }
 
     fn model_description(&self) -> &Self::ModelDescription {
         self.model_description
+    }
+
+    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Self::Status {
+        let cats_vec = categories
+            .iter()
+            .map(|cat| std::ffi::CString::new(cat.as_bytes()).expect("Error building CString"))
+            .collect::<Vec<_>>();
+
+        let cats_vec_ptrs = cats_vec
+            .iter()
+            .map(|cat| cat.as_c_str().as_ptr())
+            .collect::<Vec<_>>();
+
+        unsafe {
+            self.binding.fmi3SetDebugLogging(
+                self.ptr,
+                logging_on,
+                cats_vec_ptrs.len() as _,
+                cats_vec_ptrs.as_ptr() as *const binding::fmi3String,
+            )
+        }
+        .into()
     }
 
     fn get_number_of_continuous_state_values(&mut self) -> usize {
@@ -124,11 +149,28 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
             .collect_vec();
         self.get_variable_dimensions(&event_vars)
     }
-}
 
-pub type InstanceME<'a> = Instance<'a, ME>;
-pub type InstanceCS<'a> = Instance<'a, CS>;
-pub type InstanceSE<'a> = Instance<'a, SE>;
+    fn enter_initialization_mode(
+        &mut self,
+        tolerance: Option<f64>,
+        start_time: f64,
+        stop_time: Option<f64>,
+    ) -> Self::Status {
+        Common::enter_initialization_mode(self, tolerance, start_time, stop_time)
+    }
+
+    fn exit_initialization_mode(&mut self) -> Self::Status {
+        Common::exit_initialization_mode(self)
+    }
+
+    fn terminate(&mut self) -> Fmi3Status {
+        Common::terminate(self)
+    }
+
+    fn reset(&mut self) -> Fmi3Status {
+        Common::reset(self)
+    }
+}
 
 pub struct Fmu3State<'a, Tag> {
     instance: Instance<'a, Tag>,
