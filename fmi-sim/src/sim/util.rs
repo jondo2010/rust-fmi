@@ -1,4 +1,8 @@
-use std::{io::Seek, path::Path, sync::Arc};
+use std::{
+    io::{Read, Seek},
+    path::Path,
+    sync::Arc,
+};
 
 use arrow::{
     csv::{reader::Format, ReaderBuilder},
@@ -8,22 +12,25 @@ use arrow::{
 use comfy_table::Table;
 use itertools::Itertools;
 
-/// Read a CSV file into a single RecordBatch.
-pub fn read_csv<P>(path: P) -> anyhow::Result<RecordBatch>
-where
-    P: AsRef<Path>,
-{
+pub fn read_csv_file<P: AsRef<Path>>(path: P) -> anyhow::Result<RecordBatch> {
     let mut file = std::fs::File::open(&path)?;
+    log::debug!("Reading CSV file {:?}", path.as_ref());
+    read_csv(&mut file)
+}
 
+/// Read a CSV file into a single RecordBatch.
+pub fn read_csv<R>(reader: &mut R) -> anyhow::Result<RecordBatch>
+where
+    R: Read + Seek,
+{
     // Infer the schema with the first 100 records
     let (file_schema, _) = Format::default()
         .with_header(true)
-        .infer_schema(&file, Some(100))?;
-    file.rewind()?;
+        .infer_schema(reader.by_ref(), Some(100))?;
+    reader.rewind()?;
 
     log::debug!(
-        "Read CSV file {:?}, with schema: {:?}",
-        path.as_ref(),
+        "Inferred schema: {:?}",
         file_schema
             .fields()
             .iter()
@@ -48,8 +55,7 @@ where
 
     let reader = ReaderBuilder::new(file_schema)
         .with_header(true)
-        //.with_projection(input_projection)
-        .build(file)?;
+        .build(reader)?;
 
     let batches = reader.collect::<Result<Vec<_>, _>>()?;
 
@@ -67,7 +73,7 @@ pub fn pretty_format_projection(
 ) -> impl std::fmt::Display {
     let mut table = Table::new();
     table.load_preset(comfy_table::presets::ASCII_BORDERS_ONLY_CONDENSED);
-    table.set_header(vec!["Name", "Input Type", "Model Type"]);
+    table.set_header(vec!["Variable", "Input Type", "Model Type"]);
     let rows_iter = input_data_schema.fields().iter().map(|input_field| {
         let model_field_name = model_input_schema
             .fields()

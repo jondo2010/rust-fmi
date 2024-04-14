@@ -36,7 +36,7 @@ pub fn simulate(options: &options::FmiSimOptions) -> Result<(RecordBatch, SimSta
         .input_file
         .as_ref()
         .inspect(|p| log::debug!("Reading input data from {}", p.display()))
-        .map(sim::util::read_csv)
+        .map(sim::util::read_csv_file)
         .transpose()?;
 
     match version {

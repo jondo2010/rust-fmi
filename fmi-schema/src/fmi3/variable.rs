@@ -74,7 +74,7 @@ pub trait InitializableVariableTrait: TypedArrayableVariableTrait {
 }
 
 macro_rules! impl_abstract_variable {
-    ($name:ident) => {
+    ($name:ident, $default_variability:expr) => {
         impl AbstractVariableTrait for $name {
             fn name(&self) -> &str {
                 &self
@@ -112,6 +112,7 @@ macro_rules! impl_abstract_variable {
                     .arrayable_var
                     .abstract_var
                     .variability
+                    .unwrap_or($default_variability)
             }
             fn can_handle_multiple_set_per_time_instant(&self) -> bool {
                 self.init_var
@@ -183,7 +184,7 @@ macro_rules! impl_float_type {
             pub real_var_attr: RealVariableAttributes,
         }
 
-        impl_abstract_variable!($name);
+        impl_abstract_variable!($name, Variability::Continuous);
         impl_arrayable_variable!($name);
         impl_typed_arrayable_variable!($name);
         impl_initializable_variable!($name);
@@ -219,7 +220,7 @@ macro_rules! impl_integer_type {
             pub init_var: InitializableVariable,
         }
 
-        impl_abstract_variable!($name);
+        impl_abstract_variable!($name, Variability::Discrete);
     };
 }
 
@@ -281,6 +282,7 @@ pub enum Variability {
     ///   Intermediate Update Mode, discrete variables are not allowed to change.
     /// * Scheduled Execution: The value may change only at communication points.
     #[yaserde(rename = "discrete")]
+    #[default]
     Discrete,
     /// Only variables of type [`FmiFloat32`]or [`FmiFloat64`] may be continuous. The default for
     /// variables of type `FmiFloat32` and `FmiFloat64` and causality other than
@@ -288,7 +290,6 @@ pub enum Variability {
     /// [`Causality::CalculatedParameter`] is continuous. Variables with variability continuous
     /// may change in Initialization Mode and in super state Initialized.
     #[yaserde(rename = "continuous")]
-    #[default]
     Continuous,
 }
 
@@ -320,7 +321,7 @@ pub struct AbstractVariable {
     #[yaserde(attribute)]
     pub causality: Causality,
     #[yaserde(attribute)]
-    pub variability: Variability,
+    pub variability: Option<Variability>,
     #[yaserde(attribute, rename = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: bool,
 }
@@ -386,7 +387,7 @@ pub struct FmiBoolean {
     pub init_var: InitializableVariable,
 }
 
-impl_abstract_variable!(FmiBoolean);
+impl_abstract_variable!(FmiBoolean, Variability::Discrete);
 impl_arrayable_variable!(FmiBoolean);
 impl_typed_arrayable_variable!(FmiBoolean);
 impl_initializable_variable!(FmiBoolean);
@@ -412,7 +413,7 @@ impl FmiString {
     }
 }
 
-impl_abstract_variable!(FmiString);
+impl_abstract_variable!(FmiString, Variability::Discrete);
 impl_arrayable_variable!(FmiString);
 impl_typed_arrayable_variable!(FmiString);
 impl_initializable_variable!(FmiString);
@@ -440,7 +441,7 @@ fn default_mime_type() -> String {
     "application/octet-stream".into()
 }
 
-impl_abstract_variable!(FmiBinary);
+impl_abstract_variable!(FmiBinary, Variability::Discrete);
 
 // #[derive(Debug, YaSerialize, YaDeserialize)]
 // #[yaserde(root = "ModelVariables")]
@@ -456,6 +457,18 @@ impl_abstract_variable!(FmiBinary);
 // Fmi3Variable::Float32(FmiFloat32::default())
 // }
 // }
+
+#[test]
+fn test_int16() {
+    let xml = r#"<Int16 name="Int16_input" valueReference="15" causality="input" start="0"/>"#;
+    let var: FmiInt16 = yaserde::de::from_str(xml).unwrap();
+
+    assert_eq!(var.name(), "Int16_input");
+    assert_eq!(var.value_reference(), 15);
+    assert_eq!(var.causality(), Causality::Input);
+    assert_eq!(var.start, 0);
+    assert_eq!(var.variability(), Variability::Discrete); // The default for non-float types should be discrete
+}
 
 #[test]
 fn test_float64() {
