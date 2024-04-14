@@ -3,7 +3,7 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
-use std::{path::PathBuf, str::FromStr};
+use std::{io::Cursor, path::PathBuf, str::FromStr};
 
 use arrow::{
     array::{AsArray, Float64Array},
@@ -299,7 +299,39 @@ fn test_bouncing_ball() {
 
 #[rstest::fixture]
 fn input_data() -> arrow::record_batch::RecordBatch {
-    fmi_sim::sim::util::read_csv("tests/data/feedthrough_in.csv").expect("Error reading input data")
+    fmi_sim::sim::util::read_csv_file("tests/data/feedthrough_in.csv")
+        .expect("Error reading input data")
+}
+
+#[rstest::fixture]
+fn feedthrough_output_data(
+    #[default(Interface::CoSimulation(Default::default()))] iface: Interface,
+) -> arrow::record_batch::RecordBatch {
+    let expected = match iface {
+        Interface::ModelExchange(..) => {
+            r#""time","Float32_continuous_output","Float32_discrete_output","Float64_continuous_output","Float64_discrete_output","Int8_output","UInt8_output","Int16_output","UInt16_output","Int32_output","UInt32_output","Int64_output","UInt64_output","Boolean_output","Binary_output","Enumeration_output"
+0,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+1,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+1,0,0,2,2,0,0,0,0,1,0,0,0,0,666f6f,1
+2,0,0,3,2,0,0,0,0,1,0,0,0,0,666f6f,1
+2,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+3,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+3,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
+4,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
+5,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1"#
+        }
+        Interface::CoSimulation(..) => {
+            r#""time","Float32_continuous_output","Float32_discrete_output","Float64_continuous_output","Float64_discrete_output","Int8_output","UInt8_output","Int16_output","UInt16_output","Int32_output","UInt32_output","Int64_output","UInt64_output","Boolean_output","Binary_output","Enumeration_output"
+0,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+1,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+2,0,0,2,2,0,0,0,0,1,0,0,0,0,666f6f,1
+3,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
+4,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
+5,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1"#
+        }
+    };
+    let mut cur = Cursor::new(expected);
+    fmi_sim::sim::util::read_csv(&mut cur).expect("Error reading output data")
 }
 
 #[rstest::rstest]
@@ -309,9 +341,10 @@ fn input_data() -> arrow::record_batch::RecordBatch {
 #[test_log::test]
 fn test_input_data(
     mut ref_fmus: fmi_test_data::ReferenceFmus,
-    input_data: arrow::record_batch::RecordBatch,
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
     #[case] interface: Interface,
+    input_data: arrow::record_batch::RecordBatch,
+    //#[with(interface)] feedthrough_output_data: arrow::record_batch::RecordBatch,
 ) {
     let (output, _) = match fmi_version {
         MajorVersion::FMI1 => unimplemented!(),
