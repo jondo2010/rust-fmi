@@ -16,6 +16,7 @@ include = [
     "examples/*.rs",
     "src/**/*.rs",
     "tests/*.rs",
+    "build.rs",
 ]
 
 [workspace.dependencies]
@@ -25,7 +26,7 @@ document-features = "0.2"
 fmi = { path = "fmi", version = "0.4.0" }
 fmi-schema = { path = "fmi-schema", version = "0.2.0", default_features = false }
 fmi-sim = { path = "fmi-sim", version = "0.1.0" }
-fmi-sys = { path = "fmi-sys", version = "0.1.0" }
+fmi-sys = { path = "fmi-sys", version = "0.1.1" }
 fmi-test-data = { path = "fmi-test-data", version = "0.1.0" }
 itertools = "0.12"
 libloading = "0.8"

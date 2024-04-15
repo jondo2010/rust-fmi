@@ -1,4 +1,6 @@
-//! Utilities for fetching test data from Modelica's Reference-FMUs repository
+#![doc=include_str!( "../README.md")]
+#![deny(unsafe_code)]
+#![deny(clippy::all)]
 
 use anyhow::Context;
 use fetch_data::{ctor, FetchData};

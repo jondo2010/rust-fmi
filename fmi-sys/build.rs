@@ -1,13 +1,14 @@
 use std::{env, path::PathBuf};
 
 fn main() {
-    #[cfg(feature = "fmi2")]
-    cc::Build::new()
-        .file("src/fmi2/logger.c")
-        .compile("liblogger.a");
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     #[cfg(feature = "fmi2")]
     {
+        cc::Build::new()
+            .file("src/fmi2/logger.c")
+            .compile("liblogger.a");
+
         let bindings = bindgen::Builder::default()
             .header("src/fmi2/hdrs/fmi2Functions.h")
             .dynamic_link_require_all(false)
@@ -17,7 +18,6 @@ fn main() {
             .generate()
             .expect("Unable to generate bindings");
 
-        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         bindings
             .write_to_file(out_path.join("fmi2_bindings.rs"))
             .expect("Couldn't write bindings!");
@@ -34,7 +34,6 @@ fn main() {
             .generate()
             .expect("Unable to generate bindings");
 
-        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         bindings
             .write_to_file(out_path.join("fmi3_bindings.rs"))
             .expect("Couldn't write bindings!");
