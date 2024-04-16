@@ -69,7 +69,7 @@ pub trait FmiInstance {
 
     /// The function controls the debug logging that is output by the FMU
     ///
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging]
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging>
     fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Self::Status;
 
     fn enter_initialization_mode(
@@ -83,14 +83,14 @@ pub trait FmiInstance {
 
     /// Changes state to [`Terminated`](https://fmi-standard.org/docs/3.0.1/#Terminated).
     ///
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3Terminate]
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3Terminate>
     fn terminate(&mut self) -> Self::Status;
 
     /// Is called by the environment to reset the FMU after a simulation run.
     /// The FMU goes into the same state as if newly created. All variables have their default
     /// values. Before starting a new run [`Common::enter_initialization_mode()`] has to be called.
     ///
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3Reset]
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3Reset>
     fn reset(&mut self) -> Self::Status;
 
     /// Get the number of values required to store the continuous states. Array dimensions are expanded.
@@ -110,7 +110,7 @@ pub trait FmiModelExchange: FmiInstance {
     /// instant. `update_discrete_states` must be called at least once per super-dense time
     /// instant.
     ///
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates]
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates>
     fn update_discrete_states(
         &mut self,
         discrete_states_need_update: &mut bool,

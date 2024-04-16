@@ -1,3 +1,9 @@
+#![doc=include_str!( "../README.md")]
+//! ## Feature flags
+#![doc = document_features::document_features!()]
+#![deny(unsafe_code)]
+#![deny(clippy::all)]
+
 use arrow::array::RecordBatch;
 use fmi::schema::{traits::FmiModelDescription, MajorVersion};
 use sim::SimStats;
