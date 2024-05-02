@@ -20,7 +20,7 @@ include = [
 ]
 
 [workspace.dependencies]
-anyhow = { version = "1.0" }
+anyhow = { version = "1.0.82" }
 arrow = { version = "50.0" }
 document-features = "0.2"
 fmi = { path = "fmi", version = "0.4.0" }
