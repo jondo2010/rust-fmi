@@ -30,7 +30,7 @@ se = []
 [dependencies]
 anyhow = { workspace = true }
 arrow = { workspace = true, features = ["csv", "prettyprint"] }
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5.4", features = ["derive"] }
 comfy-table = "7.1"
 document-features = { workspace = true }
 env_logger = "0.11"
