@@ -38,4 +38,4 @@ url = "2.2"
 zip = { workspace = true }
 
 [build-dependencies]
-built = "0.7"
+built = "0.7.2"
