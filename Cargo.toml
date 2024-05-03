@@ -28,7 +28,7 @@ fmi-schema = { path = "fmi-schema", version = "0.2.0", default_features = false 
 fmi-sim = { path = "fmi-sim", version = "0.1.0" }
 fmi-sys = { path = "fmi-sys", version = "0.1.1" }
 fmi-test-data = { path = "fmi-test-data", version = "0.1.0" }
-itertools = "0.12"
+itertools = "0.12.1"
 libloading = "0.8"
 tempfile = "3.1"
 test-log = { version = "0.2", features = ["trace"] }
