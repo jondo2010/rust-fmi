@@ -56,6 +56,7 @@ pub trait AbstractVariableTrait {
     fn causality(&self) -> Causality;
     fn variability(&self) -> Variability;
     fn can_handle_multiple_set_per_time_instant(&self) -> bool;
+    fn clocks(&self) -> &[u32];
     fn data_type(&self) -> VariableType;
 }
 
@@ -120,6 +121,14 @@ macro_rules! impl_abstract_variable {
                     .arrayable_var
                     .abstract_var
                     .can_handle_multiple_set_per_time_instant
+            }
+            fn clocks(&self) -> &[u32] {
+                &self
+                    .init_var
+                    .typed_arrayable_var
+                    .arrayable_var
+                    .abstract_var
+                    .clocks
             }
             fn data_type(&self) -> VariableType {
                 VariableType::$name
@@ -324,6 +333,17 @@ pub struct AbstractVariable {
     pub variability: Option<Variability>,
     #[yaserde(attribute, rename = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: bool,
+    /// If this boolean attribute is true, the variable can be accessed in Intermediate Update Mode. Variables with causality = parameter must not be marked with intermediateUpdate = true.
+    #[yaserde(attribute, rename = "intermediateUpdate")]
+    pub intermediate_update: Option<bool>,
+    ///If present, this variable is a <ClockedState> and this attribute contains the value reference of the variable with the previous value.
+    #[yaserde(attribute)]
+    pub previous: Option<u32>,
+    /// If present, this variable is clocked. The value of the attribute clocks is a non-empty list of value references
+    /// of Clocks this variable belongs to. Only variables with variability = discrete or variability = tunable can have
+    /// this attribute.
+    #[yaserde(attribute)]
+    pub clocks: Vec<u32>,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -429,9 +449,9 @@ pub struct BinaryStart {
 pub struct FmiBinary {
     #[yaserde(attribute, rename = "start")]
     pub start: Vec<BinaryStart>,
-    #[yaserde(attribute, default = "default_mime_type")]
+    #[yaserde(attribute, rename = "mimeType", default = "default_mime_type")]
     pub mime_type: String,
-    #[yaserde(attribute)]
+    #[yaserde(attribute, rename = "maxSize")]
     pub max_size: Option<u32>,
     #[yaserde(flatten)]
     pub init_var: InitializableVariable,
@@ -534,4 +554,29 @@ fn test_string() {
     assert_eq!(var.variability(), Variability::Fixed);
     assert_eq!(var.causality(), Causality::Parameter);
     assert_eq!(var.start().next().unwrap(), "Set me!");
+}
+
+#[test]
+fn test_binary() {
+    let xml = r#"
+    <Binary name="Node1.Rx_Data"
+        valueReference="0"
+        causality="input"
+        variability="discrete"
+        initial="exact"
+        maxSize="2048"
+        clocks="2"
+        mimeType="application/org.fmi-standard.fmi-ls-bus.can; version=&quot1.0.0-beta.1&quot">
+        <Dimension start="1" />
+        <Start value="" />
+    </Binary>"#;
+
+    let var: FmiBinary = yaserde::de::from_str(xml).unwrap();
+    assert_eq!(var.name(), "Node1.Rx_Data");
+    assert_eq!(var.value_reference(), 0);
+    assert_eq!(var.variability(), Variability::Discrete);
+    assert_eq!(var.causality(), Causality::Input);
+    //assert_eq!(var.initial(), Some(Initial::Exact));
+    assert_eq!(var.max_size, Some(2048));
+    //assert_eq!(var.clocks(), Some([2].as_ref()));
 }
