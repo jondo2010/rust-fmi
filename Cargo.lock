@@ -2691,11 +2691,11 @@ dependencies = [
 
 [[package]]
 name = "yaserde_derive"
-version = "0.9.2"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad72268af8b1cb89f8f53dec17b3c72277c19ba5492b50ffa829aebbf55a187f"
+checksum = "c073afd0840610a22ec32fd8716a56afd990f1b86bed1162fbe16d895a04079e"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "log",
  "proc-macro2",
  "quote",
