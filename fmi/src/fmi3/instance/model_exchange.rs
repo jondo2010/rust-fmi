@@ -35,7 +35,7 @@ impl<'a> Instance<'a, ME> {
         let instantiation_token = CString::new(schema.instantiation_token.as_bytes())
             .expect("Invalid instantiation token");
         let resource_path =
-            CString::new(import.resource_url().as_str()).expect("Invalid resource path");
+            CString::new(import.canonical_resource_path_string()).expect("Invalid resource path");
 
         let instance = unsafe {
             binding.fmi3InstantiateModelExchange(

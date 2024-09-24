@@ -73,6 +73,18 @@ impl FmiImport for Fmi3Import {
         log::debug!("Loading shared library {:?}", lib_path);
         unsafe { binding::Fmi3Binding::new(lib_path).map_err(Error::from) }
     }
+
+    /// Get a `String` representation of the resources path for this FMU
+    ///
+    /// As per the FMI3.0 standard, `resourcePath` is the absolute file path (with a trailing file separator) of the
+    /// resources directory of the extracted FMU archive.
+    fn canonical_resource_path_string(&self) -> String {
+        std::path::absolute(self.resource_path())
+            .expect("Invalid resource path")
+            .to_str()
+            .expect("Invalid resource path")
+            .to_owned()
+    }
 }
 
 impl Fmi3Import {

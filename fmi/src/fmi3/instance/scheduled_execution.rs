@@ -45,13 +45,13 @@ impl<'a> Instance<'a, SE> {
         let instantiation_token = CString::new(schema.instantiation_token.as_bytes())
             .expect("Invalid instantiation token");
         let resource_path =
-            CString::new(import.resource_url().as_str()).expect("Invalid resource path");
+            CString::new(import.canonical_resource_path_string()).expect("Invalid resource path");
 
         let instance = unsafe {
             binding.fmi3InstantiateScheduledExecution(
                 instance_name.as_ptr(),
                 instantiation_token.as_ptr(),
-                resource_path.as_ptr(),
+                resource_path.as_ptr() as binding::fmi3String,
                 visible,
                 logging_on,
                 std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
