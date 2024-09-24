@@ -75,10 +75,8 @@ impl FmiImport for Fmi2Import {
     ///
     /// As per the FMI standard, the resource location is a IETF URI to the resources directory.
     fn canonical_resource_path_string(&self) -> String {
-        let resource_path = self
-            .resource_path()
-            .canonicalize()
-            .expect("Invalid resource path");
+        let resource_path =
+            std::path::absolute(self.resource_path()).expect("Invalid resource path");
         url::Url::from_file_path(resource_path)
             .map(|url| url.as_str().to_owned())
             .expect("Error converting path to URL")
