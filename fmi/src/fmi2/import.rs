@@ -70,6 +70,19 @@ impl FmiImport for Fmi2Import {
         log::trace!("Loading shared library {:?}", lib_path);
         unsafe { binding::Fmi2Binding::new(lib_path).map_err(Error::from) }
     }
+
+    /// Get a `String` representation of the resources path for this FMU
+    ///
+    /// As per the FMI standard, the resource location is a IETF URI to the resources directory.
+    fn canonical_resource_path_string(&self) -> String {
+        let resource_path = self
+            .resource_path()
+            .canonicalize()
+            .expect("Invalid resource path");
+        url::Url::from_file_path(resource_path)
+            .map(|url| url.as_str().to_owned())
+            .expect("Error converting path to URL")
+    }
 }
 
 impl Fmi2Import {

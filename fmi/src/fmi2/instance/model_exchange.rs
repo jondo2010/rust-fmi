@@ -32,7 +32,7 @@ impl<'a> Instance<'a, ME> {
         let instance_name = CString::new(instance_name).expect("Error building CString");
         let guid = CString::new(schema.guid.as_bytes()).expect("Error building CString");
         let resource_url =
-            CString::new(import.resource_url().as_str()).expect("Error building CString");
+            CString::new(import.canonical_resource_path_string()).expect("Invalid resource path");
 
         let component = unsafe {
             let callback_functions = &*callbacks as *const CallbackFunctions;

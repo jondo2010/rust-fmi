@@ -29,10 +29,12 @@ pub trait FmiImport: Sized {
     fn shared_lib_path(&self, model_identifier: &str) -> Result<std::path::PathBuf, Error>;
 
     /// Return the path to the resources directory
-    fn resource_url(&self) -> url::Url {
-        url::Url::from_file_path(self.archive_path().join("resources"))
-            .expect("Error forming resource location URL")
+    fn resource_path(&self) -> std::path::PathBuf {
+        self.archive_path().join("resources")
     }
+
+    /// Return a canonical string representation of the resource path
+    fn canonical_resource_path_string(&self) -> String;
 
     /// Get a reference to the raw-schema model description
     fn model_description(&self) -> &Self::ModelDescription;

@@ -80,7 +80,7 @@ impl<'a> Instance<'a, CS> {
         let instantiation_token = CString::new(model_description.instantiation_token.as_bytes())
             .expect("Invalid instantiation token");
         let resource_path =
-            CString::new(import.resource_url().as_str()).expect("Invalid resource path");
+            CString::new(import.canonical_resource_path_string()).expect("Invalid resource path");
 
         // instanceEnvironment is a pointer that must be passed to fmi3IntermediateUpdateCallback,
         // fmi3ClockUpdateCallback, and fmi3LogMessageCallback to allow the simulation environment
