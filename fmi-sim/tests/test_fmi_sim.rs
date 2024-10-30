@@ -308,6 +308,7 @@ fn feedthrough_output_data(
     #[default(Interface::CoSimulation(Default::default()))] iface: Interface,
 ) -> arrow::record_batch::RecordBatch {
     let expected = match iface {
+        #[cfg(feature = "me")]
         Interface::ModelExchange(..) => {
             r#""time","Float32_continuous_output","Float32_discrete_output","Float64_continuous_output","Float64_discrete_output","Int8_output","UInt8_output","Int16_output","UInt16_output","Int32_output","UInt32_output","Int64_output","UInt64_output","Boolean_output","Binary_output","Enumeration_output"
 0,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
@@ -320,6 +321,7 @@ fn feedthrough_output_data(
 4,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
 5,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1"#
         }
+        #[cfg(feature = "cs")]
         Interface::CoSimulation(..) => {
             r#""time","Float32_continuous_output","Float32_discrete_output","Float64_continuous_output","Float64_discrete_output","Int8_output","UInt8_output","Int16_output","UInt16_output","Int32_output","UInt32_output","Int64_output","UInt64_output","Boolean_output","Binary_output","Enumeration_output"
 0,0,0,3,3,0,0,0,0,1,0,0,0,0,666f6f,1
@@ -329,6 +331,8 @@ fn feedthrough_output_data(
 4,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1
 5,0,0,3,3,0,0,0,0,2,0,0,0,0,666f6f,1"#
         }
+        #[cfg(feature = "se")]
+        Interface::ScheduledExecution(..) => unimplemented!(),
     };
     let mut cur = Cursor::new(expected);
     fmi_sim::sim::util::read_csv(&mut cur).expect("Error reading output data")
