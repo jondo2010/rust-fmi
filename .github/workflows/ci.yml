@@ -41,12 +41,6 @@ jobs:
       - name: toolchain version
         run: cargo -vV
 
-      - name: install deps
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: liblapack3
-          version: 1.0
-      
       - uses: giraffate/clippy-action@v1
         with:
           reporter: 'github-pr-review'
