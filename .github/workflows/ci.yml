@@ -11,11 +11,19 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
     strategy:
       matrix:
         toolchain: [stable, nightly]
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+        # Only test nightly on Linux
+        exclude:
+          - os: macos-latest
+            toolchain: nightly
+          - os: windows-latest
+            toolchain: nightly
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -33,12 +41,6 @@ jobs:
       - name: toolchain version
         run: cargo -vV
 
-      - name: install deps
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: liblapack3
-          version: 1.0
-      
       - uses: giraffate/clippy-action@v1
         with:
           reporter: 'github-pr-review'
