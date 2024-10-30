@@ -16,6 +16,16 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, nightly]
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+        # Only test nightly on Linux
+        exclude:
+          - os: macos-latest
+            toolchain: nightly
+          - os: windows-latest
+            toolchain: nightly
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
