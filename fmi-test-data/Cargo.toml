@@ -12,7 +12,7 @@ publish = true
 
 [dependencies]
 anyhow = { workspace = true }
-fetch-data = "0.1"
+fetch-data = "0.2"
 fmi = { workspace = true, features = ["fmi2", "fmi3"] }
 tempfile = { workspace = true }
 zip = { workspace = true }
