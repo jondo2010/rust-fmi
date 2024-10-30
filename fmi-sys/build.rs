@@ -7,11 +7,11 @@ fn main() {
     {
         cc::Build::new()
             .file("src/fmi2/logger.c")
-            .include("../fmi-standard/fmi2/headers")
+            .include("fmi-standard2/headers")
             .compile("liblogger.a");
 
         let bindings = bindgen::Builder::default()
-            .header("../fmi-standard/fmi2/headers/fmi2Functions.h")
+            .header("fmi-standard2/headers/fmi2Functions.h")
             .dynamic_link_require_all(false)
             .dynamic_library_name("Fmi2Binding")
             .allowlist_function("fmi2.*")
@@ -27,7 +27,7 @@ fn main() {
     #[cfg(feature = "fmi3")]
     {
         let bindings = bindgen::Builder::default()
-            .header("../fmi-standard/fmi3/headers/fmi3Functions.h")
+            .header("fmi-standard3/headers/fmi3Functions.h")
             .dynamic_link_require_all(false)
             .dynamic_library_name("Fmi3Binding")
             .allowlist_function("fmi3.*")
