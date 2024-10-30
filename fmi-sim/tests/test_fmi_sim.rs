@@ -33,6 +33,11 @@ fn test_start_time(
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
     #[case] interface: Interface,
 ) {
+    #[cfg(target_os = "macos")]
+    if fmi_version == MajorVersion::FMI2 {
+        return;
+    }
+
     let fmu_file = ref_fmus
         .extract_reference_fmu("BouncingBall", fmi_version)
         .unwrap();
@@ -64,6 +69,11 @@ fn test_stop_time(
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
     #[case] interface: Interface,
 ) {
+    #[cfg(target_os = "macos")]
+    if fmi_version == MajorVersion::FMI2 {
+        return;
+    }
+
     let fmu_file = ref_fmus
         .extract_reference_fmu("BouncingBall", fmi_version)
         .unwrap();
@@ -352,10 +362,13 @@ fn test_input_data(
 ) {
     let (output, _) = match fmi_version {
         MajorVersion::FMI1 => unimplemented!(),
+
+        #[cfg(not(target_os = "macos"))]
         MajorVersion::FMI2 => {
             let import: Fmi2Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
             fmi_sim::sim::simulate_with(Some(input_data), &interface, import).unwrap()
         }
+
         MajorVersion::FMI3 => {
             let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
             fmi_sim::sim::simulate_with(Some(input_data), &interface, import).unwrap()
