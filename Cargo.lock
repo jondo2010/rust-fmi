@@ -2767,9 +2767,9 @@ checksum = "af4e2e2f7cba5a093896c1e150fbfe177d1883e7448200efb81d40b9d339ef26"
 
 [[package]]
 name = "yaserde"
-version = "0.9.2"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caef36c14c52a48ebefe7c55192eb2edbbe7e0e2ac3671b7dd713f8179056428"
+checksum = "8bfa0d2b420fd005aa9b6f99f9584ebd964e6865d7ca787304cc1a3366c39231"
 dependencies = [
  "log",
  "xml-rs",
