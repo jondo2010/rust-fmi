@@ -108,9 +108,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.91"
+version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c042108f3ed77fd83760a5fd79b53be043192bb3b9dba91d8c574c0ada7850c8"
+checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
 name = "anyinput"
@@ -981,7 +981,7 @@ dependencies = [
  "document-features",
  "fmi-schema",
  "fmi-sys",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "libc",
  "libloading",
  "log",
@@ -1020,7 +1020,7 @@ dependencies = [
  "float-cmp",
  "fmi",
  "fmi-test-data",
- "itertools 0.14.0",
+ "itertools 0.12.1",
  "log",
  "num-traits",
  "rstest",
@@ -1316,6 +1316,15 @@ name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
+
+[[package]]
+name = "itertools"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
 
 [[package]]
 name = "itertools"
