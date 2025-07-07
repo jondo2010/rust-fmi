@@ -6,7 +6,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 #[yaserde(rename = "Unit")]
 /// Unit definition (with respect to SI base units) and default display units
 pub struct Fmi2Unit {
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub name: String,
     #[yaserde(rename = "BaseUnit")]
     /// BaseUnit_value = factor*Unit_value + offset
@@ -19,27 +19,27 @@ pub struct Fmi2Unit {
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct BaseUnit {
-    #[yaserde(attribute, rename = "kg")]
+    #[yaserde(attribute = true, rename = "kg")]
     /// Exponent of SI base unit "kg"
     pub kg: Option<i32>,
-    #[yaserde(attribute, rename = "m")]
+    #[yaserde(attribute = true, rename = "m")]
     /// Exponent of SI base unit "m"
     pub m: Option<i32>,
-    #[yaserde(attribute, rename = "s")]
+    #[yaserde(attribute = true, rename = "s")]
     pub s: Option<i32>,
-    #[yaserde(attribute, rename = "A")]
+    #[yaserde(attribute = true, rename = "A")]
     pub a: Option<i32>,
-    #[yaserde(attribute, rename = "K")]
+    #[yaserde(attribute = true, rename = "K")]
     pub k: Option<i32>,
-    #[yaserde(attribute, rename = "mol")]
+    #[yaserde(attribute = true, rename = "mol")]
     pub mol: Option<i32>,
-    #[yaserde(attribute, rename = "cd")]
+    #[yaserde(attribute = true, rename = "cd")]
     pub cd: Option<i32>,
-    #[yaserde(attribute, rename = "rad")]
+    #[yaserde(attribute = true, rename = "rad")]
     pub rad: Option<i32>,
-    #[yaserde(attribute, rename = "factor")]
+    #[yaserde(attribute = true, rename = "factor")]
     pub factor: Option<f64>,
-    #[yaserde(attribute, rename = "offset")]
+    #[yaserde(attribute = true, rename = "offset")]
     pub offset: Option<f64>,
 }
 
@@ -47,13 +47,13 @@ pub struct BaseUnit {
 pub struct DisplayUnit {
     //#[yaserde(rename = "Annotations")]
     // pub annotations: Option<Annotations>,
-    #[yaserde(attribute, rename = "name")]
+    #[yaserde(attribute = true, rename = "name")]
     pub name: String,
-    #[yaserde(attribute, rename = "factor")]
+    #[yaserde(attribute = true, rename = "factor")]
     pub factor: Option<f64>,
-    #[yaserde(attribute, rename = "offset")]
+    #[yaserde(attribute = true, rename = "offset")]
     pub offset: Option<f64>,
-    #[yaserde(attribute, rename = "inverse")]
+    #[yaserde(attribute = true, rename = "inverse")]
     pub inverse: Option<bool>,
 }
 

@@ -8,6 +8,6 @@ pub struct Fmi3Annotations {
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Annotation {
-    #[yaserde(attribute = "type")]
+    #[yaserde(attribute = true)]
     pub r#type: String,
 }

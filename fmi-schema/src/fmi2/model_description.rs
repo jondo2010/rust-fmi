@@ -1,6 +1,6 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use crate::{traits::FmiModelDescription, Error};
+use crate::{default_wrapper, traits::FmiModelDescription, Error};
 
 use super::{
     CoSimulation, Fmi2Unit, Fmi2VariableDependency, ModelExchange, ScalarVariable, SimpleType,
@@ -10,52 +10,52 @@ use super::{
 pub struct Fmi2ModelDescription {
     /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
     /// as "2.0").
-    #[yaserde(attribute, rename = "fmiVersion")]
+    #[yaserde(attribute = true, rename = "fmiVersion")]
     pub fmi_version: String,
 
     /// The name of the model as used in the modeling environment that generated the XML file, such
     /// as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
-    #[yaserde(attribute, rename = "modelName")]
+    #[yaserde(attribute = true, rename = "modelName")]
     pub model_name: String,
 
     /// Fingerprint of xml-file content to verify that xml-file and C-functions are compatible to
     /// each other
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub guid: String,
 
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub description: Option<String>,
 
     /// Version of FMU, e.g., "1.4.1"
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub version: Option<String>,
 
     /// Information on intellectual property copyright for this FMU, such as “© MyCompany 2011“
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub copyright: Option<String>,
 
     /// Information on intellectual property licensing for this FMU, such as “BSD license”,
     /// "Proprietary", or "Public Domain"
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub license: Option<String>,
 
     /// Name of the tool that generated the XML file.
-    #[yaserde(attribute, rename = "generationTool")]
-    pub generation_tool: String,
+    #[yaserde(attribute = true, rename = "generationTool")]
+    pub generation_tool: Option<String>,
 
     /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
     /// Date and time when the XML file was generated. The format is a subset of dateTime and
     /// should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the
     /// Zulu time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
-    #[yaserde(attribute, rename = "generationDateAndTime")]
+    #[yaserde(attribute = true, rename = "generationDateAndTime")]
     pub generation_date_and_time: Option<String>,
 
     /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
     /// particular convention.
-    #[yaserde(attribute, rename = "variableNamingConvention")]
+    #[yaserde(attribute = true, rename = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
 
-    #[yaserde(attribute, rename = "numberOfEventIndicators")]
+    #[yaserde(attribute = true, rename = "numberOfEventIndicators")]
     pub number_of_event_indicators: u32,
 
     /// If present, the FMU is based on FMI for Model Exchange
@@ -254,26 +254,30 @@ pub struct LogCategories {
 
 #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Category {
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub name: String,
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub description: String,
 }
 
 #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct DefaultExperiment {
-    #[yaserde(attribute, rename = "startTime")]
+    #[yaserde(attribute = true, default = "default_start_time", rename = "startTime")]
     pub start_time: f64,
-    #[yaserde(attribute, default = "default_stop_time", rename = "stopTime")]
+    #[yaserde(attribute = true, default = "default_stop_time", rename = "stopTime")]
     pub stop_time: f64,
-    #[yaserde(attribute, default = "default_tolerance", rename = "tolerance")]
+    #[yaserde(attribute = true, default = "default_tolerance", rename = "tolerance")]
     pub tolerance: f64,
 }
 
-fn default_stop_time() -> f64 {
+const fn default_start_time() -> f64 {
+    0.0
+}
+
+const fn default_stop_time() -> f64 {
     10.0
 }
-fn default_tolerance() -> f64 {
+const fn default_tolerance() -> f64 {
     1e-3
 }
 
@@ -301,10 +305,10 @@ pub struct ModelStructure {
     #[yaserde(rename = "Outputs")]
     pub outputs: UnknownList,
 
-    #[yaserde(rename = "Derivatives")]
+    #[yaserde(rename = "Derivatives", default = "default_wrapper")]
     pub derivatives: UnknownList,
 
-    #[yaserde(rename = "InitialUnknowns")]
+    #[yaserde(rename = "InitialUnknowns", default = "default_wrapper")]
     pub initial_unknowns: UnknownList,
 }
 

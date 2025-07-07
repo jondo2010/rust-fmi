@@ -9,29 +9,29 @@ pub trait BaseTypeTrait {
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct TypeDefinitionBase {
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub name: String,
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub description: Option<String>,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float32Type {
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     pub base: TypeDefinitionBase,
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     pub base_attr: RealBaseAttributes,
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     pub attr: Float32Attributes,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Float64Type {
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     pub base: TypeDefinitionBase,
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     pub base_attr: RealBaseAttributes,
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     pub attr: Float64Attributes,
 }
 

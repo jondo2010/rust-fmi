@@ -30,5 +30,5 @@ itertools = "0.14"
 lenient_semver = "0.4"
 semver = "1.0"
 thiserror = { workspace = true }
-yaserde = "0.9.2"
-yaserde_derive = "0.9.2"
+yaserde = "0.12"
+yaserde_derive = "0.12"
