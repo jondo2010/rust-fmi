@@ -6,7 +6,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Fmi2VariableDependency {
     /// ScalarVariable index of Unknown
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub index: u32,
 
     /// Defines the dependency of the Unknown (directly or indirectly via auxiliary variables) on
@@ -17,7 +17,7 @@ pub struct Fmi2VariableDependency {
     /// empty list, the Unknown depends on none of the Knowns. Otherwise the Unknown depends on
     /// the Knowns defined by the given [`super::ScalarVariable`] indices. The indices are
     /// ordered according to size, starting with the smallest index.
-    #[yaserde(attribute, rename = "dependencies")]
+    #[yaserde(attribute = true, rename = "dependencies")]
     pub dependencies: Vec<u32>,
 
     /// If not present, it must be assumed that the Unknown depends on the Knowns without a
@@ -31,7 +31,7 @@ pub struct Fmi2VariableDependency {
     ///
     /// If [`Self::dependencies_kind`] is present, [`Self::dependencies`] must be present and must
     /// have the same number of list elements.
-    #[yaserde(child, attribute, rename = "dependenciesKind")]
+    #[yaserde(attribute = true, rename = "dependenciesKind")]
     pub dependencies_kind: Vec<DependenciesKind>,
 }
 

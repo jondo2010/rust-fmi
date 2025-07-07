@@ -13,55 +13,55 @@ use super::{
 #[yaserde(rename = "fmiModelDescription")]
 pub struct Fmi3ModelDescription {
     /// Version of FMI that was used to generate the XML file.
-    #[yaserde(attribute, rename = "fmiVersion")]
+    #[yaserde(attribute = true, rename = "fmiVersion")]
     pub fmi_version: String,
 
     /// The name of the model as used in the modeling environment that generated the XML file, such
     /// as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
-    #[yaserde(attribute, rename = "modelName")]
+    #[yaserde(attribute = true, rename = "modelName")]
     pub model_name: String,
 
     /// The instantiationToken is a string that can be used by the FMU to check that the XML file
     /// is compatible with the implementation of the FMU.
-    #[yaserde(attribute, rename = "instantiationToken")]
+    #[yaserde(attribute = true, rename = "instantiationToken")]
     pub instantiation_token: String,
 
     /// Optional string with a brief description of the model.
-    #[yaserde(attribute, rename = "description")]
+    #[yaserde(attribute = true, rename = "description")]
     pub description: Option<String>,
 
     /// String with the name and organization of the model author.
-    #[yaserde(attribute, rename = "author")]
+    #[yaserde(attribute = true, rename = "author")]
     pub author: Option<String>,
 
     /// Version of the model [for example 1.0].
-    #[yaserde(attribute, rename = "version")]
+    #[yaserde(attribute = true, rename = "version")]
     pub version: Option<String>,
 
     /// Information on the intellectual property copyright for this FMU [for example © My Company
     /// 2011].
-    #[yaserde(attribute, rename = "copyright")]
+    #[yaserde(attribute = true, rename = "copyright")]
     pub copyright: Option<String>,
 
     /// Information on the intellectual property licensing for this FMU [for example BSD license
     /// <license text or link to license>].
-    #[yaserde(attribute, rename = "license")]
+    #[yaserde(attribute = true, rename = "license")]
     pub license: Option<String>,
 
     /// Name of the tool that generated the XML file.
-    #[yaserde(attribute, rename = "generationTool")]
+    #[yaserde(attribute = true, rename = "generationTool")]
     pub generation_tool: Option<String>,
 
     ///  Date and time when the XML file was generated. The format is a subset of dateTime and
     /// should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu
     /// time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
-    #[yaserde(attribute, rename = "generationDateAndTime")]
+    #[yaserde(attribute = true, rename = "generationDateAndTime")]
     // pub generation_date_and_time: Option<DateTime>,
     pub generation_date_and_time: Option<String>,
 
     /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
     /// particular convention.
-    #[yaserde(attribute, rename = "variableNamingConvention")]
+    #[yaserde(attribute = true, rename = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
 
     /// If present, the FMU is based on FMI for Model Exchange
@@ -91,7 +91,7 @@ pub struct Fmi3ModelDescription {
     #[yaserde(rename = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
 
-    #[yaserde(rename = "ModelVariables")]
+    #[yaserde(rename = "ModelVariables", default = "default_model_variables")]
     pub model_variables: ModelVariables,
 
     /// The model structure defines the dependency structure of the model variables.
@@ -100,6 +100,10 @@ pub struct Fmi3ModelDescription {
 
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
+}
+
+fn default_model_variables() -> ModelVariables {
+    ModelVariables::default()
 }
 
 impl FmiModelDescription for Fmi3ModelDescription {
@@ -120,7 +124,6 @@ pub struct UnitDefinitions {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(root = "TypeDefinitions")]
 pub struct TypeDefinitions {
     #[yaserde(rename = "Float32Type")]
     pub float32types: Vec<Float32Type>,
@@ -129,20 +132,18 @@ pub struct TypeDefinitions {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(root = "LogCategories")]
 pub struct LogCategories {
     #[yaserde(rename = "Category")]
     pub categories: Vec<Category>,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(root = "Category")]
 pub struct Category {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub name: String,
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub description: Option<String>,
 }
 
@@ -150,18 +151,17 @@ pub struct Category {
 pub struct DefaultExperiment {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
-    #[yaserde(attribute, rename = "startTime")]
+    #[yaserde(attribute = true, rename = "startTime")]
     pub start_time: Option<f64>,
-    #[yaserde(attribute, rename = "stopTime")]
+    #[yaserde(attribute = true, rename = "stopTime")]
     pub stop_time: Option<f64>,
-    #[yaserde(attribute, rename = "tolerance")]
+    #[yaserde(attribute = true, rename = "tolerance")]
     pub tolerance: Option<f64>,
-    #[yaserde(attribute, rename = "stepSize")]
+    #[yaserde(attribute = true, rename = "stepSize")]
     pub step_size: Option<f64>,
 }
 
 #[derive(Default, Debug, YaDeserialize)]
-#[yaserde(root = "ModelVariables")]
 pub struct ModelVariables {
     #[yaserde(rename = "Float32")]
     pub float32: Vec<FmiFloat32>,
@@ -234,7 +234,6 @@ impl ModelVariables {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(root = "ModelStructure")]
 pub struct ModelStructure {
     #[yaserde(rename = "Output")]
     pub outputs: Vec<Fmi3Unknown>,
@@ -252,9 +251,12 @@ pub struct ModelStructure {
     pub event_indicator: Vec<Fmi3Unknown>,
 }
 
-#[test]
-fn test_model_descr() {
-    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_model_descr() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
     <fmiModelDescription
         fmiVersion="3.0-beta.2"
         modelName="FMI3"
@@ -269,38 +271,38 @@ fn test_model_descr() {
         </ModelStructure>
     </fmiModelDescription>"#;
 
-    let md: Fmi3ModelDescription = yaserde::de::from_str(xml).unwrap();
+        let md: Fmi3ModelDescription = yaserde::de::from_str(xml).unwrap();
 
-    assert_eq!(md.fmi_version, "3.0-beta.2");
-    assert_eq!(md.model_name, "FMI3");
-    assert_eq!(md.instantiation_token, "{fmi3}");
-    assert_eq!(md.description.as_deref(), Some("FMI3 Test FMU"));
-    assert_eq!(md.variable_naming_convention.as_deref(), Some("flat"));
-    assert_eq!(md.generation_tool.as_deref(), Some("FMI3"));
-    assert_eq!(
-        md.default_experiment,
-        Some(DefaultExperiment {
-            start_time: Some(0.0),
-            stop_time: Some(3.0),
-            step_size: Some(1e-3),
-            ..Default::default()
-        })
-    );
-    assert_eq!(
-        md.model_structure,
-        ModelStructure {
-            outputs: vec![Fmi3Unknown {
-                value_reference: 1,
+        assert_eq!(md.fmi_version, "3.0-beta.2");
+        assert_eq!(md.model_name, "FMI3");
+        assert_eq!(md.instantiation_token, "{fmi3}");
+        assert_eq!(md.description.as_deref(), Some("FMI3 Test FMU"));
+        assert_eq!(md.variable_naming_convention.as_deref(), Some("flat"));
+        assert_eq!(md.generation_tool.as_deref(), Some("FMI3"));
+        assert_eq!(
+            md.default_experiment,
+            Some(DefaultExperiment {
+                start_time: Some(0.0),
+                stop_time: Some(3.0),
+                step_size: Some(1e-3),
                 ..Default::default()
-            }],
-            ..Default::default()
-        }
-    );
-}
+            })
+        );
+        assert_eq!(
+            md.model_structure,
+            ModelStructure {
+                outputs: vec![Fmi3Unknown {
+                    value_reference: 1,
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }
+        );
+    }
 
-#[test]
-fn test_model_variables() {
-    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+    #[test]
+    fn test_model_variables() {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
 <ModelVariables>
     <Float64 name="time" valueReference="0" causality="independent" variability="continuous"/>
 
@@ -356,23 +358,24 @@ fn test_model_variables() {
     <Enumeration name="Enumeration_output" declaredType="Option" valueReference="33" causality="output"/>
 </ModelVariables>"#;
 
-    let mv: ModelVariables = yaserde::de::from_str(xml).unwrap();
+        let mv: ModelVariables = yaserde::de::from_str(xml).unwrap();
 
-    assert_eq!(mv.float32.len(), 4);
-    assert_eq!(mv.float64.len(), 7);
-    assert_eq!(mv.int8.len(), 2);
-    assert_eq!(mv.uint8.len(), 2);
-    assert_eq!(mv.int16.len(), 2);
-    assert_eq!(mv.uint16.len(), 2);
-    assert_eq!(mv.int32.len(), 2);
-    assert_eq!(mv.uint32.len(), 2);
-    assert_eq!(mv.int64.len(), 2);
-    assert_eq!(mv.uint64.len(), 2);
-    assert_eq!(mv.boolean.len(), 2);
-    assert_eq!(mv.boolean[0].name(), "Boolean_input");
-    assert_eq!(mv.boolean[0].causality(), crate::fmi3::Causality::Input);
-    assert_eq!(mv.boolean[0].start, vec![false]);
-    assert_eq!(mv.string.len(), 1);
-    // assert_eq!(mv.binary.len(), 2);
-    // assert_eq!(mv.enumeration.len(), 2);
+        assert_eq!(mv.float32.len(), 4);
+        assert_eq!(mv.float64.len(), 7);
+        assert_eq!(mv.int8.len(), 2);
+        assert_eq!(mv.uint8.len(), 2);
+        assert_eq!(mv.int16.len(), 2);
+        assert_eq!(mv.uint16.len(), 2);
+        assert_eq!(mv.int32.len(), 2);
+        assert_eq!(mv.uint32.len(), 2);
+        assert_eq!(mv.int64.len(), 2);
+        assert_eq!(mv.uint64.len(), 2);
+        assert_eq!(mv.boolean.len(), 2);
+        assert_eq!(mv.boolean[0].name(), "Boolean_input");
+        assert_eq!(mv.boolean[0].causality(), crate::fmi3::Causality::Input);
+        assert_eq!(mv.boolean[0].start, vec![false]);
+        assert_eq!(mv.string.len(), 1);
+        // assert_eq!(mv.binary.len(), 2);
+        // assert_eq!(mv.enumeration.len(), 2);
+    }
 }

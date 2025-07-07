@@ -22,9 +22,9 @@ use crate::traits::FmiModelDescription;
 #[derive(Default, PartialEq, Debug, YaDeserialize)]
 #[yaserde(rename = "fmiModelDescription")]
 pub struct MinModelDescription {
-    #[yaserde(attribute, rename = "fmiVersion")]
+    #[yaserde(attribute = true, rename = "fmiVersion")]
     pub fmi_version: String,
-    #[yaserde(attribute, rename = "modelName")]
+    #[yaserde(attribute = true, rename = "modelName")]
     pub model_name: String,
 }
 

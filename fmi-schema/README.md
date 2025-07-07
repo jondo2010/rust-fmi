@@ -19,11 +19,11 @@ The FMI version can initially be determined in a non-specific way by using [`min
 
 ```rust,no_run
 # use std::str::FromStr;
+#[cfg(feature = "fmi3")]
 let md = fmi_schema::fmi3::Fmi3ModelDescription::from_str(
     std::fs::read_to_string("tests/FMI3.xml").unwrap().as_str(),
 )
 .unwrap();
-println!("{}", md.model_name);
 ```
 
 ## License

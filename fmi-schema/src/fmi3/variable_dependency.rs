@@ -22,11 +22,11 @@ pub enum DependenciesKind {
 pub struct Fmi3Unknown {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
-    #[yaserde(attribute, rename = "valueReference")]
+    #[yaserde(attribute = true, rename = "valueReference")]
     pub value_reference: u32,
-    #[yaserde(attribute, rename = "dependencies")]
+    #[yaserde(attribute = true, rename = "dependencies")]
     pub dependencies: Vec<u32>,
-    #[yaserde(attribute, rename = "dependenciesKind")]
+    #[yaserde(attribute = true, rename = "dependenciesKind")]
     pub dependencies_kind: Vec<DependenciesKind>,
 }
 

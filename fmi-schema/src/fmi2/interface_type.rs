@@ -5,7 +5,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 pub struct File {
     /// Name of the file including the path relative to the sources directory, using the forward
     /// slash as separator (for example: name = "myFMU.c"; name = "modelExchange/solve.c")
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     pub name: String,
 }
 
@@ -21,85 +21,85 @@ pub struct SourceFiles {
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct ModelExchange {
     /// Short class name according to C-syntax
-    #[yaserde(attribute, rename = "modelIdentifier")]
+    #[yaserde(attribute = true, rename = "modelIdentifier")]
     pub model_identifier: String,
 
     /// If true, a tool is needed to execute the model and the FMU just contains the communication
     /// to this tool.
-    #[yaserde(attribute, rename = "needsExecutionTool")]
-    pub needs_execution_tool: bool,
+    #[yaserde(attribute = true, rename = "needsExecutionTool")]
+    pub needs_execution_tool: Option<bool>,
 
-    #[yaserde(attribute, rename = "completedIntegratorStepNotNeeded")]
-    pub completed_integrator_step_not_needed: bool,
+    #[yaserde(attribute = true, rename = "completedIntegratorStepNotNeeded")]
+    pub completed_integrator_step_not_needed: Option<bool>,
 
-    #[yaserde(attribute, rename = "canBeInstantiatedOnlyOncePerProcess")]
-    pub can_be_instantiated_only_once_per_process: bool,
+    #[yaserde(attribute = true, rename = "canBeInstantiatedOnlyOncePerProcess")]
+    pub can_be_instantiated_only_once_per_process: Option<bool>,
 
-    #[yaserde(attribute, rename = "canNotUseMemoryManagementFunctions")]
-    pub can_not_use_memory_management_functions: bool,
+    #[yaserde(attribute = true, rename = "canNotUseMemoryManagementFunctions")]
+    pub can_not_use_memory_management_functions: Option<bool>,
 
-    #[yaserde(attribute, rename = "canGetAndSetFMUstate")]
-    pub can_get_and_set_fmu_state: bool,
+    #[yaserde(attribute = true, rename = "canGetAndSetFMUstate")]
+    pub can_get_and_set_fmu_state: Option<bool>,
 
-    #[yaserde(attribute, rename = "canSerializeFMUstate")]
-    pub can_serialize_fmu_state: bool,
+    #[yaserde(attribute = true, rename = "canSerializeFMUstate")]
+    pub can_serialize_fmu_state: Option<bool>,
 
     /// If true, the directional derivative of the equations can be computed with
     /// fmi2GetDirectionalDerivative
-    #[yaserde(attribute, rename = "providesDirectionalDerivative")]
-    pub provides_directional_derivative: bool,
+    #[yaserde(attribute = true, rename = "providesDirectionalDerivative")]
+    pub provides_directional_derivative: Option<bool>,
 
     /// List of source file names that are present in the "sources" directory of the FMU and need
     /// to be compiled in order to generate the binary of the FMU (only meaningful for source
     /// code FMUs).
     #[yaserde(rename = "SourceFiles")]
-    pub source_files: SourceFiles,
+    pub source_files: Option<SourceFiles>,
 }
 
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 pub struct CoSimulation {
     /// Short class name according to C-syntax
-    #[yaserde(attribute, rename = "modelIdentifier")]
+    #[yaserde(attribute = true, rename = "modelIdentifier")]
     pub model_identifier: String,
 
     /// If true, a tool is needed to execute the model and the FMU just contains the communication
     /// to this tool.
-    #[yaserde(attribute, rename = "needsExecutionTool")]
-    pub needs_execution_tool: bool,
+    #[yaserde(attribute = true, rename = "needsExecutionTool")]
+    pub needs_execution_tool: Option<bool>,
 
-    #[yaserde(attribute, rename = "canHandleVariableCommunicationStepSize")]
-    pub can_handle_variable_communication_step_size: bool,
+    #[yaserde(attribute = true, rename = "canHandleVariableCommunicationStepSize")]
+    pub can_handle_variable_communication_step_size: Option<bool>,
 
-    #[yaserde(attribute, rename = "canInterpolateInputs")]
-    pub can_interpolate_inputs: bool,
+    #[yaserde(attribute = true, rename = "canInterpolateInputs")]
+    pub can_interpolate_inputs: Option<bool>,
 
-    #[yaserde(attribute, rename = "maxOutputDerivativeOrder")]
-    pub max_output_derivative_order: u32,
+    #[yaserde(attribute = true, rename = "maxOutputDerivativeOrder")]
+    pub max_output_derivative_order: Option<u32>,
 
-    #[yaserde(attribute, rename = "canRunAsynchronuously")]
-    pub can_run_asynchronuously: bool,
+    #[yaserde(attribute = true, rename = "canRunAsynchronuously")]
+    pub can_run_asynchronuously: Option<bool>,
 
-    #[yaserde(attribute, rename = "canBeInstantiatedOnlyOncePerProcess")]
-    pub can_be_instantiated_only_once_per_process: bool,
+    #[yaserde(attribute = true, rename = "canBeInstantiatedOnlyOncePerProcess")]
+    pub can_be_instantiated_only_once_per_process: Option<bool>,
 
-    #[yaserde(attribute, rename = "canNotUseMemoryManagementFunctions")]
-    pub can_not_use_memory_management_functions: bool,
+    #[yaserde(attribute = true, rename = "canNotUseMemoryManagementFunctions")]
+    pub can_not_use_memory_management_functions: Option<bool>,
 
-    #[yaserde(attribute, rename = "canGetAndSetFMUstate")]
-    pub can_get_and_set_fmu_state: bool,
+    #[yaserde(attribute = true, rename = "canGetAndSetFMUstate")]
+    pub can_get_and_set_fmu_state: Option<bool>,
 
-    #[yaserde(attribute, rename = "canSerializeFMUstate")]
-    pub can_serialize_fmu_state: bool,
+    #[yaserde(attribute = true, rename = "canSerializeFMUstate")]
+    pub can_serialize_fmu_state: Option<bool>,
 
     /// Directional derivatives at communication points
-    #[yaserde(attribute, rename = "providesDirectionalDerivative")]
-    pub provides_directional_derivative: bool,
+    #[yaserde(attribute = true, rename = "providesDirectionalDerivative")]
+    pub provides_directional_derivative: Option<bool>,
 
     /// List of source file names that are present in the "sources" directory of the FMU and need
     /// to be compiled in order to generate the binary of the FMU (only meaningful for source
     /// code FMUs).
     #[yaserde(rename = "SourceFiles")]
-    pub source_files: SourceFiles,
+    pub source_files: Option<SourceFiles>,
 }
 
 #[cfg(test)]

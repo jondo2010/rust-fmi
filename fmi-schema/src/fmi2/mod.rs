@@ -90,7 +90,6 @@ impl VariableCounts for ModelVariables {
                     Causality::Independent => {
                         cts.num_independent += 1;
                     }
-                    _ => {}
                 }
                 match sv.elem {
                     ScalarVariableElement::Real { .. } => {

@@ -4,9 +4,9 @@ use super::attribute_groups::{IntegerAttributes, RealAttributes};
 
 #[derive(Debug, PartialEq, YaSerialize, YaDeserialize)]
 pub enum SimpleTypeElement {
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     Real(RealAttributes),
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     Integer(IntegerAttributes),
     #[yaserde()]
     Boolean,
@@ -26,16 +26,16 @@ impl Default for SimpleTypeElement {
 #[yaserde()]
 /// Type attributes of a scalar variable
 pub struct SimpleType {
-    #[yaserde(flatten)]
+    #[yaserde(flatten = true)]
     pub elem: SimpleTypeElement,
 
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     /// Name of SimpleType element. "name" must be unique with respect to all other elements of the
     /// TypeDefinitions list. Furthermore, "name" of a SimpleType must be different to all
     /// "name"s of ScalarVariable.
     pub name: String,
 
-    #[yaserde(attribute)]
+    #[yaserde(attribute = true)]
     /// Description of the SimpleType
     pub description: Option<String>,
 }

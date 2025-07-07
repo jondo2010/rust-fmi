@@ -44,3 +44,10 @@ pub enum Error {
     #[error("Error parsing XML: {0}")]
     XmlParse(String),
 }
+
+/// A helper function to provide a default value for types that implement `Default`.
+/// This is used in the schema definitions to provide default values for fields.
+#[inline]
+fn default_wrapper<T: Default>() -> T {
+    T::default()
+}

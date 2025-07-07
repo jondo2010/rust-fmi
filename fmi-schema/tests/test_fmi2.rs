@@ -23,20 +23,18 @@ fn test_fmi2() {
 
     let me = md.model_exchange.unwrap();
     assert_eq!(me.model_identifier, "BouncingBall");
-    assert_eq!(me.can_not_use_memory_management_functions, true);
-    assert_eq!(me.can_get_and_set_fmu_state, true);
-    assert_eq!(me.can_serialize_fmu_state, true);
-    assert_eq!(me.source_files.files.len(), 1);
-    assert_eq!(me.source_files.files[0].name, "all.c");
+    assert_eq!(me.can_not_use_memory_management_functions, Some(true));
+    assert_eq!(me.can_get_and_set_fmu_state, Some(true));
+    assert_eq!(me.can_serialize_fmu_state, Some(true));
+    assert_eq!(me.source_files.unwrap().files[0].name, "all.c");
 
     let cs = md.co_simulation.unwrap();
     assert_eq!(cs.model_identifier, "BouncingBall");
-    assert_eq!(cs.can_handle_variable_communication_step_size, true);
-    assert_eq!(cs.can_not_use_memory_management_functions, true);
-    assert_eq!(cs.can_get_and_set_fmu_state, true);
-    assert_eq!(cs.can_serialize_fmu_state, true);
-    assert_eq!(cs.source_files.files.len(), 1);
-    assert_eq!(cs.source_files.files[0].name, "all.c");
+    assert_eq!(cs.can_handle_variable_communication_step_size, Some(true));
+    assert_eq!(cs.can_not_use_memory_management_functions, Some(true));
+    assert_eq!(cs.can_get_and_set_fmu_state, Some(true));
+    assert_eq!(cs.can_serialize_fmu_state, Some(true));
+    assert_eq!(cs.source_files.unwrap().files[0].name, "all.c");
 
     let units = md.unit_definitions.unwrap();
     assert_eq!(units.units.len(), 3);

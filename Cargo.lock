@@ -2127,6 +2127,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_tokenstream"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64060d864397305347a78851c51588fd283767e7e7589829e8121d65512340f1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.85",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2767,9 +2779,9 @@ checksum = "af4e2e2f7cba5a093896c1e150fbfe177d1883e7448200efb81d40b9d339ef26"
 
 [[package]]
 name = "yaserde"
-version = "0.9.2"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caef36c14c52a48ebefe7c55192eb2edbbe7e0e2ac3671b7dd713f8179056428"
+checksum = "8bfa0d2b420fd005aa9b6f99f9584ebd964e6865d7ca787304cc1a3366c39231"
 dependencies = [
  "log",
  "xml-rs",
@@ -2777,15 +2789,17 @@ dependencies = [
 
 [[package]]
 name = "yaserde_derive"
-version = "0.9.2"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad72268af8b1cb89f8f53dec17b3c72277c19ba5492b50ffa829aebbf55a187f"
+checksum = "1f785831c0e09e0f1a83f917054fd59c088f6561db5b2a42c1c3e1687329325f"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "log",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "serde",
+ "serde_tokenstream",
+ "syn 2.0.85",
  "xml-rs",
 ]
 
