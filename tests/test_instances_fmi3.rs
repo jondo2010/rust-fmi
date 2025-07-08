@@ -56,8 +56,8 @@ fn test_instance() {
         .completed_integrator_step(false, &mut enter_event_mode, &mut terminate_simulation)
         .ok()
         .unwrap();
-    assert_eq!(enter_event_mode, false);
-    assert_eq!(terminate_simulation, false);
+    assert!(!enter_event_mode);
+    assert!(!terminate_simulation);
 
     let mut ders = vec![0.0; states.len()];
     inst1

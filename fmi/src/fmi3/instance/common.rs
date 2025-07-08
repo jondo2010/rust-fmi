@@ -250,7 +250,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         .into()
     }
 
-    #[cfg(disabled)]
+    #[cfg(false)]
     fn get_fmu_state<T>(
         &mut self,
         state: Option<Fmu3State<'_, T>>,

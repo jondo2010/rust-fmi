@@ -70,7 +70,7 @@ impl FmiImport for Fmi3Import {
             .dir
             .path()
             .join(self.shared_lib_path(model_identifier)?);
-        log::debug!("Loading shared library {:?}", lib_path);
+        log::debug!("Loading shared library {lib_path:?}");
         unsafe { binding::Fmi3Binding::new(lib_path).map_err(Error::from) }
     }
 
@@ -89,7 +89,7 @@ impl FmiImport for Fmi3Import {
 
 impl Fmi3Import {
     /// Build a derived model description from the raw-schema model description
-    #[cfg(feature = "disabled")]
+    #[cfg(false)]
     pub fn model(&self) -> &model::ModelDescription {
         &self.model
     }

@@ -99,6 +99,6 @@ mod tests {
         let mut euler = <Euler as Solver<SimpleModel>>::new(0.0, 1e-6, 1, 1, ());
         let (time, state_event) = euler.step(&mut SimpleModel, 1.0).unwrap();
         assert_eq!(time, 1.0);
-        assert_eq!(state_event, false);
+        assert!(!state_event);
     }
 }

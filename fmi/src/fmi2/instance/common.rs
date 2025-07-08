@@ -209,7 +209,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         .into()
     }
 
-    #[cfg(feature = "disabled")]
+    #[cfg(false)]
     fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef) {
         use arrow::datatypes::DataType;
         match values.data_type() {

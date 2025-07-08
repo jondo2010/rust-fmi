@@ -35,7 +35,7 @@ pub fn simulate(options: &options::FmiSimOptions) -> Result<(RecordBatch, SimSta
     let mini_descr = fmi::import::peek_descr_path(&options.model)?;
     let version = mini_descr.major_version().map_err(fmi::Error::from)?;
 
-    log::debug!("Loaded {:?}", mini_descr);
+    log::debug!("Loaded {mini_descr:?}");
 
     // Read optional input data
     let input_data = options

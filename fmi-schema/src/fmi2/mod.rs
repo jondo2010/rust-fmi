@@ -98,13 +98,13 @@ impl VariableCounts for ModelVariables {
                     ScalarVariableElement::Integer { .. } => {
                         cts.num_integer_vars += 1;
                     }
-                    ScalarVariableElement::Enumeration { .. } => {
+                    ScalarVariableElement::Enumeration => {
                         cts.num_enum_vars += 1;
                     }
                     ScalarVariableElement::Boolean { .. } => {
                         cts.num_bool_vars += 1;
                     }
-                    ScalarVariableElement::String { .. } => {
+                    ScalarVariableElement::String => {
                         cts.num_string_vars += 1;
                     }
                 }

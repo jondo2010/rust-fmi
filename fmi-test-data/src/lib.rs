@@ -43,7 +43,7 @@ impl ReferenceFmus {
         let path = STATIC_FETCH_DATA
             .fetch_file(REF_ARCHIVE)
             .context(format!("Fetch {REF_ARCHIVE}"))?;
-        let f = std::fs::File::open(&path).context(format!("Open {:?}", path))?;
+        let f = std::fs::File::open(&path).context(format!("Open {path:?}"))?;
         let archive = zip::ZipArchive::new(f)?;
         Ok(Self { archive })
     }
@@ -87,7 +87,7 @@ fn test_reference_fmus() {
     assert_eq!(fmu.model_description().model_name, "BouncingBall");
 }
 
-#[cfg(feature = "disabled")]
+#[cfg(false)]
 #[test]
 fn print_registry_contents() {
     let registry_contents = STATIC_FETCH_DATA

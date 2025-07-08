@@ -25,7 +25,7 @@ arrow = ["dep:arrow", "fmi-schema/arrow"]
 [dependencies]
 arrow = { workspace = true, optional = true }
 document-features = { workspace = true }
-fmi-schema = { workspace = true, default_features = false }
+fmi-schema = { workspace = true, default-features = false }
 fmi-sys = { workspace = true }
 itertools = { workspace = true }
 # Note: libc is only used for FMI 2.0 support, needed for alloc

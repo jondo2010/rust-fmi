@@ -4,6 +4,8 @@
 #![deny(unsafe_code)]
 #![deny(clippy::all)]
 
+use std::fmt::Display;
+
 use thiserror::Error;
 
 pub mod date_time;
@@ -23,12 +25,12 @@ pub enum MajorVersion {
     FMI3,
 }
 
-impl ToString for MajorVersion {
-    fn to_string(&self) -> String {
+impl Display for MajorVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MajorVersion::FMI1 => "1.0".to_string(),
-            MajorVersion::FMI2 => "2.0".to_string(),
-            MajorVersion::FMI3 => "3.0".to_string(),
+            MajorVersion::FMI1 => write!(f, "1.0"),
+            MajorVersion::FMI2 => write!(f, "2.0"),
+            MajorVersion::FMI3 => write!(f, "3.0"),
         }
     }
 }
