@@ -25,5 +25,5 @@ libloading = { workspace = true }
 log = { version = "0.4", optional = true }
 
 [build-dependencies]
-bindgen = "0.70"
+bindgen = "0.72"
 cc = "1.0"
