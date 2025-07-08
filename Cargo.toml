@@ -33,7 +33,7 @@ libloading = "0.8"
 tempfile = "3.1"
 test-log = { version = "0.2", features = ["trace"] }
 thiserror = "1.0"
-zip = "2.0"
+zip = "4.0"
 
 [patch.crates-io]
 #arrow = { git = "https://github.com/jondo2010/arrow-rs.git", branch = "fine_grained_integer_inference" }
