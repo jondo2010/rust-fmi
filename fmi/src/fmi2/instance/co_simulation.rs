@@ -1,4 +1,4 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use crate::{
     fmi2::{import, CallbackFunctions, Fmi2Error, Fmi2Status},
@@ -50,7 +50,7 @@ impl<'a> Instance<'a, CS> {
         if component.is_null() {
             return Err(Error::Instantiation);
         }
-        log::trace!("Created FMI2.0 CS component {:?}", component);
+        log::trace!("Created FMI2.0 CS component {component:?}");
 
         Ok(Self {
             binding,
@@ -100,7 +100,7 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
     }
 
     fn pending_status(&mut self) -> Result<&str, Fmi2Error> {
-        let str_ret = CStr::from_bytes_with_nul(b"\0").unwrap();
+        let str_ret = c"";
         Fmi2Status(unsafe {
             self.binding.fmi2GetStringStatus(
                 self.component,

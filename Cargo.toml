@@ -21,7 +21,7 @@ include = [
 
 [workspace.dependencies]
 anyhow = { version = "1.0" }
-arrow = { version = "50.0" }
+arrow = { version = "55.2" }
 document-features = "0.2"
 fmi = { path = "fmi", version = "0.4.1" }
 fmi-schema = { path = "fmi-schema", version = "0.2.1", default-features = false }

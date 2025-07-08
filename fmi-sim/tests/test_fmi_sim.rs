@@ -142,14 +142,11 @@ fn test_start_value_types() {
             .value(0),
         2147483647
     );
-    assert_eq!(
-        output
-            .column_by_name("Boolean_output")
-            .unwrap()
-            .as_boolean()
-            .value(0),
-        true
-    );
+    assert!(output
+        .column_by_name("Boolean_output")
+        .unwrap()
+        .as_boolean()
+        .value(0));
     assert_eq!(
         output
             .column_by_name("Float32_continuous_output")
@@ -263,7 +260,7 @@ fn compare_f64_column_by_name(
     }
 }
 
-#[cfg(feature = "fails")]
+#[cfg(false)]
 #[test_log::test]
 fn test_bouncing_ball() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();

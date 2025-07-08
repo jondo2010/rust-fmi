@@ -156,7 +156,7 @@ pub trait Common: FmiInstance {
         dv_unknown_values: &mut [binding::fmi2Real],
     ) -> Fmi2Status;
 
-    #[cfg(feature = "disabled")]
+    #[cfg(false)]
     fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef);
 }
 

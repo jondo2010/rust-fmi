@@ -67,7 +67,7 @@ impl FmiImport for Fmi2Import {
             .dir
             .path()
             .join(self.shared_lib_path(model_identifier)?);
-        log::trace!("Loading shared library {:?}", lib_path);
+        log::trace!("Loading shared library {lib_path:?}");
         unsafe { binding::Fmi2Binding::new(lib_path).map_err(Error::from) }
     }
 

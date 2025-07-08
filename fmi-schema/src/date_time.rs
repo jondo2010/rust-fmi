@@ -23,7 +23,7 @@ impl std::str::FromStr for DateTime {
         let s_with_timezone = if tz_provided {
             s.to_string()
         } else {
-            format!("{}Z", s)
+            format!("{s}Z")
         };
         match chrono::DateTime::parse_from_rfc3339(&s_with_timezone) {
             Ok(cdt) => Ok(DateTime(cdt)),

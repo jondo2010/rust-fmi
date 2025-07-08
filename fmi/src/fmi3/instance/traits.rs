@@ -41,6 +41,7 @@ pub trait Common: FmiInstance {
     ///   controlled by error estimation. In case the FMU utilizes a numerical integrator with
     ///   variable step size and error estimation, it is suggested to use tolerance for the error
     ///   estimation of the integrator (usually as relative tolerance).
+    ///
     /// An FMU for Co-Simulation might ignore this argument.
     fn enter_initialization_mode(
         &mut self,
@@ -118,14 +119,14 @@ pub trait Common: FmiInstance {
     ) -> Fmi3Status;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
-    #[cfg(disabled)]
+    #[cfg(false)]
     fn get_fmu_state<Tag>(
         &mut self,
         state: Option<Fmu3State<'_, Tag>>,
     ) -> Result<Fmu3State<'_, Tag>, Error>;
 
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetFMUState]
-    #[cfg(disabled)]
+    #[cfg(false)]
     fn set_fmu_state<Tag>(&mut self, state: &Fmu3State<'_, Tag>) -> Fmi3Status;
 
     /// This function is called to signal a converged solution at the current super-dense time

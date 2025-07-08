@@ -3,7 +3,7 @@
 pub mod import;
 pub mod instance;
 pub(crate) mod logger;
-#[cfg(feature = "disabled")]
+#[cfg(false)]
 pub mod model;
 // Re-export
 pub use fmi_schema::fmi3 as schema;
