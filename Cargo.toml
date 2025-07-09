@@ -32,7 +32,7 @@ itertools = "0.14"
 libloading = "0.8"
 tempfile = "3.1"
 test-log = { version = "0.2", features = ["trace"] }
-thiserror = "1.0"
+thiserror = "2.0"
 zip = "4.0"
 
 [patch.crates-io]
