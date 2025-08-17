@@ -20,12 +20,15 @@
 pub use fmi_schema as schema;
 
 use schema::MajorVersion;
+use zerocopy::FromBytes;
 
 #[cfg(feature = "fmi2")]
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
 pub mod import;
+#[cfg(feature = "ls-bus")]
+pub mod ls_bus;
 pub mod traits;
 
 pub mod built_info {

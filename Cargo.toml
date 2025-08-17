@@ -30,6 +30,7 @@ fmi-sys = { path = "fmi-sys", version = "0.1.2" }
 fmi-test-data = { path = "fmi-test-data", version = "0.1.0" }
 itertools = "0.14"
 libloading = "0.8"
+log = { version = "0.4" }
 tempfile = "3.1"
 test-log = { version = "0.2", features = ["trace"] }
 thiserror = "1.0"
