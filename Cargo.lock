@@ -969,6 +969,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fmi-export"
+version = "0.1.0"
+dependencies = [
+ "document-features",
+ "fmi",
+ "fmi-sys",
+ "log",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "fmi-schema"
 version = "0.5.0"
 dependencies = [

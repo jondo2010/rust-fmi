@@ -1,5 +1,12 @@
 [workspace]
-members = ["fmi", "fmi-schema", "fmi-sim", "fmi-sys", "fmi-test-data"]
+members = [
+    "fmi",
+    "fmi-schema",
+    "fmi-sim",
+    "fmi-sys",
+    "fmi-test-data",
+    "fmi-export",
+]
 resolver = "2"
 
 [workspace.package]
@@ -31,6 +38,7 @@ fmi-sys = { path = "fmi-sys", version = "0.5.0" }
 fmi-test-data = { path = "fmi-test-data", version = "0.5.0" }
 itertools = "0.14"
 libloading = "0.8"
+log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 tempfile = "3.1"
 test-log = { version = "0.2", features = ["trace"] }
