@@ -1,0 +1,16 @@
+[package]
+name = "fmi-xtask"
+version = "0.1.0"
+description = "Xtask library for the FMI project"
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+include.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+cargo_metadata = "0.18"

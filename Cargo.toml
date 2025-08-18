@@ -1,5 +1,5 @@
 [workspace]
-members = ["fmi", "fmi-schema", "fmi-sim", "fmi-sys", "fmi-test-data"]
+members = ["fmi", "fmi-schema", "fmi-sim", "fmi-sys", "fmi-test-data", "fmi-xtask", "xtask"]
 resolver = "2"
 
 [workspace.package]

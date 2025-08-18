@@ -1,0 +1,15 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+description = "A helper for building and building FMUs"
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+include.workspace = true
+
+[dependencies]
+fmi-xtask = { path = "../fmi-xtask" }
