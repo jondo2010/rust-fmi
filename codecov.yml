@@ -1,0 +1,98 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        if_ci_failed: error
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        if_ci_failed: error
+
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+        threshold: 1%
+        if_not_found: success
+      - type: patch
+        target: auto
+        threshold: 1%
+        if_not_found: success
+
+  individual_components:
+    - component_id: fmi
+      name: FMI Core Library
+      paths:
+        - fmi/src/**
+        - fmi/build.rs
+      statuses:
+        - type: project
+          target: 80%
+        - type: patch
+          target: 70%
+
+    - component_id: fmi-schema
+      name: FMI Schema
+      paths:
+        - fmi-schema/src/**
+      statuses:
+        - type: project
+          target: 85%
+        - type: patch
+          target: 75%
+
+    - component_id: fmi-sim
+      name: FMI Simulation
+      paths:
+        - fmi-sim/src/**
+        - fmi-sim/examples/**
+      statuses:
+        - type: project
+          target: 70%
+        - type: patch
+          target: 60%
+
+    - component_id: fmi-sys
+      name: FMI System Bindings
+      paths:
+        - fmi-sys/src/**
+        - fmi-sys/build.rs
+      statuses:
+        - type: project
+          target: 60%
+        - type: patch
+          target: 50%
+
+    - component_id: fmi-test-data
+      name: FMI Test Data
+      paths:
+        - fmi-test-data/src/**
+      statuses:
+        - type: project
+          target: 75%
+        - type: patch
+          target: 65%
+
+comment:
+  layout: "condensed_header, condensed_files, condensed_footer"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+ignore:
+  - "target/**"
+  - "**/*.md"
+  - "**/tests/**"
+  - "**/benches/**"
+  - "fmi-standard/**"
+  - "fmi-standard2/**"
+  - "fmi-standard3/**"
+  - "fmi-ls-bus/**"
+  - "docs/**"
