@@ -35,7 +35,7 @@ impl Display for MajorVersion {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
     #[error("Variable {0} not found")]
     VariableNotFound(String),
@@ -45,6 +45,9 @@ pub enum Error {
 
     #[error("Error parsing XML: {0}")]
     XmlParse(String),
+
+    #[error("Error in model: {0}")]
+    Model(String),
 }
 
 /// A helper function to provide a default value for types that implement `Default`.
