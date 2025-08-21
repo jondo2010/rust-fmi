@@ -4,6 +4,7 @@
 [<img alt="crates.io" src="https://img.shields.io/crates/v/fmi.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/fmi)
 [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-fmi-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/fmi)
 [<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/jondo2010/rust-fmi/ci.yml?branch=main&style=for-the-badge" height="20">](https://github.com/jondo2010/rust-fmi/actions?query=branch%3Amain)
+[<img alt="codecov" src="https://img.shields.io/codecov/c/github/jondo2010/rust-fmi?token=G99W0WOGWG&style=for-the-badge" height="20">](https://codecov.io/gh/jondo2010/rust-fmi)
 
 A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard.
 
