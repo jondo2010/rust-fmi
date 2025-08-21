@@ -105,6 +105,73 @@ impl Fmi2ModelDescription {
         self.model_variables.variables.iter()
     }
 
+    #[cfg(false)]
+    pub fn get_model_variable_by_vr(&self, vr: u32) -> Option<&ScalarVariable> {
+        self.model_variables.map.get(&vr)
+    }
+
+    /// Turns an UnknownList into a nested Vector of ScalarVariables and their Dependencies
+    #[cfg(false)]
+    fn map_unknowns(
+        &self,
+        list: &UnknownList,
+    ) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
+        list.unknowns
+            .iter()
+            .map(|unknown| {
+                self.model_variables
+                    .by_index
+                    // Variable indices start at 1 in the modelDescription
+                    .get(unknown.index as usize - 1)
+                    .map(|vr| &self.model_variables.map[vr])
+                    .ok_or_else(|| {
+                        ModelDescriptionError::VariableAtIndexNotFound(
+                            self.model_name.clone(),
+                            unknown.index as usize,
+                        )
+                    })
+                    .and_then(|var| {
+                        let deps = unknown
+                            .dependencies
+                            .iter()
+                            .map(|dep| {
+                                self.model_variables
+                                    .by_index
+                                    .get(*dep as usize - 1)
+                                    .map(|vr| &self.model_variables.map[vr])
+                                    .ok_or_else(|| {
+                                        ModelDescriptionError::VariableAtIndexNotFound(
+                                            self.model_name.clone(),
+                                            *dep as usize,
+                                        )
+                                    })
+                            })
+                            .collect::<Result<Vec<_>, ModelDescriptionError>>()?;
+
+                        Ok((var, deps))
+                    })
+            })
+            .collect()
+    }
+
+    /// Get a reference to the vector of Unknowns marked as outputs
+    #[cfg(false)]
+    pub fn outputs(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
+        self.map_unknowns(&self.model_structure.outputs)
+    }
+
+    /// Get a reference to the vector of Unknowns marked as derivatives
+    #[cfg(false)]
+    pub fn derivatives(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
+        self.map_unknowns(&self.model_structure.derivatives)
+    }
+
+    /// Get a reference to the vector of Unknowns marked as initial_unknowns
+    #[cfg(false)]
+    pub fn initial_unknowns(&self) -> Result<Vec<UnknownsTuple>, ModelDescriptionError> {
+        self.map_unknowns(&self.model_structure.initial_unknowns)
+    }
+
     /// Get a reference to the model variable with the given name
     pub fn model_variable_by_name(&self, name: &str) -> Result<&ScalarVariable, Error> {
         self.model_variables
@@ -112,6 +179,60 @@ impl Fmi2ModelDescription {
             .iter()
             .find(|var| var.name == name)
             .ok_or_else(|| Error::VariableNotFound(name.to_owned()))
+    }
+
+    /// This private function is used to de-reference variable indices from the UnknownList and
+    /// Real{derivative}
+    #[cfg(false)]
+    fn model_variable_by_index(
+        &self,
+        idx: usize,
+    ) -> Result<&ScalarVariable, ModelDescriptionError> {
+        self.model_variables
+            .by_index
+            .get(idx - 1)
+            .map(|vr| &self.model_variables.map[vr])
+            .ok_or_else(|| {
+                ModelDescriptionError::VariableAtIndexNotFound(
+                    self.model_name.clone(),
+                    idx as usize,
+                )
+            })
+    }
+
+    /// Return a vector of tuples `(&ScalarVariable, &ScalarVariabel)`, where the 1st is a
+    /// continuous-time state, and the 2nd is its derivative.
+    #[cfg(false)]
+    pub fn continuous_states(
+        &self,
+    ) -> Result<Vec<(&ScalarVariable, &ScalarVariable)>, ModelDescriptionError> {
+        self.model_structure
+            .derivatives
+            .unknowns
+            .iter()
+            .map(|unknown| {
+                self.model_variable_by_index(unknown.index as usize)
+                    .and_then(|der| {
+                        if let ScalarVariableElement::Real { derivative, .. } = der.elem {
+                            derivative
+                                .ok_or_else(|| {
+                                    ModelDescriptionError::VariableDerivativeMissing(
+                                        der.name.clone(),
+                                    )
+                                })
+                                .and_then(|der_idx| {
+                                    self.model_variable_by_index(der_idx as usize)
+                                        .map(|state| (state, der))
+                                })
+                        } else {
+                            Err(ModelDescriptionError::VariableTypeMismatch(
+                                ScalarVariableElementBase::Real,
+                                ScalarVariableElementBase::from(&der.elem),
+                            ))
+                        }
+                    })
+            })
+            .collect()
     }
 }
 

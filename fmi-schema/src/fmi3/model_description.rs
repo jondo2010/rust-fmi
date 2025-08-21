@@ -9,7 +9,7 @@ use super::{
     FmiUInt64, FmiUInt8, InitializableVariableTrait,
 };
 
-#[derive(Default, Debug, YaDeserialize)]
+#[derive(Default, Debug, PartialEq, YaDeserialize, YaSerialize)]
 #[yaserde(rename = "fmiModelDescription")]
 pub struct Fmi3ModelDescription {
     /// Version of FMI that was used to generate the XML file.
@@ -161,7 +161,7 @@ pub struct DefaultExperiment {
     pub step_size: Option<f64>,
 }
 
-#[derive(Default, Debug, YaDeserialize)]
+#[derive(Default, Debug, PartialEq, YaDeserialize, YaSerialize)]
 pub struct ModelVariables {
     #[yaserde(rename = "Float32")]
     pub float32: Vec<FmiFloat32>,
@@ -230,6 +230,11 @@ impl ModelVariables {
                 .iter()
                 .map(|v| v as &dyn InitializableVariableTrait),
         )
+    }
+
+    /// Finds a variable by its name.
+    pub fn find_by_name(&self, name: &str) -> Option<&dyn AbstractVariableTrait> {
+        self.iter_abstract().find(|v| v.name() == name)
     }
 }
 
