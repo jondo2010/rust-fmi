@@ -279,12 +279,17 @@ pub trait ModelExchange: Common {
     /// * `event_indicators`: returns the values for the event indicators in the order defined by
     ///   the ordered list of XML elements <EventIndicator>.
     ///
-    /// [fmi3Status = fmi3Discard should be returned if the FMU was not able to compute the event
-    /// indicators according to 𝐟cont because, for example, a numerical issue, such as division
-    /// by zero, occurred.]
+    /// Returns:
+    /// * `Ok(true)` if the event indicators were successfully computed
+    /// * `Ok(false)` if the FMU was not able to compute the event indicators according to 𝐟cont
+    ///   because, for example, a numerical issue such as division by zero occurred (corresponding
+    ///   to the C API returning `fmi3Discard`)
+    /// * `Err(Fmi3Error)` for other error conditions
     ///
     /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3GetEventIndicators]
-    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Fmi3Status;
+    fn get_event_indicators(&mut self, _event_indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
+        unimplemented!()
+    }
 
     /// This function returns the number of event indicators.
     ///

@@ -2,8 +2,8 @@ use std::ffi::CString;
 
 use super::{binding, traits::ModelExchange, CallbackFunctions, Instance, ME};
 use crate::{
-    fmi2::import,
-    traits::{FmiEventHandler, FmiImport, FmiModelExchange},
+    fmi2::{import, Fmi2Error, Fmi2Status},
+    traits::{FmiEventHandler, FmiImport, FmiModelExchange, FmiStatus},
     Error,
 };
 
@@ -165,15 +165,25 @@ impl ModelExchange for Instance<'_, ME> {
         .into()
     }
 
-    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Self::Status {
-        unsafe {
+    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Result<bool, Fmi2Error> {
+        let status = unsafe {
             self.binding.fmi2GetEventIndicators(
                 self.component,
                 event_indicators.as_mut_ptr(),
                 event_indicators.len(),
             )
+        };
+
+        // Convert status and handle Discard case
+        match Fmi2Status::from(status).ok() {
+            Ok(_) => Ok(true), // Successfully computed indicators
+            Err(Fmi2Error::Discard) => {
+                // FMU couldn't compute indicators due to numerical issues
+                // but this is a recoverable condition
+                Ok(false)
+            }
+            Err(e) => Err(e), // Other errors
         }
-        .into()
     }
 }
 
@@ -238,7 +248,10 @@ impl FmiModelExchange for Instance<'_, ME> {
         ModelExchange::get_nominals_of_continuous_states(self, nominals)
     }
 
-    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Self::Status {
+    fn get_event_indicators(
+        &mut self,
+        event_indicators: &mut [f64],
+    ) -> Result<bool, <Self::Status as crate::traits::FmiStatus>::Err> {
         ModelExchange::get_event_indicators(self, event_indicators)
     }
 
