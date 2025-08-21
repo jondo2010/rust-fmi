@@ -1,7 +1,7 @@
 use arrow::array::RecordBatch;
 
 use fmi::{
-    fmi3::{import::Fmi3Import, instance::Common},
+    fmi3::{import::Fmi3Import, Common},
     traits::{FmiImport, FmiInstance, FmiStatus},
 };
 

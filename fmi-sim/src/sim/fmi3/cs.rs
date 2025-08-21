@@ -1,9 +1,6 @@
 use anyhow::Context;
 use fmi::{
-    fmi3::{
-        import::Fmi3Import,
-        instance::{CoSimulation, InstanceCS},
-    },
+    fmi3::{import::Fmi3Import, instance::InstanceCS, CoSimulation, Fmi3Model},
     traits::{FmiInstance, FmiStatus},
 };
 
@@ -17,7 +14,7 @@ use crate::{
     Error,
 };
 
-impl<'a> SimStateTrait<'a, InstanceCS<'a>> for SimState<InstanceCS<'a>> {
+impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi3Import> for SimState<InstanceCS<'a>> {
     fn new(
         import: &'a Fmi3Import,
         sim_params: SimParams,

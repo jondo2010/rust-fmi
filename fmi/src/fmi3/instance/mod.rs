@@ -1,6 +1,12 @@
 //! FMI 3.0 instance interface
 
-use crate::traits::{FmiImport, FmiInstance, FmiStatus};
+use crate::{
+    fmi3::{
+        traits::{Common, GetSet},
+        CS, ME, SE,
+    },
+    traits::{FmiImport, FmiInstance, FmiStatus},
+};
 
 use super::{binding, import::Fmi3Import, schema, Fmi3Status};
 
@@ -8,22 +14,14 @@ mod co_simulation;
 mod common;
 mod model_exchange;
 mod scheduled_execution;
-mod traits;
 
 use itertools::Itertools;
-pub use traits::{CoSimulation, Common, ModelExchange, ScheduledExecution};
-
-/// Tag for Model Exchange instances
-pub struct ME;
-/// Tag for Co-Simulation instances
-pub struct CS;
-/// Tag for Scheduled Execution instances
-pub struct SE;
 
 pub type InstanceME<'a> = Instance<'a, ME>;
 pub type InstanceCS<'a> = Instance<'a, CS>;
 pub type InstanceSE<'a> = Instance<'a, SE>;
 
+/// An imported FMI 3.0 instance
 pub struct Instance<'a, Tag> {
     /// Raw FMI 3.0 bindings
     binding: binding::Fmi3Binding,
@@ -90,7 +88,6 @@ where
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     type ModelDescription = schema::Fmi3ModelDescription;
-    type Import = Fmi3Import;
     type ValueRef = <Fmi3Import as FmiImport>::ValueRef;
     type Status = Fmi3Status;
 
@@ -107,25 +104,7 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     }
 
     fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Self::Status {
-        let cats_vec = categories
-            .iter()
-            .map(|cat| std::ffi::CString::new(cat.as_bytes()).expect("Error building CString"))
-            .collect::<Vec<_>>();
-
-        let cats_vec_ptrs = cats_vec
-            .iter()
-            .map(|cat| cat.as_c_str().as_ptr())
-            .collect::<Vec<_>>();
-
-        unsafe {
-            self.binding.fmi3SetDebugLogging(
-                self.ptr,
-                logging_on,
-                cats_vec_ptrs.len() as _,
-                cats_vec_ptrs.as_ptr() as *const binding::fmi3String,
-            )
-        }
-        .into()
+        Common::set_debug_logging(self, logging_on, categories)
     }
 
     fn get_number_of_continuous_state_values(&mut self) -> usize {

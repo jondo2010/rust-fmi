@@ -13,7 +13,7 @@ use arrow::{
     },
 };
 use fmi::{
-    fmi3::instance::Common,
+    fmi3::GetSet,
     traits::{FmiInstance, FmiStatus},
 };
 
@@ -90,14 +90,17 @@ macro_rules! impl_record_values {
                             impl_recorder!(get_float64, Float64Builder, self, vr, builder)
                         }
                         DataType::Binary => {
-                            let mut value = [std::default::Default::default()];
-                            self.get_binary(&[*vr], &mut value).ok()?;
-                            let [value] = value;
+                            // Use a reasonable buffer size for binary data
+                            let mut data = vec![0u8; 1024];
+                            let mut value = [data.as_mut_slice()];
+                            let sizes = self.get_binary(&[*vr], &mut value)?;
+                            let actual_size = sizes.get(0).copied().unwrap_or(0);
+                            data.truncate(actual_size);
                             builder
                                 .as_any_mut()
                                 .downcast_mut::<BinaryBuilder>()
                                 .expect("column is not Binary")
-                                .append_value(value);
+                                .append_value(data);
                         }
                         _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
                     }
@@ -151,12 +154,23 @@ macro_rules! impl_set_values {
                         self.set_float64(vrs, values.as_primitive::<Float64Type>().values());
                     }
                     DataType::Binary => {
-                        self.set_binary(vrs, values.as_binary::<i32>().iter().flatten());
+                        let binary_refs: Vec<&[u8]> = values
+                            .as_binary::<i32>()
+                            .iter()
+                            .filter_map(|opt| opt) // Filter out None values
+                            .collect();
+                        let _ = self.set_binary(vrs, &binary_refs);
                     }
                     DataType::FixedSizeBinary(_) => todo!(),
                     DataType::LargeBinary => todo!(),
                     DataType::Utf8 => {
-                        self.set_string(vrs, values.as_string::<i32>().iter().flatten());
+                        let string_values: Vec<std::ffi::CString> = values
+                            .as_string::<i32>()
+                            .iter()
+                            .filter_map(|opt| opt) // Filter out None values
+                            .map(|s| std::ffi::CString::new(s).unwrap())
+                            .collect();
+                        let _ = self.set_string(vrs, &string_values);
                     }
                     DataType::LargeUtf8 => todo!(),
                     _ => unimplemented!("Unsupported data type"),

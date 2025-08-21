@@ -56,7 +56,6 @@ pub trait FmiStatus {
 /// Generic FMI instance trait
 pub trait FmiInstance {
     type ModelDescription: FmiModelDescription + DefaultExperiment;
-    type Import: FmiImport<ModelDescription = Self::ModelDescription, ValueRef = Self::ValueRef>;
     type ValueRef: Copy + From<u32> + Into<u32>;
     type Status: FmiStatus;
 

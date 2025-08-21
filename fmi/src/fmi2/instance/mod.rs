@@ -55,7 +55,6 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
 
 impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     type ModelDescription = schema::Fmi2ModelDescription;
-    type Import = Fmi2Import;
     type ValueRef = <Fmi2Import as FmiImport>::ValueRef;
     type Status = Fmi2Status;
 

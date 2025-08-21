@@ -1,12 +1,12 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger},
+    fmi3::{binding, import, logger, ScheduledExecution},
     traits::FmiImport,
     Error,
 };
 
-use super::{Instance, ScheduledExecution, SE};
+use super::{Instance, SE};
 
 unsafe extern "C" fn clock_update(_instance_environment: binding::fmi3InstanceEnvironment) {
     todo!();
