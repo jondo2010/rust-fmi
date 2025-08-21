@@ -4,3 +4,6 @@
 [submodule "fmi-standard/fmi3"]
 	path = fmi-sys/fmi-standard3
 	url = https://github.com/modelica/fmi-standard.git
+[submodule "fmi-sys/fmi-ls-bus"]
+	path = fmi-sys/fmi-ls-bus
+	url = https://github.com/modelica/fmi-ls-bus.git
