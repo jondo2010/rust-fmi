@@ -3,7 +3,7 @@
 use arrow::{
     array::{
         downcast_array, ArrayRef, AsArray, BooleanBuilder, Float64Array, Float64Builder,
-        Int32Builder,
+        Int32Builder, StringBuilder,
     },
     datatypes::{DataType, Float64Type, Int32Type},
 };
@@ -65,6 +65,24 @@ macro_rules! impl_record_values {
                         DataType::Float64 => {
                             impl_recorder!(get_real, Float64Builder, self, vr, builder)
                         }
+                        DataType::Utf8 => {
+                            let mut values = vec![std::ffi::CString::new("").unwrap()];
+                            if self.get_string(&[*vr], &mut values).is_ok() {
+                                let string_value = values[0].to_str().unwrap_or("");
+                                builder
+                                    .as_any_mut()
+                                    .downcast_mut::<StringBuilder>()
+                                    .expect("column is not StringBuilder")
+                                    .append_value(string_value);
+                            } else {
+                                // Handle error case by appending empty string
+                                builder
+                                    .as_any_mut()
+                                    .downcast_mut::<StringBuilder>()
+                                    .expect("column is not StringBuilder")
+                                    .append_value("");
+                            }
+                        }
                         _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
                     }
                 }
@@ -94,7 +112,13 @@ macro_rules! impl_set_values {
                         self.set_real(vrs, values.as_primitive::<Float64Type>().values());
                     }
                     DataType::Utf8 => {
-                        self.set_string(vrs, values.as_string::<i32>().iter().flatten());
+                        let cstrings: Vec<std::ffi::CString> = values
+                            .as_string::<i32>()
+                            .iter()
+                            .flatten()
+                            .map(|s| std::ffi::CString::new(s).unwrap())
+                            .collect();
+                        self.set_string(vrs, &cstrings).ok();
                     }
                     _ => unimplemented!("Unsupported data type"),
                 }
