@@ -95,8 +95,8 @@ pub trait Common: FmiInstance {
     fn get_string(
         &mut self,
         sv: &[binding::fmi2ValueReference],
-        v: &mut [binding::fmi2String],
-    ) -> Fmi2Status;
+        v: &mut [std::ffi::CString],
+    ) -> Result<(), Fmi2Error>;
 
     /// Set real values
     ///
@@ -126,11 +126,11 @@ pub trait Common: FmiInstance {
         values: &[binding::fmi2Boolean],
     ) -> Fmi2Status;
 
-    fn set_string<'b>(
+    fn set_string(
         &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: impl Iterator<Item = &'b str>,
-    ) -> Fmi2Status;
+        values: &[std::ffi::CString],
+    ) -> Result<(), Fmi2Error>;
 
     // fn get_fmu_state(&self) -> Result<FmuState>;
     // fn set_fmu_state(&self, state: &FmuState<Self::Api>) -> Result<()>;

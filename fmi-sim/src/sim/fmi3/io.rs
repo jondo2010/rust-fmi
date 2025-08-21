@@ -4,8 +4,8 @@ use arrow::{
     array::{
         downcast_array, ArrayRef, AsArray, BinaryBuilder, BooleanBuilder, Float32Array,
         Float32Builder, Float64Array, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
-        Int8Builder, UInt16Array, UInt16Builder, UInt32Array, UInt32Builder, UInt64Array,
-        UInt64Builder, UInt8Array, UInt8Builder,
+        Int8Builder, StringBuilder, UInt16Array, UInt16Builder, UInt32Array, UInt32Builder,
+        UInt64Array, UInt64Builder, UInt8Array, UInt8Builder,
     },
     datatypes::{
         DataType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
@@ -101,6 +101,16 @@ macro_rules! impl_record_values {
                                 .downcast_mut::<BinaryBuilder>()
                                 .expect("column is not Binary")
                                 .append_value(data);
+                        }
+                        DataType::Utf8 => {
+                            let mut values = [std::ffi::CString::new("").unwrap()];
+                            let _ = self.get_string(&[*vr], &mut values);
+                            let string_value = values[0].to_string_lossy();
+                            builder
+                                .as_any_mut()
+                                .downcast_mut::<StringBuilder>()
+                                .expect("column is not Utf8")
+                                .append_value(string_value);
                         }
                         _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
                     }
@@ -236,7 +246,15 @@ macro_rules! impl_set_values {
                         self.set_float64(&[vr], &[value]).ok()?;
                     }
                     DataType::Binary => todo!(),
-                    DataType::Utf8 => todo!(),
+                    DataType::Utf8 => {
+                        // For string interpolation, we use the next index value (no real interpolation for strings)
+                        let array = array.as_string::<i32>();
+                        let index = pl.next_index().min(array.iter().count().saturating_sub(1));
+                        if let Some(Some(value)) = array.iter().nth(index) {
+                            let cstring = std::ffi::CString::new(value).unwrap();
+                            let _ = self.set_string(&[vr], &[cstring]);
+                        }
+                    }
                     _ => unimplemented!("Unsupported data type: {:?}", array.data_type()),
                 }
                 Ok(())
