@@ -56,7 +56,6 @@ pub trait FmiStatus {
 /// Generic FMI instance trait
 pub trait FmiInstance {
     type ModelDescription: FmiModelDescription + DefaultExperiment;
-    type Import: FmiImport<ModelDescription = Self::ModelDescription, ValueRef = Self::ValueRef>;
     type ValueRef: Copy + From<u32> + Into<u32>;
     type Status: FmiStatus;
 
@@ -137,7 +136,7 @@ pub trait FmiModelExchange: FmiInstance {
     fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Self::Status;
     fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Self::Status;
 
-    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Self::Status;
+    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Result<bool, <Self::Status as FmiStatus>::Err>;
     fn get_number_of_event_indicators(
         &self,
         number_of_event_indicators: &mut usize,

@@ -7,14 +7,13 @@ use crate::Error;
 use super::{
     interpolation::Linear,
     solver::Solver,
-    traits::{ImportSchemaBuilder, InstRecordValues, InstSetValues, SimHandleEvents, SimMe},
+    traits::{InstRecordValues, InstSetValues, SimHandleEvents, SimMe},
     SimState, SimStats,
 };
 
 impl<Inst> SimMe<Inst> for SimState<Inst>
 where
     Inst: FmiInstance + FmiModelExchange + InstSetValues + InstRecordValues + FmiEventHandler,
-    Inst::Import: ImportSchemaBuilder,
 {
     fn main_loop<S>(&mut self, solver_params: S::Params) -> Result<SimStats, Error>
     where
@@ -29,7 +28,7 @@ where
         let nx = self.inst.get_number_of_continuous_state_values();
         let nz = self.inst.get_number_of_event_indicator_values();
 
-        let mut solver = S::new(
+        let mut solver = <S as Solver<Inst>>::new(
             self.sim_params.start_time,
             self.sim_params.tolerance.unwrap_or_default(),
             nx,

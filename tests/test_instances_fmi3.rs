@@ -1,10 +1,8 @@
 //! Test the FMI3.0 instance API.
 
 use fmi::{
-    fmi3::{
-        import::Fmi3Import,
-        instance::{Common as _, ModelExchange as _},
-    },
+    fmi3::{import::Fmi3Import, Common, Fmi3Model, GetSet, ModelExchange},
+    schema::fmi3::AbstractVariableTrait,
     traits::{FmiImport as _, FmiStatus},
 };
 use fmi_test_data::ReferenceFmus;
@@ -13,7 +11,7 @@ extern crate fmi;
 extern crate fmi_test_data;
 
 #[test]
-fn test_instance() {
+fn test_instance_dahlquist() {
     let mut ref_fmus = ReferenceFmus::new().unwrap();
     let import: Fmi3Import = ref_fmus.get_reference_fmu("Dahlquist").unwrap();
     let mut inst1 = import.instantiate_me("inst1", true, true).unwrap();
@@ -65,4 +63,87 @@ fn test_instance() {
         .ok()
         .unwrap();
     assert_eq!(ders, vec![-0.0]);
+}
+
+/// Test the get/set interface on strings variables with the `Feedthrough` FMU
+#[test]
+fn test_instance_feedthrough_string() {
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
+    let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
+    let mut inst1 = import
+        .instantiate_cs("inst1", true, true, false, false, &[])
+        .unwrap();
+    assert_eq!(inst1.get_version(), "3.0");
+
+    let string_var = import
+        .model_description()
+        .model_variables
+        .string
+        .first()
+        .expect("No string variables found");
+
+    // Check the starting value of the string variable
+    let mut my_strings = vec![std::ffi::CString::default()];
+    inst1
+        .get_string(&[string_var.value_reference()], &mut my_strings)
+        .unwrap();
+    let expected = string_var
+        .start()
+        .next()
+        .expect("No start value on string variable");
+    assert_eq!(my_strings[0].to_str().unwrap(), expected);
+
+    // Set the string variable to a new value
+    inst1
+        .set_string(
+            &[string_var.value_reference()],
+            &[std::ffi::CString::new("New Value").unwrap()],
+        )
+        .unwrap();
+
+    // Verify the new value
+    inst1
+        .get_string(&[string_var.value_reference()], &mut my_strings)
+        .unwrap();
+    assert_eq!(my_strings[0].to_str().unwrap(), "New Value");
+}
+
+/// Test the get/set interface on binary variables with the `Feedthrough` FMU
+#[test]
+fn test_instance_feedthrough_binary() {
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
+    let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
+    let mut inst1 = import
+        .instantiate_cs("inst1", true, true, false, false, &[])
+        .unwrap();
+    assert_eq!(inst1.get_version(), "3.0");
+
+    let binary_var = &import.model_description().model_variables.binary[0];
+    let mut my_binary = vec![0u8; 16];
+    let value_sizes = inst1
+        .get_binary(&[binary_var.value_reference()], &mut [&mut my_binary])
+        .unwrap();
+
+    let binary_start = binary_var.start[0]
+        .as_bytes()
+        .expect("Binary variable start value invalid");
+
+    // compare binary_start to my_binary, but only the length of binary_start
+    assert_eq!(binary_start.len(), value_sizes[0]);
+    assert_eq!(&my_binary[..value_sizes[0]], binary_start);
+
+    // Set the binary variable to a new value
+    inst1
+        .set_binary(
+            &[binary_var.value_reference()],
+            &[b"New Binary Value".to_vec().as_slice()],
+        )
+        .unwrap();
+
+    let values_sizes = inst1
+        .get_binary(&[binary_var.value_reference()], &mut [&mut my_binary])
+        .unwrap();
+
+    // compare my_binary to the new value
+    assert_eq!(&my_binary[..values_sizes[0]], b"New Binary Value");
 }

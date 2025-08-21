@@ -1,15 +1,29 @@
 //! FMI 3.0 API
 
+#[cfg(feature = "export")]
+pub mod export;
 pub mod import;
 pub mod instance;
 pub(crate) mod logger;
 #[cfg(false)]
 pub mod model;
+mod traits;
+use std::fmt::Display;
+
 // Re-export
 pub use fmi_schema::fmi3 as schema;
 pub use fmi_sys::fmi3 as binding;
 
+pub use traits::{CoSimulation, Common, Fmi3Model, GetSet, ModelExchange, ScheduledExecution};
+
 use crate::traits::FmiStatus;
+
+/// Tag for Model Exchange
+pub struct ME;
+/// Tag for Co-Simulation
+pub struct CS;
+/// Tag for Scheduled Execution
+pub struct SE;
 
 #[derive(Debug)]
 pub enum Fmi3Res {
@@ -53,6 +67,19 @@ pub enum Fmi3Error {
 #[derive(Debug)]
 pub struct Fmi3Status(binding::fmi3Status);
 
+impl Display for Fmi3Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.0 {
+            binding::fmi3Status_fmi3OK => write!(f, "Fmi3Status(OK)"),
+            binding::fmi3Status_fmi3Warning => write!(f, "Fmi3Status(Warning)"),
+            binding::fmi3Status_fmi3Discard => write!(f, "Fmi3Status(Discard)"),
+            binding::fmi3Status_fmi3Error => write!(f, "Fmi3Status(Error)"),
+            binding::fmi3Status_fmi3Fatal => write!(f, "Fmi3Status(Fatal)"),
+            _ => write!(f, "Fmi3Status(Unknown)"),
+        }
+    }
+}
+
 impl FmiStatus for Fmi3Status {
     type Res = Fmi3Res;
     type Err = Fmi3Error;
@@ -72,6 +99,31 @@ impl FmiStatus for Fmi3Status {
 impl From<binding::fmi3Status> for Fmi3Status {
     fn from(status: binding::fmi3Status) -> Self {
         Self(status)
+    }
+}
+
+impl From<Fmi3Status> for binding::fmi3Status {
+    fn from(Fmi3Status(status): Fmi3Status) -> Self {
+        status
+    }
+}
+
+impl From<Fmi3Res> for Fmi3Status {
+    fn from(res: Fmi3Res) -> Self {
+        match res {
+            Fmi3Res::OK => Self(binding::fmi3Status_fmi3OK),
+            Fmi3Res::Warning => Self(binding::fmi3Status_fmi3Warning),
+        }
+    }
+}
+
+impl From<Fmi3Error> for Fmi3Status {
+    fn from(err: Fmi3Error) -> Self {
+        match err {
+            Fmi3Error::Discard => Self(binding::fmi3Status_fmi3Discard),
+            Fmi3Error::Error => Self(binding::fmi3Status_fmi3Error),
+            Fmi3Error::Fatal => Self(binding::fmi3Status_fmi3Fatal),
+        }
     }
 }
 

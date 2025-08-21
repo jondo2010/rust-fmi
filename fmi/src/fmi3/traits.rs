@@ -1,11 +1,97 @@
 //! Traits for the different instance types.
 
-use crate::traits::FmiInstance;
+use crate::{fmi3::Fmi3Error, Error};
 
-use super::Fmi3Status;
+use super::{binding, Fmi3Status};
 
-/// Interface common to all instance types
-pub trait Common: FmiInstance {
+macro_rules! default_getter_setter {
+    ($name:ident, $ty:ty) => {
+        paste::paste! {
+            /// Get the values of the specified variable references.
+            ///
+            /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
+            fn [<get_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &mut [$ty]) -> Fmi3Status {
+                unimplemented!();
+            }
+            /// Set the values of the specified variable references.
+            ///
+            /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
+            fn [<set_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &[$ty]) -> Fmi3Status {
+                unimplemented!();
+            }
+        }
+    };
+}
+
+/// FMI Getter / Setter interface
+pub trait GetSet {
+    type ValueRef: Copy + From<binding::fmi3ValueReference> + Into<binding::fmi3ValueReference>;
+
+    default_getter_setter!(boolean, bool);
+    default_getter_setter!(float32, f32);
+    default_getter_setter!(float64, f64);
+    default_getter_setter!(int8, i8);
+    default_getter_setter!(int16, i16);
+    default_getter_setter!(int32, i32);
+    default_getter_setter!(int64, i64);
+    default_getter_setter!(uint8, u8);
+    default_getter_setter!(uint16, u16);
+    default_getter_setter!(uint32, u32);
+    default_getter_setter!(uint64, u64);
+    fn get_string(
+        &mut self,
+        _vrs: &[Self::ValueRef],
+        _values: &mut [std::ffi::CString],
+    ) -> Result<(), Fmi3Error> {
+        unimplemented!();
+    }
+
+    fn set_string(
+        &mut self,
+        _vrs: &[Self::ValueRef],
+        _values: &[std::ffi::CString],
+    ) -> Result<(), Fmi3Error> {
+        unimplemented!();
+    }
+
+    /// Get binary values from the FMU.
+    ///
+    /// The FMU provides pointers to its internal binary data, which we copy into the
+    /// user-provided buffers. If any user buffer is too small for the corresponding
+    /// binary data, an error is returned.
+    ///
+    /// Returns the actual sizes of the binary data that was copied.
+    ///
+    /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
+    fn get_binary(
+        &mut self,
+        _vrs: &[Self::ValueRef],
+        _values: &mut [&mut [u8]],
+    ) -> Result<Vec<usize>, Fmi3Error> {
+        unimplemented!()
+    }
+
+    /// Set binary values in the FMU.
+    ///
+    /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
+    fn set_binary(&mut self, _vrs: &[Self::ValueRef], _values: &[&[u8]]) -> Result<(), Fmi3Error> {
+        unimplemented!()
+    }
+
+    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
+    #[cfg(false)]
+    fn get_fmu_state<Tag>(
+        &mut self,
+        state: Option<Fmu3State<'_, Tag>>,
+    ) -> Result<Fmu3State<'_, Tag>, Error>;
+
+    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetFMUState]
+    #[cfg(false)]
+    fn set_fmu_state<Tag>(&mut self, state: &Fmu3State<'_, Tag>) -> Fmi3Status;
+}
+
+/// Interface common to all FMI3 instance types
+pub trait Common: GetSet {
     /// The FMI-standard version string
     fn get_version(&self) -> &str;
 
@@ -81,54 +167,6 @@ pub trait Common: FmiInstance {
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3Reset]
     fn reset(&mut self) -> Fmi3Status;
 
-    /// See [https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values]
-    fn get_boolean(&mut self, vrs: &[Self::ValueRef], values: &mut [bool]) -> Fmi3Status;
-    fn get_float32(&mut self, vrs: &[Self::ValueRef], values: &mut [f32]) -> Fmi3Status;
-    fn get_float64(&mut self, vrs: &[Self::ValueRef], values: &mut [f64]) -> Fmi3Status;
-    fn get_int8(&mut self, vrs: &[Self::ValueRef], values: &mut [i8]) -> Fmi3Status;
-    fn get_int16(&mut self, vrs: &[Self::ValueRef], values: &mut [i16]) -> Fmi3Status;
-    fn get_int32(&mut self, vrs: &[Self::ValueRef], values: &mut [i32]) -> Fmi3Status;
-    fn get_int64(&mut self, vrs: &[Self::ValueRef], values: &mut [i64]) -> Fmi3Status;
-    fn get_uint8(&mut self, vrs: &[Self::ValueRef], values: &mut [u8]) -> Fmi3Status;
-    fn get_uint16(&mut self, vrs: &[Self::ValueRef], values: &mut [u16]) -> Fmi3Status;
-    fn get_uint32(&mut self, vrs: &[Self::ValueRef], values: &mut [u32]) -> Fmi3Status;
-    fn get_uint64(&mut self, vrs: &[Self::ValueRef], values: &mut [u64]) -> Fmi3Status;
-    fn get_string(&mut self, vrs: &[Self::ValueRef], values: &mut [String]) -> Fmi3Status;
-    fn get_binary(&mut self, vrs: &[Self::ValueRef], values: &mut [Vec<u8>]) -> Fmi3Status;
-
-    fn set_boolean(&mut self, vrs: &[Self::ValueRef], values: &[bool]) -> Fmi3Status;
-    fn set_float32(&mut self, vrs: &[Self::ValueRef], values: &[f32]) -> Fmi3Status;
-    fn set_float64(&mut self, vrs: &[Self::ValueRef], values: &[f64]) -> Fmi3Status;
-    fn set_int8(&mut self, vrs: &[Self::ValueRef], values: &[i8]) -> Fmi3Status;
-    fn set_int16(&mut self, vrs: &[Self::ValueRef], values: &[i16]) -> Fmi3Status;
-    fn set_int32(&mut self, vrs: &[Self::ValueRef], values: &[i32]) -> Fmi3Status;
-    fn set_int64(&mut self, vrs: &[Self::ValueRef], values: &[i64]) -> Fmi3Status;
-    fn set_uint8(&mut self, vrs: &[Self::ValueRef], values: &[u8]) -> Fmi3Status;
-    fn set_uint16(&mut self, vrs: &[Self::ValueRef], values: &[u16]) -> Fmi3Status;
-    fn set_uint32(&mut self, vrs: &[Self::ValueRef], values: &[u32]) -> Fmi3Status;
-    fn set_uint64(&mut self, vrs: &[Self::ValueRef], values: &[u64]) -> Fmi3Status;
-    fn set_string<'b>(
-        &mut self,
-        vrs: &[Self::ValueRef],
-        values: impl Iterator<Item = &'b str>,
-    ) -> Fmi3Status;
-    fn set_binary<'b>(
-        &mut self,
-        vrs: &[Self::ValueRef],
-        values: impl Iterator<Item = &'b [u8]>,
-    ) -> Fmi3Status;
-
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
-    #[cfg(false)]
-    fn get_fmu_state<Tag>(
-        &mut self,
-        state: Option<Fmu3State<'_, Tag>>,
-    ) -> Result<Fmu3State<'_, Tag>, Error>;
-
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetFMUState]
-    #[cfg(false)]
-    fn set_fmu_state<Tag>(&mut self, state: &Fmu3State<'_, Tag>) -> Fmi3Status;
-
     /// This function is called to signal a converged solution at the current super-dense time
     /// instant. `update_discrete_states` must be called at least once per super-dense time
     /// instant.
@@ -136,12 +174,14 @@ pub trait Common: FmiInstance {
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates]
     fn update_discrete_states(
         &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
-    ) -> Fmi3Status;
+        _discrete_states_need_update: &mut bool,
+        _terminate_simulation: &mut bool,
+        _nominals_of_continuous_states_changed: &mut bool,
+        _values_of_continuous_states_changed: &mut bool,
+        _next_event_time: &mut Option<f64>,
+    ) -> Fmi3Status {
+        unimplemented!()
+    }
 }
 
 /// Interface for Model Exchange instances
@@ -169,7 +209,7 @@ pub trait ModelExchange: Common {
         no_set_fmu_state_prior: bool,
         enter_event_mode: &mut bool,
         terminate_simulation: &mut bool,
-    ) -> Self::Status;
+    ) -> Fmi3Status;
 
     /// Set a new value for the independent variable (typically a time instant).
     ///
@@ -239,12 +279,17 @@ pub trait ModelExchange: Common {
     /// * `event_indicators`: returns the values for the event indicators in the order defined by
     ///   the ordered list of XML elements <EventIndicator>.
     ///
-    /// [fmi3Status = fmi3Discard should be returned if the FMU was not able to compute the event
-    /// indicators according to 𝐟cont because, for example, a numerical issue, such as division
-    /// by zero, occurred.]
+    /// Returns:
+    /// * `Ok(true)` if the event indicators were successfully computed
+    /// * `Ok(false)` if the FMU was not able to compute the event indicators according to 𝐟cont
+    ///   because, for example, a numerical issue such as division by zero occurred (corresponding
+    ///   to the C API returning `fmi3Discard`)
+    /// * `Err(Fmi3Error)` for other error conditions
     ///
     /// See: [https://fmi-standard.org/docs/3.0.1/#fmi3GetEventIndicators]
-    fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Fmi3Status;
+    fn get_event_indicators(&mut self, _event_indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
+        unimplemented!()
+    }
 
     /// This function returns the number of event indicators.
     ///
@@ -292,4 +337,56 @@ pub trait ScheduledExecution: Common {
         clock_reference: Self::ValueRef,
         activation_time: f64,
     ) -> Fmi3Status;
+}
+
+/// Fmi3Model trait for types that support instantiating instances.
+pub trait Fmi3Model<'a> {
+    type InstanceME: ModelExchange;
+    type InstanceCS: CoSimulation;
+    type InstanceSE: ScheduledExecution;
+
+    /// Create a new instance of the FMU for Model-Exchange
+    ///
+    /// See [`Instance::<ME>::new()`] for more information.
+    fn instantiate_me(
+        &'a self,
+        _instance_name: &str,
+        _visible: bool,
+        _logging_on: bool,
+    ) -> Result<Self::InstanceME, Error> {
+        Err(Error::UnsupportedInterface(
+            "Model-Exchange is not supported".to_string(),
+        ))
+    }
+
+    /// Create a new instance of the FMU for Co-Simulation
+    ///
+    /// See [`Instance::<CS>::new()`] for more information.
+    fn instantiate_cs(
+        &'a self,
+        _instance_name: &str,
+        _visible: bool,
+        _logging_on: bool,
+        _event_mode_used: bool,
+        _early_return_allowed: bool,
+        _required_intermediate_variables: &[binding::fmi3ValueReference],
+    ) -> Result<Self::InstanceCS, Error> {
+        Err(Error::UnsupportedInterface(
+            "Co-Simulation is not supported".to_string(),
+        ))
+    }
+
+    /// Create a new instance of the FMU for Scheduled Execution
+    ///
+    /// See [`Instance::<SE>::new()`] for more information.
+    fn instantiate_se(
+        &'a self,
+        _instance_name: &str,
+        _visible: bool,
+        _logging_on: bool,
+    ) -> Result<Self::InstanceSE, Error> {
+        Err(Error::UnsupportedInterface(
+            "Scheduled Execution is not supported".to_string(),
+        ))
+    }
 }

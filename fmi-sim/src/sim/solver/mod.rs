@@ -24,7 +24,7 @@ impl<Inst: FmiModelExchange> Model for Inst {
     }
 
     fn get_event_indicators(&mut self, z: &mut [f64]) {
-        FmiModelExchange::get_event_indicators(self, z);
+        let _ = FmiModelExchange::get_event_indicators(self, z);
     }
 }
 

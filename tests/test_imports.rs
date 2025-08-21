@@ -1,4 +1,7 @@
-use fmi::traits::{FmiImport, FmiInstance as _};
+use fmi::{
+    fmi3::Fmi3Model,
+    traits::{FmiImport, FmiInstance as _},
+};
 use fmi_test_data::ReferenceFmus;
 
 extern crate fmi;

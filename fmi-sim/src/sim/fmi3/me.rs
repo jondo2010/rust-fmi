@@ -1,11 +1,11 @@
-use fmi::fmi3::{import::Fmi3Import, instance::InstanceME};
+use fmi::fmi3::{import::Fmi3Import, instance::InstanceME, Fmi3Model};
 
 use crate::{
     sim::{params::SimParams, InputState, RecorderState, SimState, SimStateTrait},
     Error,
 };
 
-impl<'a> SimStateTrait<'a, InstanceME<'a>> for SimState<InstanceME<'a>> {
+impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi3Import> for SimState<InstanceME<'a>> {
     fn new(
         import: &'a Fmi3Import,
         sim_params: SimParams,

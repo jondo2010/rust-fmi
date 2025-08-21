@@ -237,7 +237,7 @@ pub trait ModelExchange: Common {
     /// shifting zj with a small value. Furthermore, zj should be scaled in the FMU with its nominal
     /// value (so all elements of the returned vector “eventIndicators” should be in the order of
     /// “one”). The event indicators are returned as a vector with “ni” elements.
-    fn get_event_indicators(&mut self, events: &mut [f64]) -> Fmi2Status;
+    fn get_event_indicators(&mut self, events: &mut [f64]) -> Result<bool, Fmi2Error>;
 
     /// Return the new (continuous) state vector x.
     /// This function has to be called directly after calling function `enter_continuous_time_mode`

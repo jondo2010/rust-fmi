@@ -36,6 +36,7 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 url = { version = "2.2", optional = true }
 zip = { workspace = true }
+paste = { version = "1.0" }
 
 [build-dependencies]
 built = "0.8"

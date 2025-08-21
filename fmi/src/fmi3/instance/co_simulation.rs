@@ -1,12 +1,12 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger, Fmi3Status},
+    fmi3::{binding, import, logger, CoSimulation, Common, Fmi3Status},
     traits::{FmiEventHandler, FmiImport},
     Error,
 };
 
-use super::{CoSimulation, Common, Instance, CS};
+use super::{Instance, CS};
 
 impl<'a> Instance<'a, CS> {
     /// Returns a new CoSimulation instance.
