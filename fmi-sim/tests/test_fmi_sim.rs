@@ -101,7 +101,7 @@ fn test_start_value_types() {
             "Float64_continuous_input=-5e-1",
             "Int32_input=2147483647",
             "Boolean_input=1",
-            "String_parameter='FMI is awesome!'",
+            "String_input='FMI is awesome!'",
             //"Enumeration_input=2",
             "Float32_continuous_input=0.2",
             "Int8_input=127",
