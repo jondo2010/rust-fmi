@@ -69,7 +69,10 @@ impl<Inst> InputState<Inst>
 where
     Inst: FmiInstance,
 {
-    pub fn new<Import: ImportSchemaBuilder<ValueRef = Inst::ValueRef>>(import: &Import, input_data: Option<RecordBatch>) -> anyhow::Result<Self> {
+    pub fn new<Import: ImportSchemaBuilder<ValueRef = Inst::ValueRef>>(
+        import: &Import,
+        input_data: Option<RecordBatch>,
+    ) -> anyhow::Result<Self> {
         let model_input_schema = Arc::new(import.inputs_schema());
         let continuous_inputs = import.continuous_inputs().collect();
         let discrete_inputs = import.discrete_inputs().collect();
@@ -194,7 +197,10 @@ impl<Inst> RecorderState<Inst>
 where
     Inst: FmiInstance,
 {
-    pub fn new<Import: ImportSchemaBuilder<ValueRef = Inst::ValueRef>>(import: &Import, sim_params: &SimParams) -> Self {
+    pub fn new<Import: ImportSchemaBuilder<ValueRef = Inst::ValueRef>>(
+        import: &Import,
+        sim_params: &SimParams,
+    ) -> Self {
         let num_points = ((sim_params.stop_time - sim_params.start_time)
             / sim_params.output_interval)
             .ceil() as usize;
