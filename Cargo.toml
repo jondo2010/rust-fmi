@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.package]
 license = "MIT OR Apache-2.0"
-edition = "2021"
+edition = "2024"
 authors = ["John Hughes <jondo2010@gmail.com>"]
 repository = "https://github.com/jondo2010/rust-fmi"
 keywords = ["model", "ode", "modelica"]

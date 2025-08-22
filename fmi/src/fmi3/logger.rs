@@ -1,4 +1,4 @@
-use super::{binding, Fmi3Status};
+use super::{Fmi3Status, binding};
 
 /// Callback function for logging
 pub(crate) unsafe extern "C" fn callback_log(
@@ -8,10 +8,10 @@ pub(crate) unsafe extern "C" fn callback_log(
     message: binding::fmi3String,
 ) {
     let status = Fmi3Status::from(status);
-    let category = std::ffi::CStr::from_ptr(category)
+    let category = unsafe { std::ffi::CStr::from_ptr(category) }
         .to_str()
         .unwrap_or("INVALID");
-    let message = std::ffi::CStr::from_ptr(message)
+    let message = unsafe { std::ffi::CStr::from_ptr(message) }
         .to_str()
         .unwrap_or("INVALID");
 

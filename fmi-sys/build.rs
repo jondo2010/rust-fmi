@@ -16,6 +16,8 @@ fn main() {
             .dynamic_library_name("Fmi2Binding")
             .allowlist_function("fmi2.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            // Configure for Rust 2024 edition compatibility
+            .wrap_unsafe_ops(true)
             .generate()
             .expect("Unable to generate bindings");
 
@@ -32,6 +34,8 @@ fn main() {
             .dynamic_library_name("Fmi3Binding")
             .allowlist_function("fmi3.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            // Configure for Rust 2024 edition compatibility
+            .wrap_unsafe_ops(true)
             .generate()
             .expect("Unable to generate bindings");
 
