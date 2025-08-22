@@ -1,7 +1,7 @@
 use crate::fmi2 as binding;
 
 /// This function gets called from logger.c
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn callback_log(
     _component_environment: binding::fmi2ComponentEnvironment,
     instance_name: binding::fmi2String,
@@ -42,7 +42,7 @@ extern "C" fn callback_log(
 }
 
 #[link(name = "logger", kind = "static")]
-extern "C" {
+unsafe extern "C" {
     /// This function is implemented in logger.c
     /// Note: This can be re-implemented in pure Rust once the `c_variadics` feature stabilizes.
     /// See: https://doc.rust-lang.org/beta/unstable-book/language-features/c-variadic.html

@@ -105,6 +105,27 @@ rustfmt.toml          # Code formatting config (requires nightly for full featur
 - **INTERNET ACCESS REQUIRED** for integration tests and examples (downloads Reference-FMUs)
 - **BUILD TIMING**: Debug builds ~49s, Release builds ~163s (2m 42s) - plan accordingly
 
+## Commit Guidelines
+
+- **REQUIRED**: All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification
+- **Format**: `<type>[optional scope]: <description>`
+- **Types**: 
+  - `feat`: New features
+  - `fix`: Bug fixes  
+  - `docs`: Documentation changes
+  - `style`: Formatting, missing semi-colons, etc (no code change)
+  - `refactor`: Code change that neither fixes bug nor adds feature
+  - `test`: Adding missing tests or correcting existing tests
+  - `chore`: Changes to build process or auxiliary tools
+  - `perf`: Performance improvements
+  - `ci`: Changes to CI configuration files and scripts
+- **Examples**:
+  - `feat(fmi-sim): add support for FMI 3.0 simulation`
+  - `fix(fmi-schema): resolve XML parsing error for empty elements`
+  - `docs: update README with installation instructions`
+  - `test(fmi-schema): add unit tests for variable parsing`
+  - `chore: update dependencies to latest versions`
+
 ## Troubleshooting
 
 **Build failures**: Ensure git submodules are initialized and C compiler is available
