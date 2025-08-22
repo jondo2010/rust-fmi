@@ -16,10 +16,6 @@ Always reference these instructions first and fallback to search or bash command
 - **WARNING**: Full test suite requires internet access:
   - `cargo test --all` -- FAILS in restricted environments due to TLS certificate issues downloading Reference-FMUs
   - Integration tests download test data from GitHub and will fail offline
-- **WARNING**: Linting has known issues:
-  - `cargo clippy --all` -- FAILS due to clippy error in fmi/src/fmi2/instance/common.rs:203
-  - `cargo fmt --all` -- FAILS due to missing export.rs file referenced in fmi3/mod.rs
-  - **DO NOT** run clippy with `-D warnings` or rustfmt until these are fixed
 
 ## Validation
 
@@ -113,6 +109,4 @@ rustfmt.toml          # Code formatting config (requires nightly for full featur
 
 **Build failures**: Ensure git submodules are initialized and C compiler is available
 **Test failures**: Most likely due to network restrictions - focus on unit tests only
-**Clippy errors**: Known issue in fmi crate, avoid running with `-D warnings`
-**Format errors**: Missing export.rs file causes rustfmt to fail
 **Examples fail**: Require internet access to download test FMUs from GitHub
