@@ -71,7 +71,7 @@ pub struct RealVariableAttributes {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-struct EnumerationAttributes {
+pub struct EnumerationAttributes {
     #[yaserde(attribute = true)]
     pub min: Option<i64>,
     #[yaserde(attribute = true)]

@@ -1,5 +1,5 @@
 //! The `fmi` crate implements a Rust interface to FMUs (Functional Mockup Units) that follow FMI
-//! Standard. This version of the library supports FMI 2.0 and 3.0. See http://www.fmi-standard.org/
+//! Standard. This version of the library supports FMI 2.0 and 3.0. See <http://www.fmi-standard.org/>
 //!
 //! ## Examples
 //!
@@ -7,11 +7,11 @@
 //!
 //! ```rust,no_run
 //! use fmi::{fmi2::import::Fmi2Import, import, traits::{FmiImport, FmiInstance}};
-//! 
+//!
 //! // Load an FMU from a file path
 //! let import: Fmi2Import = import::from_path("path/to/model.fmu").unwrap();
 //! assert_eq!(import.model_description().fmi_version, "2.0");
-//! 
+//!
 //! // Create a Model Exchange instance
 //! let me = import.instantiate_me("inst1", false, true).unwrap();
 //! assert_eq!(me.get_version(), "2.0");
@@ -21,11 +21,11 @@
 //!
 //! ```rust,no_run
 //! use fmi::{fmi3::{import::Fmi3Import, Fmi3Model}, import, traits::{FmiImport, FmiInstance}};
-//! 
+//!
 //! // Load an FMU from a file path
 //! let import: Fmi3Import = import::from_path("path/to/model.fmu").unwrap();
 //! assert_eq!(import.model_description().fmi_version, "3.0");
-//! 
+//!
 //! // Create a Model Exchange instance
 //! let me = import.instantiate_me("inst1", false, true).unwrap();
 //! assert_eq!(me.get_version(), "3.0");
@@ -35,7 +35,7 @@
 //!
 //! ```rust,no_run
 //! use fmi::{import, schema::{MajorVersion, traits::FmiModelDescription}};
-//! 
+//!
 //! // Peek at the FMU metadata without fully extracting it
 //! let model_desc = import::peek_descr_path("path/to/model.fmu").unwrap();
 //! let version = model_desc.major_version().unwrap();

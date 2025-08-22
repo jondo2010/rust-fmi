@@ -177,10 +177,10 @@ pub struct DiscreteStates {
     /// The FMU requests to stop the simulation and the importer must call [`Common::terminate()`].
     pub terminate_simulation: bool,
     /// At least one nominal value of the states has changed and can be inquired with
-    /// [`ModelExchange::get_nominals_of_continuous_states()`]. This argument is only valid in
+    /// [`crate::fmi3::ModelExchange::get_nominals_of_continuous_states()`]. This argument is only valid in
     /// Model Exchange.
     pub nominals_of_continuous_states_changed: bool,
-    /// At least one continuous state has changed its value because it was re-initialized (see [https://fmi-standard.org/docs/3.0.1/#reinit]).
+    /// At least one continuous state has changed its value because it was re-initialized (see <https://fmi-standard.org/docs/3.0.1/#reinit>).
     pub values_of_continuous_states_changed: bool,
     /// The absolute time of the next time event 𝑇next. The importer must compute up to
     /// `next_event_time` (or if needed slightly further) and then enter Event Mode using
