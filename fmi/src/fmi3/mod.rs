@@ -1,7 +1,5 @@
 //! FMI 3.0 API
 
-#[cfg(feature = "export")]
-pub mod export;
 pub mod import;
 pub mod instance;
 pub(crate) mod logger;
