@@ -3,12 +3,10 @@ use std::{path::PathBuf, str::FromStr};
 use fmi_schema::MajorVersion;
 use tempfile::TempDir;
 
-use crate::{traits::FmiImport, Error};
-
-use super::{
-    binding,
-    instance::{Instance, CS, ME},
-    schema,
+use crate::{
+    fmi3::{binding, instance, schema, Fmi3Model},
+    traits::FmiImport,
+    Error,
 };
 
 /// FMU import for FMI 3.0
@@ -87,7 +85,11 @@ impl FmiImport for Fmi3Import {
     }
 }
 
-impl Fmi3Import {
+impl<'a> Fmi3Model<'a> for Fmi3Import {
+    type InstanceCS = instance::InstanceCS<'a>;
+    type InstanceME = instance::InstanceME<'a>;
+    type InstanceSE = instance::InstanceSE<'a>;
+
     /// Build a derived model description from the raw-schema model description
     #[cfg(false)]
     pub fn model(&self) -> &model::ModelDescription {
@@ -96,29 +98,29 @@ impl Fmi3Import {
 
     /// Create a new instance of the FMU for Model-Exchange
     ///
-    /// See [`Instance::<ME>::new()`] for more information.
-    pub fn instantiate_me(
-        &self,
+    /// See [`instance::InstanceME::new`] for more information.
+    fn instantiate_me(
+        &'a self,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> Result<Instance<'_, ME>, Error> {
-        Instance::<'_, ME>::new(self, instance_name, visible, logging_on)
+    ) -> Result<Self::InstanceME, Error> {
+        instance::InstanceME::new(self, instance_name, visible, logging_on)
     }
 
     /// Create a new instance of the FMU for Co-Simulation
     ///
-    /// See [`Instance::<CS>::new()`] for more information.
-    pub fn instantiate_cs(
-        &self,
+    /// See [`instance::InstanceCS::new`] for more information.
+    fn instantiate_cs(
+        &'a self,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
         event_mode_used: bool,
         early_return_allowed: bool,
         required_intermediate_variables: &[binding::fmi3ValueReference],
-    ) -> Result<Instance<'_, CS>, Error> {
-        Instance::<'_, CS>::new(
+    ) -> Result<Self::InstanceCS, Error> {
+        instance::InstanceCS::new(
             self,
             instance_name,
             visible,
@@ -127,5 +129,17 @@ impl Fmi3Import {
             early_return_allowed,
             required_intermediate_variables,
         )
+    }
+
+    /// Create a new instance of the FMU for Scheduled Execution
+    ///
+    /// See [`instance::InstanceSE::new`] for more information.
+    fn instantiate_se(
+        &'a self,
+        instance_name: &str,
+        visible: bool,
+        logging_on: bool,
+    ) -> Result<Self::InstanceSE, Error> {
+        instance::InstanceSE::new(self, instance_name, visible, logging_on)
     }
 }

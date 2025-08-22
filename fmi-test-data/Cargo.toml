@@ -1,6 +1,6 @@
 [package]
 name = "fmi-test-data"
-version = "0.1.0"
+version = "0.2.0"
 description = "Utilities for fetching test data from Modelica's Reference-FMUs repository."
 license.workspace = true
 edition.workspace = true
@@ -12,7 +12,11 @@ publish = true
 
 [dependencies]
 anyhow = { workspace = true }
+const_format = "0.2"
 fetch-data = "0.2"
-fmi = { workspace = true, features = ["fmi2", "fmi3"] }
+fmi = { workspace = true, default_features = false, features = [
+    "fmi2",
+    "fmi3",
+] }
 tempfile = { workspace = true }
 zip = { workspace = true }

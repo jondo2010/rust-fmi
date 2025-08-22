@@ -1,7 +1,7 @@
 use arrow::array::RecordBatch;
 use std::path::Path;
 
-use fmi::traits::{FmiEventHandler, FmiInstance, FmiStatus};
+use fmi::traits::{FmiEventHandler, FmiImport, FmiInstance, FmiStatus};
 
 pub use io::{InputState, RecorderState};
 
@@ -36,9 +36,9 @@ where
     next_event_time: Option<f64>,
 }
 
-pub trait SimStateTrait<'a, Inst: FmiInstance> {
+pub trait SimStateTrait<'a, Inst: FmiInstance, Import: FmiImport> {
     fn new(
-        import: &'a Inst::Import,
+        import: &'a Import,
         sim_params: SimParams,
         input_state: InputState<Inst>,
         output_state: RecorderState<Inst>,

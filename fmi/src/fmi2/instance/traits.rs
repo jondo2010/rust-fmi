@@ -95,8 +95,8 @@ pub trait Common: FmiInstance {
     fn get_string(
         &mut self,
         sv: &[binding::fmi2ValueReference],
-        v: &mut [binding::fmi2String],
-    ) -> Fmi2Status;
+        v: &mut [std::ffi::CString],
+    ) -> Result<(), Fmi2Error>;
 
     /// Set real values
     ///
@@ -126,11 +126,11 @@ pub trait Common: FmiInstance {
         values: &[binding::fmi2Boolean],
     ) -> Fmi2Status;
 
-    fn set_string<'b>(
+    fn set_string(
         &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: impl Iterator<Item = &'b str>,
-    ) -> Fmi2Status;
+        values: &[std::ffi::CString],
+    ) -> Result<(), Fmi2Error>;
 
     // fn get_fmu_state(&self) -> Result<FmuState>;
     // fn set_fmu_state(&self, state: &FmuState<Self::Api>) -> Result<()>;
@@ -232,12 +232,12 @@ pub trait ModelExchange: Common {
     /// current states. The derivatives are returned as a vector with “nx” elements.
     fn get_derivatives(&mut self, dx: &mut [f64]) -> Fmi2Status;
 
-    /// A state event is triggered when the domain of an event indicator changes from zj > 0 to zj ≤
-    /// 0 or vice versa. The FMU must guarantee that at an event restart zj ≠ 0, for example by
-    /// shifting zj with a small value. Furthermore, zj should be scaled in the FMU with its nominal
+    /// A state event is triggered when the domain of an event indicator changes from `zj > 0` to `zj ≤ 0`
+    /// or vice versa. The FMU must guarantee that at an event restart `zj ≠ 0`, for example by
+    /// shifting `zj` with a small value. Furthermore, `zj` should be scaled in the FMU with its nominal
     /// value (so all elements of the returned vector “eventIndicators” should be in the order of
     /// “one”). The event indicators are returned as a vector with “ni” elements.
-    fn get_event_indicators(&mut self, events: &mut [f64]) -> Fmi2Status;
+    fn get_event_indicators(&mut self, events: &mut [f64]) -> Result<bool, Fmi2Error>;
 
     /// Return the new (continuous) state vector x.
     /// This function has to be called directly after calling function `enter_continuous_time_mode`
@@ -252,11 +252,11 @@ pub trait ModelExchange: Common {
     /// variables has changed due to internal dynamic state selection].
     ///
     /// If the FMU does not have information about the nominal value of a continuous state i, a
-    /// nominal value x_nominal[i] = 1.0 should be returned.
+    /// nominal value `x_nominal[i] = 1.0` should be returned.
     ///
-    /// Note, it is required that x_nominal[i] > 0.0 [Typically, the nominal values of the
+    /// Note, it is required that `x_nominal[i] > 0.0` (Typically, the nominal values of the
     /// continuous states are used to compute the absolute tolerance required by the integrator.
-    /// Example: absoluteTolerance[i] = 0.01*tolerance*x_nominal[i];]
+    /// Example: `absoluteTolerance[i] = 0.01*tolerance*x_nominal[i];`)
     fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Fmi2Status;
 }
 

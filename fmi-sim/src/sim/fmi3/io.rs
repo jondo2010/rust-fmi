@@ -4,8 +4,8 @@ use arrow::{
     array::{
         downcast_array, ArrayRef, AsArray, BinaryBuilder, BooleanBuilder, Float32Array,
         Float32Builder, Float64Array, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
-        Int8Builder, UInt16Array, UInt16Builder, UInt32Array, UInt32Builder, UInt64Array,
-        UInt64Builder, UInt8Array, UInt8Builder,
+        Int8Builder, StringBuilder, UInt16Array, UInt16Builder, UInt32Array, UInt32Builder,
+        UInt64Array, UInt64Builder, UInt8Array, UInt8Builder,
     },
     datatypes::{
         DataType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
@@ -13,7 +13,7 @@ use arrow::{
     },
 };
 use fmi::{
-    fmi3::instance::Common,
+    fmi3::GetSet,
     traits::{FmiInstance, FmiStatus},
 };
 
@@ -90,14 +90,27 @@ macro_rules! impl_record_values {
                             impl_recorder!(get_float64, Float64Builder, self, vr, builder)
                         }
                         DataType::Binary => {
-                            let mut value = [std::default::Default::default()];
-                            self.get_binary(&[*vr], &mut value).ok()?;
-                            let [value] = value;
+                            // Use a reasonable buffer size for binary data
+                            let mut data = vec![0u8; 1024];
+                            let mut value = [data.as_mut_slice()];
+                            let sizes = self.get_binary(&[*vr], &mut value)?;
+                            let actual_size = sizes.get(0).copied().unwrap_or(0);
+                            data.truncate(actual_size);
                             builder
                                 .as_any_mut()
                                 .downcast_mut::<BinaryBuilder>()
                                 .expect("column is not Binary")
-                                .append_value(value);
+                                .append_value(data);
+                        }
+                        DataType::Utf8 => {
+                            let mut values = [std::ffi::CString::new("").unwrap()];
+                            let _ = self.get_string(&[*vr], &mut values);
+                            let string_value = values[0].to_string_lossy();
+                            builder
+                                .as_any_mut()
+                                .downcast_mut::<StringBuilder>()
+                                .expect("column is not Utf8")
+                                .append_value(string_value);
                         }
                         _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
                     }
@@ -151,12 +164,23 @@ macro_rules! impl_set_values {
                         self.set_float64(vrs, values.as_primitive::<Float64Type>().values());
                     }
                     DataType::Binary => {
-                        self.set_binary(vrs, values.as_binary::<i32>().iter().flatten());
+                        let binary_refs: Vec<&[u8]> = values
+                            .as_binary::<i32>()
+                            .iter()
+                            .filter_map(|opt| opt) // Filter out None values
+                            .collect();
+                        let _ = self.set_binary(vrs, &binary_refs);
                     }
                     DataType::FixedSizeBinary(_) => todo!(),
                     DataType::LargeBinary => todo!(),
                     DataType::Utf8 => {
-                        self.set_string(vrs, values.as_string::<i32>().iter().flatten());
+                        let string_values: Vec<std::ffi::CString> = values
+                            .as_string::<i32>()
+                            .iter()
+                            .filter_map(|opt| opt) // Filter out None values
+                            .map(|s| std::ffi::CString::new(s).unwrap())
+                            .collect();
+                        let _ = self.set_string(vrs, &string_values);
                     }
                     DataType::LargeUtf8 => todo!(),
                     _ => unimplemented!("Unsupported data type"),
@@ -222,7 +246,15 @@ macro_rules! impl_set_values {
                         self.set_float64(&[vr], &[value]).ok()?;
                     }
                     DataType::Binary => todo!(),
-                    DataType::Utf8 => todo!(),
+                    DataType::Utf8 => {
+                        // For string interpolation, we use the next index value (no real interpolation for strings)
+                        let array = array.as_string::<i32>();
+                        let index = pl.next_index().min(array.iter().count().saturating_sub(1));
+                        if let Some(Some(value)) = array.iter().nth(index) {
+                            let cstring = std::ffi::CString::new(value).unwrap();
+                            let _ = self.set_string(&[vr], &[cstring]);
+                        }
+                    }
                     _ => unimplemented!("Unsupported data type: {:?}", array.data_type()),
                 }
                 Ok(())

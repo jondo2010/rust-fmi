@@ -1,6 +1,7 @@
 use std::ffi::CStr;
 
-use crate::fmi2::{binding, Fmi2Status};
+use crate::fmi2::{binding, Fmi2Error, Fmi2Status};
+use crate::traits::FmiStatus;
 
 use super::{Common, Instance};
 
@@ -117,13 +118,36 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
     fn get_string(
         &mut self,
         sv: &[binding::fmi2ValueReference],
-        v: &mut [binding::fmi2String],
-    ) -> Fmi2Status {
-        unsafe {
-            self.binding
-                .fmi2GetString(self.component, sv.as_ptr(), sv.len(), v.as_mut_ptr())
+        v: &mut [std::ffi::CString],
+    ) -> Result<(), Fmi2Error> {
+        let n_values = v.len();
+
+        // Create an array of null pointers to receive the string pointers from FMI
+        let mut value_ptrs: Vec<binding::fmi2String> = vec![std::ptr::null(); n_values];
+
+        // Call the FMI function to get string pointers
+        let status = unsafe {
+            self.binding.fmi2GetString(
+                self.component,
+                sv.as_ptr(),
+                sv.len(),
+                value_ptrs.as_mut_ptr(),
+            )
+        };
+
+        Fmi2Status::from(status).ok()?;
+
+        // Copy the C strings into the output CString values
+        for (value, ptr) in v.iter_mut().zip(value_ptrs.iter()) {
+            if ptr.is_null() {
+                return Err(Fmi2Error::Error);
+            }
+            let cstr = unsafe { std::ffi::CStr::from_ptr(*ptr) };
+            // Copy the string data into the provided CString
+            *value = std::ffi::CString::new(cstr.to_bytes()).map_err(|_| Fmi2Error::Error)?;
         }
-        .into()
+
+        Ok(())
     }
 
     fn set_real(
@@ -165,25 +189,23 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         .into()
     }
 
-    fn set_string<'b>(
+    fn set_string(
         &mut self,
         vrs: &[binding::fmi2ValueReference],
-        values: impl Iterator<Item = &'b str>,
-    ) -> Fmi2Status {
-        let values = values
-            .map(|s| std::ffi::CString::new(s.as_bytes()).expect("Error building CString"))
-            .collect::<Vec<_>>();
-
+        values: &[std::ffi::CString],
+    ) -> Result<(), Fmi2Error> {
         let ptrs = values
             .iter()
             .map(|s| s.as_c_str().as_ptr())
             .collect::<Vec<_>>();
 
-        unsafe {
+        let status = unsafe {
             self.binding
                 .fmi2SetString(self.component, vrs.as_ptr(), vrs.len() as _, ptrs.as_ptr())
-        }
-        .into()
+        };
+
+        Fmi2Status::from(status).ok()?;
+        Ok(())
     }
 
     fn get_directional_derivative(

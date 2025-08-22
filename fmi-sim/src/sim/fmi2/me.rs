@@ -13,7 +13,7 @@ use crate::{
     Error,
 };
 
-impl<'a> SimStateTrait<'a, InstanceME<'a>> for SimState<InstanceME<'a>> {
+impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi2Import> for SimState<InstanceME<'a>> {
     fn new(
         import: &'a Fmi2Import,
         sim_params: SimParams,
