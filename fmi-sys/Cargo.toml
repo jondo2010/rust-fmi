@@ -1,6 +1,6 @@
 [package]
 name = "fmi-sys"
-version = "0.1.2"
+version.workspace = true
 description = "Raw bindgen bindings to FMI 2.0 and 3.0"
 readme = "README.md"
 authors.workspace = true

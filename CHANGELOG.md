@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-08-22
+
+### Added
+
+- GitHub Copilot instructions with validated commands and timing (#106)
+- GitHub Actions workflow for code coverage (#99)
+- Additional model description and variable support in fmi-schema (#98)
+- FMI2 model description structures and serialization
+- Enhanced FMI3 variable definitions with additional attributes
+- Codecov badge to README.md
+
+### Changed
+
+- **BREAKING**: Unified versioning across all crates to 0.5.0
+- All crates (fmi, fmi-schema, fmi-sim, fmi-sys, fmi-test-data) now use synchronized versioning
+- Simplified dependency management and release process
+- Upgraded to Rust edition 2024
+- Refactored FMI 3.0 traits and instance interfaces (#102)
+  - Updated `Fmi3Model` trait with methods for instantiating ME, CS, and SE instances
+  - Introduced new `traits` module for FMI 3.0 with `Common`, `ModelExchange`, `CoSimulation`, and `ScheduledExecution` interfaces
+  - Extracted `GetSet` trait from `Common`
+  - Reworked string and binary interfaces
+  - Updated `get_event_indicators` method signatures to return Result types
+- Updated dependencies:
+  - bindgen to 0.72
+  - built to 0.8  
+  - cc to v1.2.33
+  - zip to v4.3.0
+  - itertools to 0.14
+  - libloading to v0.8.6
+  - fetch-data to 0.2
+  - yaserde to 0.12
+  - actions/checkout to v5
+  - codecov/codecov-action to v5
+
+### Fixed
+
+- Outdated documentation example in fmi crate (#104)
+
+### Removed
+
+- Unnecessary `Import` type from `FmiInstance` trait
+
 ## [0.4.1] - 2024-10-30
 
 ### Added
