@@ -54,7 +54,8 @@ where
             writeln!(
                 f,
                 "input_data:\n{}",
-                arrow::util::pretty::pretty_format_batches(&[input_data.clone()]).unwrap()
+                arrow::util::pretty::pretty_format_batches(std::slice::from_ref(input_data))
+                    .unwrap()
             )?;
         } else {
             writeln!(f, "input_data: None")?;

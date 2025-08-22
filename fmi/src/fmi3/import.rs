@@ -98,7 +98,7 @@ impl<'a> Fmi3Model<'a> for Fmi3Import {
 
     /// Create a new instance of the FMU for Model-Exchange
     ///
-    /// See [`Instance::<ME>::new()`] for more information.
+    /// See [`instance::InstanceME::new`] for more information.
     fn instantiate_me(
         &'a self,
         instance_name: &str,
@@ -110,7 +110,7 @@ impl<'a> Fmi3Model<'a> for Fmi3Import {
 
     /// Create a new instance of the FMU for Co-Simulation
     ///
-    /// See [`Instance::<CS>::new()`] for more information.
+    /// See [`instance::InstanceCS::new`] for more information.
     fn instantiate_cs(
         &'a self,
         instance_name: &str,
@@ -133,7 +133,7 @@ impl<'a> Fmi3Model<'a> for Fmi3Import {
 
     /// Create a new instance of the FMU for Scheduled Execution
     ///
-    /// See [`Instance::<SE>::new()`] for more information.
+    /// See [`instance::InstanceSE::new`] for more information.
     fn instantiate_se(
         &'a self,
         instance_name: &str,

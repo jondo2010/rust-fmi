@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 
-use crate::fmi2::{binding, Fmi2Status, Fmi2Error};
+use crate::fmi2::{binding, Fmi2Error, Fmi2Status};
 use crate::traits::FmiStatus;
 
 use super::{Common, Instance};
@@ -121,18 +121,22 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         v: &mut [std::ffi::CString],
     ) -> Result<(), Fmi2Error> {
         let n_values = v.len();
-        
+
         // Create an array of null pointers to receive the string pointers from FMI
         let mut value_ptrs: Vec<binding::fmi2String> = vec![std::ptr::null(); n_values];
-        
+
         // Call the FMI function to get string pointers
         let status = unsafe {
-            self.binding
-                .fmi2GetString(self.component, sv.as_ptr(), sv.len(), value_ptrs.as_mut_ptr())
+            self.binding.fmi2GetString(
+                self.component,
+                sv.as_ptr(),
+                sv.len(),
+                value_ptrs.as_mut_ptr(),
+            )
         };
-        
+
         Fmi2Status::from(status).ok()?;
-        
+
         // Copy the C strings into the output CString values
         for (value, ptr) in v.iter_mut().zip(value_ptrs.iter()) {
             if ptr.is_null() {
@@ -142,7 +146,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             // Copy the string data into the provided CString
             *value = std::ffi::CString::new(cstr.to_bytes()).map_err(|_| Fmi2Error::Error)?;
         }
-        
+
         Ok(())
     }
 
@@ -199,8 +203,8 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             self.binding
                 .fmi2SetString(self.component, vrs.as_ptr(), vrs.len() as _, ptrs.as_ptr())
         };
-        
-        Fmi2Status::from(status).ok().map_err(|e| e)?;
+
+        Fmi2Status::from(status).ok()?;
         Ok(())
     }
 
