@@ -2,7 +2,7 @@
 
 #[cfg(target_os = "linux")]
 use fmi::{
-    fmi2::instance::{CoSimulation as _, Common as _, Instance, CS, ME},
+    fmi2::instance::{CS, CoSimulation as _, Common as _, Instance, ME},
     traits::{FmiImport as _, FmiStatus},
 };
 #[cfg(target_os = "linux")]
@@ -31,7 +31,6 @@ fn test_instance_me() {
 
     instance1
         .set_debug_logging(true, categories)
-        .ok()
         .expect("set_debug_logging");
     instance1
         .setup_experiment(Some(1.0e-6_f64), 0.0, None)

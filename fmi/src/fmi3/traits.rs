@@ -1,8 +1,11 @@
 //! Traits for the different instance types.
 
-use crate::{fmi3::Fmi3Error, Error};
+use crate::{
+    Error,
+    fmi3::{Fmi3Error, Fmi3Res},
+};
 
-use super::{binding, Fmi3Status};
+use super::{Fmi3Status, binding};
 
 macro_rules! default_getter_setter {
     ($name:ident, $ty:ty) => {
@@ -98,7 +101,11 @@ pub trait Common: GetSet {
     /// The function controls the debug logging that is output by the FMU
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging>
-    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi3Status;
+    fn set_debug_logging(
+        &mut self,
+        logging_on: bool,
+        categories: &[&str],
+    ) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Changes state to Reconfiguration Mode.
     ///
@@ -108,12 +115,12 @@ pub trait Common: GetSet {
     /// [`crate::fmi3::schema::Causality::StructuralParameter`] and `variability` = [`crate::fmi3::schema::Variability::Tunable`]).
     ///
     /// See <https://fmi-standard.org/docs/3.0/#fmi3EnterConfigurationMode>
-    fn enter_configuration_mode(&mut self) -> Fmi3Status;
+    fn enter_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Exits the Configuration Mode and returns to state Instantiated.
     ///
     /// See <https://fmi-standard.org/docs/3.0/#fmi3ExitConfigurationMode>
-    fn exit_configuration_mode(&mut self) -> Fmi3Status;
+    fn exit_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Changes state to `Initialization Mode`.
     ///
@@ -134,7 +141,7 @@ pub trait Common: GetSet {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> Fmi3Status;
+    ) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Changes the state, depending on the instance type:
     /// * Model Exchange: Event Mode
@@ -142,7 +149,7 @@ pub trait Common: GetSet {
     ///     * `event_mode_used = true`: Event Mode
     ///     * `event_mode_used = false`: Step Mode
     /// * Scheduled Execution: Clock Activation Mode.
-    fn exit_initialization_mode(&mut self) -> Fmi3Status;
+    fn exit_initialization_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// This function changes the state to Event Mode.
     ///
@@ -153,19 +160,19 @@ pub trait Common: GetSet {
     /// * the importer plans discrete changes to inputs, or an input Clock needs to be set.
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3EnterEventMode>
-    fn enter_event_mode(&mut self) -> Fmi3Status;
+    fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Changes state to [`Terminated`](https://fmi-standard.org/docs/3.0.1/#Terminated).
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3Terminate>
-    fn terminate(&mut self) -> Fmi3Status;
+    fn terminate(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Is called by the environment to reset the FMU after a simulation run.
     /// The FMU goes into the same state as if newly created. All variables have their default
     /// values. Before starting a new run [`Common::enter_initialization_mode()`] has to be called.
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3Reset>
-    fn reset(&mut self) -> Fmi3Status;
+    fn reset(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// This function is called to signal a converged solution at the current super-dense time
     /// instant. `update_discrete_states` must be called at least once per super-dense time
@@ -179,14 +186,14 @@ pub trait Common: GetSet {
         _nominals_of_continuous_states_changed: &mut bool,
         _values_of_continuous_states_changed: &mut bool,
         _next_event_time: &mut Option<f64>,
-    ) -> Fmi3Status {
+    ) -> Result<Fmi3Res, Fmi3Error> {
         unimplemented!()
     }
 }
 
 /// Interface for Model Exchange instances
 pub trait ModelExchange: Common {
-    fn enter_continuous_time_mode(&mut self) -> Fmi3Status;
+    fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// This function is called after every completed step of the integrator provided the capability
     /// flag [`crate::fmi3::schema::Fmi3ModelExchange::needs_completed_integrator_step`] =
@@ -209,7 +216,7 @@ pub trait ModelExchange: Common {
         no_set_fmu_state_prior: bool,
         enter_event_mode: &mut bool,
         terminate_simulation: &mut bool,
-    ) -> Fmi3Status;
+    ) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Set a new value for the independent variable (typically a time instant).
     ///
@@ -225,7 +232,7 @@ pub trait ModelExchange: Common {
     /// discrete state, not the previous one.
     ///
     /// See: <https://fmi-standard.org/docs/3.0.1/#fmi3SetTime>
-    fn set_time(&mut self, time: f64) -> Fmi3Status;
+    fn set_time(&mut self, time: f64) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Set new continuous state values.
     ///
@@ -234,7 +241,7 @@ pub trait ModelExchange: Common {
     /// * `states`: the new values for each continuous state. The order of the continuousStates
     ///   vector must be the same as the ordered list of elements in
     ///   [`crate::fmi3::schema::ModelStructure::continuous_state_derivatives`].
-    fn set_continuous_states(&mut self, states: &[f64]) -> Fmi3Status;
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Return the current continuous state vector.
     ///
@@ -244,7 +251,10 @@ pub trait ModelExchange: Common {
     ///   for the order as defined for [`ModelExchange::set_continuous_states()`].
     ///
     /// See: <https://fmi-standard.org/docs/3.0.1/#fmi3GetContinuousStates>
-    fn get_continuous_states(&mut self, continuous_states: &mut [f64]) -> Fmi3Status;
+    fn get_continuous_states(
+        &mut self,
+        continuous_states: &mut [f64],
+    ) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Fetch the first-order derivatives with respect to the independent variable (usually
     /// time) of the continuous states.
@@ -253,7 +263,10 @@ pub trait ModelExchange: Common {
     /// [`crate::fmi3::Fmi3Err::Discard`] if the FMU was not able to compute the derivatives
     /// according to 𝐟cont because, for example, a numerical issue, such as division by zero,
     /// occurred.
-    fn get_continuous_state_derivatives(&mut self, states: &mut [f64]) -> Fmi3Status;
+    fn get_continuous_state_derivatives(
+        &mut self,
+        states: &mut [f64],
+    ) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Return the nominal values of the continuous states.
     ///
@@ -271,7 +284,10 @@ pub trait ModelExchange: Common {
     /// dynamic state selection).
     ///
     /// See: <https://fmi-standard.org/docs/3.0.1/#fmi3GetNominalsOfContinuousStates>
-    fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Fmi3Status;
+    fn get_nominals_of_continuous_states(
+        &mut self,
+        nominals: &mut [f64],
+    ) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Returns the event indicators signaling state events by their sign changes.
     ///
@@ -294,13 +310,13 @@ pub trait ModelExchange: Common {
     /// This function returns the number of event indicators.
     ///
     /// See: <https://fmi-standard.org/docs/3.0/#fmi3GetNumberOfEventIndicators>
-    fn get_number_of_event_indicators(&self, number_of_event_indicators: &mut usize) -> Fmi3Status;
+    fn get_number_of_event_indicators(&mut self) -> Result<usize, Fmi3Error>;
 }
 
 /// Interface for Co-Simulation instances
 pub trait CoSimulation: Common {
     /// This function must be called to change from Event Mode into Step Mode in Co-Simulation.
-    fn enter_step_mode(&mut self) -> Fmi3Status;
+    fn enter_step_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// The importer requests the computation of the next time step.
     ///
@@ -315,7 +331,7 @@ pub trait CoSimulation: Common {
         terminate_simulation: &mut bool,
         early_return: &mut bool,
         last_successful_time: &mut f64,
-    ) -> Fmi3Status;
+    ) -> Result<Fmi3Res, Fmi3Error>;
 }
 
 /// Interface for Scheduled instances
@@ -335,7 +351,7 @@ pub trait ScheduledExecution: Common {
         &mut self,
         clock_reference: Self::ValueRef,
         activation_time: f64,
-    ) -> Fmi3Status;
+    ) -> Result<Fmi3Res, Fmi3Error>;
 }
 
 /// Fmi3Model trait for types that support instantiating instances.

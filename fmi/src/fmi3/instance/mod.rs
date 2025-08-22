@@ -2,13 +2,13 @@
 
 use crate::{
     fmi3::{
+        CS, Fmi3Error, Fmi3Res, ME, SE,
         traits::{Common, GetSet},
-        CS, ME, SE,
     },
     traits::{FmiImport, FmiInstance, FmiStatus},
 };
 
-use super::{binding, import::Fmi3Import, schema, Fmi3Status};
+use super::{Fmi3Status, binding, import::Fmi3Import, schema};
 
 mod co_simulation;
 mod common;
@@ -103,7 +103,11 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         self.model_description
     }
 
-    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Self::Status {
+    fn set_debug_logging(
+        &mut self,
+        logging_on: bool,
+        categories: &[&str],
+    ) -> Result<Fmi3Res, Fmi3Error> {
         Common::set_debug_logging(self, logging_on, categories)
     }
 
@@ -134,19 +138,19 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> Self::Status {
+    ) -> Result<Fmi3Res, Fmi3Error> {
         Common::enter_initialization_mode(self, tolerance, start_time, stop_time)
     }
 
-    fn exit_initialization_mode(&mut self) -> Self::Status {
+    fn exit_initialization_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         Common::exit_initialization_mode(self)
     }
 
-    fn terminate(&mut self) -> Fmi3Status {
+    fn terminate(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         Common::terminate(self)
     }
 
-    fn reset(&mut self) -> Fmi3Status {
+    fn reset(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         Common::reset(self)
     }
 }

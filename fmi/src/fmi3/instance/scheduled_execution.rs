@@ -1,9 +1,9 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi3::{binding, import, logger, ScheduledExecution},
-    traits::FmiImport,
     Error,
+    fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, ScheduledExecution, binding, import, logger},
+    traits::{FmiImport, FmiStatus},
 };
 
 use super::{Instance, SE};
@@ -81,11 +81,11 @@ impl<'a> ScheduledExecution for Instance<'a, SE> {
         &mut self,
         clock_reference: Self::ValueRef,
         activation_time: f64,
-    ) -> crate::fmi3::Fmi3Status {
-        unsafe {
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe {
             self.binding
                 .fmi3ActivateModelPartition(self.ptr, clock_reference, activation_time)
-        }
-        .into()
+        })
+        .ok()
     }
 }

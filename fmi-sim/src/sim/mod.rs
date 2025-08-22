@@ -1,11 +1,11 @@
 use arrow::array::RecordBatch;
 use std::path::Path;
 
-use fmi::traits::{FmiEventHandler, FmiImport, FmiInstance, FmiStatus};
+use fmi::traits::{FmiEventHandler, FmiImport, FmiInstance};
 
 pub use io::{InputState, RecorderState};
 
-use crate::{options, Error};
+use crate::{Error, options};
 
 use self::{
     interpolation::Linear,
@@ -58,7 +58,7 @@ where
         terminate_simulation: &mut bool,
     ) -> Result<bool, Error> {
         self.inst.record_outputs(time, &mut self.recorder_state)?;
-        self.inst.enter_event_mode().ok().map_err(Into::into)?;
+        self.inst.enter_event_mode().map_err(Into::into)?;
         if input_event {
             self.input_state
                 .apply_input::<Linear>(time, &mut self.inst, true, true, true)?;
@@ -76,9 +76,7 @@ where
                     &mut values_of_continuous_states_changed,
                     &mut self.next_event_time,
                 )
-                .ok()
                 .map_err(Into::into)?;
-
             if *terminate_simulation {
                 break;
             }
@@ -127,12 +125,10 @@ macro_rules! impl_sim_default_initialize {
                         self.sim_params.start_time,
                         Some(self.sim_params.stop_time),
                     )
-                    .ok()
                     .map_err(fmi::Error::from)?;
 
                 self.inst
                     .exit_initialization_mode()
-                    .ok()
                     .map_err(fmi::Error::from)?;
 
                 if self.sim_params.event_mode_used {
@@ -151,11 +147,10 @@ macro_rules! impl_sim_default_initialize {
                                 &mut values_of_continuous_states_changed,
                                 &mut self.next_event_time,
                             )
-                            .ok()
                             .map_err(fmi::Error::from)?;
 
                         if terminate_simulation {
-                            self.inst.terminate().ok().map_err(fmi::Error::from)?;
+                            self.inst.terminate().map_err(fmi::Error::from)?;
                             log::error!("update_discrete_states() requested termination.");
                             break;
                         }
@@ -178,11 +173,9 @@ impl SimDefaultInitialize for SimState<fmi::fmi2::instance::InstanceCS<'_>> {
                 self.sim_params.start_time,
                 Some(self.sim_params.stop_time),
             )
-            .ok()
             .map_err(fmi::Error::from)?;
         self.inst
             .exit_initialization_mode()
-            .ok()
             .map_err(fmi::Error::from)?;
 
         Ok(())

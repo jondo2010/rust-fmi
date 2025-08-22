@@ -2,11 +2,10 @@ use std::mem::MaybeUninit;
 
 use crate::{
     fmi3::{
-        binding,
+        Fmi3Error, Fmi3Res, Fmi3Status, binding,
         import::Fmi3Import,
         instance::Instance,
         traits::{Common, GetSet},
-        Fmi3Error, Fmi3Status,
     },
     traits::{FmiImport, FmiStatus},
 };
@@ -215,7 +214,9 @@ impl<'a, Tag> GetSet for Instance<'a, Tag> {
                 if value_buffer.len() < fmu_size {
                     log::error!(
                         "User buffer too small for binary value {}: buffer size = {}, required size = {}",
-                        i, value_buffer.len(), fmu_size
+                        i,
+                        value_buffer.len(),
+                        fmu_size
                     );
                     return Err(Fmi3Error::Error);
                 }
@@ -312,7 +313,11 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             .expect("Invalid version string")
     }
 
-    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Fmi3Status {
+    fn set_debug_logging(
+        &mut self,
+        logging_on: bool,
+        categories: &[&str],
+    ) -> Result<Fmi3Res, Fmi3Error> {
         let cats_vec = categories
             .iter()
             .map(|cat| std::ffi::CString::new(cat.as_bytes()).expect("Error building CString"))
@@ -323,23 +328,23 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             .map(|cat| cat.as_c_str().as_ptr())
             .collect::<Vec<_>>();
 
-        unsafe {
+        Fmi3Status::from(unsafe {
             self.binding.fmi3SetDebugLogging(
                 self.ptr,
                 logging_on,
                 cats_vec_ptrs.len() as _,
                 cats_vec_ptrs.as_ptr() as *const binding::fmi3String,
             )
-        }
-        .into()
+        })
+        .ok()
     }
 
-    fn enter_configuration_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterConfigurationMode(self.ptr) }.into()
+    fn enter_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe { self.binding.fmi3EnterConfigurationMode(self.ptr) }).ok()
     }
 
-    fn exit_configuration_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3ExitConfigurationMode(self.ptr) }.into()
+    fn exit_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe { self.binding.fmi3ExitConfigurationMode(self.ptr) }).ok()
     }
 
     fn enter_initialization_mode(
@@ -347,8 +352,8 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> Fmi3Status {
-        unsafe {
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe {
             self.binding.fmi3EnterInitializationMode(
                 self.ptr,
                 tolerance.is_some(),
@@ -357,24 +362,24 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
                 stop_time.is_some(),
                 stop_time.unwrap_or_default(),
             )
-        }
-        .into()
+        })
+        .ok()
     }
 
-    fn exit_initialization_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3ExitInitializationMode(self.ptr) }.into()
+    fn exit_initialization_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe { self.binding.fmi3ExitInitializationMode(self.ptr) }).ok()
     }
 
-    fn enter_event_mode(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3EnterEventMode(self.ptr) }.into()
+    fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe { self.binding.fmi3EnterEventMode(self.ptr) }).ok()
     }
 
-    fn terminate(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3Terminate(self.ptr) }.into()
+    fn terminate(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe { self.binding.fmi3Terminate(self.ptr) }).ok()
     }
 
-    fn reset(&mut self) -> Fmi3Status {
-        unsafe { self.binding.fmi3Reset(self.ptr) }.into()
+    fn reset(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe { self.binding.fmi3Reset(self.ptr) }).ok()
     }
 
     #[cfg(false)]
@@ -392,7 +397,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         nominals_of_continuous_states_changed: &mut bool,
         values_of_continuous_states_changed: &mut bool,
         next_event_time: &mut Option<f64>,
-    ) -> Fmi3Status {
+    ) -> Result<Fmi3Res, Fmi3Error> {
         let mut next_event_time_defined = false;
         let mut next_event_time_value = 0.0;
 
@@ -415,6 +420,6 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             None
         };
 
-        status
+        status.ok()
     }
 }

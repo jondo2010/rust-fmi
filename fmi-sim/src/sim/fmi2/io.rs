@@ -2,28 +2,25 @@
 
 use arrow::{
     array::{
-        downcast_array, ArrayRef, AsArray, BooleanBuilder, Float64Array, Float64Builder,
-        Int32Builder, StringBuilder,
+        ArrayRef, AsArray, BooleanBuilder, Float64Array, Float64Builder, Int32Builder,
+        StringBuilder, downcast_array,
     },
     datatypes::{DataType, Float64Type, Int32Type},
 };
-use fmi::{
-    fmi2::instance::Common,
-    traits::{FmiInstance, FmiStatus},
-};
+use fmi::{fmi2::instance::Common, traits::FmiInstance};
 use itertools::Itertools;
 
 use crate::sim::{
+    RecorderState,
     interpolation::{Interpolate, PreLookup},
     io::Recorder,
     traits::{InstRecordValues, InstSetValues},
-    RecorderState,
 };
 
 macro_rules! impl_recorder {
     ($getter:ident, $builder_type:ident, $inst:expr, $vr:ident, $builder:ident) => {{
         let mut value = [std::default::Default::default()];
-        $inst.$getter(&[*$vr], &mut value).ok()?;
+        $inst.$getter(&[*$vr], &mut value)?;
         $builder
             .as_any_mut()
             .downcast_mut::<$builder_type>()
@@ -52,7 +49,7 @@ macro_rules! impl_record_values {
                     match field.data_type() {
                         DataType::Boolean => {
                             let mut value = [std::default::Default::default()];
-                            self.get_boolean(&[*vr], &mut value).ok()?;
+                            self.get_boolean(&[*vr], &mut value)?;
                             builder
                                 .as_any_mut()
                                 .downcast_mut::<BooleanBuilder>()
@@ -103,13 +100,13 @@ macro_rules! impl_set_values {
                             .iter()
                             .map(|x| x.unwrap() as i32)
                             .collect_vec();
-                        self.set_boolean(vrs, &values);
+                        let _ = self.set_boolean(vrs, &values);
                     }
                     DataType::Int32 => {
-                        self.set_integer(vrs, values.as_primitive::<Int32Type>().values());
+                        let _ = self.set_integer(vrs, values.as_primitive::<Int32Type>().values());
                     }
                     DataType::Float64 => {
-                        self.set_real(vrs, values.as_primitive::<Float64Type>().values());
+                        let _ = self.set_real(vrs, values.as_primitive::<Float64Type>().values());
                     }
                     DataType::Utf8 => {
                         let cstrings: Vec<std::ffi::CString> = values
@@ -118,7 +115,7 @@ macro_rules! impl_set_values {
                             .flatten()
                             .map(|s| std::ffi::CString::new(s).unwrap())
                             .collect();
-                        self.set_string(vrs, &cstrings).ok();
+                        let _ = self.set_string(vrs, &cstrings);
                     }
                     _ => unimplemented!("Unsupported data type"),
                 }
@@ -135,12 +132,12 @@ macro_rules! impl_set_values {
                     DataType::Int32 => {
                         let array = array.as_primitive::<Int32Type>();
                         let value = I::interpolate(pl, &array);
-                        self.set_integer(&[vr], &[value]).ok()?;
+                        self.set_integer(&[vr], &[value])?;
                     }
                     DataType::Float64 => {
                         let array: Float64Array = downcast_array(&array);
                         let value = I::interpolate(pl, &array);
-                        self.set_real(&[vr], &[value]).ok()?;
+                        self.set_real(&[vr], &[value])?;
                     }
                     _ => unimplemented!("Unsupported data type: {:?}", array.data_type()),
                 }

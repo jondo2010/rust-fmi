@@ -1,11 +1,12 @@
 //! FMI 2.0 instance interface
 
 use crate::{
-    traits::{FmiImport, FmiInstance, FmiStatus},
     Error,
+    fmi2::Fmi2Res,
+    traits::{FmiImport, FmiInstance, FmiStatus},
 };
 
-use super::{binding, import::Fmi2Import, schema, CallbackFunctions, Fmi2Error, Fmi2Status};
+use super::{CallbackFunctions, Fmi2Error, Fmi2Status, binding, import::Fmi2Import, schema};
 
 mod co_simulation;
 mod common;
@@ -71,7 +72,11 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         self.model_description
     }
 
-    fn set_debug_logging(&mut self, logging_on: bool, categories: &[&str]) -> Self::Status {
+    fn set_debug_logging(
+        &mut self,
+        logging_on: bool,
+        categories: &[&str],
+    ) -> Result<Fmi2Res, Fmi2Error> {
         Common::set_debug_logging(self, logging_on, categories)
     }
 
@@ -88,20 +93,20 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         tolerance: Option<f64>,
         start_time: f64,
         stop_time: Option<f64>,
-    ) -> Self::Status {
-        Common::setup_experiment(self, tolerance, start_time, stop_time);
+    ) -> Result<Fmi2Res, Fmi2Error> {
+        Common::setup_experiment(self, tolerance, start_time, stop_time)?;
         Common::enter_initialization_mode(self)
     }
 
-    fn exit_initialization_mode(&mut self) -> Self::Status {
+    fn exit_initialization_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         Common::exit_initialization_mode(self)
     }
 
-    fn terminate(&mut self) -> Fmi2Status {
+    fn terminate(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         Common::terminate(self)
     }
 
-    fn reset(&mut self) -> Fmi2Status {
+    fn reset(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         Common::reset(self)
     }
 }

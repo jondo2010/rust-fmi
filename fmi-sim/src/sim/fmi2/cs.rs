@@ -1,21 +1,21 @@
 use fmi::{
     fmi2::{
+        Fmi2Error,
         import::Fmi2Import,
         instance::{CoSimulation, InstanceCS},
-        Fmi2Error,
     },
-    traits::{FmiInstance, FmiStatus},
+    traits::FmiInstance,
 };
 
 use crate::{
+    Error,
     sim::{
+        InputState, RecorderState, SimState, SimStateTrait, SimStats,
         interpolation::Linear,
         io::StartValues,
         params::SimParams,
         traits::{InstRecordValues, InstSetValues, SimApplyStartValues},
-        InputState, RecorderState, SimState, SimStateTrait, SimStats,
     },
-    Error,
 };
 
 impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi2Import> for SimState<InstanceCS<'a>> {
@@ -73,7 +73,6 @@ impl<'a> SimState<InstanceCS<'a>> {
             match self
                 .inst
                 .do_step(time, self.sim_params.output_interval, true)
-                .ok()
             {
                 Err(Fmi2Error::Discard) => {
                     if self.inst.terminated()? {
@@ -96,7 +95,7 @@ impl<'a> SimState<InstanceCS<'a>> {
 
         //TODO save final FMU state
 
-        self.inst.terminate().ok()?;
+        self.inst.terminate().map_err(Into::into)?;
 
         Ok(stats)
     }
