@@ -950,7 +950,7 @@ dependencies = [
 
 [[package]]
 name = "fmi"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "arrow",
  "built",
@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-schema"
-version = "0.2.1"
+version = "0.5.0"
 dependencies = [
  "arrow",
  "chrono",
@@ -985,7 +985,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-sim"
-version = "0.1.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -1008,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-sys"
-version = "0.1.2"
+version = "0.5.0"
 dependencies = [
  "bindgen",
  "cc",
@@ -1019,7 +1019,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-test-data"
-version = "0.2.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "const_format",

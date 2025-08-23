@@ -3,6 +3,7 @@ members = ["fmi", "fmi-schema", "fmi-sim", "fmi-sys", "fmi-test-data"]
 resolver = "2"
 
 [workspace.package]
+version = "0.5.0"
 license = "MIT OR Apache-2.0"
 edition = "2024"
 authors = ["John Hughes <jondo2010@gmail.com>"]
@@ -23,11 +24,11 @@ include = [
 anyhow = { version = "1.0" }
 arrow = { version = "55.2" }
 document-features = "0.2"
-fmi = { path = "fmi", version = "0.4.1", default-features = false }
-fmi-schema = { path = "fmi-schema", version = "0.2.1", default-features = false }
-fmi-sim = { path = "fmi-sim", version = "0.1.1" }
-fmi-sys = { path = "fmi-sys", version = "0.1.2" }
-fmi-test-data = { path = "fmi-test-data", version = "0.2.0" }
+fmi = { path = "fmi", version = "0.5.0", default-features = false }
+fmi-schema = { path = "fmi-schema", version = "0.5.0", default-features = false }
+fmi-sim = { path = "fmi-sim", version = "0.5.0" }
+fmi-sys = { path = "fmi-sys", version = "0.5.0" }
+fmi-test-data = { path = "fmi-test-data", version = "0.5.0" }
 itertools = "0.14"
 libloading = "0.8"
 serde = { version = "1.0", features = ["derive"] }
