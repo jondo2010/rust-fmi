@@ -23,8 +23,8 @@ pub use variable::*;
 pub use variable_dependency::*;
 
 use crate::{
-    variable_counts::{Counts, VariableCounts},
     Error,
+    variable_counts::{Counts, VariableCounts},
 };
 
 impl FromStr for Fmi3ModelDescription {

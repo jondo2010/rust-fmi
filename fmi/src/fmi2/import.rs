@@ -2,11 +2,11 @@ use std::{path::PathBuf, str::FromStr};
 
 use super::{
     binding,
-    instance::{Instance, CS, ME},
+    instance::{CS, Instance, ME},
 };
-use crate::{traits::FmiImport, Error};
+use crate::{Error, traits::FmiImport};
 
-use fmi_schema::{fmi2 as schema, MajorVersion};
+use fmi_schema::{MajorVersion, fmi2 as schema};
 
 #[derive(Debug)]
 pub struct Fmi2Import {

@@ -3,7 +3,7 @@
 #![deny(clippy::all)]
 
 use anyhow::Context;
-use fetch_data::{ctor, FetchData};
+use fetch_data::{FetchData, ctor};
 use fmi::{schema::MajorVersion, traits::FmiImport};
 use std::{
     fs::File,

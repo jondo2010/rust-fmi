@@ -5,7 +5,7 @@ use std::{
 };
 
 use arrow::{
-    csv::{reader::Format, ReaderBuilder},
+    csv::{ReaderBuilder, reader::Format},
     datatypes::{Field, Schema, SchemaRef},
     record_batch::RecordBatch,
 };

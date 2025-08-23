@@ -3,15 +3,15 @@ use arrow::array::RecordBatch;
 use fmi::fmi2::import::Fmi2Import;
 
 use crate::{
+    Error,
     options::{CoSimulationOptions, ModelExchangeOptions},
     sim::{
-        traits::{ImportSchemaBuilder, SimInitialize},
         InputState, RecorderState, SimState, SimStateTrait,
+        traits::{ImportSchemaBuilder, SimInitialize},
     },
-    Error,
 };
 
-use super::{params::SimParams, traits::FmiSim, SimStats};
+use super::{SimStats, params::SimParams, traits::FmiSim};
 
 #[cfg(feature = "cs")]
 mod cs;

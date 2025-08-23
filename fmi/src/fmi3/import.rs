@@ -4,9 +4,9 @@ use fmi_schema::MajorVersion;
 use tempfile::TempDir;
 
 use crate::{
-    fmi3::{binding, instance, schema, Fmi3Model},
-    traits::FmiImport,
     Error,
+    fmi3::{Fmi3Model, binding, instance, schema},
+    traits::FmiImport,
 };
 
 /// FMU import for FMI 3.0

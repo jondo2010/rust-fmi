@@ -2,14 +2,14 @@
 
 use arrow::{
     array::{
-        downcast_array, ArrayRef, AsArray, BinaryBuilder, BooleanBuilder, Float32Array,
-        Float32Builder, Float64Array, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
-        Int8Builder, StringBuilder, UInt16Array, UInt16Builder, UInt32Array, UInt32Builder,
-        UInt64Array, UInt64Builder, UInt8Array, UInt8Builder,
+        ArrayRef, AsArray, BinaryBuilder, BooleanBuilder, Float32Array, Float32Builder,
+        Float64Array, Float64Builder, Int8Builder, Int16Builder, Int32Builder, Int64Builder,
+        StringBuilder, UInt8Array, UInt8Builder, UInt16Array, UInt16Builder, UInt32Array,
+        UInt32Builder, UInt64Array, UInt64Builder, downcast_array,
     },
     datatypes::{
-        DataType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-        UInt32Type, UInt64Type, UInt8Type,
+        DataType, Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
+        UInt16Type, UInt32Type, UInt64Type,
     },
 };
 use fmi::{
@@ -18,10 +18,10 @@ use fmi::{
 };
 
 use crate::sim::{
+    RecorderState,
     interpolation::{Interpolate, PreLookup},
     io::Recorder,
     traits::{InstRecordValues, InstSetValues},
-    RecorderState,
 };
 
 use itertools::Itertools;

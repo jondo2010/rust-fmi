@@ -2,7 +2,7 @@ use std::{fmt::Display, sync::Arc};
 
 use anyhow::Context;
 use arrow::{
-    array::{downcast_array, make_builder, ArrayBuilder, ArrayRef, Float64Array, Float64Builder},
+    array::{ArrayBuilder, ArrayRef, Float64Array, Float64Builder, downcast_array, make_builder},
     datatypes::{DataType, Field, Schema},
     downcast_primitive_array,
     record_batch::RecordBatch,
@@ -12,7 +12,7 @@ use fmi::traits::FmiInstance;
 use crate::Error;
 
 use super::{
-    interpolation::{find_index, Interpolate, PreLookup},
+    interpolation::{Interpolate, PreLookup, find_index},
     params::SimParams,
     traits::{ImportSchemaBuilder, InstSetValues},
     util::project_input_data,

@@ -1,8 +1,8 @@
-use fmi::fmi3::{import::Fmi3Import, instance::InstanceME, Fmi3Model};
+use fmi::fmi3::{Fmi3Model, import::Fmi3Import, instance::InstanceME};
 
 use crate::{
-    sim::{params::SimParams, InputState, RecorderState, SimState, SimStateTrait},
     Error,
+    sim::{InputState, RecorderState, SimState, SimStateTrait, params::SimParams},
 };
 
 impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi3Import> for SimState<InstanceME<'a>> {

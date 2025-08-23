@@ -1,6 +1,6 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use crate::{default_wrapper, traits::FmiModelDescription, Error};
+use crate::{Error, default_wrapper, traits::FmiModelDescription};
 
 use super::{
     CoSimulation, Fmi2Unit, Fmi2VariableDependency, ModelExchange, ScalarVariable, SimpleType,

@@ -10,7 +10,7 @@
 //!
 //! ## Overview
 //!
-//! FMUs are distributed as ZIP archives containing the model description XML, shared libraries for 
+//! FMUs are distributed as ZIP archives containing the model description XML, shared libraries for
 //! different platforms, and optional resources. This module provides both high-level and low-level
 //! functions to work with these archives.
 //!
@@ -20,10 +20,10 @@
 //!
 //! ```rust,no_run
 //! use fmi::{import, fmi3::import::Fmi3Import, traits::FmiImport};
-//! 
+//!
 //! // Load an FMU from a file path
 //! let import: Fmi3Import = import::from_path("path/to/model.fmu")?;
-//! println!("Loaded FMI {} model: {}", 
+//! println!("Loaded FMI {} model: {}",
 //!          import.model_description().fmi_version,
 //!          import.model_description().model_name);
 //! # Ok::<(), fmi::Error>(())
@@ -33,7 +33,7 @@
 //!
 //! ```rust,no_run
 //! use fmi::{import, schema::{MajorVersion, traits::FmiModelDescription}};
-//! 
+//!
 //! // Check the FMI version without full extraction
 //! let model_desc = import::peek_descr_path("path/to/model.fmu")?;
 //! match model_desc.major_version()? {
@@ -55,7 +55,7 @@
 //! ```rust,no_run
 //! use fmi::{import, fmi3::import::Fmi3Import};
 //! use std::io::Cursor;
-//! 
+//!
 //! let fmu_data: Vec<u8> = std::fs::read("path/to/model.fmu")?;
 //! let cursor = Cursor::new(fmu_data);
 //! let import: Fmi3Import = import::new(cursor)?;
@@ -86,13 +86,13 @@ use std::{
     str::FromStr,
 };
 
-use crate::{traits::FmiImport, Error};
+use crate::{Error, traits::FmiImport};
 
 use fmi_schema::minimal::MinModelDescription as MinModel;
 
 /// Standard filename for the FMU model description file within the archive.
 ///
-/// According to the FMI standard, every FMU must contain a file named 
+/// According to the FMI standard, every FMU must contain a file named
 /// `modelDescription.xml` at the root level of the ZIP archive. This file
 /// contains the complete model metadata including variables, capabilities,
 /// and platform-specific information.
@@ -112,7 +112,7 @@ const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 ///
 /// Returns a [`MinModelDescription`](fmi_schema::minimal::MinModelDescription) containing
 /// the essential model metadata including:
-/// - FMI version 
+/// - FMI version
 /// - Model name
 /// - Model identifier
 /// - Basic model attributes
@@ -129,10 +129,10 @@ const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 ///
 /// ```rust,no_run
 /// use fmi::import;
-/// 
+///
 /// let model_desc = import::peek_descr_path("path/to/model.fmu")?;
-/// println!("Model: {} (FMI {})", 
-///          model_desc.model_name, 
+/// println!("Model: {} (FMI {})",
+///          model_desc.model_name,
 ///          model_desc.fmi_version);
 /// # Ok::<(), fmi::Error>(())
 /// ```
@@ -149,7 +149,7 @@ pub fn peek_descr_path(path: impl AsRef<Path>) -> Result<MinModel, Error> {
 /// Quickly inspect an FMU's model description from a reader without full extraction.
 ///
 /// This function reads only the `modelDescription.xml` file from an FMU archive
-/// provided as a reader to extract basic metadata. This is useful when working 
+/// provided as a reader to extract basic metadata. This is useful when working
 /// with FMU data from memory, network streams, or other non-file sources.
 ///
 /// # Arguments
@@ -177,12 +177,12 @@ pub fn peek_descr_path(path: impl AsRef<Path>) -> Result<MinModel, Error> {
 /// ```rust,no_run
 /// use fmi::import;
 /// use std::io::Cursor;
-/// 
+///
 /// let fmu_data: Vec<u8> = std::fs::read("path/to/model.fmu")?;
 /// let cursor = Cursor::new(fmu_data);
 /// let model_desc = import::peek_descr(cursor)?;
-/// println!("Found FMI {} model: {}", 
-///          model_desc.fmi_version, 
+/// println!("Found FMI {} model: {}",
+///          model_desc.fmi_version,
 ///          model_desc.model_name);
 /// # Ok::<(), fmi::Error>(())
 /// ```
@@ -247,16 +247,16 @@ pub fn peek_descr<R: Read + Seek>(reader: R) -> Result<MinModel, Error> {
 ///
 /// ```rust,no_run
 /// use fmi::{import, fmi3::import::Fmi3Import, traits::FmiImport, fmi3::Fmi3Model};
-/// 
+///
 /// // Import an FMI 3.0 FMU
 /// let import: Fmi3Import = import::from_path("path/to/model.fmu")?;
-/// 
+///
 /// // Access model information
 /// let model_desc = import.model_description();
-/// println!("Loaded model: {} ({})", 
-///          model_desc.model_name, 
+/// println!("Loaded model: {} ({})",
+///          model_desc.model_name,
 ///          model_desc.fmi_version);
-/// 
+///
 /// // Create instances (if supported)
 /// if model_desc.model_exchange.is_some() {
 ///     let me_instance = import.instantiate_me("instance1", false, true)?;
@@ -314,14 +314,14 @@ pub fn from_path<Imp: FmiImport>(path: impl AsRef<Path>) -> Result<Imp, Error> {
 /// ```rust,no_run
 /// use fmi::{import, fmi2::import::Fmi2Import, traits::FmiImport};
 /// use std::io::Cursor;
-/// 
+///
 /// // Load FMU data into memory
 /// let fmu_bytes = std::fs::read("path/to/model.fmu")?;
 /// let cursor = Cursor::new(fmu_bytes);
-/// 
+///
 /// // Import from memory
 /// let import: Fmi2Import = import::new(cursor)?;
-/// 
+///
 /// // Use the import normally
 /// let model_desc = import.model_description();
 /// println!("Imported {} from memory", model_desc.model_name);
