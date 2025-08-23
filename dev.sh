@@ -43,10 +43,13 @@ format() {
 # Function to check formatting
 check_format() {
     echo_status "Checking code formatting..."
+    echo_warning "Note: Formatting check may show warnings for nightly-only rustfmt options"
     if cargo fmt --all --check; then
         echo_status "Code formatting is correct"
     else
-        echo_error "Code formatting issues found. Run './dev.sh format' to fix them."
+        echo_warning "Code formatting differences found."
+        echo_warning "This may be due to rustfmt.toml containing nightly-only options."
+        echo_warning "Consider running 'cargo fmt --all' with the stable toolchain."
         return 1
     fi
 }

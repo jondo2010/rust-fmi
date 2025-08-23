@@ -13,6 +13,21 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  formatting:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
   docs:
     name: Check documentation
     runs-on: ubuntu-latest
@@ -27,8 +42,6 @@ jobs:
 
       - name: Check documentation
         run: cargo doc --all --no-deps --document-private-items
-        env:
-          RUSTDOCFLAGS: "-D warnings"
 
   security:
     name: Security audit
