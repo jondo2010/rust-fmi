@@ -1,14 +1,14 @@
 //! Model-Exchange simulation generic across FMI versions.
 
-use fmi::traits::{FmiEventHandler, FmiInstance, FmiModelExchange, FmiStatus};
+use fmi::traits::{FmiEventHandler, FmiInstance, FmiModelExchange};
 
 use crate::Error;
 
 use super::{
+    SimState, SimStats,
     interpolation::Linear,
     solver::Solver,
     traits::{InstRecordValues, InstSetValues, SimHandleEvents, SimMe},
-    SimState, SimStats,
 };
 
 impl<Inst> SimMe<Inst> for SimState<Inst>
@@ -20,10 +20,7 @@ where
         S: Solver<Inst>,
     {
         let mut stats = SimStats::default();
-        self.inst
-            .enter_continuous_time_mode()
-            .ok()
-            .map_err(Into::into)?;
+        self.inst.enter_continuous_time_mode().map_err(Into::into)?;
 
         let nx = self.inst.get_number_of_continuous_state_values();
         let nz = self.inst.get_number_of_event_indicator_values();
@@ -64,7 +61,7 @@ where
                 solver.step(&mut self.inst, next_communication_point)?;
             time = time_reached;
 
-            self.inst.set_time(time).ok().map_err(Into::into)?;
+            self.inst.set_time(time).map_err(Into::into)?;
 
             self.input_state
                 .apply_input::<Linear>(time, &mut self.inst, false, true, false)?;
@@ -78,7 +75,6 @@ where
 
             self.inst
                 .completed_integrator_step(true, &mut step_event, &mut terminate)
-                .ok()
                 .map_err(Into::into)?;
 
             if terminate {
@@ -87,7 +83,9 @@ where
             }
 
             if input_event || time_event || state_event || step_event {
-                log::trace!("Event encountered at t = {time}. [INPUT/TIME/STATE/STEP] = [{input_event}/{time_event}/{state_event}/{step_event}]");
+                log::trace!(
+                    "Event encountered at t = {time}. [INPUT/TIME/STATE/STEP] = [{input_event}/{time_event}/{state_event}/{step_event}]"
+                );
                 stats.num_events += 1;
                 let mut terminate = false;
                 let reset_solver = self.handle_events(time, input_event, &mut terminate)?;
@@ -96,10 +94,7 @@ where
                     break;
                 }
 
-                self.inst
-                    .enter_continuous_time_mode()
-                    .ok()
-                    .map_err(Into::into)?;
+                self.inst.enter_continuous_time_mode().map_err(Into::into)?;
 
                 if reset_solver {
                     solver.reset(&mut self.inst, time)?;
@@ -107,7 +102,7 @@ where
             }
         }
 
-        self.inst.terminate().ok().map_err(Into::into)?;
+        self.inst.terminate().map_err(Into::into)?;
 
         Ok(stats)
     }

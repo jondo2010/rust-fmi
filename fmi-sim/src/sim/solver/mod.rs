@@ -12,15 +12,15 @@ pub trait Model {
 
 impl<Inst: FmiModelExchange> Model for Inst {
     fn get_continuous_states(&mut self, x: &mut [f64]) {
-        FmiModelExchange::get_continuous_states(self, x);
+        let _ = FmiModelExchange::get_continuous_states(self, x);
     }
 
     fn set_continuous_states(&mut self, states: &[f64]) {
-        FmiModelExchange::set_continuous_states(self, states);
+        let _ = FmiModelExchange::set_continuous_states(self, states);
     }
 
     fn get_continuous_state_derivatives(&mut self, dx: &mut [f64]) {
-        FmiModelExchange::get_continuous_state_derivatives(self, dx);
+        let _ = FmiModelExchange::get_continuous_state_derivatives(self, dx);
     }
 
     fn get_event_indicators(&mut self, z: &mut [f64]) {

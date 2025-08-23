@@ -1,10 +1,10 @@
 use std::ffi::CString;
 
-use super::{binding, traits::ModelExchange, CallbackFunctions, Instance, ME};
+use super::{CallbackFunctions, Instance, ME, binding, traits::ModelExchange};
 use crate::{
-    fmi2::{import, Fmi2Error, Fmi2Status},
-    traits::{FmiEventHandler, FmiImport, FmiModelExchange, FmiStatus},
     Error,
+    fmi2::{Fmi2Error, Fmi2Res, Fmi2Status, import},
+    traits::{FmiEventHandler, FmiImport, FmiModelExchange, FmiStatus},
 };
 
 impl<'a> Instance<'a, ME> {
@@ -64,12 +64,12 @@ impl<'a> Instance<'a, ME> {
 }
 
 impl ModelExchange for Instance<'_, ME> {
-    fn enter_continuous_time_mode(&mut self) -> Self::Status {
-        unsafe { self.binding.fmi2EnterContinuousTimeMode(self.component) }.into()
+    fn enter_continuous_time_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe { self.binding.fmi2EnterContinuousTimeMode(self.component) }).ok()
     }
 
-    fn enter_event_mode(&mut self) -> Self::Status {
-        unsafe { self.binding.fmi2EnterEventMode(self.component) }.into()
+    fn enter_event_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe { self.binding.fmi2EnterEventMode(self.component) }).ok()
     }
 
     fn new_discrete_states(
@@ -79,13 +79,13 @@ impl ModelExchange for Instance<'_, ME> {
         nominals_of_continuous_states_changed: &mut bool,
         values_of_continuous_states_changed: &mut bool,
         next_event_time: &mut Option<f64>,
-    ) -> Self::Status {
+    ) -> Result<Fmi2Res, Fmi2Error> {
         let mut event_info = binding::fmi2EventInfo::default();
-        let status = unsafe {
+        let result = Fmi2Status::from(unsafe {
             self.binding
                 .fmi2NewDiscreteStates(self.component, &mut event_info)
-        }
-        .into();
+        })
+        .ok();
         *discrete_states_need_update = event_info.newDiscreteStatesNeeded != 0;
         *terminate_simulation = event_info.terminateSimulation != 0;
         *nominals_of_continuous_states_changed = event_info.nominalsOfContinuousStatesChanged != 0;
@@ -95,7 +95,7 @@ impl ModelExchange for Instance<'_, ME> {
         } else {
             None
         };
-        status
+        result
     }
 
     fn completed_integrator_step(
@@ -103,66 +103,72 @@ impl ModelExchange for Instance<'_, ME> {
         no_set_fmu_state_prior: bool,
         enter_event_mode: &mut bool,
         terminate_simulation: &mut bool,
-    ) -> Self::Status {
+    ) -> Result<Fmi2Res, Fmi2Error> {
         let mut _enter_event_mode = 0;
         let mut _terminate_simulation = 0;
-        let status = unsafe {
+        let result = Fmi2Status::from(unsafe {
             self.binding.fmi2CompletedIntegratorStep(
                 self.component,
                 no_set_fmu_state_prior as _,
                 &mut _enter_event_mode,
                 &mut _terminate_simulation,
             )
-        }
-        .into();
+        })
+        .ok();
         *enter_event_mode = _enter_event_mode != 0;
         *terminate_simulation = _terminate_simulation != 0;
-        status
+        result
     }
 
-    fn set_time(&mut self, time: f64) -> Self::Status {
-        unsafe { self.binding.fmi2SetTime(self.component, time) }.into()
+    fn set_time(&mut self, time: f64) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe { self.binding.fmi2SetTime(self.component, time) }).ok()
     }
 
-    fn get_continuous_states(&mut self, continuous_states: &mut [f64]) -> Self::Status {
-        unsafe {
+    fn get_continuous_states(
+        &mut self,
+        continuous_states: &mut [f64],
+    ) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe {
             self.binding.fmi2GetContinuousStates(
                 self.component,
                 continuous_states.as_mut_ptr(),
                 continuous_states.len(),
             )
-        }
-        .into()
+        })
+        .ok()
     }
 
-    fn set_continuous_states(&mut self, states: &[f64]) -> Self::Status {
-        unsafe {
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe {
             self.binding
                 .fmi2SetContinuousStates(self.component, states.as_ptr(), states.len())
-        }
-        .into()
+        })
+        .ok()
     }
 
-    fn get_derivatives(&mut self, derivatives: &mut [f64]) -> Self::Status {
-        unsafe {
+    fn get_derivatives(&mut self, derivatives: &mut [f64]) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe {
             self.binding.fmi2GetDerivatives(
                 self.component,
                 derivatives.as_mut_ptr(),
                 derivatives.len(),
             )
-        }
-        .into()
+        })
+        .ok()
     }
 
-    fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Self::Status {
-        unsafe {
+    fn get_nominals_of_continuous_states(
+        &mut self,
+        nominals: &mut [f64],
+    ) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe {
             self.binding.fmi2GetNominalsOfContinuousStates(
                 self.component,
                 nominals.as_mut_ptr(),
                 nominals.len(),
             )
-        }
-        .into()
+        })
+        .ok()
     }
 
     fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> Result<bool, Fmi2Error> {
@@ -188,11 +194,11 @@ impl ModelExchange for Instance<'_, ME> {
 }
 
 impl FmiModelExchange for Instance<'_, ME> {
-    fn enter_continuous_time_mode(&mut self) -> Self::Status {
+    fn enter_continuous_time_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::enter_continuous_time_mode(self)
     }
 
-    fn enter_event_mode(&mut self) -> Self::Status {
+    fn enter_event_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::enter_event_mode(self)
     }
 
@@ -203,7 +209,7 @@ impl FmiModelExchange for Instance<'_, ME> {
         nominals_of_continuous_states_changed: &mut bool,
         values_of_continuous_states_changed: &mut bool,
         next_event_time: &mut Option<f64>,
-    ) -> Self::Status {
+    ) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::new_discrete_states(
             self,
             discrete_states_need_update,
@@ -219,7 +225,7 @@ impl FmiModelExchange for Instance<'_, ME> {
         no_set_fmu_state_prior: bool,
         enter_event_mode: &mut bool,
         terminate_simulation: &mut bool,
-    ) -> Self::Status {
+    ) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::completed_integrator_step(
             self,
             no_set_fmu_state_prior,
@@ -228,23 +234,32 @@ impl FmiModelExchange for Instance<'_, ME> {
         )
     }
 
-    fn set_time(&mut self, time: f64) -> Self::Status {
+    fn set_time(&mut self, time: f64) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::set_time(self, time)
     }
 
-    fn get_continuous_states(&mut self, continuous_states: &mut [f64]) -> Self::Status {
+    fn get_continuous_states(
+        &mut self,
+        continuous_states: &mut [f64],
+    ) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::get_continuous_states(self, continuous_states)
     }
 
-    fn set_continuous_states(&mut self, states: &[f64]) -> Self::Status {
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::set_continuous_states(self, states)
     }
 
-    fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Self::Status {
+    fn get_continuous_state_derivatives(
+        &mut self,
+        derivatives: &mut [f64],
+    ) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::get_derivatives(self, derivatives)
     }
 
-    fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Self::Status {
+    fn get_nominals_of_continuous_states(
+        &mut self,
+        nominals: &mut [f64],
+    ) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::get_nominals_of_continuous_states(self, nominals)
     }
 
@@ -256,15 +271,14 @@ impl FmiModelExchange for Instance<'_, ME> {
     }
 
     fn get_number_of_event_indicators(
-        &self,
-        _number_of_event_indicators: &mut usize,
-    ) -> Self::Status {
-        todo!()
+        &mut self,
+    ) -> Result<usize, <Self::Status as crate::traits::FmiStatus>::Err> {
+        Ok(self.model_description.num_event_indicators())
     }
 }
 
 impl FmiEventHandler for Instance<'_, ME> {
-    fn enter_event_mode(&mut self) -> Self::Status {
+    fn enter_event_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::enter_event_mode(self)
     }
 
@@ -275,7 +289,7 @@ impl FmiEventHandler for Instance<'_, ME> {
         nominals_of_continuous_states_changed: &mut bool,
         values_of_continuous_states_changed: &mut bool,
         next_event_time: &mut Option<f64>,
-    ) -> Self::Status {
+    ) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::new_discrete_states(
             self,
             discrete_states_need_update,

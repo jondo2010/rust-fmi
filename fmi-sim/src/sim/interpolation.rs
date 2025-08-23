@@ -90,11 +90,7 @@ impl PreLookup {
 
     #[allow(dead_code)]
     pub fn next_index(&self) -> usize {
-        if self.1 < 1.0 {
-            self.0
-        } else {
-            self.0 + 1
-        }
+        if self.1 < 1.0 { self.0 } else { self.0 + 1 }
     }
 }
 
@@ -108,6 +104,7 @@ pub trait Interpolate {
 /// Disables interpolation and returns the table value corresponding to the breakpoint closest to
 /// the input. If the input is equidistant from two adjacent breakpoints, the breakpoint with the
 /// higher index is chosen.
+#[allow(dead_code)]
 pub struct Nearest;
 impl Interpolate for Nearest {
     fn interpolate<T>(pre: &PreLookup, array: &PrimitiveArray<T>) -> T::Native
@@ -139,6 +136,7 @@ impl Interpolate for Linear {
 
 /// Fits a cubic spline to the adjacent breakpoints, and returns the point on that spline
 /// corresponding to the input.
+#[allow(dead_code)]
 pub struct Cubic;
 impl Interpolate for Cubic {
     fn interpolate<T>(pre: &PreLookup, array: &PrimitiveArray<T>) -> T::Native

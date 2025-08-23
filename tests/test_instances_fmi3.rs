@@ -1,9 +1,9 @@
 //! Test the FMI3.0 instance API.
 
 use fmi::{
-    fmi3::{import::Fmi3Import, Common, Fmi3Model, GetSet, ModelExchange},
+    fmi3::{Common, Fmi3Model, GetSet, ModelExchange, import::Fmi3Import},
     schema::fmi3::AbstractVariableTrait,
-    traits::{FmiImport as _, FmiStatus},
+    traits::FmiImport as _,
 };
 use fmi_test_data::ReferenceFmus;
 
@@ -25,7 +25,7 @@ fn test_instance_dahlquist() {
         .iter()
         .map(|x| x.name.as_str())
         .collect();
-    inst1.set_debug_logging(true, &log_cats).ok().unwrap();
+    inst1.set_debug_logging(true, &log_cats).unwrap();
 
     inst1.enter_configuration_mode().ok().unwrap();
     inst1.exit_configuration_mode().ok().unwrap();

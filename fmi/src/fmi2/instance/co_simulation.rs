@@ -1,7 +1,7 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi2::{import, CallbackFunctions, Fmi2Error, Fmi2Status},
+    fmi2::{import, CallbackFunctions, Fmi2Error, Fmi2Res, Fmi2Status},
     traits::{FmiImport, FmiStatus},
     Error,
 };
@@ -70,20 +70,20 @@ impl<'a> traits::CoSimulation for Instance<'a, CS> {
         current_communication_point: f64,
         communication_step_size: f64,
         new_step: bool,
-    ) -> Fmi2Status {
-        unsafe {
+    ) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe {
             self.binding.fmi2DoStep(
                 self.component,
                 current_communication_point,
                 communication_step_size,
                 new_step as _,
             )
-        }
-        .into()
+        })
+        .ok()
     }
 
-    fn cancel_step(&self) -> Fmi2Status {
-        unsafe { self.binding.fmi2CancelStep(self.component) }.into()
+    fn cancel_step(&self) -> Result<Fmi2Res, Fmi2Error> {
+        Fmi2Status::from(unsafe { self.binding.fmi2CancelStep(self.component) }).ok()
     }
 
     fn do_step_status(&mut self) -> Result<Fmi2Status, Fmi2Error> {

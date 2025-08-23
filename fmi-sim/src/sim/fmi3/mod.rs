@@ -1,24 +1,24 @@
 use arrow::array::RecordBatch;
 
 use fmi::{
-    fmi3::{import::Fmi3Import, Common},
-    traits::{FmiImport, FmiInstance, FmiStatus},
+    fmi3::{Common, import::Fmi3Import},
+    traits::{FmiImport, FmiInstance},
 };
 
 use crate::{
+    Error,
     options::{CoSimulationOptions, ModelExchangeOptions},
     sim::{
+        InputState, RecorderState, SimState, SimStateTrait,
         params::SimParams,
         traits::{ImportSchemaBuilder, SimInitialize},
-        InputState, RecorderState, SimState, SimStateTrait,
     },
-    Error,
 };
 
 use super::{
+    SimStats,
     io::StartValues,
     traits::{FmiSim, InstSetValues},
-    SimStats,
 };
 
 #[cfg(feature = "cs")]
@@ -38,7 +38,6 @@ macro_rules! impl_sim_apply_start_values {
                 if !start_values.structural_parameters.is_empty() {
                     self.inst
                         .enter_configuration_mode()
-                        .ok()
                         .map_err(fmi::Error::from)?;
                     for (vr, ary) in &start_values.structural_parameters {
                         //log::trace!("Setting structural parameter `{}`", (*vr).into());
@@ -46,7 +45,6 @@ macro_rules! impl_sim_apply_start_values {
                     }
                     self.inst
                         .exit_configuration_mode()
-                        .ok()
                         .map_err(fmi::Error::from)?;
                 }
 

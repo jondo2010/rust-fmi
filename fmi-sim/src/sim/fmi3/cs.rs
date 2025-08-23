@@ -1,17 +1,17 @@
 use anyhow::Context;
 use fmi::{
-    fmi3::{import::Fmi3Import, instance::InstanceCS, CoSimulation, Fmi3Model},
-    traits::{FmiInstance, FmiStatus},
+    fmi3::{CoSimulation, Fmi3Model, import::Fmi3Import, instance::InstanceCS},
+    traits::FmiInstance,
 };
 
 use crate::{
+    Error,
     sim::{
+        InputState, RecorderState, SimState, SimStateTrait, SimStats,
         interpolation::Linear,
         params::SimParams,
         traits::{InstRecordValues, SimHandleEvents},
-        InputState, RecorderState, SimState, SimStateTrait, SimStats,
     },
-    Error,
 };
 
 impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi3Import> for SimState<InstanceCS<'a>> {
@@ -45,7 +45,7 @@ impl<'a> SimState<InstanceCS<'a>> {
         let mut stats = SimStats::default();
 
         if self.sim_params.event_mode_used {
-            self.inst.enter_step_mode().ok().map_err(fmi::Error::from)?;
+            self.inst.enter_step_mode().map_err(fmi::Error::from)?;
         }
 
         let mut time = self.sim_params.start_time;
