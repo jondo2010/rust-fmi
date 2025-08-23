@@ -1,3 +1,16 @@
-wrap_comments = true
-comment_width = 120
-normalize_comments = true
+# Rustfmt configuration for rust-fmi project
+# This ensures consistent formatting across the codebase
+# Only stable features are enabled to work with stable Rust toolchain
+
+# Edition to use for formatting
+edition = "2024"
+
+# Use field shorthand if possible
+use_field_init_shorthand = true
+
+# Use try shorthand
+use_try_shorthand = true
+
+# Imports
+merge_derives = true
+use_small_heuristics = "Default"

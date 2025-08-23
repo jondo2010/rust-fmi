@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use itertools::Itertools;
-use slotmap::{new_key_type, SecondaryMap, SlotMap};
+use slotmap::{SecondaryMap, SlotMap, new_key_type};
 use thiserror::Error;
 
 use super::{
-    schema::{self, AbstractVariableTrait, Category, Fmi3Unit, TypedArrayableariableTrait},
     DateTime,
+    schema::{self, AbstractVariableTrait, Category, Fmi3Unit, TypedArrayableariableTrait},
 };
 
 #[derive(Debug, Error)]

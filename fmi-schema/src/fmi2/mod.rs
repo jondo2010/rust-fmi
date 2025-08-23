@@ -15,14 +15,14 @@ use std::str::FromStr;
 pub use attribute_groups::*;
 pub use interface_type::*;
 pub use model_description::*;
-pub use r#type::*;
 pub use scalar_variable::*;
+pub use r#type::*;
 pub use unit::*;
 pub use variable_dependency::*;
 
 use crate::{
-    variable_counts::{Counts, VariableCounts},
     Error,
+    variable_counts::{Counts, VariableCounts},
 };
 
 pub type ScalarVariableMap<'a> = std::collections::HashMap<String, &'a ScalarVariable>;
@@ -144,12 +144,13 @@ mod tests {
         "##;
         let x: ModelVariables = yaserde::de::from_str(s).unwrap();
         assert_eq!(x.variables.len(), 4);
-        assert!(x
-            .variables
-            .iter()
-            .map(|v| &v.name)
-            .zip(["x[1]", "x[2]", "der(x[1])", "der(x[2])"].iter())
-            .all(|(a, b)| a == b));
+        assert!(
+            x.variables
+                .iter()
+                .map(|v| &v.name)
+                .zip(["x[1]", "x[2]", "der(x[1])", "der(x[2])"].iter())
+                .all(|(a, b)| a == b)
+        );
     }
 
     #[test]

@@ -264,7 +264,10 @@ pub trait ModelExchange: Common {
     /// Note, it is required that `x_nominal[i] > 0.0` (Typically, the nominal values of the
     /// continuous states are used to compute the absolute tolerance required by the integrator.
     /// Example: `absoluteTolerance[i] = 0.01*tolerance*x_nominal[i];`)
-    fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> Result<Fmi2Res, Fmi2Error>;
+    fn get_nominals_of_continuous_states(
+        &mut self,
+        nominals: &mut [f64],
+    ) -> Result<Fmi2Res, Fmi2Error>;
 }
 
 pub trait CoSimulation: Common {

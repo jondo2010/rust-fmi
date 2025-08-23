@@ -1,12 +1,12 @@
 use std::ffi::CString;
 
 use crate::{
-    fmi2::{import, CallbackFunctions, Fmi2Error, Fmi2Res, Fmi2Status},
-    traits::{FmiImport, FmiStatus},
     Error,
+    fmi2::{CallbackFunctions, Fmi2Error, Fmi2Res, Fmi2Status, import},
+    traits::{FmiImport, FmiStatus},
 };
 
-use super::{binding, traits, Instance, CS};
+use super::{CS, Instance, binding, traits};
 
 impl<'a> Instance<'a, CS> {
     /// Initialize a new Instance from an Import

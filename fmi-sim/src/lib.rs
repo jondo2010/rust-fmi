@@ -5,7 +5,7 @@
 #![deny(clippy::all)]
 
 use arrow::array::RecordBatch;
-use fmi::schema::{traits::FmiModelDescription, MajorVersion};
+use fmi::schema::{MajorVersion, traits::FmiModelDescription};
 use sim::SimStats;
 
 pub mod options;

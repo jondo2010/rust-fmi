@@ -5,8 +5,8 @@ use crate::traits::FmiModelDescription;
 use super::{
     AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
     Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiBinary, FmiBoolean,
-    FmiFloat32, FmiFloat64, FmiInt16, FmiInt32, FmiInt64, FmiInt8, FmiString, FmiUInt16, FmiUInt32,
-    FmiUInt64, FmiUInt8, InitializableVariableTrait,
+    FmiFloat32, FmiFloat64, FmiInt8, FmiInt16, FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16,
+    FmiUInt32, FmiUInt64, InitializableVariableTrait,
 };
 
 #[derive(Default, Debug, PartialEq, YaDeserialize, YaSerialize)]

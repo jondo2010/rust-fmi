@@ -1,12 +1,12 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::{
-    Float32Attributes, Float64Attributes, Int16Attributes, Int32Attributes, Int64Attributes,
-    Int8Attributes, IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes,
-    UInt16Attributes, UInt32Attributes, UInt64Attributes, UInt8Attributes,
+    Float32Attributes, Float64Attributes, Int8Attributes, Int16Attributes, Int32Attributes,
+    Int64Attributes, IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes,
+    UInt8Attributes, UInt16Attributes, UInt32Attributes, UInt64Attributes,
 };
 
-use crate::{default_wrapper, Error};
+use crate::{Error, default_wrapper};
 
 /// An enumeration that defines the type of a variable.
 #[derive(Debug, PartialEq)]

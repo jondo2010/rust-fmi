@@ -8,8 +8,8 @@ use std::{io::Cursor, path::PathBuf, str::FromStr};
 use arrow::{
     array::{AsArray, Float64Array},
     datatypes::{
-        ArrowPrimitiveType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-        UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+        ArrowPrimitiveType, Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type,
+        UInt8Type, UInt16Type, UInt32Type, UInt64Type,
     },
 };
 use fmi::{fmi2::import::Fmi2Import, fmi3::import::Fmi3Import, schema::MajorVersion};
@@ -142,11 +142,13 @@ fn test_start_value_types() {
             .value(0),
         2147483647
     );
-    assert!(output
-        .column_by_name("Boolean_output")
-        .unwrap()
-        .as_boolean()
-        .value(0));
+    assert!(
+        output
+            .column_by_name("Boolean_output")
+            .unwrap()
+            .as_boolean()
+            .value(0)
+    );
     assert_eq!(
         output
             .column_by_name("Float32_continuous_output")

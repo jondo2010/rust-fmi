@@ -7,15 +7,15 @@ use arrow::{
 use fmi::traits::{FmiImport, FmiInstance};
 
 use crate::{
-    options::{CoSimulationOptions, ModelExchangeOptions},
     Error,
+    options::{CoSimulationOptions, ModelExchangeOptions},
 };
 
 use super::{
+    RecorderState, SimStats,
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
     solver::Solver,
-    RecorderState, SimStats,
 };
 
 /// Interface for building the Arrow schema for the inputs and outputs of an FMU.

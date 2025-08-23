@@ -16,7 +16,9 @@ fn test_fmi2() {
     assert_eq!(md.model_name, "BouncingBall");
     assert_eq!(
         md.description.as_deref(),
-        Some("This model calculates the trajectory, over time, of a ball dropped from a height of 1 m.")
+        Some(
+            "This model calculates the trajectory, over time, of a ball dropped from a height of 1 m."
+        )
     );
     assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}");
     assert_eq!(md.number_of_event_indicators, 1);

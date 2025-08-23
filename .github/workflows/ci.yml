@@ -37,9 +37,12 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
-      
+
       - name: toolchain version
         run: cargo -vV
+
+      - name: check formatting
+        run: cargo fmt --all --check
 
       - uses: giraffate/clippy-action@v1
         with:

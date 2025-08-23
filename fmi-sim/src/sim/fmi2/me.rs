@@ -4,13 +4,13 @@ use fmi::{
 };
 
 use crate::{
+    Error,
     sim::{
+        InputState, RecorderState, SimState, SimStateTrait,
         io::StartValues,
         params::SimParams,
         traits::{InstSetValues, SimApplyStartValues},
-        InputState, RecorderState, SimState, SimStateTrait,
     },
-    Error,
 };
 
 impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi2Import> for SimState<InstanceME<'a>> {
