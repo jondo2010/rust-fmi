@@ -12,8 +12,12 @@ use crate::{
 
 macro_rules! impl_getter_setter {
     ($ty:ty, $get:ident, $set:ident, $fmi_get:ident, $fmi_set:ident) => {
-        fn $get(&mut self, vrs: &[binding::fmi3ValueReference], values: &mut [$ty]) -> Fmi3Status {
-            unsafe {
+        fn $get(
+            &mut self,
+            vrs: &[binding::fmi3ValueReference],
+            values: &mut [$ty],
+        ) -> Result<Fmi3Res, Fmi3Error> {
+            Fmi3Status::from(unsafe {
                 self.binding.$fmi_get(
                     self.ptr,
                     vrs.as_ptr(),
@@ -21,12 +25,16 @@ macro_rules! impl_getter_setter {
                     values.as_mut_ptr(),
                     values.len() as _,
                 )
-            }
-            .into()
+            })
+            .ok()
         }
 
-        fn $set(&mut self, vrs: &[binding::fmi3ValueReference], values: &[$ty]) -> Fmi3Status {
-            unsafe {
+        fn $set(
+            &mut self,
+            vrs: &[binding::fmi3ValueReference],
+            values: &[$ty],
+        ) -> Result<Fmi3Res, Fmi3Error> {
+            Fmi3Status::from(unsafe {
                 self.binding.$fmi_set(
                     self.ptr,
                     vrs.as_ptr(),
@@ -34,8 +42,8 @@ macro_rules! impl_getter_setter {
                     values.as_ptr(),
                     values.len() as _,
                 )
-            }
-            .into()
+            })
+            .ok()
         }
     };
 }

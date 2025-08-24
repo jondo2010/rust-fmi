@@ -1,6 +1,6 @@
 [package]
 name = "fmi-export"
-version = "0.1.0"
+version.workspace = true
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -16,9 +16,14 @@ default = ["fmi3"]
 fmi3 = ["fmi/fmi3", "fmi-sys/fmi3"]
 
 [dependencies]
+chrono = { workspace = true }
 document-features = { workspace = true }
 fmi = { workspace = true }
 fmi-sys = { workspace = true }
+fmi-export-derive = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+test-log = { workspace = true }

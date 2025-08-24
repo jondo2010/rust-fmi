@@ -24,7 +24,7 @@ pub struct CS;
 /// Tag for Scheduled Execution
 pub struct SE;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fmi3Res {
     /// The call was successful. The output argument values are defined.
     OK,

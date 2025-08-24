@@ -1,0 +1,23 @@
+[package]
+name = "fmi-export-derive"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+include.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+fmi-schema = { workspace = true }
+
+[dev-dependencies]
+trybuild = "1.0"

@@ -6,4 +6,5 @@
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
 
-mod store;
+// Re-export the derive macro
+pub use fmi_export_derive::FmuModel;

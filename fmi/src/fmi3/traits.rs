@@ -2,10 +2,8 @@
 
 use crate::{
     Error,
-    fmi3::{Fmi3Error, Fmi3Res},
+    fmi3::{Fmi3Error, Fmi3Res, binding},
 };
-
-use super::{Fmi3Status, binding};
 
 macro_rules! default_getter_setter {
     ($name:ident, $ty:ty) => {
@@ -13,13 +11,13 @@ macro_rules! default_getter_setter {
             /// Get the values of the specified variable references.
             ///
             /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
-            fn [<get_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &mut [$ty]) -> Fmi3Status {
+            fn [<get_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &mut [$ty]) -> Result<Fmi3Res, Fmi3Error> {
                 unimplemented!();
             }
             /// Set the values of the specified variable references.
             ///
             /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
-            fn [<set_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &[$ty]) -> Fmi3Status {
+            fn [<set_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &[$ty]) -> Result<Fmi3Res, Fmi3Error> {
                 unimplemented!();
             }
         }
