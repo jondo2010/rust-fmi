@@ -43,7 +43,7 @@ macro_rules! export_fmu {
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3InstantiateModelExchange(
             instance_name: binding::fmi3String,
-            _instantiation_token: binding::fmi3String,
+            instantiation_token: binding::fmi3String,
             resource_path: binding::fmi3String,
             _visible: binding::fmi3Boolean,
             logging_on: binding::fmi3Boolean,
@@ -53,20 +53,31 @@ macro_rules! export_fmu {
             let name = std::ffi::CStr::from_ptr(instance_name)
                 .to_string_lossy()
                 .into_owned();
+            let token = std::ffi::CStr::from_ptr(instantiation_token)
+                .to_string_lossy();
             let resource_path = std::path::PathBuf::from(
                 std::ffi::CStr::from_ptr(resource_path)
                     .to_string_lossy()
                     .into_owned(),
             );
-            let instance = crate::fmi3::ModelInstance::<$ty>::new(
+            
+            match crate::fmi3::ModelInstance::<$ty>::new(
                 name,
                 resource_path,
                 logging_on,
                 log_message,
-            );
-            let this: Box<dyn ::fmi::fmi3::Common<ValueRef = binding::fmi3ValueReference>> =
-                Box::new(instance);
-            Box::into_raw(this) as binding::fmi3Instance
+                &token,
+            ) {
+                Ok(instance) => {
+                    let this: Box<dyn ::fmi::fmi3::Common<ValueRef = binding::fmi3ValueReference>> =
+                        Box::new(instance);
+                    Box::into_raw(this) as binding::fmi3Instance
+                }
+                Err(_) => {
+                    log::error!("Failed to instantiate FMU: invalid instantiation token");
+                    std::ptr::null_mut()
+                }
+            }
         }
         //#define fmi3InstantiateCoSimulation          fmi3FullName(fmi3InstantiateCoSimulation)
         //#define fmi3InstantiateScheduledExecution    fmi3FullName(fmi3InstantiateScheduledExecution)

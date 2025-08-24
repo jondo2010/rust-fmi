@@ -47,6 +47,7 @@ serde = { version = "1.0", features = ["derive"] }
 tempfile = "3.1"
 test-log = { version = "0.2", features = ["trace"] }
 thiserror = "1.0"
+uuid = { version = "1.0", features = ["v5"] }
 zip = "4.0"
 
 [patch.crates-io]
