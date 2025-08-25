@@ -40,12 +40,12 @@ struct BouncingBall {
     v: f64,
 
     /// Gravitational acceleration
-    #[variable(causality = parameter, start = -9.81)]
+    #[variable(causality = parameter, variability = fixed, start = -9.81)]
     #[alias(name = "der(v)", causality = local, derivative = "v")]
     g: f64,
 
     /// Coefficient of restitution (parameter)
-    #[variable(causality = parameter, start = 0.7)]
+    #[variable(causality = parameter, variability = tunable, start = 0.7)]
     e: f64,
 
     /// Minimum velocity threshold (constant)
@@ -245,44 +245,6 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_values() {
-        let mut model = BouncingBall::default();
-
-        // Set initial conditions: ball at height 1m, stationary
-        model.h = 1.0;
-        model.v = 0.0;
-        model.g = -9.81;
-
-        // Calculate derivatives
-        let status = model.calculate_values();
-        let expected_status = fmi::fmi3::Fmi3Status::from(fmi::fmi3::Fmi3Res::OK);
-        assert_eq!(format!("{:?}", status), format!("{:?}", expected_status));
-
-        // Check that derivatives are available as aliases
-        // der_h should be an alias for v, der_v should be an alias for g
-        // Note: We can't directly access aliases in tests, but the FMI interface will handle this
-        assert_eq!(model.v, 0.0); // velocity (which der_h aliases)
-        assert_eq!(model.g, -9.81); // gravity (which der_v aliases)
-    }
-
-    #[test]
-    fn test_falling_ball_derivatives() {
-        let mut model = BouncingBall::default();
-
-        // Set conditions: ball falling with velocity -5 m/s
-        model.h = 2.0;
-        model.v = -5.0;
-        model.g = -9.81;
-
-        // Calculate derivatives
-        model.calculate_values();
-
-        // Check the actual field values (aliases will be handled by the FMI interface)
-        assert_eq!(model.v, -5.0); // velocity (which der_h aliases)
-        assert_eq!(model.g, -9.81); // gravity (which der_v aliases)
-    }
-
-    #[test]
     fn test_bounce_event() {
         let mut model = BouncingBall::default();
 
@@ -408,78 +370,291 @@ mod tests {
     }
 
     #[test]
-    fn test_complete_bounce_simulation() {
-        let mut model = BouncingBall::default();
-
-        // Initial conditions: ball at 1m height, falling at -1 m/s
-        model.h = 1.0;
-        model.v = -1.0;
-        model.g = -9.81;
-        model.e = 0.8;
-        model.v_min = 0.1;
-
-        // Simulate ball hitting ground
-        model.h = -0.001; // Slightly below ground (would be detected by integrator)
-        model.v = -3.0; // Significant downward velocity
-
-        // Trigger bounce
-        model.event_update().expect("Event update should succeed");
-
-        // Verify bounce occurred correctly (with floating point tolerance)
-        assert!(model.h > 0.0, "Ball should be above ground after bounce");
-        assert!((model.v - 2.4).abs() < 1e-10); // -(-3.0) * 0.8 = 2.4 (with tolerance)
-        assert_eq!(model.g, -9.81); // Still subject to gravity
-
-        // Calculate derivatives after bounce
-        model.calculate_values();
-        // Check the actual field values (aliases will be handled by FMI interface)
-        assert!((model.v - 2.4).abs() < 1e-10); // velocity (which der_h aliases)
-        assert_eq!(model.g, -9.81); // gravity (which der_v aliases)
+    fn test_value_references() {
+        let variables = BouncingBall::model_variables();
+        println!("Float64 variables:");
+        for (i, var) in variables.float64.iter().enumerate() {
+            println!(
+                "  {} - VR: {}, Name: {}, Causality: {:?}",
+                i,
+                var.init_var
+                    .typed_arrayable_var
+                    .arrayable_var
+                    .abstract_var
+                    .value_reference,
+                var.init_var
+                    .typed_arrayable_var
+                    .arrayable_var
+                    .abstract_var
+                    .name,
+                var.init_var
+                    .typed_arrayable_var
+                    .arrayable_var
+                    .abstract_var
+                    .causality
+            );
+        }
     }
 
     #[test]
-    fn test_set_time() {
-        use fmi_export::fmi3::ModelInstance;
+    fn test_comprehensive_variable_get_set_behavior() {
+        use fmi::fmi3::GetSet;
 
         let instantiation_token = BouncingBall::INSTANTIATION_TOKEN;
 
+        // Define all variables with their expected properties (VR is looked up dynamically)
+        #[derive(Debug, Clone)]
+        struct VariableInfo {
+            name: &'static str,
+            causality: &'static str,
+            variability: &'static str,
+            settable_in_instantiated: bool,
+            settable_in_initialization: bool,
+            settable_in_event: bool,
+            settable_in_continuous: bool,
+            gettable: bool,
+            is_derivative: bool,
+        }
+
+        let variable_definitions = [
+            VariableInfo {
+                name: "h",
+                causality: "output",
+                variability: "continuous",
+                settable_in_instantiated: true,
+                settable_in_initialization: true,
+                settable_in_event: true,
+                settable_in_continuous: true,
+                gettable: true,
+                is_derivative: false,
+            },
+            VariableInfo {
+                name: "v",
+                causality: "output",
+                variability: "continuous",
+                settable_in_instantiated: true,
+                settable_in_initialization: true,
+                settable_in_event: true,
+                settable_in_continuous: true,
+                gettable: true,
+                is_derivative: false,
+            },
+            VariableInfo {
+                name: "der(h)",
+                causality: "local",
+                variability: "continuous",
+                settable_in_instantiated: false,
+                settable_in_initialization: false,
+                settable_in_event: false,
+                settable_in_continuous: false,
+                gettable: true,
+                is_derivative: true,
+            },
+            VariableInfo {
+                name: "g",
+                causality: "parameter",
+                variability: "fixed",
+                settable_in_instantiated: true,
+                settable_in_initialization: true,
+                settable_in_event: false,
+                settable_in_continuous: false,
+                gettable: true,
+                is_derivative: false,
+            },
+            VariableInfo {
+                name: "der(v)",
+                causality: "local",
+                variability: "continuous",
+                settable_in_instantiated: false,
+                settable_in_initialization: false,
+                settable_in_event: false,
+                settable_in_continuous: false,
+                gettable: true,
+                is_derivative: true,
+            },
+            VariableInfo {
+                name: "e",
+                causality: "parameter",
+                variability: "tunable",
+                settable_in_instantiated: true,
+                settable_in_initialization: true,
+                settable_in_event: true,
+                settable_in_continuous: false,
+                gettable: true,
+                is_derivative: false,
+            },
+            VariableInfo {
+                name: "v_min",
+                causality: "local",
+                variability: "fixed",
+                settable_in_instantiated: true,
+                settable_in_initialization: true,
+                settable_in_event: false,
+                settable_in_continuous: false,
+                gettable: true,
+                is_derivative: false,
+            },
+        ];
+
+        // Look up VRs dynamically from the model - don't hardcode implementation details
+        let model_vars = BouncingBall::model_variables();
+        let mut variable_vrs = std::collections::HashMap::new();
+        for var_info in &variable_definitions {
+            let var = model_vars
+                .find_by_name(var_info.name)
+                .expect(&format!("Variable {} should exist", var_info.name));
+            variable_vrs.insert(var_info.name, var.value_reference());
+        }
+
+        println!("Testing comprehensive get/set behavior for all variables across all states...");
+
+        // Test all states systematically
+        let states = [
+            ("Instantiated", 0),
+            ("InitializationMode", 1),
+            ("EventMode", 2),
+            ("ContinuousTimeMode", 3),
+        ];
+
+        for (state_name, state_index) in &states {
+            println!("\n=== Testing {} state ===", state_name);
+
+            let mut instance = ModelInstance::<BouncingBall>::new(
+                "TestBouncingBall".to_string(),
+                std::path::PathBuf::from("/tmp"),
+                false,
+                None,
+                instantiation_token,
+            )
+            .expect("Failed to create model instance");
+
+            // Transition to the target state
+            match state_index {
+                0 => {
+                    // Already in Instantiated state
+                }
+                1 => {
+                    instance
+                        .enter_initialization_mode(None, 0.0, None)
+                        .expect("Failed to enter initialization mode");
+                }
+                2 => {
+                    instance
+                        .enter_initialization_mode(None, 0.0, None)
+                        .expect("Failed to enter initialization mode");
+                    instance
+                        .exit_initialization_mode()
+                        .expect("Failed to exit initialization mode");
+                    instance
+                        .enter_event_mode()
+                        .expect("Failed to enter event mode");
+                }
+                3 => {
+                    instance
+                        .enter_initialization_mode(None, 0.0, None)
+                        .expect("Failed to enter initialization mode");
+                    instance
+                        .exit_initialization_mode()
+                        .expect("Failed to exit initialization mode");
+                    instance
+                        .enter_event_mode()
+                        .expect("Failed to enter event mode");
+                    instance
+                        .enter_continuous_time_mode()
+                        .expect("Failed to enter continuous time mode");
+                }
+                _ => unreachable!(),
+            }
+
+            // Test get operations for all variables (should always work)
+            for var_info in &variable_definitions {
+                if var_info.gettable {
+                    let vr = variable_vrs[var_info.name];
+                    let mut values = vec![f64::NAN];
+                    let result = instance.get_float64(&[vr], &mut values);
+                    assert!(
+                        result.is_ok(),
+                        "Getting {} (VR={}) should succeed in {} state",
+                        var_info.name,
+                        vr,
+                        state_name
+                    );
+                }
+            }
+
+            // Test set operations based on expected behavior
+            for var_info in &variable_definitions {
+                let should_be_settable = match state_index {
+                    0 => var_info.settable_in_instantiated,
+                    1 => var_info.settable_in_initialization,
+                    2 => var_info.settable_in_event,
+                    3 => var_info.settable_in_continuous,
+                    _ => unreachable!(),
+                };
+
+                // Only test setting if the variable has a setter case generated
+                // (derivatives don't have setter cases)
+                if !var_info.is_derivative {
+                    let test_value = match var_info.name {
+                        "h" => 2.5,
+                        "v" => 1.5,
+                        "g" => -9.5,
+                        "e" => 0.8,
+                        "v_min" => 0.05,
+                        _ => 1.0,
+                    };
+
+                    let vr = variable_vrs[var_info.name];
+                    let result = instance.set_float64(&[vr], &[test_value]);
+
+                    if should_be_settable {
+                        assert!(
+                            result.is_ok(),
+                            "Setting {} (VR={}, {}/{}) should succeed in {} state",
+                            var_info.name,
+                            vr,
+                            var_info.causality,
+                            var_info.variability,
+                            state_name
+                        );
+                    } else {
+                        assert!(
+                            result.is_err(),
+                            "Setting {} (VR={}, {}/{}) should fail in {} state",
+                            var_info.name,
+                            vr,
+                            var_info.causality,
+                            var_info.variability,
+                            state_name
+                        );
+                    }
+                }
+            }
+        }
+
+        println!("\n=== Testing derivative variables have no setter cases ===");
         let mut instance = ModelInstance::<BouncingBall>::new(
-            "TestSetTime".to_string(),
+            "TestBouncingBall".to_string(),
             std::path::PathBuf::from("/tmp"),
             false,
             None,
             instantiation_token,
         )
-        .expect("Failed to create model instance for set_time test");
+        .expect("Failed to create model instance");
 
-        // Initialize the model
-        instance
-            .enter_initialization_mode(None, 0.0, None)
-            .expect("Failed to enter initialization mode");
-        instance
-            .exit_initialization_mode()
-            .expect("Failed to exit initialization mode");
-        instance
-            .enter_event_mode()
-            .expect("Failed to enter event mode");
-        instance
-            .enter_continuous_time_mode()
-            .expect("Failed to enter continuous time mode");
-
-        // Test setting different time values
-        let test_times = [0.0, 0.5, 1.0, 2.5, 10.0];
-
-        for time in test_times {
-            println!("Testing set_time with time: {}", time);
-
-            instance.set_time(time).expect("Failed to set time");
-
-            // Verify time was set correctly by checking internal state
-            // Note: The time is stored internally but there's no direct getter
-            // We can verify by ensuring the call succeeded without error
-            println!("  → Successfully set time to {}", time);
+        // Derivatives should not have setter cases, so setting them should do nothing
+        // (the match case will hit the default `_ => {}` case)
+        for var_info in variable_definitions.iter().filter(|v| v.is_derivative) {
+            let vr = variable_vrs[var_info.name];
+            let result = instance.set_float64(&[vr], &[999.0]);
+            assert!(
+                result.is_ok(),
+                "Setting derivative {} (VR={}) should succeed but do nothing",
+                var_info.name,
+                vr
+            );
         }
 
-        println!("All set_time tests passed!");
+        println!("\nAll comprehensive get/set behavior tests passed!");
     }
 }

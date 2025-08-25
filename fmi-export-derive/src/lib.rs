@@ -27,7 +27,7 @@ fn fmu_model_impl(input: &DeriveInput) -> syn::Result<TokenStream2> {
 
     // Extract fields and their variable attributes
     let fields = extract_fields(input)?;
-    let user_variables = parse_variable_attributes(&fields)?;
+    let user_variables = parse_variable_attributes(fields)?;
 
     // Create extended variable info that includes auto-generated derivatives
     let extended_vars = ExtendedVariableInfo::from_user_variables(user_variables);
@@ -93,17 +93,15 @@ fn extract_docstring(attrs: &[Attribute]) -> Option<String> {
     let mut docstring_parts = Vec::new();
 
     for attr in attrs {
-        if attr.path().is_ident("doc") {
-            if let Meta::NameValue(name_value) = &attr.meta {
-                if let syn::Expr::Lit(expr_lit) = &name_value.value {
-                    if let syn::Lit::Str(lit_str) = &expr_lit.lit {
-                        let doc_line = lit_str.value();
-                        // Remove leading space that rustdoc adds
-                        let cleaned = doc_line.strip_prefix(' ').unwrap_or(&doc_line);
-                        docstring_parts.push(cleaned.to_string());
-                    }
-                }
-            }
+        if attr.path().is_ident("doc")
+            && let Meta::NameValue(name_value) = &attr.meta
+            && let syn::Expr::Lit(expr_lit) = &name_value.value
+            && let syn::Lit::Str(lit_str) = &expr_lit.lit
+        {
+            let doc_line = lit_str.value();
+            // Remove leading space that rustdoc adds
+            let cleaned = doc_line.strip_prefix(' ').unwrap_or(&doc_line);
+            docstring_parts.push(cleaned.to_string());
         }
     }
 
@@ -230,6 +228,35 @@ fn parse_variable_attributes(fields: &FieldsNamed) -> syn::Result<Vec<VariableIn
         }
 
         variables.push(var_info);
+    }
+
+    // Validate FMI specification constraints
+    for var in &variables {
+        // Validate state variable causality constraints
+        // FMI Spec: "A continuous-time state or an event indicator must have causality = local or output"
+        if var.is_state {
+            match var.causality.as_deref() {
+                Some("local") | Some("output") | None => {
+                    // Valid: explicit local/output causality, or None (defaults to local)
+                }
+                Some(invalid_causality) => {
+                    // Find the field for better error reporting
+                    let field = fields
+                        .named
+                        .iter()
+                        .find(|f| f.ident.as_ref().unwrap() == &var.name)
+                        .unwrap();
+
+                    return Err(syn::Error::new_spanned(
+                        field,
+                        format!(
+                            "State variable '{}' has causality '{}' but FMI specification requires state variables to have causality 'local' or 'output'",
+                            var.name, invalid_causality
+                        ),
+                    ));
+                }
+            }
+        }
     }
 
     Ok(variables)
@@ -407,7 +434,10 @@ fn generate_model_data_impl(
 ) -> TokenStream2 {
     let set_start_values_body = generate_set_start_values(&extended_vars.user_variables);
     let float64_getter_cases = generate_float64_getter_cases(&extended_vars.all_variables);
+    let float64_setter_cases = generate_float64_setter_cases(&extended_vars.all_variables);
     let float32_getter_cases = generate_float32_getter_cases(&extended_vars.all_variables);
+    let variable_validation_cases =
+        generate_variable_validation_cases(&extended_vars.all_variables);
     // IMPORTANT: Use all_variables for consistency between ValueRef and model_variables
     let model_variables_body = generate_model_variables(&extended_vars.all_variables);
     let model_structure_body = generate_model_structure(&extended_vars.all_variables);
@@ -426,11 +456,6 @@ fn generate_model_data_impl(
         .as_deref()
         .unwrap_or("Auto-generated FMU model");
 
-    // Use struct docstring if available, otherwise use default
-    let model_description = struct_description
-        .as_deref()
-        .unwrap_or("Auto-generated FMU model");
-
     quote! {
         impl ::fmi::fmi3::GetSet for #struct_name {
             type ValueRef = ::fmi::fmi3::binding::fmi3ValueReference;
@@ -443,6 +468,20 @@ fn generate_model_data_impl(
                 for (vr, value) in vrs.iter().zip(values.iter_mut()) {
                     match ValueRef::from(*vr) {
                         #(#float64_getter_cases)*
+                        _ => {} // Ignore unknown VRs for robustness
+                    }
+                }
+                Ok(fmi::fmi3::Fmi3Res::OK)
+            }
+
+            fn set_float64(
+                &mut self,
+                vrs: &[Self::ValueRef],
+                values: &[f64],
+            ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
+                for (vr, value) in vrs.iter().zip(values.iter()) {
+                    match ValueRef::from(*vr) {
+                        #(#float64_setter_cases)*
                         _ => {} // Ignore unknown VRs for robustness
                     }
                 }
@@ -503,6 +542,16 @@ fn generate_model_data_impl(
             fn model_structure() -> fmi::fmi3::schema::ModelStructure {
                 #model_structure_body
             }
+
+            fn validate_variable_setting(
+                vr: fmi::fmi3::binding::fmi3ValueReference,
+                state: &fmi_export::fmi3::ModelState,
+            ) -> Result<(), &'static str> {
+                match ValueRef::from(vr) {
+                    #(#variable_validation_cases)*
+                    _ => Ok(()), // Unknown variables are allowed by default
+                }
+            }
         }
     }
 }
@@ -521,12 +570,12 @@ fn generate_set_start_values(variables: &[VariableInfo]) -> TokenStream2 {
                         self.#field_name = #value;
                     });
                 }
-            } else if is_float32_type(&var.field_type) {
-                if let Ok(value) = start_value.parse::<f32>() {
-                    assignments.push(quote! {
-                        self.#field_name = #value;
-                    });
-                }
+            } else if is_float32_type(&var.field_type)
+                && let Ok(value) = start_value.parse::<f32>()
+            {
+                assignments.push(quote! {
+                    self.#field_name = #value;
+                });
             }
         }
     }
@@ -578,6 +627,139 @@ fn generate_float64_getter_cases(variables: &[VariableInfo]) -> Vec<TokenStream2
     cases
 }
 
+/// Generate setter cases for float64 values
+fn generate_float64_setter_cases(variables: &[VariableInfo]) -> Vec<TokenStream2> {
+    let mut cases = Vec::new();
+
+    for var in variables {
+        if is_float64_type(&var.field_type) {
+            let variant_name = format_ident!("{}", to_pascal_case(&var.name));
+            let field_name = format_ident!("{}", &var.name);
+
+            // Only exclude variables whose main name is a derivative
+            // Variables that have derivative aliases should still be settable
+            if !var.name.starts_with("der_") && !var.name.starts_with("der(") {
+                cases.push(quote! {
+                    ValueRef::#variant_name => self.#field_name = *value,
+                });
+            }
+        }
+    }
+
+    cases
+}
+
+/// Generate variable setting validation cases based on causality and variability
+fn generate_variable_validation_cases(variables: &[VariableInfo]) -> Vec<TokenStream2> {
+    let mut cases = Vec::new();
+
+    for var in variables {
+        if is_float64_type(&var.field_type) {
+            let variant_name = format_ident!("{}", to_pascal_case(&var.name));
+            let var_name = &var.name;
+
+            // Skip derivative variables - they cannot be set
+            // Only skip if the main variable itself is a derivative, not if it has derivative aliases
+            if var.name.starts_with("der_") {
+                continue;
+            }
+
+            // Generate validation based on causality and variability
+            let validation = match (var.causality.as_deref(), var.variability.as_deref()) {
+                (Some("parameter"), Some("fixed")) => {
+                    // Fixed parameters can only be set in Instantiated or InitializationMode
+                    quote! {
+                        ValueRef::#variant_name => {
+                            match state {
+                                fmi_export::fmi3::ModelState::Instantiated
+                                | fmi_export::fmi3::ModelState::InitializationMode => Ok(()),
+                                _ => Err(concat!("Variable ", #var_name, " (fixed parameter) can only be set after instantiation or in initialization mode.")),
+                            }
+                        }
+                    }
+                }
+                (Some("parameter"), Some("tunable")) => {
+                    // Tunable parameters can be set in Instantiated, InitializationMode, or EventMode
+                    quote! {
+                        ValueRef::#variant_name => {
+                            match state {
+                                fmi_export::fmi3::ModelState::Instantiated
+                                | fmi_export::fmi3::ModelState::InitializationMode
+                                | fmi_export::fmi3::ModelState::EventMode => Ok(()),
+                                _ => Err(concat!("Variable ", #var_name, " (tunable parameter) can only be set after instantiation, in initialization mode or event mode.")),
+                            }
+                        }
+                    }
+                }
+                (Some("parameter"), _) => {
+                    // Default parameter behavior (assume tunable if not specified)
+                    quote! {
+                        ValueRef::#variant_name => {
+                            match state {
+                                fmi_export::fmi3::ModelState::Instantiated
+                                | fmi_export::fmi3::ModelState::InitializationMode
+                                | fmi_export::fmi3::ModelState::EventMode => Ok(()),
+                                _ => Err(concat!("Variable ", #var_name, " (parameter) can only be set after instantiation, in initialization mode or event mode.")),
+                            }
+                        }
+                    }
+                }
+                (Some("input"), _) => {
+                    // Input variables can generally be set in most operational states
+                    quote! {
+                        ValueRef::#variant_name => {
+                            match state {
+                                fmi_export::fmi3::ModelState::Terminated => Err(concat!("Variable ", #var_name, " (input) cannot be set in terminated state.")),
+                                _ => Ok(()),
+                            }
+                        }
+                    }
+                }
+                (Some("output") | Some("local"), _) => {
+                    // For state variables, be more permissive to allow external solvers to set values
+                    if var.is_state {
+                        quote! {
+                            ValueRef::#variant_name => {
+                                match state {
+                                    fmi_export::fmi3::ModelState::Terminated => Err(concat!("Variable ", #var_name, " (state) cannot be set in terminated state.")),
+                                    _ => Ok(()),
+                                }
+                            }
+                        }
+                    } else {
+                        // Non-state output and local variables are more restrictive
+                        let causality_str = var.causality.as_deref().unwrap_or("local");
+                        quote! {
+                            ValueRef::#variant_name => {
+                                match state {
+                                    fmi_export::fmi3::ModelState::Instantiated
+                                    | fmi_export::fmi3::ModelState::InitializationMode => Ok(()),
+                                    _ => Err(concat!("Variable ", #var_name, " (", #causality_str, ") can only be set during instantiation or initialization.")),
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    // Default case - allow setting in most states except terminated
+                    quote! {
+                        ValueRef::#variant_name => {
+                            match state {
+                                fmi_export::fmi3::ModelState::Terminated => Err(concat!("Variable ", #var_name, " cannot be set in terminated state.")),
+                                _ => Ok(()),
+                            }
+                        }
+                    }
+                }
+            };
+
+            cases.push(validation);
+        }
+    }
+
+    cases
+}
+
 /// Generate getter cases for float32 values
 fn generate_float32_getter_cases(variables: &[VariableInfo]) -> Vec<TokenStream2> {
     let mut cases = Vec::new();
@@ -600,20 +782,20 @@ fn generate_float32_getter_cases(variables: &[VariableInfo]) -> Vec<TokenStream2
 
 /// Check if a type is f64
 fn is_float64_type(ty: &Type) -> bool {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            return segment.ident == "f64";
-        }
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        return segment.ident == "f64";
     }
     false
 }
 
 /// Check if a type is f32
 fn is_float32_type(ty: &Type) -> bool {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            return segment.ident == "f32";
-        }
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        return segment.ident == "f32";
     }
     false
 }

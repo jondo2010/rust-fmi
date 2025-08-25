@@ -40,7 +40,7 @@ pub trait UserModel {
     }
 }
 
-enum ModelState {
+pub enum ModelState {
     StartAndEnd,
     ConfigurationMode,
     Instantiated,
@@ -87,6 +87,19 @@ pub trait Model: Default + GetSet + UserModel {
     /// Get the number of event indicators
     fn get_number_of_event_indicators() -> usize {
         0
+    }
+
+    /// Validate that a variable can be set in the current model state
+    /// This method should be implemented by the generated code to check
+    /// causality and variability restrictions for each variable
+    fn validate_variable_setting(
+        vr: binding::fmi3ValueReference,
+        state: &ModelState,
+    ) -> Result<(), &'static str> {
+        // Default implementation allows all variable setting
+        // Generated implementations will provide specific validation rules
+        let _ = (vr, state);
+        Ok(())
     }
 
     fn configurate(&mut self) -> Fmi3Status {
@@ -257,6 +270,21 @@ where
         values: &mut [f64],
     ) -> Result<Fmi3Res, Fmi3Error> {
         self.model.get_float64(vrs, values)
+    }
+
+    fn set_float64(
+        &mut self,
+        vrs: &[Self::ValueRef],
+        values: &[f64],
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        // Validate variable setting restrictions before setting values
+        for &vr in vrs {
+            self.validate_variable_setting(vr)?;
+        }
+
+        self.model.set_float64(vrs, values)?;
+        self.is_dirty_values = true;
+        Ok(Fmi3Res::OK)
     }
 }
 
@@ -469,6 +497,17 @@ impl<F> ModelInstance<F>
 where
     F: Model<ValueRef = binding::fmi3ValueReference>,
 {
+    /// Validate that a variable can be set in the current model state
+    fn validate_variable_setting(&self, vr: binding::fmi3ValueReference) -> Result<(), Fmi3Error> {
+        match F::validate_variable_setting(vr, &self.state) {
+            Ok(()) => Ok(()),
+            Err(message) => {
+                self.log(log::Level::Error, message);
+                Err(Fmi3Error::Error)
+            }
+        }
+    }
+
     /// Update discrete states after an event has been detected
     pub fn event_update(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         // Reset event flags

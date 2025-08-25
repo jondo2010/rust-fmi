@@ -2,7 +2,7 @@
 macro_rules! checked_deref {
     ($ptr:expr, $ty:ty) => {{
         if $ptr.is_null() {
-            log::error!("Invalid FMU instance");
+            eprintln!("Invalid FMU instance");
             return binding::fmi3Status_fmi3Error;
         }
         let instance = unsafe { &mut *($ptr as *mut fmi_export::fmi3::ModelInstance<$ty>) };
@@ -79,7 +79,7 @@ macro_rules! export_fmu {
                     Box::into_raw(this) as binding::fmi3Instance
                 }
                 Err(_) => {
-                    log::error!("Failed to instantiate FMU: invalid instantiation token");
+                    eprintln!("Failed to instantiate FMU: invalid instantiation token");
                     std::ptr::null_mut()
                 }
             }
@@ -91,7 +91,7 @@ macro_rules! export_fmu {
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3FreeInstance(instance: binding::fmi3Instance) {
             if instance.is_null() {
-                log::error!("Invalid FMU instance");
+                eprintln!("Invalid FMU instance");
                 return;
             }
             let _this = Box::from_raw(instance as *mut fmi_export::fmi3::ModelInstance<$ty>);

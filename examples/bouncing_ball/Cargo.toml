@@ -1,0 +1,13 @@
+[package]
+name = "bouncing_ball"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
