@@ -6,7 +6,7 @@ use syn::{
 };
 
 /// Main derive macro for FMU models
-#[proc_macro_derive(FmuModel, attributes(model, variable))]
+#[proc_macro_derive(FmuModel, attributes(model, variable, alias))]
 pub fn derive_fmu_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -126,6 +126,24 @@ struct VariableInfo {
     start: Option<String>,
     is_state: bool,
     description: Option<String>,
+    /// If this variable is an alias for another variable, store the target name
+    alias_of: Option<String>,
+    /// If this variable is a derivative of another variable, store the target name
+    derivative_of: Option<String>,
+    /// Aliases defined for this field (additional variable references)
+    aliases: Vec<AliasInfo>,
+}
+
+/// Information about an alias for a field
+#[derive(Debug, Clone)]
+struct AliasInfo {
+    name: String,
+    causality: Option<String>,
+    variability: Option<String>,
+    initial: Option<String>,
+    start: Option<String>,
+    derivative: Option<String>,
+    description: Option<String>,
 }
 
 /// Extended variable information including derived variables (derivatives)
@@ -144,9 +162,11 @@ impl ExtendedVariableInfo {
         let mut derivative_variables = Vec::new();
         let mut all_variables = user_vars.clone();
 
-        // TEMPORARY: Disable automatic derivative generation while using manual fields
-        // TODO: Re-enable this once struct field injection is properly implemented
+        // Derivative fields are explicitly declared by the user in their struct definition
+        // The derive macro processes all fields including manually declared derivative fields
         /*
+        // NOTE: Previously we considered automatic derivative generation, but explicit declaration
+        // provides better clarity and control for users
         // Generate derivative variables for each state variable
         for var in &user_vars {
             if var.is_state {
@@ -195,11 +215,17 @@ fn parse_variable_attributes(fields: &FieldsNamed) -> syn::Result<Vec<VariableIn
             start: None,
             is_state: false,
             description: field_docstring, // Use docstring as default description
+            alias_of: None,
+            derivative_of: None,
+            aliases: Vec::new(),
         };
 
         for attr in &field.attrs {
             if attr.path().is_ident("variable") {
                 parse_variable_attribute_content(attr, &mut var_info)?;
+            } else if attr.path().is_ident("alias") {
+                let alias_info = parse_alias_attribute_content(attr)?;
+                var_info.aliases.push(alias_info);
             }
         }
 
@@ -235,6 +261,10 @@ fn parse_variable_attribute_content(
                         "description" => {
                             var_info.description = Some(value.trim_matches('"').to_string())
                         }
+                        "alias_of" => var_info.alias_of = Some(value.trim_matches('"').to_string()),
+                        "derivative_of" => {
+                            var_info.derivative_of = Some(value.trim_matches('"').to_string())
+                        }
                         _ => {} // Ignore unknown attributes
                     }
                 }
@@ -244,6 +274,56 @@ fn parse_variable_attribute_content(
     }
 
     Ok(())
+}
+
+/// Parse the content of a #[alias(...)] attribute
+fn parse_alias_attribute_content(attr: &Attribute) -> syn::Result<AliasInfo> {
+    let mut alias_info = AliasInfo {
+        name: String::new(),
+        causality: None,
+        variability: None,
+        initial: None,
+        start: None,
+        derivative: None,
+        description: None,
+    };
+
+    match &attr.meta {
+        Meta::List(meta_list) => {
+            let content = meta_list.tokens.to_string();
+
+            // Simple parser for key = value pairs
+            for pair in content.split(',') {
+                let pair = pair.trim();
+                if let Some((key, value)) = pair.split_once('=') {
+                    let key = key.trim();
+                    let value = value.trim();
+
+                    match key {
+                        "name" => alias_info.name = value.trim_matches('"').to_string(),
+                        "causality" => alias_info.causality = Some(value.to_string()),
+                        "variability" => alias_info.variability = Some(value.to_string()),
+                        "initial" => alias_info.initial = Some(value.to_string()),
+                        "start" => alias_info.start = Some(value.to_string()),
+                        "derivative" => {
+                            alias_info.derivative = Some(value.trim_matches('"').to_string())
+                        }
+                        "description" => {
+                            alias_info.description = Some(value.trim_matches('"').to_string())
+                        }
+                        _ => {} // Ignore unknown attributes
+                    }
+                }
+            }
+        }
+        _ => return Err(syn::Error::new_spanned(attr, "Expected #[alias(...)]")),
+    }
+
+    if alias_info.name.is_empty() {
+        return Err(syn::Error::new_spanned(attr, "Alias must have a name"));
+    }
+
+    Ok(alias_info)
 }
 
 /// Generate the ValueRef enum
@@ -271,8 +351,26 @@ fn generate_value_ref_enum(variables: &[VariableInfo]) -> TokenStream2 {
 
         vr_counter += 1;
 
-        // Note: Derivatives are now handled in ExtendedVariableInfo,
-        // not generated automatically here anymore
+        // Add aliases for this variable
+        for alias in &var.aliases {
+            let alias_variant_name = format_ident!("{}", to_pascal_case(&alias.name));
+
+            value_ref_variants.push(quote! {
+                #alias_variant_name = #vr_counter
+            });
+
+            from_u32_arms.push(quote! {
+                #vr_counter => ValueRef::#alias_variant_name
+            });
+
+            into_u32_arms.push(quote! {
+                ValueRef::#alias_variant_name => #vr_counter
+            });
+
+            vr_counter += 1;
+        }
+
+        // Note: Derivative fields are explicitly declared by users and processed like any other field
     }
 
     quote! {
@@ -391,6 +489,13 @@ fn generate_model_data_impl(
                 #number_of_continuous_states
             }
 
+            fn get_number_of_event_indicators() -> usize {
+                // For this implementation, we assume one event indicator if the model
+                // implements get_event_indicators in the UserModel trait
+                // In a more sophisticated implementation, this could be derived from attributes
+                1
+            }
+
             fn model_variables() -> fmi::fmi3::schema::ModelVariables {
                 #model_variables_body
             }
@@ -448,20 +553,20 @@ fn generate_float64_getter_cases(variables: &[VariableInfo]) -> Vec<TokenStream2
     for var in variables {
         if is_float64_type(&var.field_type) {
             let variant_name = format_ident!("{}", to_pascal_case(&var.name));
+            let field_name = format_ident!("{}", &var.name);
 
-            // Only generate getter for non-derivative fields (actual struct fields)
-            if !var.name.starts_with("der_") {
-                let field_name = format_ident!("{}", &var.name);
+            // Add case for the main variable
+            cases.push(quote! {
+                ValueRef::#variant_name => *value = self.#field_name,
+            });
+
+            // Add cases for aliases of this variable
+            for alias in &var.aliases {
+                let alias_variant_name = format_ident!("{}", to_pascal_case(&alias.name));
+
                 cases.push(quote! {
-                    ValueRef::#variant_name => *value = self.#field_name,
-                });
-            } else {
-                // For derivative variables, access the derivative field directly
-                // The derivative field has the same name as the derivative variable
-                let field_name = format_ident!("{}", &var.name);
-                cases.push(quote! {
-                    ValueRef::#variant_name => {
-                        // Call calculate_values to ensure derivatives are up-to-date (change detection)
+                    ValueRef::#alias_variant_name => {
+                        // For derivative aliases, we might want to call calculate_values first
                         let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
                         *value = self.#field_name;
                     },
@@ -517,9 +622,9 @@ fn is_float32_type(ty: &Type) -> bool {
 fn generate_model_variables(variables: &[VariableInfo]) -> TokenStream2 {
     let mut float64_vars = Vec::new();
     let mut float32_vars = Vec::new();
+    let mut vr_counter = 0u32;
 
-    for (vr_counter, var) in variables.iter().enumerate() {
-        let vr_counter = vr_counter as u32; // Convert index to u32
+    for var in variables.iter() {
         let name = &var.name;
         let description = var
             .description
@@ -641,6 +746,128 @@ fn generate_model_variables(variables: &[VariableInfo]) -> TokenStream2 {
                 }
             });
         }
+
+        vr_counter += 1;
+
+        // Process aliases for this variable
+        for alias in &var.aliases {
+            let alias_name = &alias.name;
+            let alias_description = alias
+                .description
+                .as_deref()
+                .unwrap_or("Auto-generated alias variable");
+
+            // Parse alias causality
+            let alias_causality = match alias.causality.as_deref() {
+                Some("parameter") => quote! { fmi::fmi3::schema::Causality::Parameter },
+                Some("input") => quote! { fmi::fmi3::schema::Causality::Input },
+                Some("output") => quote! { fmi::fmi3::schema::Causality::Output },
+                Some("local") => quote! { fmi::fmi3::schema::Causality::Local },
+                Some("independent") => quote! { fmi::fmi3::schema::Causality::Independent },
+                Some("calculatedParameter") => {
+                    quote! { fmi::fmi3::schema::Causality::CalculatedParameter }
+                }
+                Some("structuralParameter") => {
+                    quote! { fmi::fmi3::schema::Causality::StructuralParameter }
+                }
+                _ => quote! { fmi::fmi3::schema::Causality::Local },
+            };
+
+            // Aliases are usually continuous and calculated
+            let alias_variability = quote! { Some(fmi::fmi3::schema::Variability::Continuous) };
+            let alias_initial = quote! { Some(fmi::fmi3::schema::Initial::Calculated) };
+
+            // Find the derivative attribute - if this alias is a derivative, set the derivative field
+            let derivative_vr = if let Some(derivative_of) = &alias.derivative {
+                // Find the value reference of the variable this is a derivative of
+                let mut derivative_target_vr = None;
+                let mut temp_vr = 0u32;
+
+                for check_var in variables {
+                    if check_var.name == *derivative_of {
+                        derivative_target_vr = Some(temp_vr);
+                        break;
+                    }
+                    temp_vr += 1;
+                    // Skip alias entries when counting
+                    for _ in &check_var.aliases {
+                        temp_vr += 1;
+                    }
+                }
+
+                if let Some(target_vr) = derivative_target_vr {
+                    quote! { Some(#target_vr) }
+                } else {
+                    quote! { None }
+                }
+            } else {
+                quote! { None }
+            };
+
+            if is_float64_type(&var.field_type) {
+                float64_vars.push(quote! {
+                    fmi::fmi3::schema::FmiFloat64 {
+                        init_var: fmi::fmi3::schema::InitializableVariable {
+                            typed_arrayable_var: fmi::fmi3::schema::TypedArrayableVariable {
+                                arrayable_var: fmi::fmi3::schema::ArrayableVariable {
+                                    abstract_var: fmi::fmi3::schema::AbstractVariable {
+                                        name: #alias_name.to_string(),
+                                        value_reference: #vr_counter,
+                                        description: Some(#alias_description.to_string()),
+                                        causality: #alias_causality,
+                                        variability: #alias_variability,
+                                        can_handle_multiple_set_per_time_instant: None,
+                                    },
+                                    dimensions: vec![],
+                                    intermediate_update: None,
+                                    previous: None,
+                                },
+                                declared_type: None,
+                            },
+                            initial: #alias_initial,
+                        },
+                        start: vec![], // Aliases typically don't have start values
+                        real_var_attr: fmi::fmi3::schema::RealVariableAttributes {
+                            derivative: #derivative_vr,
+                            reinit: None,
+                        },
+                        ..Default::default()
+                    }
+                });
+            } else if is_float32_type(&var.field_type) {
+                float32_vars.push(quote! {
+                    fmi::fmi3::schema::FmiFloat32 {
+                        init_var: fmi::fmi3::schema::InitializableVariable {
+                            typed_arrayable_var: fmi::fmi3::schema::TypedArrayableVariable {
+                                arrayable_var: fmi::fmi3::schema::ArrayableVariable {
+                                    abstract_var: fmi::fmi3::schema::AbstractVariable {
+                                        name: #alias_name.to_string(),
+                                        value_reference: #vr_counter,
+                                        description: Some(#alias_description.to_string()),
+                                        causality: #alias_causality,
+                                        variability: #alias_variability,
+                                        can_handle_multiple_set_per_time_instant: None,
+                                    },
+                                    dimensions: vec![],
+                                    intermediate_update: None,
+                                    previous: None,
+                                },
+                                declared_type: None,
+                            },
+                            initial: #alias_initial,
+                        },
+                        start: vec![], // Aliases typically don't have start values
+                        real_var_attr: fmi::fmi3::schema::RealVariableAttributes {
+                            derivative: #derivative_vr,
+                            reinit: None,
+                        },
+                        ..Default::default()
+                    }
+                });
+            }
+
+            vr_counter += 1;
+        }
     }
 
     quote! {
@@ -656,6 +883,9 @@ fn generate_model_variables(variables: &[VariableInfo]) -> TokenStream2 {
 fn generate_model_structure(variables: &[VariableInfo]) -> TokenStream2 {
     let mut outputs = Vec::new();
     let mut derivatives = Vec::new();
+    let mut initial_unknowns = Vec::new();
+    let mut event_indicators = Vec::new();
+
     let mut vr_counter = 0u32;
 
     for var in variables {
@@ -671,19 +901,46 @@ fn generate_model_structure(variables: &[VariableInfo]) -> TokenStream2 {
             });
         }
 
-        vr_counter += 1;
-
-        // If this is a state variable, add its derivative to the structure
-        if var.is_state {
-            let der_vr = vr_counter;
-            derivatives.push(quote! {
+        // Check if this variable should be an event indicator (e.g., height for bouncing ball)
+        if var.name == "h" && var.is_state {
+            event_indicators.push(quote! {
                 fmi::fmi3::schema::Fmi3Unknown {
-                    value_reference: #der_vr,
-                    dependencies: vec![#vr_counter - 1], // Depends on the state variable
-                    dependencies_kind: vec![fmi::fmi3::schema::DependenciesKind::Dependent],
+                    value_reference: #vr_counter,
+                    dependencies: vec![],
+                    dependencies_kind: vec![],
                     ..Default::default()
                 }
             });
+        }
+
+        vr_counter += 1;
+
+        // Process aliases for this variable
+        for alias in &var.aliases {
+            // Check if this is a derivative alias
+            if alias.name.starts_with("der(") && alias.causality.as_deref() == Some("local") {
+                // Add as ContinuousStateDerivative
+                derivatives.push(quote! {
+                    fmi::fmi3::schema::Fmi3Unknown {
+                        value_reference: #vr_counter,
+                        dependencies: vec![], // Will be computed properly by the solver
+                        dependencies_kind: vec![],
+                        ..Default::default()
+                    }
+                });
+
+                // Add as InitialUnknown - derivative depends on the field that contains it
+                let base_vr = vr_counter - 1; // The variable this alias belongs to
+                initial_unknowns.push(quote! {
+                    fmi::fmi3::schema::Fmi3Unknown {
+                        value_reference: #vr_counter,
+                        dependencies: vec![#base_vr],
+                        dependencies_kind: vec![fmi::fmi3::schema::DependenciesKind::Constant],
+                        ..Default::default()
+                    }
+                });
+            }
+
             vr_counter += 1;
         }
     }
@@ -692,6 +949,8 @@ fn generate_model_structure(variables: &[VariableInfo]) -> TokenStream2 {
         fmi::fmi3::schema::ModelStructure {
             outputs: vec![#(#outputs),*],
             continuous_state_derivative: vec![#(#derivatives),*],
+            initial_unknown: vec![#(#initial_unknowns),*],
+            event_indicator: vec![#(#event_indicators),*],
             ..Default::default()
         }
     }
@@ -699,7 +958,17 @@ fn generate_model_structure(variables: &[VariableInfo]) -> TokenStream2 {
 
 /// Convert snake_case to PascalCase
 fn to_pascal_case(s: &str) -> String {
-    s.split('_')
+    // Handle special characters for alias names like "der(h)" -> "DerH"
+    let cleaned = s
+        .replace("(", "_")
+        .replace(")", "")
+        .replace("-", "_")
+        .replace(" ", "_")
+        .replace(".", "_");
+
+    cleaned
+        .split('_')
+        .filter(|word| !word.is_empty())
         .map(|word| {
             let mut chars = word.chars();
             match chars.next() {
@@ -793,7 +1062,7 @@ fn generate_get_derivatives(variables: &[VariableInfo]) -> TokenStream2 {
     // Collect state variables in order
     for var in variables {
         if var.is_state {
-            state_variables.push(&var.name);
+            state_variables.push(var);
         }
     }
 
@@ -804,17 +1073,45 @@ fn generate_get_derivatives(variables: &[VariableInfo]) -> TokenStream2 {
         };
     }
 
-    // Generate assignments that use the derivative field values directly
-    for (i, var_name) in state_variables.iter().enumerate() {
-        // For derivative fields, use the derivative field directly: "der_x0", "der_x1", etc.
-        let derivative_field_name = format_ident!("der_{}", var_name);
-        derivative_assignments.push(quote! {
-            if #i < derivatives.len() {
-                // Ensure derivatives are up-to-date before returning them
-                let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
-                derivatives[#i] = self.#derivative_field_name;
+    // Generate assignments that find the derivative field for each state
+    for (i, state_var) in state_variables.iter().enumerate() {
+        // Find the field that contains the derivative for this state variable
+        let derivative_name = format!("der({})", state_var.name);
+
+        // Look for a field that has an alias matching the derivative name
+        let mut derivative_field = None;
+        for var in variables {
+            for alias in &var.aliases {
+                if alias.name == derivative_name {
+                    derivative_field = Some(&var.name);
+                    break;
+                }
             }
-        });
+            if derivative_field.is_some() {
+                break;
+            }
+        }
+
+        if let Some(der_field_name) = derivative_field {
+            let field_name = format_ident!("{}", der_field_name);
+            derivative_assignments.push(quote! {
+                if #i < derivatives.len() {
+                    // Ensure derivatives are up-to-date before returning them
+                    let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
+                    derivatives[#i] = self.#field_name;
+                }
+            });
+        } else {
+            // Fallback to old behavior if no alias found
+            let derivative_field_name = format_ident!("der_{}", state_var.name);
+            derivative_assignments.push(quote! {
+                if #i < derivatives.len() {
+                    // Ensure derivatives are up-to-date before returning them
+                    let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
+                    derivatives[#i] = self.#derivative_field_name;
+                }
+            });
+        }
     }
 
     quote! {
@@ -853,10 +1150,10 @@ fn generate_derivative_storage(
         // Extend the struct with derivative storage fields
         impl #struct_name {
             /// Internal storage for computed derivative values
-            /// These fields are automatically managed by the FMI framework
+            /// Derivative fields are declared explicitly in the struct definition
         }
 
-        // Note: The derivative fields are added to the struct automatically
+        // Note: Derivative fields are declared by the user and processed by the derive macro
         // Users should not manually declare these fields
     }
 }

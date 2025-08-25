@@ -92,7 +92,7 @@ pub trait Model: Default + GetSet + UserModel {
     fn configurate(&mut self) -> Fmi3Status {
         // Basic configuration - in a full implementation, this would:
         // - Allocate memory for event indicators if needed
-        // - Allocate memory for continuous states if needed  
+        // - Allocate memory for continuous states if needed
         // - Initialize event indicator values
         // For now, just return OK since our basic implementation doesn't need these
         Fmi3Res::OK.into()
@@ -144,6 +144,18 @@ pub struct ModelInstance<M: Model> {
     log_message: binding::fmi3LogMessageCallback,
     state: ModelState,
 
+    // event info
+    new_discrete_states_needed: bool,
+    terminate_simulation: bool,
+    nominals_of_continuous_states_changed: bool,
+    values_of_continuous_states_changed: bool,
+    next_event_time_defined: bool,
+    next_event_time: f64,
+    clocks_ticked: bool,
+
+    // event indicators
+    event_indicators: Vec<f64>,
+
     // internal solver steps
     n_steps: usize,
 
@@ -173,7 +185,10 @@ impl<F: Model> ModelInstance<F> {
         let logging_on = log::Level::iter()
             .map(|level| (level, logging_on))
             .collect();
-        Ok(Self {
+
+        let num_event_indicators = F::get_number_of_event_indicators();
+
+        let mut instance = Self {
             start_time: 0.0,
             stop_time: 1.0,
             time: 0.0,
@@ -182,11 +197,24 @@ impl<F: Model> ModelInstance<F> {
             logging_on,
             log_message,
             state: ModelState::Instantiated,
+            new_discrete_states_needed: false,
+            terminate_simulation: false,
+            nominals_of_continuous_states_changed: false,
+            values_of_continuous_states_changed: false,
+            next_event_time_defined: false,
+            next_event_time: 0.0,
+            clocks_ticked: false,
+            event_indicators: vec![0.0; num_event_indicators],
             n_steps: 0,
             is_dirty_values: false,
             model: F::default(),
             _marker: std::marker::PhantomData,
-        })
+        };
+
+        // Set start values for the model
+        instance.model.set_start_values();
+
+        Ok(instance)
     }
 
     pub fn log(&self, level: log::Level, message: &str) {
@@ -317,6 +345,21 @@ where
         self.start_time = 0.0;
         self.time = 0.0;
         self.n_steps = 0;
+
+        // Reset event info
+        self.new_discrete_states_needed = false;
+        self.terminate_simulation = false;
+        self.nominals_of_continuous_states_changed = false;
+        self.values_of_continuous_states_changed = false;
+        self.next_event_time_defined = false;
+        self.next_event_time = 0.0;
+        self.clocks_ticked = false;
+
+        // Reset event indicators
+        for indicator in &mut self.event_indicators {
+            *indicator = 0.0;
+        }
+
         self.model.set_start_values();
         Ok(Fmi3Res::OK)
     }
@@ -369,6 +412,7 @@ where
     fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi3Res, Fmi3Error> {
         self.model.set_continuous_states(states)?;
         self.is_dirty_values = true;
+        self.values_of_continuous_states_changed = true;
         Ok(Fmi3Res::OK)
     }
 
@@ -404,5 +448,43 @@ where
 
     fn get_number_of_event_indicators(&mut self) -> Result<usize, Fmi3Error> {
         Ok(F::get_number_of_event_indicators())
+    }
+
+    fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
+        // Update the internal event indicators from the model
+        self.model
+            .get_event_indicators(&mut self.event_indicators)?;
+
+        // Copy to the output array
+        let copy_len = indicators.len().min(self.event_indicators.len());
+        indicators[..copy_len].copy_from_slice(&self.event_indicators[..copy_len]);
+
+        // Check for zero crossings by comparing with previous values (simplified)
+        // In a full implementation, this would detect actual zero crossings
+        Ok(false) // Return false for now, indicating no state events
+    }
+}
+
+impl<F> ModelInstance<F>
+where
+    F: Model<ValueRef = binding::fmi3ValueReference>,
+{
+    /// Update discrete states after an event has been detected
+    pub fn event_update(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        // Reset event flags
+        self.new_discrete_states_needed = false;
+        self.nominals_of_continuous_states_changed = false;
+        self.values_of_continuous_states_changed = false;
+        self.next_event_time_defined = false;
+
+        // Delegate to the model's event update
+        match self.model.event_update() {
+            Ok(_) => {
+                // Mark that values may have changed
+                self.is_dirty_values = true;
+                Ok(Fmi3Res::OK)
+            }
+            Err(e) => Err(e),
+        }
     }
 }

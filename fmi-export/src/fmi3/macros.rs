@@ -1,11 +1,11 @@
 #[macro_export]
 macro_rules! checked_deref {
-    ($ptr:expr, $ty:ty, $trait:ty) => {{
+    ($ptr:expr, $ty:ty) => {{
         if $ptr.is_null() {
             log::error!("Invalid FMU instance");
             return binding::fmi3Status_fmi3Error;
         }
-        let instance = unsafe { &mut *($ptr as *mut crate::fmi3::ModelInstance<$ty>) };
+        let instance = unsafe { &mut *($ptr as *mut fmi_export::fmi3::ModelInstance<$ty>) };
         instance
     }};
 }
@@ -13,16 +13,16 @@ macro_rules! checked_deref {
 #[macro_export]
 macro_rules! export_fmu {
     ($ty:ty) => {
-        use crate::checked_deref;
-        use crate::fmi3::binding;
+        use fmi::fmi3::{Common, Fmi3Status, GetSet, ModelExchange, binding};
+        use fmi_export::checked_deref;
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         pub unsafe extern "C" fn fmi3GetVersion() -> *const ::std::os::raw::c_char {
             binding::fmi3Version.as_ptr() as *const _
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         pub unsafe extern "C" fn fmi3SetDebugLogging(
             instance: binding::fmi3Instance,
@@ -30,16 +30,22 @@ macro_rules! export_fmu {
             n_categories: usize,
             categories: *const binding::fmi3String,
         ) -> binding::fmi3Status {
-            let instance = checked_deref!(instance, $ty, Fmi3Instance);
+            let instance = checked_deref!(instance, $ty);
             let categories = std::slice::from_raw_parts(categories, n_categories)
                 .into_iter()
                 .filter_map(|cat| std::ffi::CStr::from_ptr(*cat).to_str().ok())
                 .collect::<Vec<_>>();
-            instance.set_debug_logging(logging_on, &categories).into()
+            match instance.set_debug_logging(logging_on, &categories) {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
         }
 
         /* Creation and destruction of FMU instances */
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3InstantiateModelExchange(
             instance_name: binding::fmi3String,
@@ -53,15 +59,14 @@ macro_rules! export_fmu {
             let name = std::ffi::CStr::from_ptr(instance_name)
                 .to_string_lossy()
                 .into_owned();
-            let token = std::ffi::CStr::from_ptr(instantiation_token)
-                .to_string_lossy();
+            let token = std::ffi::CStr::from_ptr(instantiation_token).to_string_lossy();
             let resource_path = std::path::PathBuf::from(
                 std::ffi::CStr::from_ptr(resource_path)
                     .to_string_lossy()
                     .into_owned(),
             );
-            
-            match crate::fmi3::ModelInstance::<$ty>::new(
+
+            match fmi_export::fmi3::ModelInstance::<$ty>::new(
                 name,
                 resource_path,
                 logging_on,
@@ -82,18 +87,18 @@ macro_rules! export_fmu {
         //#define fmi3InstantiateCoSimulation          fmi3FullName(fmi3InstantiateCoSimulation)
         //#define fmi3InstantiateScheduledExecution    fmi3FullName(fmi3InstantiateScheduledExecution)
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3FreeInstance(instance: binding::fmi3Instance) {
             if instance.is_null() {
                 log::error!("Invalid FMU instance");
                 return;
             }
-            let _this = Box::from_raw(instance as *mut crate::fmi3::ModelInstance<$ty>);
+            let _this = Box::from_raw(instance as *mut fmi_export::fmi3::ModelInstance<$ty>);
             // instance will be dropped here, freeing resources
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3EnterInitializationMode(
             instance: binding::fmi3Instance,
@@ -103,47 +108,216 @@ macro_rules! export_fmu {
             stop_time_defined: binding::fmi3Boolean,
             stop_time: binding::fmi3Float64,
         ) -> binding::fmi3Status {
-            let instance = checked_deref!(instance, $ty, Common);
+            let instance = checked_deref!(instance, $ty);
             let tolerance = tolerance_defined.then_some(tolerance);
             let stop_time = stop_time_defined.then_some(stop_time);
-            instance
-                .enter_initialization_mode(tolerance, start_time, stop_time)
-                .into()
+            match instance.enter_initialization_mode(tolerance, start_time, stop_time) {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3ExitInitializationMode(
             instance: binding::fmi3Instance,
         ) -> binding::fmi3Status {
-            let instance = checked_deref!(instance, $ty, Common);
-            instance.exit_initialization_mode().into()
+            let instance = checked_deref!(instance, $ty);
+            match instance.exit_initialization_mode() {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3EnterEventMode(
             instance: binding::fmi3Instance,
         ) -> binding::fmi3Status {
-            let instance = checked_deref!(instance, $ty, Common);
-            instance.enter_event_mode().into()
+            let instance = checked_deref!(instance, $ty);
+            match instance.enter_event_mode() {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3EnterContinuousTimeMode(
+            instance: binding::fmi3Instance,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            match instance.enter_continuous_time_mode() {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3SetTime(
+            instance: binding::fmi3Instance,
+            time: binding::fmi3Float64,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            match instance.set_time(time) {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3SetContinuousStates(
+            instance: binding::fmi3Instance,
+            continuous_states: *const binding::fmi3Float64,
+            n_continuous_states: usize,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            let states = std::slice::from_raw_parts(continuous_states, n_continuous_states);
+            match instance.set_continuous_states(states) {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3GetContinuousStates(
+            instance: binding::fmi3Instance,
+            continuous_states: *mut binding::fmi3Float64,
+            n_continuous_states: usize,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            let states = std::slice::from_raw_parts_mut(continuous_states, n_continuous_states);
+            match instance.get_continuous_states(states) {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3GetContinuousStateDerivatives(
+            instance: binding::fmi3Instance,
+            derivatives: *mut binding::fmi3Float64,
+            n_continuous_states: usize,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            let derivs = std::slice::from_raw_parts_mut(derivatives, n_continuous_states);
+            match instance.get_continuous_state_derivatives(derivs) {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3GetNumberOfEventIndicators(
+            instance: binding::fmi3Instance,
+            n_event_indicators: *mut usize,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            match instance.get_number_of_event_indicators() {
+                Ok(n) => {
+                    *n_event_indicators = n;
+                    binding::fmi3Status_fmi3OK
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3GetEventIndicators(
+            instance: binding::fmi3Instance,
+            event_indicators: *mut binding::fmi3Float64,
+            n_event_indicators: usize,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            let indicators = std::slice::from_raw_parts_mut(event_indicators, n_event_indicators);
+            match instance.get_event_indicators(indicators) {
+                Ok(_) => binding::fmi3Status_fmi3OK,
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        unsafe extern "C" fn fmi3CompletedIntegratorStep(
+            instance: binding::fmi3Instance,
+            no_set_fmu_state_prior: binding::fmi3Boolean,
+            enter_event_mode: *mut binding::fmi3Boolean,
+            terminate_simulation: *mut binding::fmi3Boolean,
+        ) -> binding::fmi3Status {
+            let instance = checked_deref!(instance, $ty);
+            let mut enter_event = false;
+            let mut terminate = false;
+            match instance.completed_integrator_step(
+                no_set_fmu_state_prior,
+                &mut enter_event,
+                &mut terminate,
+            ) {
+                Ok(_) => {
+                    *enter_event_mode = enter_event;
+                    *terminate_simulation = terminate;
+                    binding::fmi3Status_fmi3OK
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3Terminate(instance: binding::fmi3Instance) -> binding::fmi3Status {
-            let instance = checked_deref!(instance, $ty, Common);
-            instance.terminate().into()
+            let instance = checked_deref!(instance, $ty);
+            match instance.terminate() {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         unsafe extern "C" fn fmi3Reset(instance: binding::fmi3Instance) -> binding::fmi3Status {
-            let instance = checked_deref!(instance, $ty, Common);
-            instance.reset().into()
+            let instance = checked_deref!(instance, $ty);
+            match instance.reset() {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         pub unsafe fn fmi3GetFloat64(
             instance: binding::fmi3Instance,
@@ -152,10 +326,16 @@ macro_rules! export_fmu {
             values: *mut binding::fmi3Float64,
             n_values: usize,
         ) -> binding::fmi3Status {
-            let instance = crate::checked_deref!(instance, $ty, Common);
+            let instance = checked_deref!(instance, $ty);
             let value_refs = std::slice::from_raw_parts(value_references, n_value_references);
             let values = std::slice::from_raw_parts_mut(values, n_values);
-            ::fmi::fmi3::Common::get_float64(instance, value_refs, values).into()
+            match instance.get_float64(value_refs, values) {
+                Ok(res) => {
+                    let status: Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => binding::fmi3Status_fmi3Error,
+            }
         }
     };
 }
