@@ -129,6 +129,9 @@ pub trait Model: Default + GetSet + UserModel {
 
     /// Build a model description for this model
     fn model_description() -> schema::Fmi3ModelDescription {
+        // Parse the XML from the constant MODEL_DESCRIPTION
+        // For now, we'll construct it manually to maintain compatibility
+        // In the future, this should parse Self::MODEL_DESCRIPTION XML
         schema::Fmi3ModelDescription {
             fmi_version: unsafe { str::from_utf8_unchecked(binding::fmi3Version).to_owned() },
             model_name: Self::MODEL_NAME.to_owned(),
