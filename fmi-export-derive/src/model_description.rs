@@ -2,10 +2,10 @@
 use std::{default, ffi::CStr};
 
 use chrono::Utc;
-use fmi::fmi3::{binding, schema, schema::AbstractVariableTrait};
+use fmi::fmi3::{binding, schema};
 use uuid::Uuid;
 
-use crate::model_new::{Field, FieldAttributeOuter, Model, StructAttributeOuter};
+use crate::model_new::{Field, FieldAttributeOuter, Model};
 
 //TODO: move this into `fmi` crate?
 const RUST_FMI_NAMESPACE: Uuid = uuid::uuid!("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
@@ -43,6 +43,36 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
             model_structure,
             ..Default::default()
         })
+    }
+}
+
+/// Convert a syn::Type to a schema::VariableType
+fn rust_type_to_variable_type(ty: &syn::Type) -> Result<schema::VariableType, String> {
+    match ty {
+        syn::Type::Path(type_path) => {
+            let type_name = &type_path.path.segments.last().unwrap().ident;
+            let type_str = type_name.to_string();
+
+            match type_str.as_str() {
+                "f32" => Ok(schema::VariableType::FmiFloat32),
+                "f64" => Ok(schema::VariableType::FmiFloat64),
+                "i8" => Ok(schema::VariableType::FmiInt8),
+                "i16" => Ok(schema::VariableType::FmiInt16),
+                "i32" => Ok(schema::VariableType::FmiInt32),
+                "i64" => Ok(schema::VariableType::FmiInt64),
+                "u8" => Ok(schema::VariableType::FmiUInt8),
+                "u16" => Ok(schema::VariableType::FmiUInt16),
+                "u32" => Ok(schema::VariableType::FmiUInt32),
+                "u64" => Ok(schema::VariableType::FmiUInt64),
+                "bool" => Ok(schema::VariableType::FmiBoolean),
+                "String" => Ok(schema::VariableType::FmiString),
+                _ => Err(format!(
+                    "Unsupported field type '{}'. Supported types are: f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, bool, String",
+                    type_name
+                )),
+            }
+        }
+        _ => Err("Unsupported field type. Only path types are supported.".to_string()),
     }
 }
 
@@ -100,14 +130,16 @@ fn get_variable_causality(
 /// Helper function to get variable variability from attribute with smart defaults
 fn get_variable_variability(
     attr: &crate::model_new::FieldAttribute,
-    field_type: &str,
+    variable_type: &schema::VariableType,
 ) -> Result<schema::Variability, String> {
     if let Some(variability_ident) = &attr.variability {
         build_variability(variability_ident)
     } else {
-        // Use sensible defaults based on type
-        match field_type {
-            "f32" | "f64" => Ok(schema::Variability::Continuous),
+        // Use sensible defaults based on variable type
+        match variable_type {
+            schema::VariableType::FmiFloat32 | schema::VariableType::FmiFloat64 => {
+                Ok(schema::Variability::Continuous)
+            }
             _ => Ok(schema::Variability::Discrete),
         }
     }
@@ -224,227 +256,216 @@ fn create_and_add_variable(
     let description = get_variable_description(field, attr);
     let causality = get_variable_causality(attr)?;
 
-    // Match on field type and create appropriate FMI variable
-    match &field.ty {
-        syn::Type::Path(type_path) => {
-            let type_name = &type_path.path.segments.last().unwrap().ident;
-            let type_str = type_name.to_string();
-            let variability = get_variable_variability(attr, &type_str)?;
+    // Convert field type to VariableType
+    let variable_type = rust_type_to_variable_type(&field.ty)?;
+    let variability = get_variable_variability(attr, &variable_type)?;
 
-            match type_str.as_str() {
-                "f32" => {
-                    let start = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<f32>)
-                        .unwrap_or_default();
-                    let variable = schema::FmiFloat32::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.float32.push(variable);
-                }
-                "f64" => {
-                    let start = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<f64>)
-                        .unwrap_or_default();
-                    let variable = schema::FmiFloat64::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.float64.push(variable);
-                }
-                "i8" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<i8>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiInt8::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.int8.push(variable);
-                }
-                "i16" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<i16>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiInt16::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.int16.push(variable);
-                }
-                "i32" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<i32>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiInt32::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.int32.push(variable);
-                }
-                "i64" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<i64>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiInt64::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.int64.push(variable);
-                }
-                "u8" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<u8>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiUInt8::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.uint8.push(variable);
-                }
-                "u16" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<u16>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiUInt16::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.uint16.push(variable);
-                }
-                "u32" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<u32>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiUInt32::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.uint32.push(variable);
-                }
-                "u64" => {
-                    let start_vec = attr
-                        .start
-                        .as_ref()
-                        .map(parse_numeric_start_value::<u64>)
-                        .unwrap_or_default();
-                    let start = start_vec.into_iter().next();
-                    let variable = schema::FmiUInt64::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.uint64.push(variable);
-                }
-                "bool" => {
-                    let start = attr
-                        .start
-                        .as_ref()
-                        .map(parse_bool_start_value)
-                        .unwrap_or_default();
-                    let variable = schema::FmiBoolean::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.boolean.push(variable);
-                }
-                "String" => {
-                    let start = attr
-                        .start
-                        .as_ref()
-                        .map(parse_string_start_value)
-                        .unwrap_or_default();
-                    let variable = schema::FmiString::new(
-                        name,
-                        value_reference,
-                        description,
-                        causality,
-                        variability,
-                        start,
-                    );
-                    model_variables.string.push(variable);
-                }
-                _ => {
-                    return Err(format!(
-                        "Unsupported field type '{}' for field '{}'. Supported types are: f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, bool, String",
-                        type_name, field.ident
-                    ));
-                }
-            }
+    // Match on variable type and create appropriate FMI variable
+    match variable_type {
+        schema::VariableType::FmiFloat32 => {
+            let start = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<f32>)
+                .unwrap_or_default();
+            let variable = schema::FmiFloat32::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.float32.push(variable);
         }
-        _ => {
-            return Err(format!(
-                "Unsupported field type for field '{}'. Only path types are supported.",
-                field.ident
-            ));
+        schema::VariableType::FmiFloat64 => {
+            let start = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<f64>)
+                .unwrap_or_default();
+            let variable = schema::FmiFloat64::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.float64.push(variable);
+        }
+        schema::VariableType::FmiInt8 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<i8>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiInt8::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.int8.push(variable);
+        }
+        schema::VariableType::FmiInt16 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<i16>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiInt16::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.int16.push(variable);
+        }
+        schema::VariableType::FmiInt32 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<i32>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiInt32::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.int32.push(variable);
+        }
+        schema::VariableType::FmiInt64 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<i64>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiInt64::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.int64.push(variable);
+        }
+        schema::VariableType::FmiUInt8 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<u8>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiUInt8::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.uint8.push(variable);
+        }
+        schema::VariableType::FmiUInt16 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<u16>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiUInt16::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.uint16.push(variable);
+        }
+        schema::VariableType::FmiUInt32 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<u32>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiUInt32::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.uint32.push(variable);
+        }
+        schema::VariableType::FmiUInt64 => {
+            let start_vec = attr
+                .start
+                .as_ref()
+                .map(parse_numeric_start_value::<u64>)
+                .unwrap_or_default();
+            let start = start_vec.into_iter().next();
+            let variable = schema::FmiUInt64::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.uint64.push(variable);
+        }
+        schema::VariableType::FmiBoolean => {
+            let start = attr
+                .start
+                .as_ref()
+                .map(parse_bool_start_value)
+                .unwrap_or_default();
+            let variable = schema::FmiBoolean::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.boolean.push(variable);
+        }
+        schema::VariableType::FmiString => {
+            let start = attr
+                .start
+                .as_ref()
+                .map(parse_string_start_value)
+                .unwrap_or_default();
+            let variable = schema::FmiString::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+            );
+            model_variables.string.push(variable);
+        }
+        schema::VariableType::FmiBinary => {
+            return Err(
+                "Binary variables are not yet supported in this implementation.".to_string(),
+            );
         }
     }
 
@@ -454,6 +475,8 @@ fn create_and_add_variable(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model_new::StructAttributeOuter;
+    use schema::AbstractVariableTrait;
     use syn::parse_quote;
 
     #[test]
@@ -651,7 +674,6 @@ mod tests {
     #[test]
     fn test_variability_handling() {
         use crate::model_new::{FieldAttribute, FieldAttributeOuter};
-        use syn::parse_quote;
 
         let fields = vec![
             Field {
