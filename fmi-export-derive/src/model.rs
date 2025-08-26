@@ -11,16 +11,6 @@ pub struct ModelInfo {
     pub variables: Vec<VariableInfo>,
 }
 
-#[derive(Debug, attribute_derive::FromAttr)]
-#[attribute(ident = variable)]
-#[attribute(error(missing_field = "`{field}` was not specified"))]
-struct VariableAttribute {
-    #[attribute(example = "Parameter")]
-    causality: syn::Ident,
-    variability: Option<syn::Ident>,
-    start: Option<syn::Expr>,
-}
-
 /// Information about a variable
 #[derive(Debug, Clone)]
 pub struct VariableInfo {
@@ -71,22 +61,5 @@ impl ExtendedModelInfo {
             model,
             all_variables,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use attribute_derive::FromAttr;
-
-    use super::*;
-
-    #[test]
-    fn test_variable_attribute() {
-        // Use parse_quote! since syn::Attribute cannot be parsed directly with parse_str
-        let input: syn::Attribute = syn::parse_quote! {
-            #[variable(causality = Parameter, variability = Fixed, start = -9.81)]
-        };
-        let attr = VariableAttribute::from_attribute(input).unwrap();
-        dbg!(attr);
     }
 }

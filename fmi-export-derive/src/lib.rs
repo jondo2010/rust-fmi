@@ -11,9 +11,14 @@ use syn::{DeriveInput, parse_macro_input};
 
 mod codegen;
 mod model;
+mod model_description;
+mod model_new;
 mod parsing;
 mod schema_gen;
 mod validation;
+
+#[cfg(test)]
+mod integration_test;
 
 use codegen::CodeGenerator;
 use model::ExtendedModelInfo;

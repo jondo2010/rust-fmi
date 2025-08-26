@@ -204,6 +204,40 @@ macro_rules! impl_float_type {
             pub fn reinit(&self) -> Option<bool> {
                 self.real_var_attr.reinit
             }
+
+            /// Create a new FMI variable with the given parameters
+            pub fn new(
+                name: String,
+                value_reference: u32,
+                description: Option<String>,
+                causality: Causality,
+                variability: Variability,
+                start: Vec<$type>,
+            ) -> Self {
+                Self {
+                    start,
+                    init_var: InitializableVariable {
+                        typed_arrayable_var: TypedArrayableVariable {
+                            arrayable_var: ArrayableVariable {
+                                abstract_var: AbstractVariable {
+                                    name,
+                                    value_reference,
+                                    description,
+                                    causality,
+                                    variability: Some(variability),
+                                    can_handle_multiple_set_per_time_instant: None,
+                                },
+                                dimensions: vec![],
+                                intermediate_update: None,
+                                previous: None,
+                            },
+                            declared_type: None,
+                        },
+                        initial: None,
+                    },
+                    ..Default::default()
+                }
+            }
         }
     };
 }
@@ -225,6 +259,42 @@ macro_rules! impl_integer_type {
         }
 
         impl_abstract_variable!($name, Variability::Discrete);
+
+        impl $name {
+            /// Create a new FMI integer variable with the given parameters
+            pub fn new(
+                name: String,
+                value_reference: u32,
+                description: Option<String>,
+                causality: Causality,
+                variability: Variability,
+                start: Option<$type>,
+            ) -> Self {
+                Self {
+                    start,
+                    init_var: InitializableVariable {
+                        typed_arrayable_var: TypedArrayableVariable {
+                            arrayable_var: ArrayableVariable {
+                                abstract_var: AbstractVariable {
+                                    name,
+                                    value_reference,
+                                    description,
+                                    causality,
+                                    variability: Some(variability),
+                                    can_handle_multiple_set_per_time_instant: None,
+                                },
+                                dimensions: vec![],
+                                intermediate_update: None,
+                                previous: None,
+                            },
+                            declared_type: None,
+                        },
+                        initial: None,
+                    },
+                    ..Default::default()
+                }
+            }
+        }
     };
 }
 
@@ -427,6 +497,41 @@ impl_arrayable_variable!(FmiBoolean);
 impl_typed_arrayable_variable!(FmiBoolean);
 impl_initializable_variable!(FmiBoolean);
 
+impl FmiBoolean {
+    /// Create a new FMI boolean variable with the given parameters
+    pub fn new(
+        name: String,
+        value_reference: u32,
+        description: Option<String>,
+        causality: Causality,
+        variability: Variability,
+        start: Vec<bool>,
+    ) -> Self {
+        Self {
+            start,
+            init_var: InitializableVariable {
+                typed_arrayable_var: TypedArrayableVariable {
+                    arrayable_var: ArrayableVariable {
+                        abstract_var: AbstractVariable {
+                            name,
+                            value_reference,
+                            description,
+                            causality,
+                            variability: Some(variability),
+                            can_handle_multiple_set_per_time_instant: None,
+                        },
+                        dimensions: vec![],
+                        intermediate_update: None,
+                        previous: None,
+                    },
+                    declared_type: None,
+                },
+                initial: None,
+            },
+        }
+    }
+}
+
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct StringStart {
     #[yaserde(attribute = true, rename = "value")]
@@ -445,6 +550,39 @@ impl FmiString {
     /// Get an iterator over the start values.
     pub fn start(&self) -> impl Iterator<Item = &str> {
         self.start.iter().map(|s| s.value.as_str())
+    }
+
+    /// Create a new FMI string variable with the given parameters
+    pub fn new(
+        name: String,
+        value_reference: u32,
+        description: Option<String>,
+        causality: Causality,
+        variability: Variability,
+        start: Vec<String>,
+    ) -> Self {
+        Self {
+            start: start.into_iter().map(|value| StringStart { value }).collect(),
+            init_var: InitializableVariable {
+                typed_arrayable_var: TypedArrayableVariable {
+                    arrayable_var: ArrayableVariable {
+                        abstract_var: AbstractVariable {
+                            name,
+                            value_reference,
+                            description,
+                            causality,
+                            variability: Some(variability),
+                            can_handle_multiple_set_per_time_instant: None,
+                        },
+                        dimensions: vec![],
+                        intermediate_update: None,
+                        previous: None,
+                    },
+                    declared_type: None,
+                },
+                initial: None,
+            },
+        }
     }
 }
 
