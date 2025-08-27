@@ -35,7 +35,7 @@ impl ToTokens for CodeGenerator {
         let struct_name = &self.model.ident;
 
         // Generate value reference enum
-        let value_ref_enum = value_ref::ValueRefEnum::new(&self.model);
+        let value_ref_enum = value_ref::ValueRefEnum::new(&self.model, &self.model_description);
 
         // Generate Model implementation
         let model_impl =
