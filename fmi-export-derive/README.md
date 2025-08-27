@@ -5,7 +5,7 @@
 [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-fmi-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/fmi-export)
 [<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/jondo2010/rust-fmi/ci.yml?branch=main&style=for-the-badge" height="20">](https://github.com/jondo2010/rust-fmi/actions?query=branch%3Amain)
 
-A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. This crate provides derive macro support for the `fmi-export` crate.
+A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. This crate provides the `FmuModel` derive macro for automatically generating FMU implementations from annotated Rust structs.
 
 See [http://www.fmi-standard.org](http://www.fmi-standard.org)
 

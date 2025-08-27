@@ -1,7 +1,5 @@
-//! Derive macro for FMU model implementation
-//!
-//! This crate provides the `FmuModel` derive macro for automatically generating
-//! FMI 3.0 implementations from annotated Rust structs.
+#![doc=include_str!( "../README.md")]
+#![deny(clippy::all)]
 
 use proc_macro::TokenStream;
 use proc_macro_error2::{Diagnostic, proc_macro_error};
@@ -12,16 +10,12 @@ use syn::{DeriveInput, parse_macro_input};
 mod codegen;
 mod model;
 mod model_description;
-mod model_new;
-mod parsing;
-mod schema_gen;
-mod validation;
 
 #[cfg(test)]
-mod integration_test;
+mod tests;
 
 use codegen::CodeGenerator;
-use model_new::Model;
+use model::Model;
 
 /// Main derive macro for FMU models
 ///

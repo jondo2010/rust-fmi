@@ -1,11 +1,11 @@
-//! Convert a [`Model`] struct into an [`schema::Fmi3ModelDescription`]
+//! Build a [`schema::Fmi3ModelDescription`] from a [`Model`]
 use std::{default, ffi::CStr};
 
 use chrono::Utc;
 use fmi::fmi3::{binding, schema};
 use uuid::Uuid;
 
-use crate::model_new::{Field, FieldAttributeOuter, Model};
+use crate::model::{Field, FieldAttributeOuter, Model, ModelExchangeAttribute};
 
 //TODO: move this into `fmi` crate?
 const RUST_FMI_NAMESPACE: Uuid = uuid::uuid!("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
@@ -28,44 +28,13 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
         let model_structure = default::Default::default(); // TODO: populate from model
 
         // Create interface types based on model attributes
-        let model_exchange = model.model_exchange().map(|me_attr| {
-            schema::Fmi3ModelExchange {
-                model_identifier: model_name.clone(),
-                needs_completed_integrator_step: me_attr.needs_completed_integrator_step,
-                provides_evaluate_discrete_states: me_attr.provides_evaluate_discrete_states,
-                needs_execution_tool: me_attr.needs_execution_tool,
-                can_be_instantiated_only_once_per_process: me_attr.can_be_instantiated_only_once_per_process,
-                can_get_and_set_fmu_state: me_attr.can_get_and_set_fmu_state,
-                can_serialize_fmu_state: me_attr.can_serialize_fmu_state,
-                provides_directional_derivatives: me_attr.provides_directional_derivatives,
-                provides_adjoint_derivatives: me_attr.provides_adjoint_derivatives,
-                provides_per_element_dependencies: me_attr.provides_per_element_dependencies,
-                ..Default::default()
-            }
-        });
+        let model_exchange = model
+            .model_exchange()
+            .map(|me_attr| model_exchange_from_attribute(me_attr, &model_name));
 
-        let co_simulation = model.co_simulation().map(|cs_attr| {
-            schema::Fmi3CoSimulation {
-                model_identifier: model_name.clone(),
-                can_handle_variable_communication_step_size: cs_attr.can_handle_variable_communication_step_size,
-                fixed_internal_step_size: cs_attr.fixed_internal_step_size,
-                max_output_derivative_order: cs_attr.max_output_derivative_order,
-                recommended_intermediate_input_smoothness: cs_attr.recommended_intermediate_input_smoothness,
-                provides_intermediate_update: cs_attr.provides_intermediate_update,
-                might_return_early_from_do_step: cs_attr.might_return_early_from_do_step,
-                can_return_early_after_intermediate_update: cs_attr.can_return_early_after_intermediate_update,
-                has_event_mode: cs_attr.has_event_mode,
-                provides_evaluate_discrete_states: cs_attr.provides_evaluate_discrete_states,
-                needs_execution_tool: cs_attr.needs_execution_tool,
-                can_be_instantiated_only_once_per_process: cs_attr.can_be_instantiated_only_once_per_process,
-                can_get_and_set_fmu_state: cs_attr.can_get_and_set_fmu_state,
-                can_serialize_fmu_state: cs_attr.can_serialize_fmu_state,
-                provides_directional_derivatives: cs_attr.provides_directional_derivatives,
-                provides_adjoint_derivatives: cs_attr.provides_adjoint_derivatives,
-                provides_per_element_dependencies: cs_attr.provides_per_element_dependencies,
-                ..Default::default()
-            }
-        });
+        let co_simulation = model
+            .co_simulation()
+            .map(|cs_attr| co_simulation_from_attribute(cs_attr, &model_name));
 
         Ok(schema::Fmi3ModelDescription {
             fmi_version: unsafe {
@@ -85,6 +54,58 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
             co_simulation,
             ..Default::default()
         })
+    }
+}
+
+/// Helper function to create `Fmi3ModelExchange` from `ModelExchangeAttribute`
+fn model_exchange_from_attribute(
+    me_attr: &ModelExchangeAttribute,
+    model_identifier: &str,
+) -> schema::Fmi3ModelExchange {
+    schema::Fmi3ModelExchange {
+        model_identifier: model_identifier.to_string(),
+        needs_completed_integrator_step: me_attr.needs_completed_integrator_step,
+        provides_evaluate_discrete_states: me_attr.provides_evaluate_discrete_states,
+        needs_execution_tool: me_attr.needs_execution_tool,
+        can_be_instantiated_only_once_per_process: me_attr
+            .can_be_instantiated_only_once_per_process,
+        can_get_and_set_fmu_state: me_attr.can_get_and_set_fmu_state,
+        can_serialize_fmu_state: me_attr.can_serialize_fmu_state,
+        provides_directional_derivatives: me_attr.provides_directional_derivatives,
+        provides_adjoint_derivatives: me_attr.provides_adjoint_derivatives,
+        provides_per_element_dependencies: me_attr.provides_per_element_dependencies,
+        ..Default::default()
+    }
+}
+
+/// Helper function to create `schema::Fmi3CoSimulation` from `CoSimulationAttribute`
+fn co_simulation_from_attribute(
+    cs_attr: &crate::model::CoSimulationAttribute,
+    model_identifier: &str,
+) -> schema::Fmi3CoSimulation {
+    schema::Fmi3CoSimulation {
+        model_identifier: model_identifier.to_string(),
+        can_handle_variable_communication_step_size: cs_attr
+            .can_handle_variable_communication_step_size,
+        fixed_internal_step_size: cs_attr.fixed_internal_step_size,
+        max_output_derivative_order: cs_attr.max_output_derivative_order,
+        recommended_intermediate_input_smoothness: cs_attr
+            .recommended_intermediate_input_smoothness,
+        provides_intermediate_update: cs_attr.provides_intermediate_update,
+        might_return_early_from_do_step: cs_attr.might_return_early_from_do_step,
+        can_return_early_after_intermediate_update: cs_attr
+            .can_return_early_after_intermediate_update,
+        has_event_mode: cs_attr.has_event_mode,
+        provides_evaluate_discrete_states: cs_attr.provides_evaluate_discrete_states,
+        needs_execution_tool: cs_attr.needs_execution_tool,
+        can_be_instantiated_only_once_per_process: cs_attr
+            .can_be_instantiated_only_once_per_process,
+        can_get_and_set_fmu_state: cs_attr.can_get_and_set_fmu_state,
+        can_serialize_fmu_state: cs_attr.can_serialize_fmu_state,
+        provides_directional_derivatives: cs_attr.provides_directional_derivatives,
+        provides_adjoint_derivatives: cs_attr.provides_adjoint_derivatives,
+        provides_per_element_dependencies: cs_attr.provides_per_element_dependencies,
+        ..Default::default()
     }
 }
 
@@ -144,10 +165,7 @@ fn build_variability(ident: &syn::Ident) -> Result<schema::Variability, String> 
 }
 
 /// Helper function to get variable description from field and attribute
-fn get_variable_description(
-    field: &Field,
-    attr: &crate::model_new::FieldAttribute,
-) -> Option<String> {
+fn get_variable_description(field: &Field, attr: &crate::model::FieldAttribute) -> Option<String> {
     attr.description.clone().or_else(|| {
         let field_desc = field.fold_description();
         if field_desc.is_empty() {
@@ -160,7 +178,7 @@ fn get_variable_description(
 
 /// Helper function to get variable causality from attribute
 fn get_variable_causality(
-    attr: &crate::model_new::FieldAttribute,
+    attr: &crate::model::FieldAttribute,
 ) -> Result<schema::Causality, String> {
     attr.causality
         .as_ref()
@@ -171,7 +189,7 @@ fn get_variable_causality(
 
 /// Helper function to get variable variability from attribute with smart defaults
 fn get_variable_variability(
-    attr: &crate::model_new::FieldAttribute,
+    attr: &crate::model::FieldAttribute,
     variable_type: &schema::VariableType,
 ) -> Result<schema::Variability, String> {
     if let Some(variability_ident) = &attr.variability {
@@ -289,7 +307,7 @@ fn build_model_variables(fields: &[Field]) -> Result<schema::ModelVariables, Str
 /// Create and add a variable to ModelVariables based on the field type
 fn create_and_add_variable(
     field: &Field,
-    attr: &crate::model_new::FieldAttribute,
+    attr: &crate::model::FieldAttribute,
     value_reference: u32,
     override_name: Option<String>,
     model_variables: &mut schema::ModelVariables,
@@ -517,7 +535,7 @@ fn create_and_add_variable(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model_new::StructAttributeOuter;
+    use crate::model::StructAttributeOuter;
     use schema::AbstractVariableTrait;
     use syn::parse_quote;
 
@@ -546,7 +564,7 @@ mod tests {
 
     #[test]
     fn test_build_model_variables() {
-        use crate::model_new::{FieldAttribute, FieldAttributeOuter};
+        use crate::model::{FieldAttribute, FieldAttributeOuter};
         use syn::parse_quote;
 
         let fields = vec![
@@ -604,7 +622,7 @@ mod tests {
 
     #[test]
     fn test_multiple_data_types() {
-        use crate::model_new::{FieldAttribute, FieldAttributeOuter};
+        use crate::model::{FieldAttribute, FieldAttributeOuter};
         use syn::parse_quote;
 
         let fields = vec![
@@ -715,7 +733,7 @@ mod tests {
 
     #[test]
     fn test_variability_handling() {
-        use crate::model_new::{FieldAttribute, FieldAttributeOuter};
+        use crate::model::{FieldAttribute, FieldAttributeOuter};
 
         let fields = vec![
             Field {

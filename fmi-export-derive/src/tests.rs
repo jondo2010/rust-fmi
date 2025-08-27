@@ -1,7 +1,7 @@
-use syn::parse_quote;
-use crate::model_new::Model;
+use crate::model::Model;
 use fmi::fmi3::schema;
-use fmi_schema::fmi3::{AbstractVariableTrait, Causality, Variability};
+use schema::AbstractVariableTrait;
+use syn::parse_quote;
 
 #[test]
 fn test_comprehensive_datatype_support() {
@@ -15,7 +15,7 @@ fn test_comprehensive_datatype_support() {
             #[variable(causality = Output, start = 1.5)]
             position_f32: f32,
 
-            /// 64-bit float velocity 
+            /// 64-bit float velocity
             #[variable(causality = Output, start = 2.7)]
             velocity_f64: f64,
 
@@ -58,7 +58,7 @@ fn test_comprehensive_datatype_support() {
             #[variable(causality = Input, start = true)]
             enabled: bool,
 
-            // String type  
+            // String type
             /// Model name
             #[variable(causality = Parameter, start = "ComprehensiveModel")]
             model_name: String,
@@ -71,7 +71,7 @@ fn test_comprehensive_datatype_support() {
 
             /// Counter alias (integer)
             #[variable(causality = Parameter, start = 42)]
-            #[alias(name = "count_alias", description = "Counter alias")]  
+            #[alias(name = "count_alias", description = "Counter alias")]
             counter_alias: i32,
         }
     };
@@ -81,11 +81,14 @@ fn test_comprehensive_datatype_support() {
 
     // Test model-level attributes
     assert_eq!(fmi_description.model_name, "ComprehensiveModel");
-    assert_eq!(fmi_description.description, Some("A comprehensive FMI model demonstrating all supported datatypes".to_string()));
+    assert_eq!(
+        fmi_description.description,
+        Some("A comprehensive FMI model demonstrating all supported datatypes".to_string())
+    );
 
     // Test variable counts - each alias creates an additional variable
     assert_eq!(fmi_description.model_variables.float32.len(), 1);
-    assert_eq!(fmi_description.model_variables.float64.len(), 3); // velocity_f64 + velocity_alias + vel_alias 
+    assert_eq!(fmi_description.model_variables.float64.len(), 3); // velocity_f64 + velocity_alias + vel_alias
     assert_eq!(fmi_description.model_variables.int8.len(), 1);
     assert_eq!(fmi_description.model_variables.int16.len(), 1);
     assert_eq!(fmi_description.model_variables.int32.len(), 3); // count_i32 + counter_alias + count_alias
@@ -105,15 +108,21 @@ fn test_comprehensive_datatype_support() {
     assert_eq!(fmi_description.model_variables.float32[0].start, vec![1.5]);
     assert_eq!(fmi_description.model_variables.float64[0].start, vec![2.7]);
 
-    // Integer types use Option<T> for start values  
+    // Integer types use Option<T> for start values
     assert_eq!(fmi_description.model_variables.int8[0].start, Some(10));
     assert_eq!(fmi_description.model_variables.int16[0].start, Some(1000));
     assert_eq!(fmi_description.model_variables.int32[0].start, Some(50000));
-    assert_eq!(fmi_description.model_variables.int64[0].start, Some(9000000000));
+    assert_eq!(
+        fmi_description.model_variables.int64[0].start,
+        Some(9000000000)
+    );
     assert_eq!(fmi_description.model_variables.uint8[0].start, Some(255));
     assert_eq!(fmi_description.model_variables.uint16[0].start, Some(8080));
     assert_eq!(fmi_description.model_variables.uint32[0].start, Some(1024));
-    assert_eq!(fmi_description.model_variables.uint64[0].start, Some(1234567890123));
+    assert_eq!(
+        fmi_description.model_variables.uint64[0].start,
+        Some(1234567890123)
+    );
 
     // Boolean uses Vec<bool>
     assert_eq!(fmi_description.model_variables.boolean[0].start, vec![true]);
@@ -123,15 +132,36 @@ fn test_comprehensive_datatype_support() {
     assert_eq!(string_values, vec!["ComprehensiveModel"]);
 
     // Test causalities are preserved
-    assert_eq!(fmi_description.model_variables.float32[0].causality(), Causality::Output);
-    assert_eq!(fmi_description.model_variables.int32[0].causality(), Causality::Parameter);
-    assert_eq!(fmi_description.model_variables.uint8[0].causality(), Causality::Input);
-    assert_eq!(fmi_description.model_variables.boolean[0].causality(), Causality::Input);
+    assert_eq!(
+        fmi_description.model_variables.float32[0].causality(),
+        schema::Causality::Output
+    );
+    assert_eq!(
+        fmi_description.model_variables.int32[0].causality(),
+        schema::Causality::Parameter
+    );
+    assert_eq!(
+        fmi_description.model_variables.uint8[0].causality(),
+        schema::Causality::Input
+    );
+    assert_eq!(
+        fmi_description.model_variables.boolean[0].causality(),
+        schema::Causality::Input
+    );
 
     // Test variability assignments
-    assert_eq!(fmi_description.model_variables.float32[0].variability(), Variability::Continuous);
-    assert_eq!(fmi_description.model_variables.int32[0].variability(), Variability::Discrete);
-    assert_eq!(fmi_description.model_variables.boolean[0].variability(), Variability::Discrete);
+    assert_eq!(
+        fmi_description.model_variables.float32[0].variability(),
+        schema::Variability::Continuous
+    );
+    assert_eq!(
+        fmi_description.model_variables.int32[0].variability(),
+        schema::Variability::Discrete
+    );
+    assert_eq!(
+        fmi_description.model_variables.boolean[0].variability(),
+        schema::Variability::Discrete
+    );
 
     println!("✅ All comprehensive datatype tests passed!");
 }
