@@ -1042,7 +1042,6 @@ dependencies = [
  "fmi-export-derive",
  "fmi-sys",
  "log",
- "serde",
  "test-log",
  "thiserror",
 ]
@@ -1055,7 +1054,6 @@ dependencies = [
  "chrono",
  "convert_case",
  "fmi",
- "fmi-schema",
  "proc-macro-error2",
  "proc-macro2",
  "quote",

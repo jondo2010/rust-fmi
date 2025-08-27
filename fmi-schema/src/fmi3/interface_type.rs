@@ -36,6 +36,34 @@ pub struct Fmi3InterfaceType {
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "ModelExchange")]
 pub struct Fmi3ModelExchange {
+    /// Short class name according to C syntax, for example, A_B_C.
+    #[yaserde(attribute = true, rename = "modelIdentifier")]
+    pub model_identifier: String,
+
+    /// If true, a tool is needed to execute the FMU. The FMU implements the communication to this tool.
+    #[yaserde(attribute = true, rename = "needsExecutionTool")]
+    pub needs_execution_tool: Option<bool>,
+
+    /// If true, the FMU must be instantiated only once per process.
+    #[yaserde(attribute = true, rename = "canBeInstantiatedOnlyOncePerProcess")]
+    pub can_be_instantiated_only_once_per_process: Option<bool>,
+
+    /// If true, the environment may inquire the internal FMU state and may restore it.
+    #[yaserde(attribute = true, rename = "canGetAndSetFMUState")]
+    pub can_get_and_set_fmu_state: Option<bool>,
+
+    /// If true, the environment may serialize the internal FMU state.
+    #[yaserde(attribute = true, rename = "canSerializeFMUState")]
+    pub can_serialize_fmu_state: Option<bool>,
+
+    /// If true, the directional derivative of the equations may be retrieved using fmi3GetDirectionalDerivative.
+    #[yaserde(attribute = true, rename = "providesDirectionalDerivatives")]
+    pub provides_directional_derivatives: Option<bool>,
+
+    /// If true, the adjoint derivatives of the equations may be retrieved using fmi3GetAdjointDerivative
+    #[yaserde(attribute = true, rename = "providesAdjointDerivatives")]
+    pub provides_adjoint_derivatives: Option<bool>,
+
     #[yaserde(attribute = true, rename = "needsCompletedIntegratorStep")]
     pub needs_completed_integrator_step: Option<bool>,
 
@@ -44,27 +72,6 @@ pub struct Fmi3ModelExchange {
 
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
-
-    #[yaserde(attribute = true, rename = "modelIdentifier")]
-    pub model_identifier: String,
-
-    #[yaserde(attribute = true, rename = "needsExecutionTool")]
-    pub needs_execution_tool: Option<bool>,
-
-    #[yaserde(attribute = true, rename = "canBeInstantiatedOnlyOncePerProcess")]
-    pub can_be_instantiated_only_once_per_process: Option<bool>,
-
-    #[yaserde(attribute = true, rename = "canGetAndSetFMUState")]
-    pub can_get_and_set_fmu_state: Option<bool>,
-
-    #[yaserde(attribute = true, rename = "canSerializeFMUState")]
-    pub can_serialize_fmu_state: Option<bool>,
-
-    #[yaserde(attribute = true, rename = "providesDirectionalDerivatives")]
-    pub provides_directional_derivatives: Option<bool>,
-
-    #[yaserde(attribute = true, rename = "providesAdjointDerivatives")]
-    pub provides_adjoint_derivatives: Option<bool>,
 
     #[yaserde(attribute = true, rename = "providesPerElementDependencies")]
     pub provides_per_element_dependencies: Option<bool>,

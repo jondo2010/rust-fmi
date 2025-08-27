@@ -17,7 +17,7 @@ pub struct Fmi3ModelDescription {
     pub fmi_version: String,
 
     /// The name of the model as used in the modeling environment that generated the XML file, such
-    /// as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
+    /// as "Modelica.Mechanics.Rotational.Examples.CoupledClutches".
     #[yaserde(attribute = true, rename = "modelName")]
     pub model_name: String,
 
