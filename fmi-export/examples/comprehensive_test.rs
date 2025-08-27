@@ -9,8 +9,8 @@ struct ComprehensiveModel {
     output_value: f64,
 
     /// A parameter that can be tuned
-    #[variable(causality = Parameter, start = 1.0, description = "Tunable parameter")]
-    parameter: f64,
+    #[variable(causality = Parameter, start = false, description = "Tunable parameter")]
+    parameter: bool,
 
     /// An input to the model
     #[variable(causality = Input, start = 0.0, description = "External input")]

@@ -7,6 +7,7 @@ members = [
     "fmi-test-data",
     "fmi-export",
     "fmi-export-derive", "examples/bouncing_ball",
+    "xtask",
 ]
 resolver = "2"
 

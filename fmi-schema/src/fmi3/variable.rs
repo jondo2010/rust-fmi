@@ -9,7 +9,7 @@ use super::{
 use crate::{Error, default_wrapper};
 
 /// An enumeration that defines the type of a variable.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum VariableType {
     FmiFloat32,
     FmiFloat64,
@@ -562,7 +562,10 @@ impl FmiString {
         start: Vec<String>,
     ) -> Self {
         Self {
-            start: start.into_iter().map(|value| StringStart { value }).collect(),
+            start: start
+                .into_iter()
+                .map(|value| StringStart { value })
+                .collect(),
             init_var: InitializableVariable {
                 typed_arrayable_var: TypedArrayableVariable {
                     arrayable_var: ArrayableVariable {
@@ -950,9 +953,9 @@ mod tests {
 
     #[test]
     fn test_binary_multiple_starts_and_attributes() {
-        let xml = r#"<Binary 
-            name="multi_binary" 
-            valueReference="400" 
+        let xml = r#"<Binary
+            name="multi_binary"
+            valueReference="400"
             causality="input"
             mimeType="application/custom"
             maxSize="1024">

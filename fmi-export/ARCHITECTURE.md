@@ -8,24 +8,24 @@ The FMI export system enables creating Functional Mockup Units (FMUs) from Rust 
 
 ```rust
 #[derive(FmuModel, Default, Debug)]
-#[model(ModelExchange)]
+#[model(model_exchange())]
 struct VanDerPol {
     // Parameters
-    #[variable(causality = parameter, start = 1.0)]
+    #[variable(causality = Parameter, start = 1.0)]
     mu: f64,
 
     // State variables
-    #[variable(causality = output, state = true, start = 2.0)]
+    #[variable(causality = Output, state, start = 2.0)]
     x0: f64,
 
-    #[variable(causality = local, state = true, start = 0.0)]
+    #[variable(causality = Local, state, start = 0.0)]
     x1: f64,
 
     // Derivative fields
-    #[variable(causality = local, derivative_of = "x0", start = 0.0)]
+    #[variable(causality = Local, derivative_of = x0, start = 0.0)]
     der_x0: f64,
 
-    #[variable(causality = local, derivative_of = "x1", start = 0.0)]
+    #[variable(causality = Local, derivative_of = x1, start = 0.0)]
     der_x1: f64,
 }
 
@@ -76,8 +76,8 @@ ValueRef::DerX0 => {
 
 ## User Experience
 
-1. Mark state variables with `state = true`
-2. Declare corresponding derivative fields with `derivative_of = "state_name"`
+1. Mark state variables with the `state` flag
+2. Declare corresponding derivative fields with `derivative_of = state_name`
 3. Implement `UserModel::calculate_values()` with physics equations
 4. Access both state variables and derivative fields directly in calculations
 

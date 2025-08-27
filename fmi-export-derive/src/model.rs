@@ -37,6 +37,8 @@ pub struct StructAttribute {
 /// ModelExchange interface capabilities that can be specified in attributes
 #[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
 pub struct ModelExchangeAttribute {
+    /// Optional custom model identifier (defaults to the struct name)
+    pub model_identifier: Option<String>,
     pub needs_completed_integrator_step: Option<bool>,
     pub provides_evaluate_discrete_states: Option<bool>,
     pub needs_execution_tool: Option<bool>,
@@ -51,6 +53,8 @@ pub struct ModelExchangeAttribute {
 /// CoSimulation interface capabilities that can be specified in attributes
 #[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
 pub struct CoSimulationAttribute {
+    /// Optional custom model identifier (defaults to the struct name)
+    pub model_identifier: Option<String>,
     pub can_handle_variable_communication_step_size: Option<bool>,
     pub fixed_internal_step_size: Option<f64>,
     pub max_output_derivative_order: Option<u32>,

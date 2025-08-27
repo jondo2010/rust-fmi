@@ -78,18 +78,6 @@ impl ToTokens for ModelImpl<'_> {
                     #number_of_event_indicators
                 }
 
-                fn model_variables() -> fmi::fmi3::schema::ModelVariables {
-                    unimplemented!("model_variables will be replaced in next step")
-                }
-
-                fn model_structure() -> fmi::fmi3::schema::ModelStructure {
-                    unimplemented!("model_structure will be replaced in next step")
-                }
-
-                fn model_description() -> fmi::fmi3::schema::Fmi3ModelDescription {
-                    unimplemented!("model_description will be replaced in next step")
-                }
-
                 fn validate_variable_setting(
                     vr: fmi::fmi3::binding::fmi3ValueReference,
                     state: &fmi_export::fmi3::ModelState,

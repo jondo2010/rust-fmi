@@ -129,7 +129,11 @@ mod tests {
     #[test]
     fn test_derivative_attributes() {
         // Test that derivative aliases have correct derivative attributes set
-        let model_vars = BouncingBall::model_variables();
+        use fmi::{fmi3::schema::Fmi3ModelDescription, schema::traits::FmiModelDescription};
+        
+        let model_desc = Fmi3ModelDescription::deserialize(BouncingBall::MODEL_DESCRIPTION)
+            .expect("Failed to deserialize model description");
+        let model_vars = &model_desc.model_variables;
 
         // Should have 7 Float64 variables: h, v, der(h), g, der(v), e, v_min
         assert_eq!(model_vars.float64.len(), 7, "Expected 7 Float64 variables");
@@ -371,7 +375,11 @@ mod tests {
 
     #[test]
     fn test_value_references() {
-        let variables = BouncingBall::model_variables();
+        use fmi::{fmi3::schema::Fmi3ModelDescription, schema::traits::FmiModelDescription};
+        
+        let model_desc = Fmi3ModelDescription::deserialize(BouncingBall::MODEL_DESCRIPTION)
+            .expect("Failed to deserialize model description");
+        let variables = &model_desc.model_variables;
         println!("Float64 variables:");
         for (i, var) in variables.float64.iter().enumerate() {
             println!(
@@ -497,7 +505,11 @@ mod tests {
         ];
 
         // Look up VRs dynamically from the model - don't hardcode implementation details
-        let model_vars = BouncingBall::model_variables();
+        use fmi::{fmi3::schema::Fmi3ModelDescription, schema::traits::FmiModelDescription};
+        
+        let model_desc = Fmi3ModelDescription::deserialize(BouncingBall::MODEL_DESCRIPTION)
+            .expect("Failed to deserialize model description");
+        let model_vars = &model_desc.model_variables;
         let mut variable_vrs = std::collections::HashMap::new();
         for var_info in &variable_definitions {
             let var = model_vars

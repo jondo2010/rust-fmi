@@ -26,15 +26,15 @@ use model::Model;
 ///
 /// /// Simple bouncing ball model
 /// #[derive(FmuModel, Default)]
-/// #[model(ModelExchange)]
+/// #[model(model_exchange())]
 /// struct BouncingBall {
 ///     /// Height above ground (state output)
-///     #[variable(causality = output, state = true, start = 1.0)]
+///     #[variable(causality = Output, state, start = 1.0)]
 ///     h: f64,
 ///
 ///     /// Velocity of the ball
-///     #[variable(causality = output, state = true, start = 0.0)]
-///     #[alias(name="der(h)", causality = local, derivative="h")]
+///     #[variable(causality = Output, state = true, start = 0.0)]
+///     #[alias(name="der(h)", causality = Local, derivative = h)]
 ///     v: f64,
 /// }
 /// ```

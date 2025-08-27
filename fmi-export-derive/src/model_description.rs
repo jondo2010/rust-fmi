@@ -60,8 +60,13 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
 /// Helper function to create `Fmi3ModelExchange` from `ModelExchangeAttribute`
 fn model_exchange_from_attribute(
     me_attr: &ModelExchangeAttribute,
-    model_identifier: &str,
+    default_model_identifier: &str,
 ) -> schema::Fmi3ModelExchange {
+    let model_identifier = me_attr
+        .model_identifier
+        .as_deref()
+        .unwrap_or(default_model_identifier);
+        
     schema::Fmi3ModelExchange {
         model_identifier: model_identifier.to_string(),
         needs_completed_integrator_step: me_attr.needs_completed_integrator_step,
@@ -81,8 +86,13 @@ fn model_exchange_from_attribute(
 /// Helper function to create `schema::Fmi3CoSimulation` from `CoSimulationAttribute`
 fn co_simulation_from_attribute(
     cs_attr: &crate::model::CoSimulationAttribute,
-    model_identifier: &str,
+    default_model_identifier: &str,
 ) -> schema::Fmi3CoSimulation {
+    let model_identifier = cs_attr
+        .model_identifier
+        .as_deref()
+        .unwrap_or(default_model_identifier);
+        
     schema::Fmi3CoSimulation {
         model_identifier: model_identifier.to_string(),
         can_handle_variable_communication_step_size: cs_attr

@@ -110,40 +110,6 @@ pub trait Model: Default + GetSet + UserModel {
         // For now, just return OK since our basic implementation doesn't need these
         Fmi3Res::OK.into()
     }
-
-    /// Describe the model variables for this model
-    fn model_variables() -> schema::ModelVariables {
-        // should be implemented by the user model
-        schema::ModelVariables {
-            ..Default::default()
-        }
-    }
-
-    /// Describe the model structure for this model
-    fn model_structure() -> schema::ModelStructure {
-        // should be implemented by the user model
-        schema::ModelStructure {
-            ..Default::default()
-        }
-    }
-
-    /// Build a model description for this model
-    fn model_description() -> schema::Fmi3ModelDescription {
-        // Parse the XML from the constant MODEL_DESCRIPTION
-        // For now, we'll construct it manually to maintain compatibility
-        // In the future, this should parse Self::MODEL_DESCRIPTION XML
-        schema::Fmi3ModelDescription {
-            fmi_version: unsafe { str::from_utf8_unchecked(binding::fmi3Version).to_owned() },
-            model_name: Self::MODEL_NAME.to_owned(),
-            instantiation_token: Self::INSTANTIATION_TOKEN.to_owned(),
-            description: Some(Self::MODEL_DESCRIPTION.to_owned()),
-            generation_tool: Some("rust-fmi".to_owned()),
-            generation_date_and_time: Some(chrono::Utc::now().to_rfc3339()),
-            model_variables: Self::model_variables(),
-            model_structure: Self::model_structure(),
-            ..Default::default()
-        }
-    }
 }
 
 /// An exportable FMU instance

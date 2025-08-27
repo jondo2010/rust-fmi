@@ -27,3 +27,16 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }
+
+# Build examples as dynamic libraries (dylib) for FMU export
+[[example]]
+name = "bouncing_ball_fmu"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "comprehensive_test"
+crate-type = ["cdylib"]
+
+[[example]]
+name = "test_macro"
+crate-type = ["cdylib"]

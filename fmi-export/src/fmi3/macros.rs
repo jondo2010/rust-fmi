@@ -16,6 +16,12 @@ macro_rules! export_fmu {
         use fmi::fmi3::{Common, Fmi3Status, GetSet, ModelExchange, binding};
         use fmi_export::checked_deref;
 
+        /// Export the model description as a Rust str symbol
+        /// This allows extracting the XML from the compiled dylib
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        pub static FMI3_MODEL_DESCRIPTION: &'static str = <$ty>::MODEL_DESCRIPTION;
+
         #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
         pub unsafe extern "C" fn fmi3GetVersion() -> *const ::std::os::raw::c_char {
