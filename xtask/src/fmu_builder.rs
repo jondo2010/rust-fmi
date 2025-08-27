@@ -14,7 +14,7 @@ use crate::platform::PlatformMapping;
 /// Builder for creating FMU packages
 pub struct FmuBuilder {
     crate_path: PathBuf,
-    example_name: String,
+    target_name: String,
     model_identifier: String,
     output_dir: PathBuf,
     release: bool,
@@ -22,25 +22,64 @@ pub struct FmuBuilder {
 }
 
 impl FmuBuilder {
-    pub fn new(
-        crate_path: PathBuf,
-        example_name: String,
+    pub fn new_for_package(
+        package_name: String,
         model_identifier: String,
         output_dir: PathBuf,
         release: bool,
     ) -> Result<Self> {
-        if !crate_path.exists() {
-            bail!("Crate path does not exist: {}", crate_path.display());
-        }
+        // Find the workspace root and package directory
+        let workspace_root = std::env::current_dir()?;
+        let package_path = Self::find_package_path(&workspace_root, &package_name)?;
+        
+        // Check if this package can be built as a cdylib
+        Self::validate_package_for_fmu(&package_path)?;
 
         Ok(Self {
-            crate_path,
-            example_name,
+            crate_path: package_path,
+            target_name: package_name.clone(),
             model_identifier,
             output_dir,
             release,
             platform_mapping: PlatformMapping::new(),
         })
+    }
+
+    /// Validate that a package can be built as an FMU
+    fn validate_package_for_fmu(package_path: &Path) -> Result<()> {
+        let cargo_toml_path = package_path.join("Cargo.toml");
+        if !cargo_toml_path.exists() {
+            bail!("No Cargo.toml found at {}", cargo_toml_path.display());
+        }
+
+        let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path)?;
+        
+        // Check if the package has lib crate-type = ["cdylib"]
+        if cargo_toml_content.contains("crate-type") && cargo_toml_content.contains("cdylib") {
+            return Ok(());
+        }
+        
+        bail!(
+            "Package '{}' is not configured to build as a dynamic library (cdylib). \
+            Add 'crate-type = [\"cdylib\"]' to [lib] section in Cargo.toml",
+            package_path.file_name().unwrap_or_default().to_string_lossy()
+        );
+    }
+
+    /// Find the path to a package in the workspace
+    fn find_package_path(workspace_root: &Path, package_name: &str) -> Result<PathBuf> {
+        let metadata = MetadataCommand::new()
+            .current_dir(workspace_root)
+            .exec()
+            .context("Failed to execute cargo metadata")?;
+
+        for package in metadata.packages {
+            if package.name == package_name {
+                return Ok(package.manifest_path.parent().unwrap().into());
+            }
+        }
+
+        bail!("Package '{}' not found in workspace", package_name);
     }
 
     /// Get the cargo target directory using cargo metadata
@@ -88,36 +127,13 @@ impl FmuBuilder {
         Ok(())
     }
 
-    /// Build FMU for multiple platforms
-    pub fn build_multi_platform(&self, targets: &[String]) -> Result<()> {
-        info!("Building multi-platform FMU for targets: {:?}", targets);
-
-        let mut dylib_paths = Vec::new();
-
-        // Build for each target
-        for target in targets {
-            debug!("Building for target: {}", target);
-            let dylib_path = self.build_dylib(target)?;
-            dylib_paths.push((target.as_str(), dylib_path));
-        }
-
-        // Create multi-platform FMU package
-        let fmu_path = self
-            .output_dir
-            .join(format!("{}.fmu", self.model_identifier));
-        self.create_fmu_package(&fmu_path, &dylib_paths)?;
-
-        info!("Created multi-platform FMU: {}", fmu_path.display());
-        Ok(())
-    }
-
     /// Build the dynamic library for a specific target
     fn build_dylib(&self, target: &str) -> Result<PathBuf> {
         debug!("Building dylib for target: {}", target);
 
         let mut cmd = Command::new("cargo");
         cmd.current_dir(&self.crate_path)
-            .args(["build", "--example", &self.example_name])
+            .args(["build", "--lib"])
             .args(["--target", target]);
 
         if self.release {
@@ -139,17 +155,17 @@ impl FmuBuilder {
 
         let profile = if self.release { "release" } else { "debug" };
         let extension = self.platform_mapping.get_library_extension(target);
+        
         let lib_name = if target.contains("windows") {
-            format!("{}.{}", self.example_name, extension)
+            format!("{}.{}", self.target_name.replace('-', "_"), extension)
         } else {
-            format!("lib{}.{}", self.example_name, extension)
+            format!("lib{}.{}", self.target_name.replace('-', "_"), extension)
         };
 
         // Construct the path using the target directory from cargo metadata
         let dylib_path = target_dir
             .join(target)
             .join(profile)
-            .join("examples")
             .join(&lib_name);
 
         debug!("Looking for dylib at: {}", dylib_path.display());
@@ -263,6 +279,8 @@ impl FmuBuilder {
         fs::write(sources_dir.join("buildDescription.xml"), build_description)?;
 
         // Add a README
+        let build_command = format!("cargo xtask bundle {}", self.target_name);
+
         let readme = format!(
             r#"# {} FMU Sources
 
@@ -273,7 +291,7 @@ This FMU was generated from Rust code using rust-fmi.
 This FMU was built using the rust-fmi xtask build system:
 
 ```
-cargo xtask build-fmu --crate-path . --example {}
+{}
 ```
 
 ## Model: {}
@@ -281,7 +299,7 @@ cargo xtask build-fmu --crate-path . --example {}
 Generated on: {}
 "#,
             self.model_identifier,
-            self.example_name,
+            build_command,
             self.model_identifier,
             chrono::Utc::now().to_rfc3339()
         );
@@ -296,6 +314,8 @@ Generated on: {}
     fn add_documentation(&self, documentation_dir: &Path) -> Result<()> {
         debug!("Adding documentation to: {}", documentation_dir.display());
 
+        let target_info = format!("Package: {}", self.target_name);
+
         let doc_content = format!(
             r#"# {} Documentation
 
@@ -304,7 +324,7 @@ This FMU was generated from Rust code using the rust-fmi library.
 ## Model Information
 
 - **Model Identifier**: {}
-- **Example Name**: {}
+- **Target**: {}
 - **FMI Version**: 3.0
 - **Generated**: {}
 
@@ -318,7 +338,7 @@ The source code for this FMU is available in the sources/ directory of this FMU 
 "#,
             self.model_identifier,
             self.model_identifier,
-            self.example_name,
+            target_info,
             chrono::Utc::now().to_rfc3339()
         );
 

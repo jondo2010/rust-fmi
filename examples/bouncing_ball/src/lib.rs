@@ -1,11 +1,11 @@
 //! Example port of the BouncingBall FMU from the Reference FMUs
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res};
-use fmi_export::{FmuModel, export_fmu, fmi3::UserModel};
+use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status};
+use fmi_export::{FmuModel, fmi3::UserModel};
 
 /// BouncingBall FMU model that can be exported as a complete FMU
 #[derive(FmuModel, Default, Debug)]
-#[model(model_exchange())]
+#[model(model_exchange(model_identifier = "bouncing_ball"))]
 struct BouncingBallFmu {
     /// Height above ground (state output)
     #[variable(causality = Output, state, start = 1.0)]
@@ -13,7 +13,7 @@ struct BouncingBallFmu {
 
     /// Velocity of the ball
     #[variable(causality = Output, state, start = 0.0)]
-    #[alias(name="der(h)", causality = Local, derivative=h)]
+    #[alias(name="der(h)", causality = Local, derivative = h)]
     v: f64,
 
     /// Gravitational acceleration
@@ -65,4 +65,4 @@ impl UserModel for BouncingBallFmu {
 }
 
 // Export the FMU with full C API
-export_fmu!(BouncingBallFmu);
+fmi_export::export_fmu!(BouncingBallFmu);

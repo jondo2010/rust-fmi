@@ -18,21 +18,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Build FMU packages from examples
-    BuildFmu(BuildFmuArgs),
-    /// Build FMUs for all supported platforms
-    BuildFmuMulti(BuildFmuMultiArgs),
+    /// Bundle a package as an FMU
+    Bundle(BundleArgs),
 }
 
 #[derive(Args)]
-struct BuildFmuArgs {
-    /// Path to the crate containing the FMU example
-    #[arg(short, long)]
-    crate_path: PathBuf,
-
-    /// Name of the example to build
-    #[arg(short, long)]
-    example: String,
+struct BundleArgs {
+    /// Name of the package to bundle as FMU
+    package: String,
 
     /// Target platform (e.g., x86_64-unknown-linux-gnu)
     #[arg(short, long)]
@@ -46,34 +39,7 @@ struct BuildFmuArgs {
     #[arg(short, long)]
     release: bool,
 
-    /// Model identifier (defaults to example name)
-    #[arg(long)]
-    model_identifier: Option<String>,
-}
-
-#[derive(Args)]
-struct BuildFmuMultiArgs {
-    /// Path to the crate containing the FMU example
-    #[arg(short, long)]
-    crate_path: PathBuf,
-
-    /// Name of the example to build
-    #[arg(short, long)]
-    example: String,
-
-    /// Target platforms to build for
-    #[arg(short, long, value_delimiter = ',', default_values = &["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu", "x86_64-apple-darwin"])]
-    targets: Vec<String>,
-
-    /// Output directory for the FMU file
-    #[arg(short, long, default_value = "target/fmu")]
-    output: PathBuf,
-
-    /// Build in release mode
-    #[arg(short, long)]
-    release: bool,
-
-    /// Model identifier (defaults to example name)
+    /// Model identifier (defaults to package name)
     #[arg(long)]
     model_identifier: Option<String>,
 }
@@ -85,13 +51,12 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::BuildFmu(args) => {
+        Commands::Bundle(args) => {
             let model_identifier = args
                 .model_identifier
-                .unwrap_or_else(|| args.example.clone());
-            let builder = FmuBuilder::new(
-                args.crate_path,
-                args.example,
+                .unwrap_or_else(|| args.package.clone());
+            let builder = FmuBuilder::new_for_package(
+                args.package,
                 model_identifier,
                 args.output,
                 args.release,
@@ -102,20 +67,6 @@ fn main() -> Result<()> {
             } else {
                 builder.build_native()?;
             }
-        }
-        Commands::BuildFmuMulti(args) => {
-            let model_identifier = args
-                .model_identifier
-                .unwrap_or_else(|| args.example.clone());
-            let builder = FmuBuilder::new(
-                args.crate_path,
-                args.example,
-                model_identifier,
-                args.output,
-                args.release,
-            )?;
-
-            builder.build_multi_platform(&args.targets)?;
         }
     }
 

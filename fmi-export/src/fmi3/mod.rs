@@ -25,6 +25,13 @@ pub trait UserModel {
 
     /// Event update function for Model Exchange
     /// Called to update discrete states and check for events
+    ///
+    /// This method should:
+    /// - Update any discrete state variables
+    /// - Check for state events and time events
+    /// - Set appropriate flags to indicate what has changed
+    ///
+    /// Returns Ok with the appropriate Fmi3Res status, or Err if an error occurs
     fn event_update(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         Ok(Fmi3Res::OK)
     }
@@ -126,13 +133,9 @@ pub struct ModelInstance<M: Model> {
     log_message: binding::fmi3LogMessageCallback,
     state: ModelState,
 
-    // event info
-    new_discrete_states_needed: bool,
-    terminate_simulation: bool,
-    nominals_of_continuous_states_changed: bool,
-    values_of_continuous_states_changed: bool,
-    next_event_time_defined: bool,
-    next_event_time: f64,
+    /// event info
+    event_flags: EventFlags,
+
     clocks_ticked: bool,
 
     // event indicators
@@ -144,6 +147,21 @@ pub struct ModelInstance<M: Model> {
     is_dirty_values: bool,
     model: M,
     _marker: std::marker::PhantomData<M>,
+}
+
+/// Event flags information
+#[derive(Default, Debug, Copy, Clone)]
+struct EventFlags {
+    /// Indicates if discrete states need to be updated.
+    pub discrete_states_need_update: bool,
+    /// Indicates if the simulation should be terminated.
+    pub terminate_simulation: bool,
+    /// Indicates if the nominal values of the continuous states have changed.
+    pub nominals_of_continuous_states_changed: bool,
+    /// Indicates if the values of the continuous states have changed.
+    pub values_of_continuous_states_changed: bool,
+    /// Indicates the time of the next event.
+    pub next_event_time: Option<f64>,
 }
 
 impl<F: Model> ModelInstance<F> {
@@ -179,12 +197,7 @@ impl<F: Model> ModelInstance<F> {
             logging_on,
             log_message,
             state: ModelState::Instantiated,
-            new_discrete_states_needed: false,
-            terminate_simulation: false,
-            nominals_of_continuous_states_changed: false,
-            values_of_continuous_states_changed: false,
-            next_event_time_defined: false,
-            next_event_time: 0.0,
+            event_flags: EventFlags::default(),
             clocks_ticked: false,
             event_indicators: vec![0.0; num_event_indicators],
             n_steps: 0,
@@ -344,12 +357,7 @@ where
         self.n_steps = 0;
 
         // Reset event info
-        self.new_discrete_states_needed = false;
-        self.terminate_simulation = false;
-        self.nominals_of_continuous_states_changed = false;
-        self.values_of_continuous_states_changed = false;
-        self.next_event_time_defined = false;
-        self.next_event_time = 0.0;
+        self.event_flags = EventFlags::default();
         self.clocks_ticked = false;
 
         // Reset event indicators
@@ -371,6 +379,23 @@ where
 
     fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.state = ModelState::EventMode;
+        Ok(Fmi3Res::OK)
+    }
+
+    fn update_discrete_states(
+        &mut self,
+        discrete_states_need_update: &mut bool,
+        terminate_simulation: &mut bool,
+        nominals_of_continuous_states_changed: &mut bool,
+        values_of_continuous_states_changed: &mut bool,
+        next_event_time: &mut Option<f64>,
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        *discrete_states_need_update = self.event_flags.discrete_states_need_update;
+        *terminate_simulation = self.event_flags.terminate_simulation;
+        *nominals_of_continuous_states_changed =
+            self.event_flags.nominals_of_continuous_states_changed;
+        *values_of_continuous_states_changed = self.event_flags.values_of_continuous_states_changed;
+        *next_event_time = self.event_flags.next_event_time;
         Ok(Fmi3Res::OK)
     }
 }
@@ -409,7 +434,7 @@ where
     fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi3Res, Fmi3Error> {
         self.model.set_continuous_states(states)?;
         self.is_dirty_values = true;
-        self.values_of_continuous_states_changed = true;
+        self.event_flags.values_of_continuous_states_changed = true;
         Ok(Fmi3Res::OK)
     }
 
@@ -480,10 +505,10 @@ where
     /// Update discrete states after an event has been detected
     pub fn event_update(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         // Reset event flags
-        self.new_discrete_states_needed = false;
-        self.nominals_of_continuous_states_changed = false;
-        self.values_of_continuous_states_changed = false;
-        self.next_event_time_defined = false;
+        self.event_flags.discrete_states_need_update = false;
+        self.event_flags.nominals_of_continuous_states_changed = false;
+        self.event_flags.values_of_continuous_states_changed = false;
+        self.event_flags.next_event_time = None;
 
         // Delegate to the model's event update
         match self.model.event_update() {

@@ -184,9 +184,7 @@ pub trait Common: GetSet {
         _nominals_of_continuous_states_changed: &mut bool,
         _values_of_continuous_states_changed: &mut bool,
         _next_event_time: &mut Option<f64>,
-    ) -> Result<Fmi3Res, Fmi3Error> {
-        unimplemented!()
-    }
+    ) -> Result<Fmi3Res, Fmi3Error>;
 }
 
 /// Interface for Model Exchange instances
