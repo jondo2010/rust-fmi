@@ -5,28 +5,28 @@ use fmi_export::{FmuModel, export_fmu, fmi3::UserModel};
 
 /// BouncingBall FMU model that can be exported as a complete FMU
 #[derive(FmuModel, Default, Debug)]
-#[model(ModelExchange)]
+#[model(model_exchange())]
 struct BouncingBallFmu {
     /// Height above ground (state output)
-    #[variable(causality = output, state = true, start = 1.0)]
+    #[variable(causality = Output, state, start = 1.0)]
     h: f64,
 
     /// Velocity of the ball
-    #[variable(causality = output, state = true, start = 0.0)]
-    #[alias(name="der(h)", causality = local, derivative="h")]
+    #[variable(causality = Output, state, start = 0.0)]
+    #[alias(name="der(h)", causality = Local, derivative=h)]
     v: f64,
 
     /// Gravitational acceleration
-    #[variable(causality = parameter, start = -9.81)]
-    #[alias(name = "der(v)", causality = local, derivative = "v")]
+    #[variable(causality = Parameter, start = -9.81)]
+    #[alias(name = "der(v)", causality = Local, derivative = v)]
     g: f64,
 
     /// Coefficient of restitution (parameter)
-    #[variable(causality = parameter, start = 0.7)]
+    #[variable(causality = Parameter, start = 0.7)]
     e: f64,
 
     /// Minimum velocity threshold (constant)
-    #[variable(causality = local, start = 0.1)]
+    #[variable(causality = Local, start = 0.1)]
     v_min: f64,
 }
 

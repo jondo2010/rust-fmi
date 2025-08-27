@@ -21,9 +21,7 @@ mod validation;
 mod integration_test;
 
 use codegen::CodeGenerator;
-use model::ExtendedModelInfo;
-use parsing::parse_model_input;
-use validation::validate_model;
+use model_new::Model;
 
 /// Main derive macro for FMU models
 ///
@@ -66,17 +64,35 @@ pub fn derive_fmu_model(input: TokenStream) -> TokenStream {
 
 /// Implementation of the derive macro
 fn fmu_model_impl(input: &DeriveInput) -> Result<TokenStream2, Vec<Diagnostic>> {
-    // Parse the input into structured model information
-    let model_info = parse_model_input(input).map_err(|e| vec![e])?;
+    // Check that we have a struct
+    let struct_item = match &input.data {
+        syn::Data::Struct(struct_data) => {
+            // Convert DeriveInput to ItemStruct for our new Model parsing
+            let item_struct = syn::ItemStruct {
+                attrs: input.attrs.clone(),
+                vis: input.vis.clone(),
+                struct_token: syn::token::Struct::default(),
+                ident: input.ident.clone(),
+                generics: input.generics.clone(),
+                fields: struct_data.fields.clone(),
+                semi_token: struct_data.semi_token,
+            };
+            item_struct
+        }
+        _ => {
+            return Err(vec![Diagnostic::spanned(
+                input.ident.span(),
+                proc_macro_error2::Level::Error,
+                "FmuModel can only be derived for structs".to_string(),
+            )]);
+        }
+    };
 
-    // Create extended model info (with derivatives, etc.)
-    let extended_model = ExtendedModelInfo::from_model_info(model_info);
+    // Parse the input into the new Model structure
+    let model = Model::from(struct_item);
 
-    // Validate the model according to FMI specification
-    validate_model(&extended_model)?;
-
-    // Generate the code
-    let code_generator = CodeGenerator::new(extended_model);
+    // Generate the code using the new front-end
+    let code_generator = CodeGenerator::new(model);
     let mut tokens = TokenStream2::new();
     code_generator.to_tokens(&mut tokens);
 

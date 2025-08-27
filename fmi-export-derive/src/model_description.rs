@@ -27,6 +27,46 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
         let model_variables = build_model_variables(&model.fields)?;
         let model_structure = default::Default::default(); // TODO: populate from model
 
+        // Create interface types based on model attributes
+        let model_exchange = model.model_exchange().map(|me_attr| {
+            schema::Fmi3ModelExchange {
+                model_identifier: model_name.clone(),
+                needs_completed_integrator_step: me_attr.needs_completed_integrator_step,
+                provides_evaluate_discrete_states: me_attr.provides_evaluate_discrete_states,
+                needs_execution_tool: me_attr.needs_execution_tool,
+                can_be_instantiated_only_once_per_process: me_attr.can_be_instantiated_only_once_per_process,
+                can_get_and_set_fmu_state: me_attr.can_get_and_set_fmu_state,
+                can_serialize_fmu_state: me_attr.can_serialize_fmu_state,
+                provides_directional_derivatives: me_attr.provides_directional_derivatives,
+                provides_adjoint_derivatives: me_attr.provides_adjoint_derivatives,
+                provides_per_element_dependencies: me_attr.provides_per_element_dependencies,
+                ..Default::default()
+            }
+        });
+
+        let co_simulation = model.co_simulation().map(|cs_attr| {
+            schema::Fmi3CoSimulation {
+                model_identifier: model_name.clone(),
+                can_handle_variable_communication_step_size: cs_attr.can_handle_variable_communication_step_size,
+                fixed_internal_step_size: cs_attr.fixed_internal_step_size,
+                max_output_derivative_order: cs_attr.max_output_derivative_order,
+                recommended_intermediate_input_smoothness: cs_attr.recommended_intermediate_input_smoothness,
+                provides_intermediate_update: cs_attr.provides_intermediate_update,
+                might_return_early_from_do_step: cs_attr.might_return_early_from_do_step,
+                can_return_early_after_intermediate_update: cs_attr.can_return_early_after_intermediate_update,
+                has_event_mode: cs_attr.has_event_mode,
+                provides_evaluate_discrete_states: cs_attr.provides_evaluate_discrete_states,
+                needs_execution_tool: cs_attr.needs_execution_tool,
+                can_be_instantiated_only_once_per_process: cs_attr.can_be_instantiated_only_once_per_process,
+                can_get_and_set_fmu_state: cs_attr.can_get_and_set_fmu_state,
+                can_serialize_fmu_state: cs_attr.can_serialize_fmu_state,
+                provides_directional_derivatives: cs_attr.provides_directional_derivatives,
+                provides_adjoint_derivatives: cs_attr.provides_adjoint_derivatives,
+                provides_per_element_dependencies: cs_attr.provides_per_element_dependencies,
+                ..Default::default()
+            }
+        });
+
         Ok(schema::Fmi3ModelDescription {
             fmi_version: unsafe {
                 CStr::from_ptr(binding::fmi3Version.as_ptr() as *const i8)
@@ -41,13 +81,15 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
             generation_date_and_time: Some(Utc::now().to_rfc3339()),
             model_variables,
             model_structure,
+            model_exchange,
+            co_simulation,
             ..Default::default()
         })
     }
 }
 
 /// Convert a syn::Type to a schema::VariableType
-fn rust_type_to_variable_type(ty: &syn::Type) -> Result<schema::VariableType, String> {
+pub fn rust_type_to_variable_type(ty: &syn::Type) -> Result<schema::VariableType, String> {
     match ty {
         syn::Type::Path(type_path) => {
             let type_name = &type_path.path.segments.last().unwrap().ident;

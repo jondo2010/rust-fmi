@@ -23,16 +23,54 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
 }
 
 /// StructAttribute represents the attributes that can be applied to the model struct
-#[derive(Debug, attribute_derive::FromAttr, PartialEq)]
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone)]
 #[attribute(ident = model)]
-#[attribute(error(missing_field = "`{field}` was not specified"))]
 pub struct StructAttribute {
     /// Optional model description (defaults to the struct docstring)
     pub description: Option<String>,
+    /// ModelExchange interface configuration
+    pub model_exchange: Option<ModelExchangeAttribute>,
+    /// CoSimulation interface configuration
+    pub co_simulation: Option<CoSimulationAttribute>,
+}
+
+/// ModelExchange interface capabilities that can be specified in attributes
+#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
+pub struct ModelExchangeAttribute {
+    pub needs_completed_integrator_step: Option<bool>,
+    pub provides_evaluate_discrete_states: Option<bool>,
+    pub needs_execution_tool: Option<bool>,
+    pub can_be_instantiated_only_once_per_process: Option<bool>,
+    pub can_get_and_set_fmu_state: Option<bool>,
+    pub can_serialize_fmu_state: Option<bool>,
+    pub provides_directional_derivatives: Option<bool>,
+    pub provides_adjoint_derivatives: Option<bool>,
+    pub provides_per_element_dependencies: Option<bool>,
+}
+
+/// CoSimulation interface capabilities that can be specified in attributes
+#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
+pub struct CoSimulationAttribute {
+    pub can_handle_variable_communication_step_size: Option<bool>,
+    pub fixed_internal_step_size: Option<f64>,
+    pub max_output_derivative_order: Option<u32>,
+    pub recommended_intermediate_input_smoothness: Option<i32>,
+    pub provides_intermediate_update: Option<bool>,
+    pub might_return_early_from_do_step: Option<bool>,
+    pub can_return_early_after_intermediate_update: Option<bool>,
+    pub has_event_mode: Option<bool>,
+    pub provides_evaluate_discrete_states: Option<bool>,
+    pub needs_execution_tool: Option<bool>,
+    pub can_be_instantiated_only_once_per_process: Option<bool>,
+    pub can_get_and_set_fmu_state: Option<bool>,
+    pub can_serialize_fmu_state: Option<bool>,
+    pub provides_directional_derivatives: Option<bool>,
+    pub provides_adjoint_derivatives: Option<bool>,
+    pub provides_per_element_dependencies: Option<bool>,
 }
 
 /// FieldAttribute represents the attributes that can be applied to a model struct field
-#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq)]
+#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
 #[attribute(ident = variable, aliases = [alias])]
 #[attribute(error(missing_field = "`{field}` was not specified"))]
 pub struct FieldAttribute {
@@ -46,30 +84,32 @@ pub struct FieldAttribute {
     pub start: Option<syn::Expr>,
     /// Indicate that this variable is the derivative of another variable
     pub derivative: Option<syn::Ident>,
+    /// Indicate that this variable is a state variable
+    pub state: Option<bool>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum FieldAttributeOuter {
     Docstring(String),
     Variable(FieldAttribute),
     Alias(FieldAttribute),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum StructAttributeOuter {
     Docstring(String),
     Model(StructAttribute),
 }
 
 /// Representation of an FmuModel field with it's parsed attributes
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Field {
     pub ident: syn::Ident,
     pub ty: syn::Type,
     pub attrs: Vec<FieldAttributeOuter>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Model {
     pub ident: syn::Ident,
     pub attrs: Vec<StructAttributeOuter>,
@@ -200,6 +240,45 @@ impl Model {
                 })
                 .unwrap_or_else(|| "".to_string())
         }
+    }
+
+    /// Extract the interface type from model attributes
+    pub fn interface_type(&self) -> Option<String> {
+        self.attrs.iter().find_map(|attr| {
+            if let StructAttributeOuter::Model(model_attr) = attr {
+                if model_attr.model_exchange.is_some() {
+                    Some("ModelExchange".to_string())
+                } else if model_attr.co_simulation.is_some() {
+                    Some("CoSimulation".to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Extract the ModelExchange configuration from model attributes
+    pub fn model_exchange(&self) -> Option<&ModelExchangeAttribute> {
+        self.attrs.iter().find_map(|attr| {
+            if let StructAttributeOuter::Model(model_attr) = attr {
+                model_attr.model_exchange.as_ref()
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Extract the CoSimulation configuration from model attributes
+    pub fn co_simulation(&self) -> Option<&CoSimulationAttribute> {
+        self.attrs.iter().find_map(|attr| {
+            if let StructAttributeOuter::Model(model_attr) = attr {
+                model_attr.co_simulation.as_ref()
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -336,7 +415,7 @@ mod tests {
     #[test]
     fn test_model_attributes() {
         let input: syn::ItemStruct = syn::parse_quote! {
-            #[model()]
+            #[model(model_exchange(needs_execution_tool))]
             struct TestModel {
                 #[variable(causality = Output, start = 1.0)]
                 h: f64,
@@ -346,7 +425,12 @@ mod tests {
         assert_eq!(
             model.attrs,
             vec![StructAttributeOuter::Model(StructAttribute {
-                description: None
+                description: None,
+                model_exchange: Some(ModelExchangeAttribute {
+                    needs_execution_tool: Some(true),
+                    ..Default::default()
+                }),
+                co_simulation: None,
             })],
             "Model should have one attribute with no description"
         );

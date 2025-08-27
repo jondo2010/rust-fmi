@@ -22,7 +22,7 @@ fmi = { workspace = true }
 fmi-sys = { workspace = true }
 fmi-export-derive = { workspace = true }
 log = { workspace = true }
-serde = { workspace = true }
+#serde = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

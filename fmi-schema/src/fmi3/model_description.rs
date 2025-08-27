@@ -1,6 +1,6 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
-use crate::traits::FmiModelDescription;
+use crate::{Error, traits::FmiModelDescription};
 
 use super::{
     AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
@@ -113,6 +113,14 @@ impl FmiModelDescription for Fmi3ModelDescription {
 
     fn version_string(&self) -> &str {
         &self.fmi_version
+    }
+
+    fn serialize(&self) -> Result<String, Error> {
+        yaserde::ser::to_string(self).map_err(Error::XmlParse)
+    }
+
+    fn deserialize(xml: &str) -> Result<Self, crate::Error> {
+        yaserde::de::from_str(xml).map_err(crate::Error::XmlParse)
     }
 }
 

@@ -18,26 +18,26 @@ use fmi_export::{
 /// - x1: velocity variable (state)
 /// - mu: damping parameter (mu > 0 for self-oscillation)
 #[derive(FmuModel, Default, Debug)]
-#[model(ModelExchange)]
+#[model(model_exchange())]
 struct VanDerPol {
     /// Damping parameter (input parameter)
-    #[variable(causality = parameter, start = 1.0)]
+    #[variable(causality = Parameter, start = 1.0)]
     mu: f64,
 
     /// Position variable (state output)
-    #[variable(causality = output, state = true, start = 2.0)]
+    #[variable(causality = Output, state , start = 2.0)]
     x0: f64,
 
     /// Velocity variable (state output)
-    #[variable(causality = local, state = true, start = 0.0)]
+    #[variable(causality = Local, state, start = 0.0)]
     x1: f64,
 
     /// Derivative of position (time derivative of x0)
-    #[variable(causality = local, derivative_of = "x0", start = 0.0)]
+    #[variable(causality = Local, derivative = x0, start = 0.0)]
     der_x0: f64,
 
     /// Derivative of velocity (time derivative of x1)
-    #[variable(causality = local, derivative_of = "x1", start = 0.0)]
+    #[variable(causality = Local, derivative = x1, start = 0.0)]
     der_x1: f64,
 }
 
@@ -60,6 +60,7 @@ impl UserModel for VanDerPol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fmi::{fmi3::schema::Fmi3ModelDescription, schema::traits::FmiModelDescription};
     use fmi_export::fmi3::ModelInstance;
 
     #[test]
@@ -82,7 +83,17 @@ mod tests {
         );
 
         // Test model description content
-        assert!(VanDerPol::MODEL_DESCRIPTION.contains("Van Der Pol oscillator"));
+        let model = Fmi3ModelDescription::deserialize(VanDerPol::MODEL_DESCRIPTION)
+            .expect("Failed to deserialize model description");
+
+        assert_eq!(model.model_name(), "VanDerPol");
+        assert_eq!(model.version_string(), "3.0");
+        assert_eq!(
+            model.description,
+            Some("Van Der Pol oscillator model".into())
+        );
+
+        dbg!(model.model_variables);
     }
 
     #[test]

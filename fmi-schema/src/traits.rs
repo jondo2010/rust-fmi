@@ -9,7 +9,8 @@ pub trait DefaultExperiment {
     fn step_size(&self) -> Option<f64>;
 }
 
-pub trait FmiModelDescription {
+/// A trait common between all FMI schema versions
+pub trait FmiModelDescription: Sized {
     /// Returns the model name
     fn model_name(&self) -> &str;
 
@@ -30,4 +31,10 @@ pub trait FmiModelDescription {
             v => panic!("Invalid version {}", v.major),
         }
     }
+
+    /// Deserialize the model description from XML
+    fn deserialize(xml: &str) -> Result<Self, crate::Error>;
+
+    /// Serialize the model description to XML
+    fn serialize(&self) -> Result<String, crate::Error>;
 }
