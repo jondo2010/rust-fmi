@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, GetSet, binding};
 
-use crate::fmi3::ModelState;
+use crate::fmi3::{ModelState, instance::ModelContext};
 
 /// Model trait. This trait should be implementing by deriving `FmuModel` on the user model struct.
 ///
@@ -12,11 +12,6 @@ pub trait Model: Default + GetSet + UserModel {
     const MODEL_NAME: &'static str;
     const MODEL_DESCRIPTION: &'static str;
     const INSTANTIATION_TOKEN: &'static str;
-
-    /// The logging category type for this model
-    ///
-    /// This is typically an enum that implements `ModelLoggingCategory`
-    type LoggingCategory: ModelLoggingCategory + 'static;
 
     /// Set start values
     fn set_start_values(&mut self);
@@ -34,6 +29,7 @@ pub trait Model: Default + GetSet + UserModel {
     fn get_continuous_state_derivatives(
         &mut self,
         derivatives: &mut [f64],
+        context: &ModelContext<Self>,
     ) -> Result<Fmi3Res, Fmi3Error>;
 
     /// Get the number of continuous states
@@ -73,10 +69,15 @@ pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
 /// User-defined model behavior trait
 ///
 /// This trait should be hand-implemented by the user to define the specific behavior of their model.
-pub trait UserModel {
+pub trait UserModel: Sized {
+    /// The logging category type for this model
+    ///
+    /// This is typically an enum that implements `ModelLoggingCategory`
+    type LoggingCategory: ModelLoggingCategory + 'static;
+
     /// Calculate values (derivatives, outputs, etc.)
     /// This method is called whenever the model needs to update its calculated values
-    fn calculate_values(&mut self) -> Fmi3Status {
+    fn calculate_values(&mut self, context: &ModelContext<Self>) -> Fmi3Status {
         Fmi3Res::OK.into()
     }
 

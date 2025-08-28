@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 use fmi::fmi3::{Common, Fmi3Error, Fmi3Res, Fmi3Status, GetSet, ModelExchange, binding};
 
 use crate::fmi3::{
-    ModelState,
+    ModelState, UserModel,
     traits::{Model, ModelLoggingCategory},
 };
 
@@ -14,12 +14,8 @@ pub struct ModelInstance<M: Model> {
     time: f64,
     instance_name: String,
     resource_path: PathBuf,
-    /// Map of logging categories to their enabled state.
-    /// This is used to track which categories are enabled for logging.
-    logging_on: BTreeMap<M::LoggingCategory, bool>,
 
-    /// Callback for logging messages.
-    log_message: Box<dyn Fn(Fmi3Status, &str, &str) + Send + Sync>,
+    context: ModelContext<M>,
 
     state: ModelState,
 
@@ -37,6 +33,24 @@ pub struct ModelInstance<M: Model> {
     is_dirty_values: bool,
     model: M,
     _marker: std::marker::PhantomData<M>,
+}
+
+pub struct ModelContext<M: UserModel> {
+    /// Map of logging categories to their enabled state.
+    /// This is used to track which categories are enabled for logging.
+    logging_on: BTreeMap<M::LoggingCategory, bool>,
+    /// Callback for logging messages.
+    log_message: Box<dyn Fn(Fmi3Status, &str, &str) + Send + Sync>,
+}
+
+impl<M: UserModel> ModelContext<M> {
+    /// Log a message if the specified logging category is enabled.
+    pub fn log(&self, status: impl Into<Fmi3Status>, category: M::LoggingCategory, message: &str) {
+        if matches!(self.logging_on.get(&category), Some(true)) {
+            // Call the logging callback
+            (self.log_message)(status.into(), &category.to_string(), message);
+        }
+    }
 }
 
 /// Event flags information
@@ -78,14 +92,18 @@ impl<M: Model> ModelInstance<M> {
 
         let num_event_indicators = M::get_number_of_event_indicators();
 
+        let context = ModelContext {
+            logging_on,
+            log_message,
+        };
+
         let mut instance = Self {
             start_time: 0.0,
             stop_time: 1.0,
             time: 0.0,
             instance_name: name,
             resource_path,
-            logging_on,
-            log_message,
+            context,
             state: ModelState::Instantiated,
             event_flags: EventFlags::default(),
             clocks_ticked: false,
@@ -102,20 +120,13 @@ impl<M: Model> ModelInstance<M> {
         Ok(instance)
     }
 
-    pub fn log(&self, status: Fmi3Status, category: M::LoggingCategory, message: &str) {
-        if matches!(self.logging_on.get(&category), Some(true)) {
-            // Call the logging callback
-            (self.log_message)(status, &category.to_string(), message);
-        }
-    }
-
     /// Validate that a variable can be set in the current model state
     fn validate_variable_setting(&self, vr: binding::fmi3ValueReference) -> Result<(), Fmi3Error> {
         match M::validate_variable_setting(vr, &self.state) {
             Ok(()) => Ok(()),
             Err(message) => {
-                self.log(
-                    Fmi3Error::Error.into(),
+                self.context.log(
+                    Fmi3Error::Error,
                     M::LoggingCategory::default(),
                     &format!("Variable setting error for VR {}: {}", vr, message),
                 );
@@ -200,12 +211,12 @@ where
             if let Some(cat) = cat
                 .parse::<F::LoggingCategory>()
                 .ok()
-                .and_then(|level| self.logging_on.get_mut(&level))
+                .and_then(|level| self.context.logging_on.get_mut(&level))
             {
                 *cat = logging_on;
             } else {
-                self.log(
-                    Fmi3Error::Error.into(),
+                self.context.log(
+                    Fmi3Error::Error,
                     F::LoggingCategory::default(),
                     &format!("Unknown logging category {cat}"),
                 );
@@ -239,7 +250,7 @@ where
         // if values were set and no fmi3GetXXX triggered update before,
         // ensure calculated values are updated now
         if self.is_dirty_values {
-            self.model.calculate_values();
+            self.model.calculate_values(&self.context);
             self.is_dirty_values = false;
         }
 
@@ -367,10 +378,11 @@ where
     ) -> Result<Fmi3Res, Fmi3Error> {
         // Ensure values are up to date before computing derivatives
         if self.is_dirty_values {
-            self.model.calculate_values();
+            self.model.calculate_values(&self.context);
             self.is_dirty_values = false;
         }
-        self.model.get_continuous_state_derivatives(derivatives)
+        self.model
+            .get_continuous_state_derivatives(derivatives, &self.context)
     }
 
     fn get_nominals_of_continuous_states(

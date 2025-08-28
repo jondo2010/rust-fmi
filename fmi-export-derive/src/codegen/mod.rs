@@ -39,7 +39,7 @@ impl ToTokens for CodeGenerator {
         let value_ref_enum = value_ref::ValueRefEnum::new(&self.model, &self.model_description);
 
         // Generate logging category enum
-        let logging_category_enum = logging_category::LoggingCategoryEnum::new(&self.model);
+        //let logging_category_enum = logging_category::LoggingCategoryEnum::new(&self.model);
 
         // Generate Model implementation
         let model_impl =
@@ -51,7 +51,7 @@ impl ToTokens for CodeGenerator {
         // Combine all implementations
         tokens.extend(quote! {
             #value_ref_enum
-            #logging_category_enum
+            //#logging_category_enum
             #model_impl
             #getset_impl
         });

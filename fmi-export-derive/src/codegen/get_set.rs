@@ -72,6 +72,7 @@ impl<'a> GetSetImpl<'a> {
                 &mut self,
                 vrs: &[Self::ValueRef],
                 values: &mut [#rust_type],
+                context: &::fmi_export::fmi3::ModelContext<Self>,
             ) -> #return_type {
                 for (vr, value) in vrs.iter().zip(values.iter_mut()) {
                     match ValueRef::from(*vr) {
@@ -86,6 +87,7 @@ impl<'a> GetSetImpl<'a> {
                 &mut self,
                 vrs: &[Self::ValueRef],
                 values: &[#rust_type],
+                context: &::fmi_export::fmi3::ModelContext<Self>,
             ) -> #return_type {
                 for (vr, value) in vrs.iter().zip(values.iter()) {
                     match ValueRef::from(*vr) {
@@ -253,14 +255,14 @@ impl ToTokens for TypeGetterGen<'_> {
                                 if self.variable_type == schema::VariableType::FmiString {
                                     tokens.extend(quote! {
                                         ValueRef::#alias_variant_name => {
-                                            let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
+                                            let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                                             *value = std::ffi::CString::new(self.#field_name.clone()).unwrap_or_default();
                                         },
                                     });
                                 } else {
                                     tokens.extend(quote! {
                                         ValueRef::#alias_variant_name => {
-                                            let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
+                                            let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                                             *value = self.#field_name;
                                         },
                                     });

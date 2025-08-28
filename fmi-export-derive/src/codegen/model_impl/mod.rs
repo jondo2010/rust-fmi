@@ -39,7 +39,7 @@ impl ToTokens for ModelImpl<'_> {
         let instantiation_token = &self.model_description.instantiation_token;
 
         // Generate the LoggingCategory type name
-        let logging_category_type = format_ident!("{}LoggingCategory", struct_name);
+        //let logging_category_type = format_ident!("{}LoggingCategory", struct_name);
 
         // Generate function bodies
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
@@ -56,8 +56,8 @@ impl ToTokens for ModelImpl<'_> {
                 const MODEL_NAME: &'static str = #model_name;
                 const MODEL_DESCRIPTION: &'static str = #model_description_xml;
                 const INSTANTIATION_TOKEN: &'static str = #instantiation_token;
-                
-                type LoggingCategory = #logging_category_type;
+
+                //type LoggingCategory = #logging_category_type;
 
                 fn set_start_values(&mut self) {
                     #set_start_values_body
@@ -71,7 +71,11 @@ impl ToTokens for ModelImpl<'_> {
                     #set_continuous_states_body
                 }
 
-                fn get_continuous_state_derivatives(&mut self, derivatives: &mut [f64]) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
+                fn get_continuous_state_derivatives(
+                    &mut self,
+                    derivatives: &mut [f64],
+                    context: &::fmi_export::fmi3::ModelContext<Self>
+                ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
                     #get_derivatives_body
                 }
 
@@ -287,7 +291,7 @@ impl ToTokens for GetDerivativesGen<'_> {
                 let field_name = &der_field.ident;
                 derivative_assignments.push(quote! {
                     if #i < derivatives.len() {
-                        let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
+                        let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                         derivatives[#i] = self.#field_name;
                     }
                 });
@@ -296,7 +300,7 @@ impl ToTokens for GetDerivativesGen<'_> {
                 let derivative_field_name = format_ident!("der_{}", state_name);
                 derivative_assignments.push(quote! {
                     if #i < derivatives.len() {
-                        let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self);
+                        let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                         derivatives[#i] = self.#derivative_field_name;
                     }
                 });

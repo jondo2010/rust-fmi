@@ -12,7 +12,7 @@ mod instance;
 mod macros;
 mod traits;
 
-pub use instance::ModelInstance;
+pub use instance::{ModelContext, ModelInstance};
 pub use traits::{Model, ModelLoggingCategory, UserModel};
 
 /// Represents the current state of the model instance

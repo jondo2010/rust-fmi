@@ -1,7 +1,10 @@
 //! Example port of the BouncingBall FMU from the Reference FMUs
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status};
-use fmi_export::{FmuModel, fmi3::Model, fmi3::UserModel};
+use fmi_export::{
+    FmuModel,
+    fmi3::{Model, ModelContext, UserModel},
+};
 
 /// BouncingBall FMU model that can be exported as a complete FMU
 #[derive(FmuModel, Default, Debug)]
@@ -37,8 +40,54 @@ struct BouncingBall {
     v_min: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum BouncingBallLoggingCategory {
+    /// Log all events
+    #[default]
+    LogAll,
+    /// Log physical events like bouncing
+    LogEvents,
+    /// Log error conditions
+    LogError,
+}
+impl ::std::fmt::Display for BouncingBallLoggingCategory {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match self {
+            Self::LogAll => write!(f, "logAll"),
+            Self::LogEvents => write!(f, "logEvents"),
+            Self::LogError => write!(f, "logError"),
+        }
+    }
+}
+impl ::std::str::FromStr for BouncingBallLoggingCategory {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "logAll" => Ok(Self::LogAll),
+            "logEvents" => Ok(Self::LogEvents),
+            "logError" => Ok(Self::LogError),
+            _ => Err(format!("Unknown logging category: {}", s)),
+        }
+    }
+}
+impl ::fmi_export::fmi3::ModelLoggingCategory for BouncingBallLoggingCategory {
+    fn all_categories() -> impl Iterator<Item = Self> {
+        [Self::LogAll, Self::LogEvents, Self::LogError]
+            .iter()
+            .copied()
+    }
+}
+
 impl UserModel for BouncingBall {
-    fn calculate_values(&mut self) -> Fmi3Status {
+    type LoggingCategory = BouncingBallLoggingCategory;
+
+    fn calculate_values(&mut self, context: &ModelContext<Self>) -> Fmi3Status {
+        context.log(
+            Fmi3Res::OK,
+            BouncingBallLoggingCategory::LogAll,
+            "calculate_values() called",
+        );
+
         // Derivatives are handled by aliases: der(h) = v, der(v) = g
         Fmi3Res::OK.into()
     }
@@ -72,4 +121,4 @@ impl UserModel for BouncingBall {
 }
 
 // Export the FMU with full C API
-fmi_export::export_fmu!(BouncingBallFmu);
+fmi_export::export_fmu!(BouncingBall);
