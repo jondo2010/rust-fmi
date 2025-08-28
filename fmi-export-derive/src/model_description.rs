@@ -7,7 +7,7 @@ use fmi::fmi3::{binding, schema};
 use uuid::Uuid;
 
 use crate::model::{
-    CoSimulationAttribute, Field, FieldAttributeOuter, Model, ModelExchangeAttribute,
+    CoSimulationAttr, Field, FieldAttributeOuter, LoggingCategoryAttr, Model, ModelExchangeAttr,
 };
 
 //TODO: move this into `fmi` crate?
@@ -34,6 +34,11 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
         let model_exchange = model.model_exchange().map(schema::Fmi3ModelExchange::from);
         let co_simulation = model.co_simulation().map(schema::Fmi3CoSimulation::from);
 
+        // Create logging categories if any are defined
+        let log_categories = model.log_categories().map(|it| schema::LogCategories {
+            categories: it.map(schema::Category::from).collect(),
+        });
+
         Ok(schema::Fmi3ModelDescription {
             fmi_version: unsafe {
                 CStr::from_ptr(binding::fmi3Version.as_ptr() as *const i8)
@@ -50,14 +55,15 @@ impl TryFrom<Model> for schema::Fmi3ModelDescription {
             model_structure,
             model_exchange,
             co_simulation,
+            log_categories,
             ..Default::default()
         })
     }
 }
 
 /// Helper function to create `Fmi3ModelExchange` from `ModelExchangeAttribute`
-impl From<&ModelExchangeAttribute> for schema::Fmi3ModelExchange {
-    fn from(me_attr: &ModelExchangeAttribute) -> Self {
+impl From<&ModelExchangeAttr> for schema::Fmi3ModelExchange {
+    fn from(me_attr: &ModelExchangeAttr) -> Self {
         let model_identifier = me_attr
             .model_identifier
             .as_deref()
@@ -82,8 +88,8 @@ impl From<&ModelExchangeAttribute> for schema::Fmi3ModelExchange {
 }
 
 /// Helper function to create `schema::Fmi3CoSimulation` from `CoSimulationAttribute`
-impl From<&CoSimulationAttribute> for schema::Fmi3CoSimulation {
-    fn from(cs_attr: &CoSimulationAttribute) -> Self {
+impl From<&CoSimulationAttr> for schema::Fmi3CoSimulation {
+    fn from(cs_attr: &CoSimulationAttr) -> Self {
         let model_identifier = cs_attr
             .model_identifier
             .as_deref()
@@ -113,6 +119,17 @@ impl From<&CoSimulationAttribute> for schema::Fmi3CoSimulation {
             provides_adjoint_derivatives: cs_attr.provides_adjoint_derivatives,
             provides_per_element_dependencies: cs_attr.provides_per_element_dependencies,
             ..Default::default()
+        }
+    }
+}
+
+/// Helper function to create `schema::Fmi3LoggingCategory` from `LoggingCategoryAttr`
+impl From<&LoggingCategoryAttr> for schema::Category {
+    fn from(cat_attr: &LoggingCategoryAttr) -> Self {
+        Self {
+            name: cat_attr.name.clone(),
+            description: cat_attr.descr.clone(),
+            annotations: None,
         }
     }
 }
@@ -543,7 +560,7 @@ fn create_and_add_variable(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::StructAttributeOuter;
+    use crate::model::StructAttrOuter;
     use schema::AbstractVariableTrait;
     use syn::parse_quote;
 
@@ -551,7 +568,7 @@ mod tests {
     fn test_model_description_generation() {
         let model = Model {
             ident: parse_quote!(BouncingBall),
-            attrs: vec![StructAttributeOuter::Docstring(
+            attrs: vec![StructAttrOuter::Docstring(
                 "A simple bouncing ball model".to_string(),
             )],
             fields: vec![],
@@ -700,7 +717,12 @@ mod tests {
     fn test_full_model_to_fmi_description() {
         let input: syn::ItemStruct = syn::parse_quote! {
             /// A comprehensive test model with multiple data types
-            #[model()]
+            #[model(
+                logging_categories = [
+                    category(name = "logAll", descr = "Log all messages"),
+                    category(name = "logError", descr = "Log error messages only")
+                ],
+            )]
             struct TestModel {
                 /// Position (float32)
                 #[variable(causality = Output, start = 10.5)]
@@ -737,6 +759,21 @@ mod tests {
         assert_eq!(fmi_description.model_variables.int32.len(), 1);
         assert_eq!(fmi_description.model_variables.boolean.len(), 1);
         assert_eq!(fmi_description.model_variables.string.len(), 1);
+
+        // Test logging categories
+        assert!(fmi_description.log_categories.is_some());
+        let log_categories = fmi_description.log_categories.as_ref().unwrap();
+        assert_eq!(log_categories.categories.len(), 2);
+        assert_eq!(log_categories.categories[0].name, "logAll");
+        assert_eq!(
+            log_categories.categories[0].description,
+            Some("Log all messages".to_string())
+        );
+        assert_eq!(log_categories.categories[1].name, "logError");
+        assert_eq!(
+            log_categories.categories[1].description,
+            Some("Log error messages only".to_string())
+        );
     }
 
     #[test]

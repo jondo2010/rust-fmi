@@ -1,4 +1,3 @@
-use attribute_derive::FromAttr;
 use proc_macro_error2::emit_error;
 
 /// Helper function to extract docstring from a syn::Attribute
@@ -25,18 +24,21 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
 /// StructAttribute represents the attributes that can be applied to the model struct
 #[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone)]
 #[attribute(ident = model)]
-pub struct StructAttribute {
+pub struct StructAttr {
     /// Optional model description (defaults to the struct docstring)
     pub description: Option<String>,
     /// ModelExchange interface configuration
-    pub model_exchange: Option<ModelExchangeAttribute>,
+    pub model_exchange: Option<ModelExchangeAttr>,
     /// CoSimulation interface configuration
-    pub co_simulation: Option<CoSimulationAttribute>,
+    pub co_simulation: Option<CoSimulationAttr>,
+    /// Logging categories for the model
+    #[from_attr(optional)]
+    pub logging_categories: Vec<LoggingCategoryAttr>,
 }
 
 /// ModelExchange interface capabilities that can be specified in attributes
 #[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
-pub struct ModelExchangeAttribute {
+pub struct ModelExchangeAttr {
     /// Optional custom model identifier (defaults to the struct name)
     pub model_identifier: Option<String>,
     pub needs_completed_integrator_step: Option<bool>,
@@ -52,7 +54,7 @@ pub struct ModelExchangeAttribute {
 
 /// CoSimulation interface capabilities that can be specified in attributes
 #[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
-pub struct CoSimulationAttribute {
+pub struct CoSimulationAttr {
     /// Optional custom model identifier (defaults to the struct name)
     pub model_identifier: Option<String>,
     pub can_handle_variable_communication_step_size: Option<bool>,
@@ -71,6 +73,26 @@ pub struct CoSimulationAttribute {
     pub provides_directional_derivatives: Option<bool>,
     pub provides_adjoint_derivatives: Option<bool>,
     pub provides_per_element_dependencies: Option<bool>,
+}
+
+/// LoggingCategoryAttribute represents a logging category for the model
+#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
+#[attribute(ident = category)]
+#[attribute(error(missing_field = "`{field}` was not specified"))]
+pub struct LoggingCategoryAttr {
+    pub name: String,
+    #[from_attr(optional)]
+    pub descr: Option<String>,
+}
+
+impl attribute_derive::parsing::AttributePositional for LoggingCategoryAttr {
+    fn parse_positional(
+        input: syn::parse::ParseStream,
+    ) -> syn::Result<Option<attribute_derive::parsing::SpannedValue<Self::Partial>>> {
+        use attribute_derive::parsing::AttributeNamed;
+        let parsed = LoggingCategoryAttr::parse_named("category", input)?;
+        Ok(parsed.map(|inner| inner.value))
+    }
 }
 
 /// FieldAttribute represents the attributes that can be applied to a model struct field
@@ -100,9 +122,9 @@ pub enum FieldAttributeOuter {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum StructAttributeOuter {
+pub enum StructAttrOuter {
     Docstring(String),
-    Model(StructAttribute),
+    Model(StructAttr),
 }
 
 /// Representation of an FmuModel field with it's parsed attributes
@@ -116,7 +138,7 @@ pub struct Field {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Model {
     pub ident: syn::Ident,
-    pub attrs: Vec<StructAttributeOuter>,
+    pub attrs: Vec<StructAttrOuter>,
     pub fields: Vec<Field>,
 }
 
@@ -138,6 +160,7 @@ impl Field {
 
 impl From<syn::Field> for Field {
     fn from(field: syn::Field) -> Self {
+        use attribute_derive::Attribute;
         let attrs = field
             .attrs
             .iter()
@@ -178,21 +201,22 @@ impl From<syn::Field> for Field {
 
 impl From<syn::ItemStruct> for Model {
     fn from(item: syn::ItemStruct) -> Self {
+        use attribute_derive::Attribute;
         let attrs = item
             .attrs
             .iter()
             .filter_map(|attr| {
                 match attr.meta.path().get_ident() {
                     Some(ident) if ident == "doc" => {
-                        parse_doc_attribute(attr).map(StructAttributeOuter::Docstring)
+                        parse_doc_attribute(attr).map(StructAttrOuter::Docstring)
                     }
 
                     Some(ident) if ident == "model" => {
-                        StructAttribute::from_attribute(attr)
+                        StructAttr::from_attribute(attr)
                             //.map_err(|e| emit_error!(item, "{e}"))
                             .map_err(|e| panic!("{e}"))
                             .ok()
-                            .map(StructAttributeOuter::Model)
+                            .map(StructAttrOuter::Model)
                     }
 
                     _ => None,
@@ -222,7 +246,7 @@ impl Model {
     pub fn fold_description(&self) -> String {
         // First, look for explicit description in model attributes
         let explicit_description = self.attrs.iter().find_map(|attr| {
-            if let StructAttributeOuter::Model(model_attr) = attr {
+            if let StructAttrOuter::Model(model_attr) = attr {
                 model_attr.description.clone()
             } else {
                 None
@@ -236,7 +260,7 @@ impl Model {
             self.attrs
                 .iter()
                 .find_map(|attr| {
-                    if let StructAttributeOuter::Docstring(doc) = attr {
+                    if let StructAttrOuter::Docstring(doc) = attr {
                         Some(doc.clone())
                     } else {
                         None
@@ -249,7 +273,7 @@ impl Model {
     /// Extract the interface type from model attributes
     pub fn interface_type(&self) -> Option<String> {
         self.attrs.iter().find_map(|attr| {
-            if let StructAttributeOuter::Model(model_attr) = attr {
+            if let StructAttrOuter::Model(model_attr) = attr {
                 if model_attr.model_exchange.is_some() {
                     Some("ModelExchange".to_string())
                 } else if model_attr.co_simulation.is_some() {
@@ -264,9 +288,9 @@ impl Model {
     }
 
     /// Extract the ModelExchange configuration from model attributes
-    pub fn model_exchange(&self) -> Option<&ModelExchangeAttribute> {
+    pub fn model_exchange(&self) -> Option<&ModelExchangeAttr> {
         self.attrs.iter().find_map(|attr| {
-            if let StructAttributeOuter::Model(model_attr) = attr {
+            if let StructAttrOuter::Model(model_attr) = attr {
                 model_attr.model_exchange.as_ref()
             } else {
                 None
@@ -275,10 +299,25 @@ impl Model {
     }
 
     /// Extract the CoSimulation configuration from model attributes
-    pub fn co_simulation(&self) -> Option<&CoSimulationAttribute> {
+    pub fn co_simulation(&self) -> Option<&CoSimulationAttr> {
         self.attrs.iter().find_map(|attr| {
-            if let StructAttributeOuter::Model(model_attr) = attr {
+            if let StructAttrOuter::Model(model_attr) = attr {
                 model_attr.co_simulation.as_ref()
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Extract the logging categories from model attributes
+    pub fn log_categories(&self) -> Option<impl Iterator<Item = &LoggingCategoryAttr>> {
+        self.attrs.iter().find_map(|attr| {
+            if let StructAttrOuter::Model(model_attr) = attr {
+                if model_attr.logging_categories.is_empty() {
+                    None
+                } else {
+                    Some(model_attr.logging_categories.iter())
+                }
             } else {
                 None
             }
@@ -288,9 +327,8 @@ impl Model {
 
 #[cfg(test)]
 mod tests {
-    use attribute_derive::FromAttr;
-
     use super::*;
+    use attribute_derive::FromAttr;
 
     #[test]
     fn test_attribute() {
@@ -419,22 +457,39 @@ mod tests {
     #[test]
     fn test_model_attributes() {
         let input: syn::ItemStruct = syn::parse_quote! {
-            #[model(model_exchange(needs_execution_tool))]
+            #[model(
+                model_exchange(needs_execution_tool),
+                logging_categories = [
+                    category(name = "logAll", descr ="Log all categories"),
+                    category(name = "logError"),
+                ],
+            )]
             struct TestModel {
                 #[variable(causality = Output, start = 1.0)]
                 h: f64,
             }
         };
         let model = Model::from(input);
+
         assert_eq!(
             model.attrs,
-            vec![StructAttributeOuter::Model(StructAttribute {
+            vec![StructAttrOuter::Model(StructAttr {
                 description: None,
-                model_exchange: Some(ModelExchangeAttribute {
+                model_exchange: Some(ModelExchangeAttr {
                     needs_execution_tool: Some(true),
                     ..Default::default()
                 }),
                 co_simulation: None,
+                logging_categories: vec![
+                    LoggingCategoryAttr {
+                        name: "logAll".to_string(),
+                        descr: Some("Log all categories".to_string())
+                    },
+                    LoggingCategoryAttr {
+                        name: "logError".to_string(),
+                        descr: None
+                    }
+                ],
             })],
             "Model should have one attribute with no description"
         );

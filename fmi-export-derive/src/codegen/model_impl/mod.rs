@@ -38,6 +38,9 @@ impl ToTokens for ModelImpl<'_> {
             .expect("Failed to serialize model description");
         let instantiation_token = &self.model_description.instantiation_token;
 
+        // Generate the LoggingCategory type name
+        let logging_category_type = format_ident!("{}LoggingCategory", struct_name);
+
         // Generate function bodies
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
         let get_continuous_states_body = GetContinuousStatesGen::new(&self.model);
@@ -53,6 +56,8 @@ impl ToTokens for ModelImpl<'_> {
                 const MODEL_NAME: &'static str = #model_name;
                 const MODEL_DESCRIPTION: &'static str = #model_description_xml;
                 const INSTANTIATION_TOKEN: &'static str = #instantiation_token;
+                
+                type LoggingCategory = #logging_category_type;
 
                 fn set_start_values(&mut self) {
                     #set_start_values_body

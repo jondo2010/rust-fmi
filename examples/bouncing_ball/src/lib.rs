@@ -1,12 +1,19 @@
 //! Example port of the BouncingBall FMU from the Reference FMUs
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status};
-use fmi_export::{FmuModel, fmi3::UserModel};
+use fmi_export::{FmuModel, fmi3::Model, fmi3::UserModel};
 
 /// BouncingBall FMU model that can be exported as a complete FMU
 #[derive(FmuModel, Default, Debug)]
-#[model(model_exchange(model_identifier = "bouncing_ball"))]
-struct BouncingBallFmu {
+#[model(
+    model_exchange(model_identifier = "bouncing_ball"),
+    logging_categories = [
+        category(name = "logAll", descr = "Log all events"),
+        category(name = "logEvents", descr = "Log physical events like bouncing"),
+        category(name = "logError", descr = "Log error conditions"),
+    ]
+)]
+struct BouncingBall {
     /// Height above ground (state output)
     #[variable(causality = Output, state, start = 1.0)]
     h: f64,
@@ -30,7 +37,7 @@ struct BouncingBallFmu {
     v_min: f64,
 }
 
-impl UserModel for BouncingBallFmu {
+impl UserModel for BouncingBall {
     fn calculate_values(&mut self) -> Fmi3Status {
         // Derivatives are handled by aliases: der(h) = v, der(v) = g
         Fmi3Res::OK.into()

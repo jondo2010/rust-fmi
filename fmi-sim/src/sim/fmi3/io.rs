@@ -12,10 +12,6 @@ use arrow::{
         UInt16Type, UInt32Type, UInt64Type,
     },
 };
-use fmi::{
-    fmi3::GetSet,
-    traits::{FmiInstance, FmiStatus},
-};
 
 use crate::sim::{
     RecorderState,

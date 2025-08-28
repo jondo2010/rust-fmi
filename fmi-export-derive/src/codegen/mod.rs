@@ -7,6 +7,7 @@ use crate::model::Model;
 use fmi::fmi3::schema;
 
 mod get_set;
+mod logging_category;
 mod model_impl;
 mod util;
 mod value_ref;
@@ -37,6 +38,9 @@ impl ToTokens for CodeGenerator {
         // Generate value reference enum
         let value_ref_enum = value_ref::ValueRefEnum::new(&self.model, &self.model_description);
 
+        // Generate logging category enum
+        let logging_category_enum = logging_category::LoggingCategoryEnum::new(&self.model);
+
         // Generate Model implementation
         let model_impl =
             model_impl::ModelImpl::new(struct_name, &self.model, &self.model_description);
@@ -47,6 +51,7 @@ impl ToTokens for CodeGenerator {
         // Combine all implementations
         tokens.extend(quote! {
             #value_ref_enum
+            #logging_category_enum
             #model_impl
             #getset_impl
         });

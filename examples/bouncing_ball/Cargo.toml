@@ -1,5 +1,6 @@
 [package]
 name = "bouncing_ball"
+description = "Example port of the BouncingBall FMU from the Reference FMUs"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
