@@ -69,22 +69,42 @@ macro_rules! export_fmu {
                     .into_owned(),
             );
 
-            match ::fmi_export::fmi3::ModelInstance::<$ty>::new(
-                name,
-                resource_path,
-                logging_on,
-                log_message,
-                &token,
-            ) {
-                Ok(instance) => {
-                    let this: ::std::boxed::Box<dyn ::fmi::fmi3::Common<ValueRef = ::fmi::fmi3::binding::fmi3ValueReference>> =
-                        ::std::boxed::Box::new(instance);
-                    ::std::boxed::Box::into_raw(this) as ::fmi::fmi3::binding::fmi3Instance
+            if let Some(log_message) = log_message {
+                // Wrap the C callback in a Rust closure
+                let log_message =
+                    Box::new(move |status: ::fmi::fmi3::Fmi3Status, category: &str, message: &str| {
+                        let category_c = ::std::ffi::CString::new(category).unwrap_or_default();
+                        let message_c = ::std::ffi::CString::new(message).unwrap_or_default();
+                        unsafe {
+                            log_message(
+                                std::ptr::null_mut() as ::fmi::fmi3::binding::fmi3InstanceEnvironment,
+                                status.into(),
+                                category_c.as_ptr(),
+                                message_c.as_ptr(),
+                            )
+                        };
+                    });
+
+                match ::fmi_export::fmi3::ModelInstance::<$ty>::new(
+                    name,
+                    resource_path,
+                    logging_on,
+                    log_message,
+                    &token,
+                ) {
+                    Ok(instance) => {
+                        let this: ::std::boxed::Box<dyn ::fmi::fmi3::Common<ValueRef = ::fmi::fmi3::binding::fmi3ValueReference>> =
+                            ::std::boxed::Box::new(instance);
+                        ::std::boxed::Box::into_raw(this) as ::fmi::fmi3::binding::fmi3Instance
+                    }
+                    Err(_) => {
+                        eprintln!("Failed to instantiate FMU: invalid instantiation token");
+                        ::std::ptr::null_mut()
+                    }
                 }
-                Err(_) => {
-                    eprintln!("Failed to instantiate FMU: invalid instantiation token");
-                    ::std::ptr::null_mut()
-                }
+            } else {
+                eprintln!("Error: No log message callback provided");
+                return ::std::ptr::null_mut();
             }
         }
         //#define fmi3InstantiateCoSimulation          fmi3FullName(fmi3InstantiateCoSimulation)

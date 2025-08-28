@@ -8,7 +8,7 @@
 //! the FMI 3.0 API. All user-model-specific functions are delegated to the [`Model`] trait,
 //! which the user model must implement.
 
-use std::{collections::BTreeMap, ffi::CString, path::PathBuf};
+use std::{collections::BTreeMap, ffi::CString, path::PathBuf, str::FromStr};
 
 use fmi::fmi3::{Common, Fmi3Error, Fmi3Res, Fmi3Status, GetSet, ModelExchange, binding, schema};
 
@@ -62,11 +62,17 @@ pub enum ModelState {
     Terminated,
 }
 
+pub trait ModelLoggingCategory: Ord + std::fmt::Display + FromStr + Copy + Default {
+    fn all_categories() -> impl Iterator<Item = Self>;
+}
+
 /// Model trait, to be implemented by the user model
 pub trait Model: Default + GetSet + UserModel {
     const MODEL_NAME: &'static str;
     const MODEL_DESCRIPTION: &'static str;
     const INSTANTIATION_TOKEN: &'static str;
+
+    type LoggingCategory: ModelLoggingCategory + 'static;
 
     /// Set start values
     fn set_start_values(&mut self);
@@ -128,9 +134,11 @@ pub struct ModelInstance<M: Model> {
     resource_path: PathBuf,
     /// Map of logging categories to their enabled state.
     /// This is used to track which categories are enabled for logging.
-    logging_on: BTreeMap<log::Level, bool>,
+    logging_on: BTreeMap<M::LoggingCategory, bool>,
+
     /// Callback for logging messages.
-    log_message: binding::fmi3LogMessageCallback,
+    log_message: Box<dyn Fn(Fmi3Status, &str, &str) + Send + Sync>,
+
     state: ModelState,
 
     /// event info
@@ -169,7 +177,7 @@ impl<F: Model> ModelInstance<F> {
         name: String,
         resource_path: PathBuf,
         logging_on: bool,
-        log_message: binding::fmi3LogMessageCallback,
+        log_message: Box<dyn Fn(Fmi3Status, &str, &str) + Send + Sync>,
         instantiation_token: &str,
     ) -> Result<Self, Fmi3Error> {
         // Validate the instantiation token using the compile-time constant
@@ -182,8 +190,8 @@ impl<F: Model> ModelInstance<F> {
             return Err(Fmi3Error::Error);
         }
 
-        let logging_on = log::Level::iter()
-            .map(|level| (level, logging_on))
+        let logging_on = F::LoggingCategory::all_categories()
+            .map(|category| (category, logging_on))
             .collect();
 
         let num_event_indicators = F::get_number_of_event_indicators();
@@ -212,22 +220,10 @@ impl<F: Model> ModelInstance<F> {
         Ok(instance)
     }
 
-    pub fn log(&self, level: log::Level, message: &str) {
-        if let Some(enabled) = self.logging_on.get(&level) {
-            if *enabled {
-                let status: Fmi3Status = Fmi3Res::OK.into();
-                let category = CString::new(level.to_string()).expect("Invalid category name");
-                let message = CString::new(message).expect("Invalid message");
-
-                unsafe {
-                    (self.log_message.unwrap())(
-                        std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
-                        status.into(),
-                        category.as_ptr() as binding::fmi3String,
-                        message.as_ptr() as binding::fmi3String,
-                    )
-                };
-            }
+    pub fn log(&self, status: Fmi3Status, category: F::LoggingCategory, message: &str) {
+        if matches!(self.logging_on.get(&category), Some(true)) {
+            // Call the logging callback
+            (self.log_message)(status, &category.to_string(), message);
         }
     }
 }
@@ -286,13 +282,17 @@ where
     ) -> Result<Fmi3Res, Fmi3Error> {
         for &cat in categories.iter() {
             if let Some(cat) = cat
-                .parse::<log::Level>()
+                .parse::<F::LoggingCategory>()
                 .ok()
                 .and_then(|level| self.logging_on.get_mut(&level))
             {
                 *cat = logging_on;
             } else {
-                log::warn!("Unknown logging category: {cat}");
+                self.log(
+                    Fmi3Error::Error.into(),
+                    F::LoggingCategory::default(),
+                    &format!("Unknown logging category {cat}"),
+                );
                 return Err(Fmi3Error::Error);
             }
         }
@@ -496,7 +496,11 @@ where
         match F::validate_variable_setting(vr, &self.state) {
             Ok(()) => Ok(()),
             Err(message) => {
-                self.log(log::Level::Error, message);
+                self.log(
+                    Fmi3Error::Error.into(),
+                    F::LoggingCategory::default(),
+                    &format!("Variable setting error for VR {}: {}", vr, message),
+                );
                 Err(Fmi3Error::Error)
             }
         }
