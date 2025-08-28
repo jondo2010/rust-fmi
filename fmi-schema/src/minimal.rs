@@ -11,15 +11,13 @@
 //! assert_eq!(version, semver::Version::new(2, 0, 0));
 //! ```
 
-use std::str::FromStr;
-
-use yaserde_derive::YaDeserialize;
+use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use crate::traits::FmiModelDescription;
 
 /// A minimal model description that only contains the FMI version
 /// This is used to determine the FMI version of the FMU
-#[derive(Default, PartialEq, Debug, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, YaDeserialize, YaSerialize)]
 #[yaserde(rename = "fmiModelDescription")]
 pub struct MinModelDescription {
     #[yaserde(attribute = true, rename = "fmiVersion")]
@@ -36,12 +34,12 @@ impl FmiModelDescription for MinModelDescription {
     fn version_string(&self) -> &str {
         &self.fmi_version
     }
-}
 
-impl FromStr for MinModelDescription {
-    type Err = crate::Error;
+    fn deserialize(xml: &str) -> Result<Self, crate::Error> {
+        yaserde::de::from_str(xml).map_err(crate::Error::XmlParse)
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        yaserde::de::from_str(s).map_err(crate::Error::XmlParse)
+    fn serialize(&self) -> Result<String, crate::Error> {
+        yaserde::ser::to_string(self).map_err(crate::Error::XmlParse)
     }
 }

@@ -5,7 +5,7 @@ use crate::{
         CS, Fmi3Error, Fmi3Res, ME, SE,
         traits::{Common, GetSet},
     },
-    traits::{FmiImport, FmiInstance, FmiStatus},
+    traits::{FmiImport, FmiInstance},
 };
 
 use super::{Fmi3Status, binding, import::Fmi3Import, schema};

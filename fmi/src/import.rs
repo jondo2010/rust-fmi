@@ -83,12 +83,11 @@
 use std::{
     io::{Read, Seek},
     path::Path,
-    str::FromStr,
 };
 
 use crate::{Error, traits::FmiImport};
 
-use fmi_schema::minimal::MinModelDescription as MinModel;
+use fmi_schema::{minimal::MinModelDescription as MinModel, traits::FmiModelDescription};
 
 /// Standard filename for the FMU model description file within the archive.
 ///
@@ -198,7 +197,7 @@ pub fn peek_descr<R: Read + Seek>(reader: R) -> Result<MinModel, Error> {
         .map_err(|e| Error::ArchiveStructure(e.to_string()))?;
     let mut descr_xml = String::new();
     descr_file.read_to_string(&mut descr_xml)?;
-    let descr = MinModel::from_str(&descr_xml)?;
+    let descr = MinModel::deserialize(&descr_xml)?;
     log::debug!(
         "Found FMI {} named '{}'",
         descr.fmi_version,

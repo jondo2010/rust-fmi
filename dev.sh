@@ -95,6 +95,58 @@ check_all() {
     echo_status "All checks passed!"
 }
 
+# Function to build FMU examples
+build_fmu_examples() {
+    echo_status "Building FMU examples..."
+    check_submodules
+    
+    # Build the xtask first
+    echo_status "Building xtask..."
+    cargo build --package xtask
+    
+    # Build example FMUs
+    echo_status "Building bouncing_ball_fmu example..."
+    cargo run --package xtask -- build-fmu \
+        --crate-path fmi-export \
+        --example bouncing_ball_fmu \
+        --output target/fmu \
+        --release
+    
+    echo_status "FMU examples built successfully!"
+    echo_status "Output location: target/fmu/"
+}
+
+# Function to build multi-platform FMUs
+build_fmu_multi() {
+    echo_status "Building multi-platform FMU examples..."
+    check_submodules
+    
+    # Build the xtask first
+    echo_status "Building xtask..."
+    cargo build --package xtask
+    
+    # Check available targets
+    local targets="x86_64-unknown-linux-gnu"
+    if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
+        targets="$targets,x86_64-pc-windows-gnu"
+        echo_status "Windows cross-compilation available"
+    else
+        echo_warning "Windows cross-compilation not available (install mingw-w64)"
+    fi
+    
+    # Build multi-platform FMU
+    echo_status "Building bouncing_ball_fmu for platforms: $targets"
+    cargo run --package xtask -- build-fmu-multi \
+        --crate-path fmi-export \
+        --example bouncing_ball_fmu \
+        --targets "$targets" \
+        --output target/fmu \
+        --release
+    
+    echo_status "Multi-platform FMU built successfully!"
+    echo_status "Output location: target/fmu/"
+}
+
 # Function to prepare for commit
 pre_commit() {
     echo_status "Running pre-commit checks..."
@@ -120,7 +172,13 @@ show_help() {
     echo "  docs         Check documentation"
     echo "  check-all    Run all quality checks"
     echo "  pre-commit   Format, lint, and test (ideal before committing)"
+    echo "  build-fmu    Build FMU examples"
+    echo "  build-fmu-multi Build multi-platform FMU examples"
     echo "  help         Show this help message"
+    echo ""
+    echo "FMU Building:"
+    echo "  The build-fmu commands use the xtask system to create"
+    echo "  FMU packages from the examples in fmi-export."
     echo ""
 }
 
@@ -154,6 +212,12 @@ case "${1:-help}" in
         ;;
     pre-commit)
         pre_commit
+        ;;
+    build-fmu)
+        build_fmu_examples
+        ;;
+    build-fmu-multi)
+        build_fmu_multi
         ;;
     help|--help|-h)
         show_help

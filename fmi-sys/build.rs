@@ -14,7 +14,7 @@ fn main() {
             .header("fmi-standard2/headers/fmi2Functions.h")
             .dynamic_link_require_all(false)
             .dynamic_library_name("Fmi2Binding")
-            .allowlist_function("fmi2.*")
+            .allowlist_item("fmi2.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             // Configure for Rust 2024 edition compatibility
             .wrap_unsafe_ops(true)
@@ -32,7 +32,7 @@ fn main() {
             .header("fmi-standard3/headers/fmi3Functions.h")
             .dynamic_link_require_all(false)
             .dynamic_library_name("Fmi3Binding")
-            .allowlist_function("fmi3.*")
+            .allowlist_item("fmi3.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             // Configure for Rust 2024 edition compatibility
             .wrap_unsafe_ops(true)

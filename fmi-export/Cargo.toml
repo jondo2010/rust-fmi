@@ -1,0 +1,39 @@
+[package]
+name = "fmi-export"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+include.workspace = true
+
+[features]
+default = ["fmi3"]
+## Enable support for FMI 3.0
+fmi3 = ["fmi/fmi3", "fmi-sys/fmi3"]
+
+[dependencies]
+chrono = { workspace = true }
+document-features = { workspace = true }
+fmi = { workspace = true }
+fmi-sys = { workspace = true }
+fmi-export-derive = { workspace = true }
+log = { workspace = true }
+#serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+test-log = { workspace = true }
+
+# Build examples as dynamic libraries (dylib) for FMU export
+
+#[[example]]
+#name = "comprehensive_test"
+#crate-type = ["cdylib"]
+#
+#[[example]]
+#name = "test_macro"
+#crate-type = ["cdylib"]
