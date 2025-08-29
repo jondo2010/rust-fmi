@@ -7,7 +7,10 @@ use crate::model::{FieldAttributeOuter, Model};
 use crate::model_description::rust_type_to_variable_type;
 use fmi::fmi3::schema;
 
+mod getter_setter;
 mod start_values;
+
+pub use getter_setter::GetterSetterGen;
 
 /// Generate the Model trait implementation
 pub struct ModelImpl<'a> {
@@ -38,26 +41,24 @@ impl ToTokens for ModelImpl<'_> {
             .expect("Failed to serialize model description");
         let instantiation_token = &self.model_description.instantiation_token;
 
-        // Generate the LoggingCategory type name
-        //let logging_category_type = format_ident!("{}LoggingCategory", struct_name);
-
         // Generate function bodies
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
         let get_continuous_states_body = GetContinuousStatesGen::new(&self.model);
         let set_continuous_states_body = SetContinuousStatesGen::new(&self.model);
         let get_derivatives_body = GetDerivativesGen::new(&self.model);
         let variable_validation_body = VariableValidationGen::new(&self.model);
+        let getter_setter_methods = GetterSetterGen::new(&self.model);
 
         let number_of_continuous_states = count_continuous_states(&self.model);
         let number_of_event_indicators = count_event_indicators(&self.model);
 
         tokens.extend(quote! {
             impl ::fmi_export::fmi3::Model for #struct_name {
+                type ValueRef = ::fmi::fmi3::binding::fmi3ValueReference;
+
                 const MODEL_NAME: &'static str = #model_name;
                 const MODEL_DESCRIPTION: &'static str = #model_description_xml;
                 const INSTANTIATION_TOKEN: &'static str = #instantiation_token;
-
-                //type LoggingCategory = #logging_category_type;
 
                 fn set_start_values(&mut self) {
                     #set_start_values_body
@@ -93,6 +94,8 @@ impl ToTokens for ModelImpl<'_> {
                 ) -> Result<(), &'static str> {
                     #variable_validation_body
                 }
+
+                #getter_setter_methods
             }
         });
     }

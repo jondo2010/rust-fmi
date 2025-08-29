@@ -92,14 +92,25 @@ impl UserModel for BouncingBall {
         Fmi3Res::OK.into()
     }
 
-    fn event_update(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+    fn event_update(&mut self, context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // Handle ball bouncing off the ground
         if self.h <= 0.0 && self.v < 0.0 {
+            context.log(
+                Fmi3Res::OK,
+                BouncingBallLoggingCategory::LogEvents,
+                &format!("Ball bounced! h={:.3}, v={:.3}", self.h, self.v),
+            );
+
             self.h = f64::MIN_POSITIVE; // Slightly above ground
             self.v = -self.v * self.e; // Reverse velocity with energy loss
 
             // Stop bouncing if velocity becomes too small
             if self.v < self.v_min {
+                context.log(
+                    Fmi3Res::OK,
+                    BouncingBallLoggingCategory::LogEvents,
+                    "Ball stopped bouncing",
+                );
                 self.v = 0.0;
                 self.g = 0.0; // Disable gravity when stopped
             }
@@ -107,7 +118,8 @@ impl UserModel for BouncingBall {
         Ok(Fmi3Res::OK)
     }
 
-    fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<Fmi3Res, Fmi3Error> {
+    fn get_event_indicators(&mut self, indicators: &mut [f64], context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+        let _ = context; // Context available for logging if needed
         if !indicators.is_empty() {
             // Event indicator for ground contact
             indicators[0] = if self.h == 0.0 && self.v == 0.0 {

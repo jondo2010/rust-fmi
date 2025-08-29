@@ -1,14 +1,95 @@
 use std::{fmt::Display, str::FromStr};
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, GetSet, binding};
+use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding};
 
 use crate::fmi3::{ModelState, instance::ModelContext};
+
+/// Macro to generate getter and setter method declarations for the Model trait
+macro_rules! model_getter_setter {
+    ($name:ident, $ty:ty) => {
+        paste::paste! {
+            /// Get [<$name>] values from the model
+            fn [<get_ $name>](
+                &mut self,
+                vrs: &[Self::ValueRef],
+                values: &mut [$ty],
+                context: &ModelContext<Self>,
+            ) -> Result<Fmi3Res, Fmi3Error> {
+                let _ = (vrs, values, context);
+                Err(Fmi3Error::Error)
+            }
+
+            /// Set [<$name>] values in the model
+            fn [<set_ $name>](
+                &mut self,
+                vrs: &[Self::ValueRef],
+                values: &[$ty],
+                context: &ModelContext<Self>,
+            ) -> Result<Fmi3Res, Fmi3Error> {
+                let _ = (vrs, values, context);
+                Err(Fmi3Error::Error)
+            }
+        }
+    };
+}
+
+/// Macro for special getter/setter pairs that have different return types
+macro_rules! model_getter_setter_special {
+    (string) => {
+        /// Get string values from the model
+        fn get_string(
+            &mut self,
+            vrs: &[Self::ValueRef],
+            values: &mut [std::ffi::CString],
+            context: &ModelContext<Self>,
+        ) -> Result<(), Fmi3Error> {
+            let _ = (vrs, values, context);
+            Err(Fmi3Error::Error)
+        }
+
+        /// Set string values in the model
+        fn set_string(
+            &mut self,
+            vrs: &[Self::ValueRef],
+            values: &[std::ffi::CString],
+            context: &ModelContext<Self>,
+        ) -> Result<(), Fmi3Error> {
+            let _ = (vrs, values, context);
+            Err(Fmi3Error::Error)
+        }
+    };
+    (binary) => {
+        /// Get binary values from the model
+        fn get_binary(
+            &mut self,
+            vrs: &[Self::ValueRef],
+            values: &mut [&mut [u8]],
+            context: &ModelContext<Self>,
+        ) -> Result<Vec<usize>, Fmi3Error> {
+            let _ = (vrs, values, context);
+            Err(Fmi3Error::Error)
+        }
+
+        /// Set binary values in the model
+        fn set_binary(
+            &mut self,
+            vrs: &[Self::ValueRef],
+            values: &[&[u8]],
+            context: &ModelContext<Self>,
+        ) -> Result<(), Fmi3Error> {
+            let _ = (vrs, values, context);
+            Err(Fmi3Error::Error)
+        }
+    };
+}
 
 /// Model trait. This trait should be implementing by deriving `FmuModel` on the user model struct.
 ///
 /// It provides the necessary back-end functionality for the FMI 3.0 API, delegating user-specific
 /// behavior to the `UserModel` trait.
-pub trait Model: Default + GetSet + UserModel {
+pub trait Model: Default + UserModel {
+    type ValueRef: Copy + From<binding::fmi3ValueReference> + Into<binding::fmi3ValueReference>;
+
     const MODEL_NAME: &'static str;
     const MODEL_DESCRIPTION: &'static str;
     const INSTANTIATION_TOKEN: &'static str;
@@ -59,6 +140,24 @@ pub trait Model: Default + GetSet + UserModel {
         // For now, just return OK since our basic implementation doesn't need these
         Fmi3Res::OK.into()
     }
+
+    // GetSet methods now absorbed into Model trait using macro
+
+    model_getter_setter!(boolean, bool);
+    model_getter_setter!(float32, f32);
+    model_getter_setter!(float64, f64);
+    model_getter_setter!(int8, i8);
+    model_getter_setter!(int16, i16);
+    model_getter_setter!(int32, i32);
+    model_getter_setter!(int64, i64);
+    model_getter_setter!(uint8, u8);
+    model_getter_setter!(uint16, u16);
+    model_getter_setter!(uint32, u32);
+    model_getter_setter!(uint64, u64);
+
+    // Special getter/setter methods with different signatures
+    model_getter_setter_special!(string);
+    model_getter_setter_special!(binary);
 }
 
 pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
@@ -78,6 +177,7 @@ pub trait UserModel: Sized {
     /// Calculate values (derivatives, outputs, etc.)
     /// This method is called whenever the model needs to update its calculated values
     fn calculate_values(&mut self, context: &ModelContext<Self>) -> Fmi3Status {
+        let _ = context;
         Fmi3Res::OK.into()
     }
 
@@ -90,13 +190,19 @@ pub trait UserModel: Sized {
     /// - Set appropriate flags to indicate what has changed
     ///
     /// Returns Ok with the appropriate Fmi3Res status, or Err if an error occurs
-    fn event_update(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+    fn event_update(&mut self, context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+        let _ = context;
         Ok(Fmi3Res::OK)
     }
 
     /// Get event indicators for zero-crossing detection
     /// Returns the current values of event indicators
-    fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<Fmi3Res, Fmi3Error> {
+    fn get_event_indicators(
+        &mut self,
+        indicators: &mut [f64],
+        context: &ModelContext<Self>,
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        let _ = context;
         // Default implementation: no event indicators
         for indicator in indicators.iter_mut() {
             *indicator = 0.0;

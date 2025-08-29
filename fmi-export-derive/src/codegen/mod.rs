@@ -6,7 +6,6 @@ use quote::{ToTokens, quote};
 use crate::model::Model;
 use fmi::fmi3::schema;
 
-mod get_set;
 mod logging_category;
 mod model_impl;
 mod util;
@@ -45,15 +44,11 @@ impl ToTokens for CodeGenerator {
         let model_impl =
             model_impl::ModelImpl::new(struct_name, &self.model, &self.model_description);
 
-        // Generate GetSet implementation
-        let getset_impl = get_set::GetSetImpl::new(struct_name, &self.model);
-
         // Combine all implementations
         tokens.extend(quote! {
             #value_ref_enum
             //#logging_category_enum
             #model_impl
-            #getset_impl
         });
     }
 }

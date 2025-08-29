@@ -20,6 +20,8 @@ use crate::sim::{
     traits::{InstRecordValues, InstSetValues},
 };
 
+use fmi::{fmi3::GetSet, traits::FmiInstance};
+
 use itertools::Itertools;
 
 macro_rules! impl_recorder {
@@ -124,40 +126,40 @@ macro_rules! impl_set_values {
                 match values.data_type() {
                     DataType::Boolean => {
                         let values = values.as_boolean().iter().map(|x| x.unwrap()).collect_vec();
-                        self.set_boolean(vrs, &values);
+                        self.set_boolean(vrs, &values).unwrap();
                     }
                     DataType::Int8 => {
-                        self.set_int8(vrs, values.as_primitive::<Int8Type>().values());
+                        self.set_int8(vrs, values.as_primitive::<Int8Type>().values()).unwrap();
                     }
                     DataType::Int16 => {
-                        self.set_int16(vrs, values.as_primitive::<Int16Type>().values());
+                        self.set_int16(vrs, values.as_primitive::<Int16Type>().values()).unwrap();
                     }
                     DataType::Int32 => {
-                        self.set_int32(vrs, values.as_primitive::<Int32Type>().values());
+                        self.set_int32(vrs, values.as_primitive::<Int32Type>().values()).unwrap();
                     }
                     DataType::Int64 => {
-                        self.set_int64(vrs, values.as_primitive::<Int64Type>().values());
+                        self.set_int64(vrs, values.as_primitive::<Int64Type>().values()).unwrap();
                     }
                     DataType::UInt8 => {
-                        self.set_uint8(vrs, values.as_primitive::<UInt8Type>().values());
+                        self.set_uint8(vrs, values.as_primitive::<UInt8Type>().values()).unwrap();
                     }
                     DataType::UInt16 => {
-                        self.set_uint16(vrs, values.as_primitive::<UInt16Type>().values());
+                        self.set_uint16(vrs, values.as_primitive::<UInt16Type>().values()).unwrap();
                     }
                     DataType::UInt32 => {
-                        self.set_uint32(vrs, values.as_primitive::<UInt32Type>().values());
+                        self.set_uint32(vrs, values.as_primitive::<UInt32Type>().values()).unwrap();
                     }
                     DataType::UInt64 => {
-                        self.set_uint64(vrs, values.as_primitive::<UInt64Type>().values());
+                        self.set_uint64(vrs, values.as_primitive::<UInt64Type>().values()).unwrap();
                     }
                     DataType::Float16 => {
                         unimplemented!()
                     }
                     DataType::Float32 => {
-                        self.set_float32(vrs, values.as_primitive::<Float32Type>().values());
+                        self.set_float32(vrs, values.as_primitive::<Float32Type>().values()).unwrap();
                     }
                     DataType::Float64 => {
-                        self.set_float64(vrs, values.as_primitive::<Float64Type>().values());
+                        self.set_float64(vrs, values.as_primitive::<Float64Type>().values()).unwrap();
                     }
                     DataType::Binary => {
                         let binary_refs: Vec<&[u8]> = values

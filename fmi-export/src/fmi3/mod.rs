@@ -12,6 +12,8 @@ mod instance;
 mod macros;
 mod traits;
 
+use std::{fmt::Display, str::FromStr};
+
 pub use instance::{ModelContext, ModelInstance};
 pub use traits::{Model, ModelLoggingCategory, UserModel};
 
@@ -29,4 +31,35 @@ pub enum ModelState {
     ReconfigurationMode,
     IntermediateUpdateMode,
     Terminated,
+}
+
+/// Simple default logging category for models that don't need custom logging
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum DefaultLoggingCategory {
+    #[default]
+    Default,
+}
+
+impl Display for DefaultLoggingCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Default => write!(f, "default"),
+        }
+    }
+}
+
+impl FromStr for DefaultLoggingCategory {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "default" => Ok(Self::Default),
+            _ => Err(format!("Unknown logging category: {}", s)),
+        }
+    }
+}
+
+impl ModelLoggingCategory for DefaultLoggingCategory {
+    fn all_categories() -> impl Iterator<Item = Self> {
+        [Self::Default].iter().copied()
+    }
 }

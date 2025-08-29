@@ -18,7 +18,6 @@ proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 fmi = { workspace = true, features = ["fmi3"] }
-#fmi-schema = { workspace = true }
 uuid = { workspace = true }
 proc-macro-error2 = "2.0"
 attribute-derive = "0.10"

@@ -1072,8 +1072,7 @@ dependencies = [
  "document-features",
  "fmi",
  "fmi-export-derive",
- "fmi-sys",
- "log",
+ "paste",
  "test-log",
  "thiserror",
 ]

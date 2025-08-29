@@ -118,6 +118,11 @@ macro_rules! export_fmu {
                 return;
             }
             let _this = ::std::boxed::Box::from_raw(instance as *mut ::fmi_export::fmi3::ModelInstance<$ty>);
+            _this.context().log(
+                Fmi3Res::OK,
+                Default::default(),
+                &format!("{}: fmi3FreeInstance()", _this.instance_name()),
+            );
             // instance will be dropped here, freeing resources
         }
 
