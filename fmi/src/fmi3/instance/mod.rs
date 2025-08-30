@@ -1,11 +1,12 @@
 //! FMI 3.0 instance interface
 
 use crate::{
+    CS, InterfaceType, ME, SE,
     fmi3::{
-        CS, Fmi3Error, Fmi3Res, ME, SE,
+        Fmi3Error, Fmi3Res,
         traits::{Common, GetSet},
     },
-    traits::{FmiImport, FmiInstance},
+    traits::{FmiImport, FmiInstance, InstanceTag},
 };
 
 use super::{Fmi3Status, binding, import::Fmi3Import, schema};
@@ -86,7 +87,7 @@ where
     }
 }
 
-impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
+impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
     type ModelDescription = schema::Fmi3ModelDescription;
     type ValueRef = <Fmi3Import as FmiImport>::ValueRef;
     type Status = Fmi3Status;
@@ -97,6 +98,10 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
 
     fn get_version(&self) -> &str {
         Common::get_version(self)
+    }
+
+    fn interface_type(&self) -> InterfaceType {
+        Tag::TYPE
     }
 
     fn model_description(&self) -> &Self::ModelDescription {

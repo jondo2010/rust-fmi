@@ -7,12 +7,27 @@ where
     F: Model<ValueRef = binding::fmi3ValueReference>,
 {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        self.context.log(
+            Fmi3Res::OK,
+            Default::default(),
+            format_args!("enter_continuous_time_mode()"),
+        );
         match self.state {
             ModelState::EventMode => {
                 self.state = ModelState::ContinuousTimeMode;
                 Ok(Fmi3Res::OK)
             }
-            _ => Err(Fmi3Error::Error),
+            _ => {
+                self.context.log(
+                    Fmi3Error::Error,
+                    F::LoggingCategory::default(),
+                    format_args!(
+                        "enter_continuous_time_mode() called in invalid state {:?}",
+                        self.state
+                    ),
+                );
+                Err(Fmi3Error::Error)
+            }
         }
     }
 

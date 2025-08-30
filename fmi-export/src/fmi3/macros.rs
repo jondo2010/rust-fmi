@@ -72,9 +72,9 @@ macro_rules! export_fmu {
             if let Some(log_message) = log_message {
                 // Wrap the C callback in a Rust closure
                 let log_message =
-                    Box::new(move |status: ::fmi::fmi3::Fmi3Status, category: &str, message: &str| {
+                    Box::new(move |status: ::fmi::fmi3::Fmi3Status, category: &str, args: std::fmt::Arguments<'_>| {
                         let category_c = ::std::ffi::CString::new(category).unwrap_or_default();
-                        let message_c = ::std::ffi::CString::new(message).unwrap_or_default();
+                        let message_c = ::std::ffi::CString::new(args.to_string()).unwrap_or_default();
                         unsafe {
                             log_message(
                                 std::ptr::null_mut() as ::fmi::fmi3::binding::fmi3InstanceEnvironment,
@@ -121,7 +121,7 @@ macro_rules! export_fmu {
             _this.context().log(
                 Fmi3Res::OK,
                 Default::default(),
-                &format!("{}: fmi3FreeInstance()", _this.instance_name()),
+                format_args!("{}: fmi3FreeInstance()", _this.instance_name()),
             );
             // instance will be dropped here, freeing resources
         }

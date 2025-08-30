@@ -17,13 +17,6 @@ pub use traits::{CoSimulation, Common, Fmi3Model, GetSet, ModelExchange, Schedul
 
 use crate::traits::FmiStatus;
 
-/// Tag for Model Exchange
-pub struct ME;
-/// Tag for Co-Simulation
-pub struct CS;
-/// Tag for Scheduled Execution
-pub struct SE;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fmi3Res {
     /// The call was successful. The output argument values are defined.

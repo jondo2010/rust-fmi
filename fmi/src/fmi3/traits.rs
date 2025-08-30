@@ -189,6 +189,9 @@ pub trait Common: GetSet {
 
 /// Interface for Model Exchange instances
 pub trait ModelExchange: Common {
+    /// This function must be called to change from Event Mode into Continuous-Time Mode in Model Exchange.
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3EnterContinuousTimeMode>
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// This function is called after every completed step of the integrator provided the capability

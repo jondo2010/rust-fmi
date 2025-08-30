@@ -5,7 +5,7 @@ use fmi_schema::{
     traits::{DefaultExperiment, FmiModelDescription},
 };
 
-use crate::Error;
+use crate::{Error, InterfaceType};
 
 /// Generic FMI import trait
 pub trait FmiImport: Sized {
@@ -56,6 +56,10 @@ pub trait FmiStatus {
     fn is_error(&self) -> bool;
 }
 
+pub trait InstanceTag {
+    const TYPE: InterfaceType;
+}
+
 /// Result type alias for FMI instances
 ///
 /// This is essentially a `Result<FmiStatus, FmiError>` and maps the FMI result codes onto
@@ -74,6 +78,9 @@ pub trait FmiInstance {
 
     /// Get the version of the FMU
     fn get_version(&self) -> &str;
+
+    /// Get the instance type of the FMU
+    fn interface_type(&self) -> InterfaceType;
 
     /// Get the model description of the FMU
     fn model_description(&self) -> &Self::ModelDescription;

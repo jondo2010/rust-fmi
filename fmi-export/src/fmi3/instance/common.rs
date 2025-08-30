@@ -1,6 +1,9 @@
 use super::ModelInstance;
 use crate::fmi3::{Model, ModelState, instance::EventFlags};
-use fmi::fmi3::{Common, Fmi3Error, Fmi3Res, Fmi3Status, ModelExchange, binding};
+use fmi::{
+    InterfaceType,
+    fmi3::{Common, Fmi3Error, Fmi3Res, binding},
+};
 
 impl<F> Common for ModelInstance<F>
 where
@@ -27,7 +30,7 @@ where
                 self.context.log(
                     Fmi3Error::Error,
                     F::LoggingCategory::default(),
-                    &format!("Unknown logging category {cat}"),
+                    format_args!("Unknown logging category {cat}"),
                 );
                 return Err(Fmi3Error::Error);
             }
@@ -37,51 +40,69 @@ where
 
     fn enter_initialization_mode(
         &mut self,
-        _tolerance: Option<f64>,
-        _start_time: f64,
-        _stop_time: Option<f64>,
+        tolerance: Option<f64>,
+        start_time: f64,
+        stop_time: Option<f64>,
     ) -> Result<Fmi3Res, Fmi3Error> {
+        self.context.log(
+            Fmi3Res::OK,
+            Default::default(),
+            format_args!(
+                "enter_initialization_mode(tolerance: {tolerance:?}, start_time: {start_time:?}, stop_time: {stop_time:?})",
+            ),
+        );
+
         match self.state {
             ModelState::Instantiated => {
                 // Transition to INITIALIZATION_MODE
                 self.state = ModelState::InitializationMode;
-                //self.log("info", "Entering initialization mode");
                 Ok(Fmi3Res::OK)
             }
             _ => {
-                //this.log( "error", "Cannot enter initialization mode from current state",);
+                self.context.log(
+                    Fmi3Error::Error,
+                    F::LoggingCategory::default(),
+                    format_args!(
+                        "enter_initialization_mode() called in invalid state {:?}",
+                        self.state
+                    ),
+                );
                 Err(Fmi3Error::Error)
             }
         }
     }
 
     fn exit_initialization_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
-        // if values were set and no fmi3GetXXX triggered update before,
-        // ensure calculated values are updated now
-        if self.is_dirty_values {
-            self.model.calculate_values(&self.context);
-            self.is_dirty_values = false;
+        self.context.log(
+            Fmi3Res::OK,
+            Default::default(),
+            format_args!("exit_initialization_mode()"),
+        );
+
+        match self.interface_type() {
+            InterfaceType::ModelExchange => {
+                self.state = ModelState::EventMode;
+            }
+            InterfaceType::CoSimulation => {
+                //TODO support event mode switch
+                let event_mode_used = false;
+                if event_mode_used {
+                    self.state = ModelState::EventMode;
+                } else {
+                    self.state = ModelState::StepMode;
+                }
+            }
+            InterfaceType::ScheduledExecution => {
+                self.state = ModelState::ClockActivationMode;
+            }
         }
 
-        /*
-        switch (S->type) {
-            case ModelExchange:
-                S->state = EventMode;
-                break;
-            case CoSimulation:
-                S->state = S->eventModeUsed ? EventMode : StepMode;
-                break;
-            case ScheduledExecution:
-                S->state = ClockActivationMode;
-                break;
-        }
-        */
-
-        self.model.configurate();
         Ok(Fmi3Res::OK)
     }
 
     fn terminate(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        self.context
+            .log(Fmi3Res::OK, Default::default(), format_args!("terminate()"));
         self.state = ModelState::Terminated;
         Ok(Fmi3Res::OK)
     }

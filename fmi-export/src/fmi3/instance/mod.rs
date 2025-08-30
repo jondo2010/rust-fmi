@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, path::PathBuf};
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding};
+use fmi::{
+    InterfaceType,
+    fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding},
+};
 
 use crate::fmi3::{
     ModelState, UserModel,
@@ -39,12 +42,14 @@ pub struct ModelInstance<M: Model> {
     _marker: std::marker::PhantomData<M>,
 }
 
+type LogMessageClosure = Box<dyn Fn(Fmi3Status, &str, std::fmt::Arguments<'_>) + Send + Sync>;
+
 pub struct ModelContext<M: UserModel> {
     /// Map of logging categories to their enabled state.
     /// This is used to track which categories are enabled for logging.
     logging_on: BTreeMap<M::LoggingCategory, bool>,
     /// Callback for logging messages.
-    log_message: Box<dyn Fn(Fmi3Status, &str, &str) + Send + Sync>,
+    log_message: LogMessageClosure,
 }
 
 impl<M: UserModel> ModelContext<M> {
@@ -63,10 +68,15 @@ impl<M: UserModel> ModelContext<M> {
     }
 
     /// Log a message if the specified logging category is enabled.
-    pub fn log(&self, status: impl Into<Fmi3Status>, category: M::LoggingCategory, message: &str) {
+    pub fn log(
+        &self,
+        status: impl Into<Fmi3Status>,
+        category: M::LoggingCategory,
+        args: std::fmt::Arguments<'_>,
+    ) {
         if matches!(self.logging_on.get(&category), Some(true)) {
             // Call the logging callback
-            (self.log_message)(status.into(), &category.to_string(), message);
+            (self.log_message)(status.into(), &category.to_string(), args);
         } else {
             eprintln!("Logging disabled for category: {}", category);
         }
@@ -93,7 +103,7 @@ impl<M: Model> ModelInstance<M> {
         name: String,
         resource_path: PathBuf,
         logging_on: bool,
-        log_message: Box<dyn Fn(Fmi3Status, &str, &str) + Send + Sync>,
+        log_message: LogMessageClosure,
         instantiation_token: &str,
     ) -> Result<Self, Fmi3Error> {
         // Validate the instantiation token using the compile-time constant
@@ -140,6 +150,10 @@ impl<M: Model> ModelInstance<M> {
         Ok(instance)
     }
 
+    pub fn interface_type(&self) -> InterfaceType {
+        fmi::InterfaceType::ModelExchange
+    }
+
     pub fn instance_name(&self) -> &str {
         &self.instance_name
     }
@@ -156,7 +170,7 @@ impl<M: Model> ModelInstance<M> {
                 self.context.log(
                     Fmi3Error::Error,
                     M::LoggingCategory::default(),
-                    &format!("Variable setting error for VR {}: {}", vr, message),
+                    format_args!("Variable setting error for VR {vr}: {message}"),
                 );
                 Err(Fmi3Error::Error)
             }

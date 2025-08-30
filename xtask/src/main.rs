@@ -45,8 +45,12 @@ struct BundleArgs {
 }
 
 fn main() -> Result<()> {
-    // Initialize logging
-    env_logger::init();
+    // Initialize logging with INFO level by default, colored output
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Info)
+        .format_timestamp(None)
+        .format_target(false)
+        .init();
 
     let cli = Cli::parse();
 

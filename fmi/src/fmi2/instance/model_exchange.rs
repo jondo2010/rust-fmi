@@ -1,8 +1,8 @@
 use std::ffi::CString;
 
-use super::{CallbackFunctions, Instance, ME, binding, traits::ModelExchange};
+use super::{CallbackFunctions, Instance, binding, traits::ModelExchange};
 use crate::{
-    Error,
+    Error, ME,
     fmi2::{Fmi2Error, Fmi2Res, Fmi2Status, import},
     traits::{FmiEventHandler, FmiImport, FmiModelExchange, FmiStatus},
 };

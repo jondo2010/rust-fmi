@@ -1,9 +1,9 @@
 //! FMI 2.0 instance interface
 
 use crate::{
-    Error,
+    CS, Error, ME,
     fmi2::Fmi2Res,
-    traits::{FmiImport, FmiInstance, FmiStatus},
+    traits::{FmiImport, FmiInstance, FmiStatus, InstanceTag},
 };
 
 use super::{CallbackFunctions, Fmi2Error, Fmi2Status, binding, import::Fmi2Import, schema};
@@ -14,11 +14,6 @@ mod model_exchange;
 mod traits;
 
 pub use traits::{CoSimulation, Common, ModelExchange};
-
-/// Tag for Model Exchange instances
-pub struct ME;
-/// Tag for Co-Simulation instances
-pub struct CS;
 
 pub type InstanceME<'a> = Instance<'a, ME>;
 pub type InstanceCS<'a> = Instance<'a, CS>;
@@ -54,7 +49,7 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
     }
 }
 
-impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
+impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
     type ModelDescription = schema::Fmi2ModelDescription;
     type ValueRef = <Fmi2Import as FmiImport>::ValueRef;
     type Status = Fmi2Status;
@@ -66,6 +61,10 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
     /// The FMI-standard version string
     fn get_version(&self) -> &str {
         Common::get_version(self)
+    }
+
+    fn interface_type(&self) -> crate::InterfaceType {
+        Tag::TYPE
     }
 
     fn model_description(&self) -> &Self::ModelDescription {
@@ -123,7 +122,7 @@ impl Default for CallbackFunctions {
     }
 }
 
-impl<'a, Tag> Instance<'a, Tag> {
+impl<'a, Tag: InstanceTag> Instance<'a, Tag> {
     pub fn get_fmu_state(&mut self) -> Result<FmuState, Fmi2Error> {
         let mut state = std::ptr::null_mut();
         Fmi2Status(unsafe { self.binding.fmi2GetFMUstate(self.component, &mut state) }).ok()?;

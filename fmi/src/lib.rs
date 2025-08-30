@@ -46,7 +46,7 @@
 //!         // ... use import
 //!     }
 //!     MajorVersion::FMI3 => {
-//!         // Load as FMI 3.0  
+//!         // Load as FMI 3.0
 //!         let import: fmi::fmi3::import::Fmi3Import = import::from_path("path/to/model.fmu").unwrap();
 //!         // ... use import
 //!     }
@@ -124,4 +124,32 @@ pub enum Error {
     #[cfg(feature = "fmi3")]
     #[error(transparent)]
     Fmi3Error(#[from] fmi3::Fmi3Error),
+}
+
+#[derive(Debug)]
+pub enum InterfaceType {
+    ModelExchange,
+    CoSimulation,
+    ScheduledExecution,
+}
+
+/// Tag for Model Exchange
+pub struct ME;
+
+impl traits::InstanceTag for ME {
+    const TYPE: InterfaceType = InterfaceType::ModelExchange;
+}
+
+/// Tag for Co-Simulation
+pub struct CS;
+
+impl traits::InstanceTag for CS {
+    const TYPE: InterfaceType = InterfaceType::CoSimulation;
+}
+
+/// Tag for Scheduled Execution
+pub struct SE;
+
+impl traits::InstanceTag for SE {
+    const TYPE: InterfaceType = InterfaceType::ScheduledExecution;
 }

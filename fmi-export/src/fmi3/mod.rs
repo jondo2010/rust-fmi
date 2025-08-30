@@ -18,11 +18,26 @@ pub use instance::{ModelContext, ModelInstance};
 pub use traits::{Model, ModelLoggingCategory, UserModel};
 
 /// Represents the current state of the model instance
+#[derive(Debug)]
 pub enum ModelState {
     StartAndEnd,
     ConfigurationMode,
+    /// In the state `Instantiated` the FMU can do one-time initializations and allocate memory.
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#Instantiated>
     Instantiated,
+    /// The `InitializationMode` is used by the simulation algorithm to compute consistent initial
+    /// conditions for the overall system. Equations are active to determine the initial FMU state,
+    /// as well as all outputs (and optionally other variables exposed by the exporting tool).
+    /// Artificial or real algebraic loops over connected FMUs in Initialization Mode may be handled
+    /// by using appropriate numerical algorithms.
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#InitializationMode>
     InitializationMode,
+    /// In `EventMode` all continuous-time, discrete-time equations and active model partitions are
+    /// evaluated. Algebraic loops active during Event Mode are solved by event iteration.
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#EventMode>
     EventMode,
     ContinuousTimeMode,
     StepMode,

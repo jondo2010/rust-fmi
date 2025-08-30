@@ -3,19 +3,12 @@
 use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status};
 use fmi_export::{
     FmuModel,
-    fmi3::{Model, ModelContext, UserModel},
+    fmi3::{ModelContext, UserModel},
 };
 
 /// BouncingBall FMU model that can be exported as a complete FMU
 #[derive(FmuModel, Default, Debug)]
-#[model(
-    model_exchange(model_identifier = "bouncing_ball"),
-    logging_categories = [
-        category(name = "logAll", descr = "Log all events"),
-        category(name = "logEvents", descr = "Log physical events like bouncing"),
-        category(name = "logError", descr = "Log error conditions"),
-    ]
-)]
+#[model(model_exchange(model_identifier = "bouncing_ball"))]
 struct BouncingBall {
     /// Height above ground (state output)
     #[variable(causality = Output, state, start = 1.0)]
@@ -85,7 +78,7 @@ impl UserModel for BouncingBall {
         context.log(
             Fmi3Res::OK,
             BouncingBallLoggingCategory::LogAll,
-            "calculate_values() called",
+            format_args!("calculate_values() called"),
         );
 
         // Derivatives are handled by aliases: der(h) = v, der(v) = g
@@ -98,7 +91,7 @@ impl UserModel for BouncingBall {
             context.log(
                 Fmi3Res::OK,
                 BouncingBallLoggingCategory::LogEvents,
-                &format!("Ball bounced! h={:.3}, v={:.3}", self.h, self.v),
+                format_args!("Ball bounced! h={:.3}, v={:.3}", self.h, self.v),
             );
 
             self.h = f64::MIN_POSITIVE; // Slightly above ground
@@ -109,7 +102,7 @@ impl UserModel for BouncingBall {
                 context.log(
                     Fmi3Res::OK,
                     BouncingBallLoggingCategory::LogEvents,
-                    "Ball stopped bouncing",
+                    format_args!("Ball stopped bouncing"),
                 );
                 self.v = 0.0;
                 self.g = 0.0; // Disable gravity when stopped
@@ -118,7 +111,11 @@ impl UserModel for BouncingBall {
         Ok(Fmi3Res::OK)
     }
 
-    fn get_event_indicators(&mut self, indicators: &mut [f64], context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn get_event_indicators(
+        &mut self,
+        indicators: &mut [f64],
+        context: &ModelContext<Self>,
+    ) -> Result<Fmi3Res, Fmi3Error> {
         let _ = context; // Context available for logging if needed
         if !indicators.is_empty() {
             // Event indicator for ground contact

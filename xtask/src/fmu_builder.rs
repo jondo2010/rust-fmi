@@ -31,7 +31,7 @@ impl FmuBuilder {
         // Find the workspace root and package directory
         let workspace_root = std::env::current_dir()?;
         let package_path = Self::find_package_path(&workspace_root, &package_name)?;
-        
+
         // Check if this package can be built as a cdylib
         Self::validate_package_for_fmu(&package_path)?;
 
@@ -45,6 +45,15 @@ impl FmuBuilder {
         })
     }
 
+    /// Convert an absolute path to a relative path from the current working directory
+    fn to_relative_path(&self, path: &Path) -> String {
+        std::env::current_dir()
+            .ok()
+            .and_then(|cwd| path.strip_prefix(&cwd).ok())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| path.to_string_lossy().to_string())
+    }
+
     /// Validate that a package can be built as an FMU
     fn validate_package_for_fmu(package_path: &Path) -> Result<()> {
         let cargo_toml_path = package_path.join("Cargo.toml");
@@ -53,16 +62,19 @@ impl FmuBuilder {
         }
 
         let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path)?;
-        
+
         // Check if the package has lib crate-type = ["cdylib"]
         if cargo_toml_content.contains("crate-type") && cargo_toml_content.contains("cdylib") {
             return Ok(());
         }
-        
+
         bail!(
             "Package '{}' is not configured to build as a dynamic library (cdylib). \
             Add 'crate-type = [\"cdylib\"]' to [lib] section in Cargo.toml",
-            package_path.file_name().unwrap_or_default().to_string_lossy()
+            package_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
         );
     }
 
@@ -141,11 +153,13 @@ impl FmuBuilder {
         }
 
         debug!("Executing cargo build command: {:?}", cmd);
-        let output = cmd.output().context("Failed to execute cargo build")?;
+        info!("Running cargo build for target: {}", target);
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            bail!("Cargo build failed:\n{}", stderr);
+        // Use spawn() instead of output() to preserve colors and real-time output
+        let status = cmd.status().context("Failed to execute cargo build")?;
+
+        if !status.success() {
+            bail!("Cargo build failed with exit code: {:?}", status.code());
         }
 
         // Get the actual target directory from cargo metadata
@@ -155,7 +169,7 @@ impl FmuBuilder {
 
         let profile = if self.release { "release" } else { "debug" };
         let extension = self.platform_mapping.get_library_extension(target);
-        
+
         let lib_name = if target.contains("windows") {
             format!("{}.{}", self.target_name.replace('-', "_"), extension)
         } else {
@@ -163,17 +177,14 @@ impl FmuBuilder {
         };
 
         // Construct the path using the target directory from cargo metadata
-        let dylib_path = target_dir
-            .join(target)
-            .join(profile)
-            .join(&lib_name);
+        let dylib_path = target_dir.join(target).join(profile).join(&lib_name);
 
-        debug!("Looking for dylib at: {}", dylib_path.display());
+        debug!("Looking for dylib at: {}", self.to_relative_path(&dylib_path));
         if !dylib_path.exists() {
-            bail!("Built library not found at: {}", dylib_path.display());
+            bail!("Built library not found at: {}", self.to_relative_path(&dylib_path));
         }
 
-        info!("Successfully built dylib: {}", dylib_path.display());
+        info!("Successfully built dylib: {}", self.to_relative_path(&dylib_path));
         Ok(dylib_path)
     }
 
@@ -240,14 +251,14 @@ impl FmuBuilder {
     fn extract_model_description(&self, xml_path: &Path, dylib_path: &Path) -> Result<()> {
         info!(
             "Extracting model description from dylib: {}",
-            dylib_path.display()
+            self.to_relative_path(dylib_path)
         );
 
         // Check if the dylib file exists and log its size
         if !dylib_path.exists() {
             return Err(anyhow::anyhow!(
                 "Dylib does not exist: {}",
-                dylib_path.display()
+                self.to_relative_path(dylib_path)
             ));
         }
 
@@ -350,8 +361,6 @@ The source code for this FMU is available in the sources/ directory of this FMU 
 
     /// Create the final ZIP file
     fn create_zip(&self, source_dir: &Path, zip_path: &Path) -> Result<()> {
-        info!("Creating FMU archive: {}", zip_path.display());
-
         let file = fs::File::create(zip_path)?;
         let mut zip = ZipWriter::new(file);
         let options =
@@ -360,7 +369,6 @@ The source code for this FMU is available in the sources/ directory of this FMU 
         self.add_dir_to_zip(&mut zip, source_dir, source_dir, &options)?;
 
         zip.finish()?;
-        info!("FMU archive created successfully: {}", zip_path.display());
         Ok(())
     }
 
