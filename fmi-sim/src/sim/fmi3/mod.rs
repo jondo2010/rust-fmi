@@ -82,9 +82,7 @@ impl FmiSim for Fmi3Import {
 
         let mut sim_state =
             SimState::<InstanceME>::new(self, sim_params, input_state, recorder_state)?;
-        log::debug!("Initializing with start values");
         sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
-        log::debug!("Starting main loop");
         let stats = sim_state.main_loop::<solver::Euler>(())?;
 
         Ok((sim_state.recorder_state.finish(), stats))

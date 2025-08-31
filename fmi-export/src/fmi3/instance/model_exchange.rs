@@ -1,10 +1,10 @@
 use super::ModelInstance;
-use crate::fmi3::{Model, ModelState};
+use crate::fmi3::{Model, ModelState, traits::ModelLoggingCategory};
 use fmi::fmi3::{Fmi3Error, Fmi3Res, ModelExchange, binding};
 
-impl<F> ModelExchange for ModelInstance<F>
+impl<M> ModelExchange for ModelInstance<M>
 where
-    F: Model<ValueRef = binding::fmi3ValueReference>,
+    M: Model<ValueRef = binding::fmi3ValueReference>,
 {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
@@ -20,7 +20,7 @@ where
             _ => {
                 self.context.log(
                     Fmi3Error::Error,
-                    F::LoggingCategory::default(),
+                    M::LoggingCategory::default(),
                     format_args!(
                         "enter_continuous_time_mode() called in invalid state {:?}",
                         self.state
@@ -51,7 +51,6 @@ where
     fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi3Res, Fmi3Error> {
         self.model.set_continuous_states(states)?;
         self.is_dirty_values = true;
-        self.event_flags.values_of_continuous_states_changed = true;
         Ok(Fmi3Res::OK)
     }
 
@@ -68,7 +67,7 @@ where
     ) -> Result<Fmi3Res, Fmi3Error> {
         // Ensure values are up to date before computing derivatives
         if self.is_dirty_values {
-            self.model.calculate_values(&self.context);
+            self.model.calculate_values(&mut self.context);
             self.is_dirty_values = false;
         }
         self.model
@@ -87,20 +86,16 @@ where
     }
 
     fn get_number_of_event_indicators(&mut self) -> Result<usize, Fmi3Error> {
-        Ok(F::get_number_of_event_indicators())
+        Ok(M::get_number_of_event_indicators())
     }
 
     fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
-        // Update the internal event indicators from the model
+        self.context.log(
+            Fmi3Res::OK,
+            M::LoggingCategory::trace_category(),
+            format_args!("get_event_indicators()"),
+        );
         self.model
-            .get_event_indicators(&mut self.event_indicators, &self.context)?;
-
-        // Copy to the output array
-        let copy_len = indicators.len().min(self.event_indicators.len());
-        indicators[..copy_len].copy_from_slice(&self.event_indicators[..copy_len]);
-
-        // Check for zero crossings by comparing with previous values (simplified)
-        // In a full implementation, this would detect actual zero crossings
-        Ok(false) // Return false for now, indicating no state events
+            .get_event_indicators(&mut self.context, indicators)
     }
 }

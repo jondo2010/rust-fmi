@@ -1,7 +1,7 @@
 use super::ModelInstance;
-use crate::fmi3::{Model, ModelState, instance::EventFlags};
+use crate::fmi3::{Model, ModelState};
 use fmi::{
-    InterfaceType,
+    EventFlags, InterfaceType,
     fmi3::{Common, Fmi3Error, Fmi3Res, binding},
 };
 
@@ -114,13 +114,7 @@ where
         self.n_steps = 0;
 
         // Reset event info
-        self.event_flags = EventFlags::default();
         self.clocks_ticked = false;
-
-        // Reset event indicators
-        for indicator in &mut self.event_indicators {
-            *indicator = 0.0;
-        }
 
         self.model.set_start_values();
         Ok(Fmi3Res::OK)
@@ -141,18 +135,8 @@ where
 
     fn update_discrete_states(
         &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
-        *discrete_states_need_update = self.event_flags.discrete_states_need_update;
-        *terminate_simulation = self.event_flags.terminate_simulation;
-        *nominals_of_continuous_states_changed =
-            self.event_flags.nominals_of_continuous_states_changed;
-        *values_of_continuous_states_changed = self.event_flags.values_of_continuous_states_changed;
-        *next_event_time = self.event_flags.next_event_time;
-        Ok(Fmi3Res::OK)
+        self.model.event_update(&self.context, event_flags)
     }
 }

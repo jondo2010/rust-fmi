@@ -1,9 +1,12 @@
 //! Example port of the BouncingBall FMU from the Reference FMUs
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status};
+use fmi::{
+    EventFlags,
+    fmi3::{Fmi3Error, Fmi3Res, Fmi3Status},
+};
 use fmi_export::{
     FmuModel,
-    fmi3::{ModelContext, UserModel},
+    fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
 };
 
 /// BouncingBall FMU model that can be exported as a complete FMU
@@ -33,64 +36,24 @@ struct BouncingBall {
     v_min: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub enum BouncingBallLoggingCategory {
-    /// Log all events
-    #[default]
-    LogAll,
-    /// Log physical events like bouncing
-    LogEvents,
-    /// Log error conditions
-    LogError,
-}
-impl ::std::fmt::Display for BouncingBallLoggingCategory {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match self {
-            Self::LogAll => write!(f, "logAll"),
-            Self::LogEvents => write!(f, "logEvents"),
-            Self::LogError => write!(f, "logError"),
-        }
-    }
-}
-impl ::std::str::FromStr for BouncingBallLoggingCategory {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "logAll" => Ok(Self::LogAll),
-            "logEvents" => Ok(Self::LogEvents),
-            "logError" => Ok(Self::LogError),
-            _ => Err(format!("Unknown logging category: {}", s)),
-        }
-    }
-}
-impl ::fmi_export::fmi3::ModelLoggingCategory for BouncingBallLoggingCategory {
-    fn all_categories() -> impl Iterator<Item = Self> {
-        [Self::LogAll, Self::LogEvents, Self::LogError]
-            .iter()
-            .copied()
-    }
-}
-
 impl UserModel for BouncingBall {
-    type LoggingCategory = BouncingBallLoggingCategory;
+    type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, context: &ModelContext<Self>) -> Fmi3Status {
-        context.log(
-            Fmi3Res::OK,
-            BouncingBallLoggingCategory::LogAll,
-            format_args!("calculate_values() called"),
-        );
-
-        // Derivatives are handled by aliases: der(h) = v, der(v) = g
+    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Fmi3Status {
+        // nothing to do
         Fmi3Res::OK.into()
     }
 
-    fn event_update(&mut self, context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn event_update(
+        &mut self,
+        context: &ModelContext<Self>,
+        event_flags: &mut EventFlags,
+    ) -> Result<Fmi3Res, Fmi3Error> {
         // Handle ball bouncing off the ground
         if self.h <= 0.0 && self.v < 0.0 {
             context.log(
                 Fmi3Res::OK,
-                BouncingBallLoggingCategory::LogEvents,
+                Self::LoggingCategory::default(),
                 format_args!("Ball bounced! h={:.3}, v={:.3}", self.h, self.v),
             );
 
@@ -101,31 +64,34 @@ impl UserModel for BouncingBall {
             if self.v < self.v_min {
                 context.log(
                     Fmi3Res::OK,
-                    BouncingBallLoggingCategory::LogEvents,
+                    Self::LoggingCategory::default(),
                     format_args!("Ball stopped bouncing"),
                 );
                 self.v = 0.0;
                 self.g = 0.0; // Disable gravity when stopped
             }
+
+            event_flags.values_of_continuous_states_changed = true;
+        } else {
+            event_flags.values_of_continuous_states_changed = false;
         }
+
         Ok(Fmi3Res::OK)
     }
 
     fn get_event_indicators(
         &mut self,
+        _context: &ModelContext<Self>,
         indicators: &mut [f64],
-        context: &ModelContext<Self>,
-    ) -> Result<Fmi3Res, Fmi3Error> {
-        let _ = context; // Context available for logging if needed
-        if !indicators.is_empty() {
-            // Event indicator for ground contact
-            indicators[0] = if self.h == 0.0 && self.v == 0.0 {
-                1.0 // Special case: stopped ball
-            } else {
-                self.h // Height as event indicator
-            };
-        }
-        Ok(Fmi3Res::OK)
+    ) -> Result<bool, Fmi3Error> {
+        assert!(!indicators.is_empty());
+        // Event indicator for ground contact
+        indicators[0] = if self.h == 0.0 && self.v == 0.0 {
+            1.0 // Special case: stopped ball
+        } else {
+            self.h // Height as event indicator
+        };
+        Ok(true)
     }
 }
 

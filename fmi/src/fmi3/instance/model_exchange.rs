@@ -1,7 +1,7 @@
 use std::ffi::CString;
 
 use crate::{
-    Error,
+    Error, EventFlags,
     fmi3::{Common, Fmi3Error, Fmi3Res, Fmi3Status, ModelExchange, binding, import, logger},
     traits::{FmiEventHandler, FmiImport, FmiModelExchange, FmiStatus},
 };
@@ -184,20 +184,9 @@ impl FmiModelExchange for Instance<'_, ME> {
 
     fn update_discrete_states(
         &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
-        Common::update_discrete_states(
-            self,
-            discrete_states_need_update,
-            terminate_simulation,
-            nominals_of_continuous_states_changed,
-            values_of_continuous_states_changed,
-            next_event_time,
-        )
+        Common::update_discrete_states(self, event_flags)
     }
 
     fn completed_integrator_step(
@@ -264,19 +253,8 @@ impl FmiEventHandler for Instance<'_, ME> {
     #[inline]
     fn update_discrete_states(
         &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
-        Common::update_discrete_states(
-            self,
-            discrete_states_need_update,
-            terminate_simulation,
-            nominals_of_continuous_states_changed,
-            values_of_continuous_states_changed,
-            next_event_time,
-        )
+        Common::update_discrete_states(self, event_flags)
     }
 }

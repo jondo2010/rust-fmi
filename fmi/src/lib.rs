@@ -61,12 +61,15 @@ pub use fmi_schema as schema;
 
 use schema::MajorVersion;
 
+mod event_flags;
 #[cfg(feature = "fmi2")]
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
 pub mod import;
 pub mod traits;
+
+pub use event_flags::EventFlags;
 
 pub mod built_info {
     // The file has been placed there by the build script.

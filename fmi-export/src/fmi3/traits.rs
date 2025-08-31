@@ -1,6 +1,9 @@
 use std::{fmt::Display, str::FromStr};
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding};
+use fmi::{
+    EventFlags,
+    fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding},
+};
 
 use crate::fmi3::{ModelState, instance::ModelContext};
 
@@ -163,6 +166,8 @@ pub trait Model: Default + UserModel {
 pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
     /// Return an iterator over all possible logging categories
     fn all_categories() -> impl Iterator<Item = Self>;
+    /// Get the category for tracing FMI API calls
+    fn trace_category() -> Self;
 }
 
 /// User-defined model behavior trait
@@ -176,8 +181,7 @@ pub trait UserModel: Sized {
 
     /// Calculate values (derivatives, outputs, etc.)
     /// This method is called whenever the model needs to update its calculated values
-    fn calculate_values(&mut self, context: &ModelContext<Self>) -> Fmi3Status {
-        let _ = context;
+    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Fmi3Status {
         Fmi3Res::OK.into()
     }
 
@@ -190,23 +194,31 @@ pub trait UserModel: Sized {
     /// - Set appropriate flags to indicate what has changed
     ///
     /// Returns Ok with the appropriate Fmi3Res status, or Err if an error occurs
-    fn event_update(&mut self, context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
-        let _ = context;
+    fn event_update(
+        &mut self,
+        _context: &ModelContext<Self>,
+        _event_flags: &mut EventFlags,
+    ) -> Result<Fmi3Res, Fmi3Error> {
         Ok(Fmi3Res::OK)
     }
 
     /// Get event indicators for zero-crossing detection
-    /// Returns the current values of event indicators
+    ///
+    /// # Returns
+    /// - `Ok(true)` if event indicators were successfully computed
+    /// - `Ok(false)` if the FMU was not able to compute the event indicators because, for example,
+    ///     a numerical issue such as division by zero occurred (corresponding to the C API
+    ///     returning fmi3Discard)
+    /// - `Err(Fmi3Error)` for other error conditions
     fn get_event_indicators(
         &mut self,
+        _context: &ModelContext<Self>,
         indicators: &mut [f64],
-        context: &ModelContext<Self>,
-    ) -> Result<Fmi3Res, Fmi3Error> {
-        let _ = context;
+    ) -> Result<bool, Fmi3Error> {
         // Default implementation: no event indicators
         for indicator in indicators.iter_mut() {
             *indicator = 0.0;
         }
-        Ok(Fmi3Res::OK)
+        Ok(true)
     }
 }

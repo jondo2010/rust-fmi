@@ -1,6 +1,7 @@
 //! Traits for different instance types ([ModelExchange], [CoSimulation]).
 
 use crate::{
+    EventFlags,
     fmi2::{Fmi2Error, Fmi2Res},
     traits::FmiInstance,
 };
@@ -188,14 +189,7 @@ pub trait ModelExchange: Common {
     ///   * call [`ModelExchange::enter_continuous_time_mode`] if all FMUs return
     ///     `new_discrete_states_needed = false`.
     ///   * stay in Event Mode otherwise.
-    fn new_discrete_states(
-        &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
-    ) -> Result<Fmi2Res, Fmi2Error>;
+    fn new_discrete_states(&mut self, event_flags: &mut EventFlags) -> Result<Fmi2Res, Fmi2Error>;
 
     /// The model enters Continuous-Time Mode and all discrete-time equations become inactive and
     /// all relations are "frozen".

@@ -2,7 +2,7 @@ use std::ffi::CString;
 
 use super::{CallbackFunctions, Instance, binding, traits::ModelExchange};
 use crate::{
-    Error, ME,
+    Error, EventFlags, ME,
     fmi2::{Fmi2Error, Fmi2Res, Fmi2Status, import},
     traits::{FmiEventHandler, FmiImport, FmiModelExchange, FmiStatus},
 };
@@ -72,30 +72,15 @@ impl ModelExchange for Instance<'_, ME> {
         Fmi2Status::from(unsafe { self.binding.fmi2EnterEventMode(self.component) }).ok()
     }
 
-    fn new_discrete_states(
-        &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
-    ) -> Result<Fmi2Res, Fmi2Error> {
+    fn new_discrete_states(&mut self, event_flags: &mut EventFlags) -> Result<Fmi2Res, Fmi2Error> {
         let mut event_info = binding::fmi2EventInfo::default();
         let result = Fmi2Status::from(unsafe {
             self.binding
                 .fmi2NewDiscreteStates(self.component, &mut event_info)
         })
-        .ok();
-        *discrete_states_need_update = event_info.newDiscreteStatesNeeded != 0;
-        *terminate_simulation = event_info.terminateSimulation != 0;
-        *nominals_of_continuous_states_changed = event_info.nominalsOfContinuousStatesChanged != 0;
-        *values_of_continuous_states_changed = event_info.valuesOfContinuousStatesChanged != 0;
-        *next_event_time = if event_info.nextEventTimeDefined != 0 {
-            Some(event_info.nextEventTime)
-        } else {
-            None
-        };
-        result
+        .ok()?;
+        event_flags.update_from_fmi2_event_info(event_info);
+        Ok(result)
     }
 
     fn completed_integrator_step(
@@ -204,20 +189,9 @@ impl FmiModelExchange for Instance<'_, ME> {
 
     fn update_discrete_states(
         &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi2Res, Fmi2Error> {
-        ModelExchange::new_discrete_states(
-            self,
-            discrete_states_need_update,
-            terminate_simulation,
-            nominals_of_continuous_states_changed,
-            values_of_continuous_states_changed,
-            next_event_time,
-        )
+        ModelExchange::new_discrete_states(self, event_flags)
     }
 
     fn completed_integrator_step(
@@ -284,19 +258,8 @@ impl FmiEventHandler for Instance<'_, ME> {
 
     fn update_discrete_states(
         &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi2Res, Fmi2Error> {
-        ModelExchange::new_discrete_states(
-            self,
-            discrete_states_need_update,
-            terminate_simulation,
-            nominals_of_continuous_states_changed,
-            values_of_continuous_states_changed,
-            next_event_time,
-        )
+        ModelExchange::new_discrete_states(self, event_flags)
     }
 }

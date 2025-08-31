@@ -21,7 +21,6 @@ impl<'a> GetterSetterGen<'a> {
 
 impl ToTokens for GetterSetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-
         // Configuration for all supported types
         let method_configs = [
             (

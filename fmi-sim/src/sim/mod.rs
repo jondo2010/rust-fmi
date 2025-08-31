@@ -1,7 +1,10 @@
 use arrow::array::RecordBatch;
 use std::path::Path;
 
-use fmi::traits::{FmiEventHandler, FmiImport, FmiInstance};
+use fmi::{
+    EventFlags,
+    traits::{FmiEventHandler, FmiImport, FmiInstance},
+};
 
 pub use io::{InputState, RecorderState};
 
@@ -51,12 +54,7 @@ impl<Inst> SimHandleEvents for SimState<Inst>
 where
     Inst: FmiEventHandler + InstSetValues + InstRecordValues,
 {
-    fn handle_events(
-        &mut self,
-        time: f64,
-        input_event: bool,
-        terminate_simulation: &mut bool,
-    ) -> Result<bool, Error> {
+    fn handle_events(&mut self, time: f64, input_event: bool) -> Result<(bool, bool), Error> {
         self.inst.record_outputs(time, &mut self.recorder_state)?;
         self.inst.enter_event_mode().map_err(Into::into)?;
         if input_event {
@@ -64,26 +62,23 @@ where
                 .apply_input::<Linear>(time, &mut self.inst, true, true, true)?;
         }
         let mut reset_solver = false;
-        let mut discrete_states_need_update = true;
-        let mut nominals_of_continuous_states_changed = false;
-        let mut values_of_continuous_states_changed = false;
-        while discrete_states_need_update {
+        let mut event_flags = EventFlags::default();
+        event_flags.discrete_states_need_update = true;
+
+        while event_flags.discrete_states_need_update {
             self.inst
                 .update_discrete_states(
-                    &mut discrete_states_need_update,
-                    terminate_simulation,
-                    &mut nominals_of_continuous_states_changed,
-                    &mut values_of_continuous_states_changed,
-                    &mut self.next_event_time,
+                    &mut event_flags,
+                    //&mut self.next_event_time,
                 )
                 .map_err(Into::into)?;
-            if *terminate_simulation {
+            if event_flags.terminate_simulation {
                 break;
             }
-            reset_solver |=
-                nominals_of_continuous_states_changed || values_of_continuous_states_changed;
+            reset_solver |= event_flags.nominals_of_continuous_states_changed
+                || event_flags.values_of_continuous_states_changed;
         }
-        Ok(reset_solver)
+        Ok((reset_solver, event_flags.terminate_simulation))
     }
 }
 
@@ -133,28 +128,20 @@ macro_rules! impl_sim_default_initialize {
 
                 if self.sim_params.event_mode_used {
                     // update discrete states
-                    let mut discrete_states_need_update = true;
-                    let mut nominals_of_continuous_states_changed = false;
-                    let mut values_of_continuous_states_changed = false;
-                    while discrete_states_need_update {
-                        let mut terminate_simulation = false;
-
+                    let mut event_flags = EventFlags::default();
+                    event_flags.discrete_states_need_update = true;
+                    while event_flags.discrete_states_need_update {
                         self.inst
-                            .update_discrete_states(
-                                &mut discrete_states_need_update,
-                                &mut terminate_simulation,
-                                &mut nominals_of_continuous_states_changed,
-                                &mut values_of_continuous_states_changed,
-                                &mut self.next_event_time,
-                            )
+                            .update_discrete_states(&mut event_flags)
                             .map_err(fmi::Error::from)?;
 
-                        if terminate_simulation {
+                        if event_flags.terminate_simulation {
                             self.inst.terminate().map_err(fmi::Error::from)?;
                             log::error!("update_discrete_states() requested termination.");
                             break;
                         }
                     }
+                    self.next_event_time = event_flags.next_event_time;
                 }
                 Ok(())
             }

@@ -83,7 +83,7 @@ impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
         self.model_description.num_states()
     }
 
-    fn get_number_of_event_indicator_values(&mut self) -> usize {
+    fn get_number_of_event_indicators(&mut self) -> usize {
         self.model_description.num_event_indicators()
     }
 

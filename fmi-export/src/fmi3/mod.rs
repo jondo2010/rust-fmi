@@ -52,13 +52,16 @@ pub enum ModelState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum DefaultLoggingCategory {
     #[default]
-    Default,
+    LogAll,
+    /// Trace FMI API calls
+    Trace,
 }
 
 impl Display for DefaultLoggingCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Default => write!(f, "default"),
+            DefaultLoggingCategory::LogAll => f.write_str("logAll"),
+            DefaultLoggingCategory::Trace => f.write_str("trace"),
         }
     }
 }
@@ -67,7 +70,8 @@ impl FromStr for DefaultLoggingCategory {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "default" => Ok(Self::Default),
+            "logAll" => Ok(Self::LogAll),
+            "trace" => Ok(Self::Trace),
             _ => Err(format!("Unknown logging category: {}", s)),
         }
     }
@@ -75,6 +79,9 @@ impl FromStr for DefaultLoggingCategory {
 
 impl ModelLoggingCategory for DefaultLoggingCategory {
     fn all_categories() -> impl Iterator<Item = Self> {
-        [Self::Default].iter().copied()
+        [Self::LogAll, Self::Trace].into_iter()
+    }
+    fn trace_category() -> Self {
+        Self::Trace
     }
 }

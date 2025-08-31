@@ -1,6 +1,7 @@
 use std::mem::MaybeUninit;
 
 use crate::{
+    EventFlags,
     fmi3::{
         Fmi3Error, Fmi3Res, Fmi3Status, binding,
         import::Fmi3Import,
@@ -400,11 +401,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
 
     fn update_discrete_states(
         &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         let mut next_event_time_defined = false;
         let mut next_event_time_value = 0.0;
@@ -412,17 +409,17 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         let status: Fmi3Status = unsafe {
             self.binding.fmi3UpdateDiscreteStates(
                 self.ptr,
-                discrete_states_need_update as _,
-                terminate_simulation as _,
-                nominals_of_continuous_states_changed as _,
-                values_of_continuous_states_changed as _,
+                &mut event_flags.discrete_states_need_update as _,
+                &mut event_flags.terminate_simulation as _,
+                &mut event_flags.nominals_of_continuous_states_changed as _,
+                &mut event_flags.values_of_continuous_states_changed as _,
                 &mut next_event_time_defined as _,
                 &mut next_event_time_value as _,
             )
         }
         .into();
 
-        *next_event_time = if next_event_time_defined {
+        event_flags.next_event_time = if next_event_time_defined {
             Some(next_event_time_value)
         } else {
             None

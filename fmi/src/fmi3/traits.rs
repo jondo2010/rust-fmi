@@ -1,7 +1,7 @@
 //! Traits for the different instance types.
 
 use crate::{
-    Error,
+    Error, EventFlags,
     fmi3::{Fmi3Error, Fmi3Res, binding},
 };
 
@@ -179,11 +179,7 @@ pub trait Common: GetSet {
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates>
     fn update_discrete_states(
         &mut self,
-        _discrete_states_need_update: &mut bool,
-        _terminate_simulation: &mut bool,
-        _nominals_of_continuous_states_changed: &mut bool,
-        _values_of_continuous_states_changed: &mut bool,
-        _next_event_time: &mut Option<f64>,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error>;
 }
 

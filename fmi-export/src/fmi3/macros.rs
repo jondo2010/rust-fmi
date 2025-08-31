@@ -358,24 +358,19 @@ macro_rules! export_fmu {
             next_event_time: *mut ::fmi::fmi3::binding::fmi3Float64,
         ) -> ::fmi::fmi3::binding::fmi3Status {
             let instance = $crate::checked_deref!(instance, $ty);
-
-            let discrete_states_need_update: &mut bool = &mut *discrete_states_need_update;
-            let terminate_simulation: &mut bool = &mut *terminate_simulation;
-            let nominals_of_continuous_states_changed: &mut bool = &mut *nominals_of_continuous_states_changed;
-            let values_of_continuous_states_changed: &mut bool = &mut *values_of_continuous_states_changed;
-
-            let mut event_time = None;
+            let mut event_flags = ::fmi::EventFlags::default();
 
             match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::Common>::update_discrete_states(
                 instance,
-                discrete_states_need_update,
-                terminate_simulation,
-                nominals_of_continuous_states_changed,
-                values_of_continuous_states_changed,
-                &mut event_time,
+                &mut event_flags
             ) {
                 Ok(res) => {
-                    if let Some(event_time) = event_time {
+                    *discrete_states_need_update = event_flags.discrete_states_need_update;
+                    *terminate_simulation = event_flags.terminate_simulation;
+                    *nominals_of_continuous_states_changed = event_flags.nominals_of_continuous_states_changed;
+                    *values_of_continuous_states_changed = event_flags.values_of_continuous_states_changed;
+
+                    if let Some(event_time) = event_flags.next_event_time {
                         *next_event_time_defined = true;
                         *next_event_time = event_time;
                     } else {
