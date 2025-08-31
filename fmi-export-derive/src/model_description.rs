@@ -335,6 +335,7 @@ fn build_model_variables(fields: &[Field]) -> Result<schema::ModelVariables, Str
 /// - Outputs: variables with causality = Output
 /// - Continuous state derivatives: variables that are derivatives of continuous states
 /// - Initial unknowns: variables that are outputs or local variables
+/// - Event indicators: variables marked with event_indicator = true
 fn build_model_structure(
     fields: &[Field],
     model_variables: &schema::ModelVariables,
@@ -342,6 +343,7 @@ fn build_model_structure(
     let mut outputs = Vec::new();
     let mut continuous_state_derivatives = Vec::new();
     let mut initial_unknowns = Vec::new();
+    let mut event_indicators = Vec::new();
 
     // Create a mapping from variable names to value references
     let mut name_to_value_ref = std::collections::HashMap::new();
@@ -362,6 +364,16 @@ fn build_model_structure(
                 FieldAttributeOuter::Variable(var_attr) => {
                     if var_attr.state == Some(true) {
                         state_variables.insert(field.ident.to_string(), field.ident.to_string());
+                    }
+
+                    // Check if this is an event indicator
+                    if var_attr.event_indicator == Some(true) {
+                        if let Some(&value_ref) = name_to_value_ref.get(&field.ident.to_string()) {
+                            event_indicators.push(schema::Fmi3Unknown {
+                                value_reference: value_ref,
+                                ..Default::default()
+                            });
+                        }
                     }
 
                     // Check if this is an output variable
@@ -400,6 +412,18 @@ fn build_model_structure(
                         if alias_name.starts_with("der(") && alias_name.ends_with(")") {
                             derivative_variables
                                 .push((alias_name.clone(), field.ident.to_string()));
+                        }
+                    }
+
+                    // Check if this alias is an event indicator
+                    if alias_attr.event_indicator == Some(true) {
+                        let field_name = field.ident.to_string();
+                        let var_name = alias_attr.name.as_ref().unwrap_or(&field_name);
+                        if let Some(&value_ref) = name_to_value_ref.get(var_name) {
+                            event_indicators.push(schema::Fmi3Unknown {
+                                value_reference: value_ref,
+                                ..Default::default()
+                            });
                         }
                     }
 
@@ -454,6 +478,7 @@ fn build_model_structure(
         outputs,
         continuous_state_derivative: continuous_state_derivatives,
         initial_unknown: initial_unknowns,
+        event_indicator: event_indicators,
         ..Default::default()
     })
 }
@@ -1162,5 +1187,122 @@ mod tests {
 
         // Test initial unknowns: should include outputs and local variables
         assert!(model_structure.initial_unknown.len() >= 2); // At least outputs + locals
+    }
+
+    #[test]
+    fn test_event_indicators() {
+        use crate::model::{FieldAttribute, FieldAttributeOuter};
+        use syn::parse_quote;
+
+        let fields = vec![
+            // State variable (height) that's also an event indicator
+            Field {
+                ident: parse_quote!(h),
+                ty: parse_quote!(f64),
+                attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
+                    causality: Some(parse_quote!(Output)),
+                    state: Some(true),
+                    event_indicator: Some(true),
+                    start: Some(parse_quote!(1.0)),
+                    ..Default::default()
+                })],
+            },
+            // State variable (velocity) - not an event indicator
+            Field {
+                ident: parse_quote!(v),
+                ty: parse_quote!(f64),
+                attrs: vec![
+                    FieldAttributeOuter::Variable(FieldAttribute {
+                        causality: Some(parse_quote!(Output)),
+                        state: Some(true),
+                        start: Some(parse_quote!(0.0)),
+                        ..Default::default()
+                    }),
+                    FieldAttributeOuter::Alias(FieldAttribute {
+                        name: Some("der(h)".to_string()),
+                        causality: Some(parse_quote!(Local)),
+                        derivative: Some(parse_quote!(h)),
+                        ..Default::default()
+                    }),
+                ],
+            },
+            // Gravitational acceleration (derivative of velocity)
+            Field {
+                ident: parse_quote!(g),
+                ty: parse_quote!(f64),
+                attrs: vec![
+                    FieldAttributeOuter::Variable(FieldAttribute {
+                        causality: Some(parse_quote!(Parameter)),
+                        start: Some(parse_quote!(-9.81)),
+                        ..Default::default()
+                    }),
+                    FieldAttributeOuter::Alias(FieldAttribute {
+                        name: Some("der(v)".to_string()),
+                        causality: Some(parse_quote!(Local)),
+                        derivative: Some(parse_quote!(v)),
+                        ..Default::default()
+                    }),
+                ],
+            },
+            // Another event indicator (contact force)
+            Field {
+                ident: parse_quote!(contact_force),
+                ty: parse_quote!(f64),
+                attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
+                    causality: Some(parse_quote!(Local)),
+                    event_indicator: Some(true),
+                    start: Some(parse_quote!(0.0)),
+                    ..Default::default()
+                })],
+            },
+        ];
+
+        let model_variables = build_model_variables(&fields).unwrap();
+        let model_structure = build_model_structure(&fields, &model_variables).unwrap();
+
+        // Test event indicators: h and contact_force should be event indicators
+        assert_eq!(model_structure.event_indicator.len(), 2);
+
+        // Find value references for h and contact_force
+        let h_value_ref = model_variables
+            .float64
+            .iter()
+            .find(|var| var.name() == "h")
+            .map(|var| var.value_reference())
+            .unwrap();
+        let contact_force_value_ref = model_variables
+            .float64
+            .iter()
+            .find(|var| var.name() == "contact_force")
+            .map(|var| var.value_reference())
+            .unwrap();
+
+        assert!(
+            model_structure
+                .event_indicator
+                .iter()
+                .any(|ei| ei.value_reference == h_value_ref)
+        );
+        assert!(
+            model_structure
+                .event_indicator
+                .iter()
+                .any(|ei| ei.value_reference == contact_force_value_ref)
+        );
+
+        // Test that v is NOT an event indicator
+        let v_value_ref = model_variables
+            .float64
+            .iter()
+            .find(|var| var.name() == "v")
+            .map(|var| var.value_reference())
+            .unwrap();
+
+        assert!(
+            !model_structure
+                .event_indicator
+                .iter()
+                .any(|ei| ei.value_reference == v_value_ref)
+        );
     }
 }

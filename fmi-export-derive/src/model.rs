@@ -112,6 +112,8 @@ pub struct FieldAttribute {
     pub derivative: Option<syn::Ident>,
     /// Indicate that this variable is a state variable
     pub state: Option<bool>,
+    /// Indicate that this variable is an event indicator
+    pub event_indicator: Option<bool>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

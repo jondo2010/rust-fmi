@@ -14,7 +14,7 @@ use fmi_export::{
 #[model(model_exchange(model_identifier = "bouncing_ball"))]
 struct BouncingBall {
     /// Height above ground (state output)
-    #[variable(causality = Output, state, start = 1.0)]
+    #[variable(causality = Output, state, event_indicator, start = 1.0)]
     h: f64,
 
     /// Velocity of the ball

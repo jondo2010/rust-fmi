@@ -103,29 +103,27 @@ impl ToTokens for ModelImpl<'_> {
 
 /// Count the number of continuous states in the model
 fn count_continuous_states(model: &Model) -> usize {
-    let mut count = 0;
-    for field in &model.fields {
-        for attr in &field.attrs {
-            if let FieldAttributeOuter::Variable(var_attr) = attr {
-                if var_attr.state == Some(true) {
-                    count += 1;
-                    break;
-                }
-            }
-        }
-    }
-    count
+    model
+        .fields
+        .iter()
+        .filter(|field| {
+            field.attrs.iter().any(|attr| {
+            matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.state == Some(true))
+        })
+        })
+        .count()
 }
 
 /// Count the number of event indicators in the model
 fn count_event_indicators(model: &Model) -> usize {
-    // For now, simple heuristic: if there's a field named 'h', it's an event indicator
-    for field in &model.fields {
-        if field.ident.to_string() == "h" {
-            return 1;
-        }
-    }
-    0
+    model.fields
+        .iter()
+        .filter(|field| {
+            field.attrs.iter().any(|attr| {
+                matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.event_indicator == Some(true))
+            })
+        })
+        .count()
 }
 
 // Helper generators for specific function bodies
