@@ -1,7 +1,7 @@
 [package]
 name = "bouncing_ball"
 description = "Example port of the BouncingBall FMU from the Reference FMUs"
-version.workspace = true
+version = "0.1.0"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -12,3 +12,6 @@ crate-type = ["cdylib"]
 [dependencies]
 fmi = { workspace = true, features = ["fmi3"] }
 fmi-export = { workspace = true, features = ["fmi3"] }
+
+[package.metadata.fmi]
+default_experiment = { start_time = "0", stop_time = "3", step_size = "1e-2" }

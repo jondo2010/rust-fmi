@@ -7,6 +7,7 @@
 use std::fmt::Display;
 
 use thiserror::Error;
+use yaserde::{YaDeserialize, YaSerialize};
 
 pub mod date_time;
 #[cfg(feature = "fmi2")]
@@ -55,4 +56,12 @@ pub enum Error {
 #[inline]
 fn default_wrapper<T: Default>() -> T {
     T::default()
+}
+
+pub fn serialize<T: YaSerialize>(value: &T) -> Result<String, Error> {
+    yaserde::ser::to_string(value).map_err(Error::XmlParse)
+}
+
+pub fn deserialize<T: YaDeserialize>(xml: &str) -> Result<T, Error> {
+    yaserde::de::from_str(xml).map_err(|e| Error::XmlParse(e.to_string()))
 }

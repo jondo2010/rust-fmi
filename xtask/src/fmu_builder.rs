@@ -8,6 +8,8 @@ use tempfile::TempDir;
 use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
+use fmi::fmi3::schema::{BuildConfiguration, Fmi3BuildDescription, SourceFile, SourceFileSet};
+
 use crate::model_description_extractor;
 use crate::platform::PlatformMapping;
 
@@ -86,7 +88,7 @@ impl FmuBuilder {
             .context("Failed to execute cargo metadata")?;
 
         for package in metadata.packages {
-            if package.name == package_name {
+            if package.name.as_str() == package_name {
                 return Ok(package.manifest_path.parent().unwrap().into());
             }
         }
@@ -179,12 +181,21 @@ impl FmuBuilder {
         // Construct the path using the target directory from cargo metadata
         let dylib_path = target_dir.join(target).join(profile).join(&lib_name);
 
-        debug!("Looking for dylib at: {}", self.to_relative_path(&dylib_path));
+        debug!(
+            "Looking for dylib at: {}",
+            self.to_relative_path(&dylib_path)
+        );
         if !dylib_path.exists() {
-            bail!("Built library not found at: {}", self.to_relative_path(&dylib_path));
+            bail!(
+                "Built library not found at: {}",
+                self.to_relative_path(&dylib_path)
+            );
         }
 
-        info!("Successfully built dylib: {}", self.to_relative_path(&dylib_path));
+        info!(
+            "Successfully built dylib: {}",
+            self.to_relative_path(&dylib_path)
+        );
         Ok(dylib_path)
     }
 
@@ -279,15 +290,41 @@ impl FmuBuilder {
     fn add_source_files(&self, sources_dir: &Path) -> Result<()> {
         debug!("Adding source files to: {}", sources_dir.display());
 
-        // Add a build description
-        let build_description = r#"<?xml version="1.0" encoding="UTF-8"?>
-<BuildDescription fmiVersion="3.0">
-    <SourceFileSet>
-        <SourceFile name="README.md"/>
-    </SourceFileSet>
-</BuildDescription>"#;
+        // Create a proper FMI 3.0 build description using the new schema structures
+        let build_description = Fmi3BuildDescription {
+            fmi_version: "3.0".to_string(),
+            build_configurations: vec![BuildConfiguration {
+                model_identifier: self.model_identifier.clone(),
+                platform: Some("generic".to_string()),
+                description: Some(format!(
+                    "Build configuration for {} FMU generated from Rust",
+                    self.model_identifier
+                )),
+                source_file_sets: vec![SourceFileSet {
+                    name: Some("documentation".to_string()),
+                    language: Some("Markdown".to_string()),
+                    source_files: vec![SourceFile {
+                        name: "README.md".to_string(),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
 
-        fs::write(sources_dir.join("buildDescription.xml"), build_description)?;
+        // Serialize the build description to XML using yaserde
+        let build_description_xml = fmi::schema::serialize(&build_description)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize build description to XML: {}", e))?;
+
+        fs::write(
+            sources_dir.join("buildDescription.xml"),
+            format!(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{}",
+                build_description_xml
+            ),
+        )?;
 
         // Add a README
         let build_command = format!("cargo xtask bundle {}", self.target_name);

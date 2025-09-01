@@ -14,16 +14,15 @@ include.workspace = true
 proc-macro = true
 
 [dependencies]
+attribute-derive = "0.10"
+chrono = { workspace = true }
+convert_case = "0.6"
+fmi = { workspace = true, features = ["fmi3"] }
+proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
-fmi = { workspace = true, features = ["fmi3"] }
 uuid = { workspace = true }
-proc-macro-error2 = "2.0"
-attribute-derive = "0.10"
-convert_case = "0.6"
-yaserde = "0.12"
-chrono = { workspace = true }
 
 [dev-dependencies]
 trybuild = "1.0"

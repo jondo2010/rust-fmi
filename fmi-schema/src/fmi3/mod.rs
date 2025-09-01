@@ -4,6 +4,7 @@
 
 mod annotation;
 mod attribute_groups;
+mod build_description;
 mod interface_type;
 mod model_description;
 mod r#type;
@@ -13,6 +14,7 @@ mod variable_dependency;
 
 pub use annotation::Fmi3Annotations as Annotations;
 pub use attribute_groups::*;
+pub use build_description::*;
 pub use interface_type::*;
 pub use model_description::*;
 pub use r#type::*;

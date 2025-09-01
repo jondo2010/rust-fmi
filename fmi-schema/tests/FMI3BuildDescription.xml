@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fmiBuildDescription fmiVersion="3.0">
+    <BuildConfiguration modelIdentifier="BouncingBall" platform="linux64" description="Linux 64-bit build">
+        <SourceFileSet name="main" language="C" compiler="gcc" compilerOptions="-O2 -Wall">
+            <SourceFile name="src/bouncing_ball.c"/>
+            <SourceFile name="src/fmi_functions.c"/>
+            <PreprocessorDefinition name="FMI_VERSION" value="3" description="FMI version"/>
+            <PreprocessorDefinition name="DEBUG" optional="true">
+                <Option value="0" description="Disable debug output"/>
+                <Option value="1" description="Enable debug output"/>
+            </PreprocessorDefinition>
+            <IncludeDirectory name="include"/>
+            <IncludeDirectory name="fmi/include"/>
+        </SourceFileSet>
+        <Library name="m" description="Math library"/>
+        <Library name="dl" external="true" description="Dynamic loading library"/>
+    </BuildConfiguration>
+    <BuildConfiguration modelIdentifier="BouncingBall" platform="win64" description="Windows 64-bit build">
+        <SourceFileSet name="main" language="C" compiler="msvc" compilerOptions="/O2 /W3">
+            <SourceFile name="src/bouncing_ball.c"/>
+            <SourceFile name="src/fmi_functions.c"/>
+            <PreprocessorDefinition name="FMI_VERSION" value="3"/>
+            <PreprocessorDefinition name="WIN32" value="1"/>
+            <IncludeDirectory name="include"/>
+            <IncludeDirectory name="fmi/include"/>
+        </SourceFileSet>
+        <Library name="msvcrt" external="true" description="Microsoft C Runtime"/>
+    </BuildConfiguration>
+</fmiBuildDescription>
