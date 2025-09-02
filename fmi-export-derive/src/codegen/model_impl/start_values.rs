@@ -3,8 +3,10 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 
-use crate::model::{FieldAttributeOuter, Model};
-use crate::model_description::rust_type_to_variable_type;
+use crate::{
+    model::{FieldAttributeOuter, Model},
+    util::rust_type_to_variable_type,
+};
 use fmi::fmi3::schema;
 
 pub struct SetStartValuesGen<'a>(&'a Model);

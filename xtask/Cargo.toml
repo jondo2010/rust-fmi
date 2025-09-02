@@ -11,6 +11,7 @@ chrono = "0.4"
 clap = { version = "4.0", features = ["derive"] }
 env_logger = "0.11"
 fmi = { workspace = true, features = ["fmi3"] }
+fmi-schema = { workspace = true, features = ["fmi3", "serde"] }
 libloading = "0.8"
 log = "0.4"
 regex = "1.0"

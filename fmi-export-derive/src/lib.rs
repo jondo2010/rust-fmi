@@ -9,13 +9,18 @@ use syn::{DeriveInput, parse_macro_input};
 
 mod codegen;
 mod model;
-mod model_description;
+mod model_structure;
+mod model_variables;
+mod util;
 
 #[cfg(test)]
 mod tests;
 
 use codegen::CodeGenerator;
 use model::Model;
+
+//TODO: move this into `fmi` crate?
+const RUST_FMI_NAMESPACE: uuid::Uuid = uuid::uuid!("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
 
 /// Main derive macro for FMU models
 ///

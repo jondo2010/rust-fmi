@@ -4,9 +4,10 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 
 use crate::model::Model;
+use crate::model_variables;
+use crate::model_structure;
 use fmi::fmi3::schema;
 
-mod logging_category;
 mod model_impl;
 mod util;
 mod value_ref;
@@ -14,18 +15,23 @@ mod value_ref;
 /// Main code generation structure
 pub struct CodeGenerator {
     pub model: Model,
-    pub model_description: schema::Fmi3ModelDescription,
+    pub model_variables: schema::ModelVariables,
+    pub model_structure: schema::ModelStructure,
 }
 
 impl CodeGenerator {
     pub fn new(model: Model) -> Self {
-        // Generate the model description using the new front-end
-        let model_description = schema::Fmi3ModelDescription::try_from(model.clone())
-            .expect("Failed to generate model description");
+        // Build model variables and structure directly
+        let model_variables = model_variables::build_model_variables(&model.fields)
+            .expect("Failed to build model variables");
+        
+        let model_structure = model_structure::build_model_structure(&model.fields, &model_variables)
+            .expect("Failed to build model structure");
 
         Self {
             model,
-            model_description,
+            model_variables,
+            model_structure,
         }
     }
 }
@@ -35,14 +41,14 @@ impl ToTokens for CodeGenerator {
         let struct_name = &self.model.ident;
 
         // Generate value reference enum
-        let value_ref_enum = value_ref::ValueRefEnum::new(&self.model, &self.model_description);
+        let value_ref_enum = value_ref::ValueRefEnum::new(&self.model, &self.model_variables);
 
         // Generate logging category enum
         //let logging_category_enum = logging_category::LoggingCategoryEnum::new(&self.model);
 
         // Generate Model implementation
         let model_impl =
-            model_impl::ModelImpl::new(struct_name, &self.model, &self.model_description);
+            model_impl::ModelImpl::new(struct_name, &self.model, &self.model_variables, &self.model_structure);
 
         // Combine all implementations
         tokens.extend(quote! {

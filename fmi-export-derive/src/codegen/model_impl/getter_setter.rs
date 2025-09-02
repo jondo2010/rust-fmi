@@ -5,7 +5,7 @@ use quote::{ToTokens, format_ident, quote};
 
 use crate::codegen::util;
 use crate::model::{FieldAttributeOuter, Model};
-use crate::model_description::rust_type_to_variable_type;
+use crate::util::rust_type_to_variable_type;
 use fmi::fmi3::schema;
 
 /// Generator for all getter/setter method implementations in the Model trait

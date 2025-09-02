@@ -9,14 +9,14 @@ use super::util;
 /// Generate the ValueRef enum
 pub struct ValueRefEnum<'a> {
     model: &'a Model,
-    model_description: &'a schema::Fmi3ModelDescription,
+    model_variables: &'a schema::ModelVariables,
 }
 
 impl<'a> ValueRefEnum<'a> {
-    pub fn new(model: &'a Model, model_description: &'a schema::Fmi3ModelDescription) -> Self {
+    pub fn new(model: &'a Model, model_variables: &'a schema::ModelVariables) -> Self {
         Self {
             model,
-            model_description,
+            model_variables,
         }
     }
 }
@@ -33,7 +33,7 @@ impl ToTokens for ValueRefEnum<'_> {
         let mut alias_to_vr = std::collections::HashMap::new();
 
         // Build mapping from the model description (source of truth)
-        for variable in self.model_description.model_variables.iter_abstract() {
+        for variable in self.model_variables.iter_abstract() {
             let var_name = variable.name();
             let vr = variable.value_reference();
 

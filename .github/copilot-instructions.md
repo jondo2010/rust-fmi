@@ -16,6 +16,7 @@ Always reference these instructions first and fallback to search or bash command
 - **WARNING**: Full test suite requires internet access:
   - `cargo test --all` -- FAILS in restricted environments due to TLS certificate issues downloading Reference-FMUs
   - Integration tests download test data from GitHub and will fail offline
+- **IMPORTANT**: When using types from the `fmi-schema` or `fmi-sys` crates in other crates, prefer to use them through the re-exports in the `fmi` crate: `use fmi::fmi3::{schema, binding}`, and with prefix.
 
 ## Validation
 
@@ -54,7 +55,7 @@ The following are tested commands and expected behaviors:
 # Essential preparation
 git submodule update --init --recursive  # ~30 seconds, downloads FMI headers
 
-# Core build commands  
+# Core build commands
 cargo check --all        # ~75 seconds - NEVER CANCEL. Set timeout to 120+ seconds.
 cargo build --all        # ~49 seconds - NEVER CANCEL. Set timeout to 90+ seconds.
 cargo build --all --release  # ~163 seconds (2m 42s) - NEVER CANCEL. Set timeout to 300+ seconds.
@@ -71,7 +72,7 @@ cargo run -p fmi-sim -- --help                    # Show main help
 cargo run -p fmi-sim -- --model file.fmu --help   # Show model-specific options
 
 # Subcommands available:
-# - model-exchange: Perform ModelExchange simulation  
+# - model-exchange: Perform ModelExchange simulation
 # - co-simulation: Perform CoSimulation simulation
 ```
 
@@ -85,7 +86,7 @@ cargo doc --package fmi-schema --no-deps  # Generate docs, ~4 seconds
 ```
 Cargo.toml              # Workspace configuration
 fmi-sys/                # C bindings with submodules
-├── fmi-standard2/      # FMI 2.0 headers (submodule)  
+├── fmi-standard2/      # FMI 2.0 headers (submodule)
 ├── fmi-standard3/      # FMI 3.0 headers (submodule)
 └── build.rs           # Bindgen build script
 fmi-sim/
@@ -101,7 +102,7 @@ rustfmt.toml          # Code formatting config (requires nightly for full featur
 - **ALWAYS** initialize submodules before building - required for FMI headers
 - **DO NOT** expect examples or integration tests to work offline - they require GitHub downloads
 - **DO NOT** run full clippy or rustfmt until known issues are resolved
-- **ALWAYS** use timeouts of 120+ seconds for check operations, 300+ seconds for release builds  
+- **ALWAYS** use timeouts of 120+ seconds for check operations, 300+ seconds for release builds
 - **INTERNET ACCESS REQUIRED** for integration tests and examples (downloads Reference-FMUs)
 - **BUILD TIMING**: Debug builds ~49s, Release builds ~163s (2m 42s) - plan accordingly
 
@@ -109,9 +110,9 @@ rustfmt.toml          # Code formatting config (requires nightly for full featur
 
 - **REQUIRED**: All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification
 - **Format**: `<type>[optional scope]: <description>`
-- **Types**: 
+- **Types**:
   - `feat`: New features
-  - `fix`: Bug fixes  
+  - `fix`: Bug fixes
   - `docs`: Documentation changes
   - `style`: Formatting, missing semi-colons, etc (no code change)
   - `refactor`: Code change that neither fixes bug nor adds feature

@@ -13,5 +13,5 @@ crate-type = ["cdylib"]
 fmi = { workspace = true, features = ["fmi3"] }
 fmi-export = { workspace = true, features = ["fmi3"] }
 
-[package.metadata.fmi]
+[package.metadata.fmu]
 default_experiment = { start_time = "0", stop_time = "3", step_size = "1e-2" }

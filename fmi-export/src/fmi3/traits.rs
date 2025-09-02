@@ -94,7 +94,8 @@ pub trait Model: Default + UserModel {
     type ValueRef: Copy + From<binding::fmi3ValueReference> + Into<binding::fmi3ValueReference>;
 
     const MODEL_NAME: &'static str;
-    const MODEL_DESCRIPTION: &'static str;
+    const MODEL_VARIABLES_XML: &'static str;
+    const MODEL_STRUCTURE_XML: &'static str;
     const INSTANTIATION_TOKEN: &'static str;
 
     /// Set start values

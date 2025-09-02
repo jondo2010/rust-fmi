@@ -1,10 +1,11 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, format_ident, quote};
 use syn::Ident;
+use uuid;
 
 use crate::codegen::util;
 use crate::model::{FieldAttributeOuter, Model};
-use crate::model_description::rust_type_to_variable_type;
+use crate::util::rust_type_to_variable_type;
 use fmi::fmi3::schema;
 
 mod getter_setter;
@@ -16,19 +17,22 @@ pub use getter_setter::GetterSetterGen;
 pub struct ModelImpl<'a> {
     struct_name: &'a Ident,
     model: &'a Model,
-    model_description: &'a schema::Fmi3ModelDescription,
+    model_variables: &'a schema::ModelVariables,
+    model_structure: &'a schema::ModelStructure,
 }
 
 impl<'a> ModelImpl<'a> {
     pub fn new(
         struct_name: &'a Ident,
         model: &'a Model,
-        model_description: &'a schema::Fmi3ModelDescription,
+        model_variables: &'a schema::ModelVariables,
+        model_structure: &'a schema::ModelStructure,
     ) -> Self {
         Self {
             struct_name,
             model,
-            model_description,
+            model_variables,
+            model_structure,
         }
     }
 }
@@ -36,10 +40,19 @@ impl<'a> ModelImpl<'a> {
 impl ToTokens for ModelImpl<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let struct_name = self.struct_name;
-        let model_name = &self.model_description.model_name;
-        let model_description_xml = yaserde::ser::to_string(self.model_description)
-            .expect("Failed to serialize model description");
-        let instantiation_token = &self.model_description.instantiation_token;
+
+        // Extract model name from the struct name
+        let model_name = &self.model.ident.to_string();
+
+        // Generate a UUID-based instantiation token from the model name
+        let instantiation_token =
+            uuid::Uuid::new_v5(&crate::RUST_FMI_NAMESPACE, model_name.as_bytes()).to_string();
+
+        // Serialize the individual components as XML fragments
+        let model_variables_xml = fmi::schema::serialize(self.model_variables, true)
+            .expect("Failed to serialize model variables");
+        let model_structure_xml = fmi::schema::serialize(self.model_structure, true)
+            .expect("Failed to serialize model structure");
 
         // Generate function bodies
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
@@ -57,7 +70,8 @@ impl ToTokens for ModelImpl<'_> {
                 type ValueRef = ::fmi::fmi3::binding::fmi3ValueReference;
 
                 const MODEL_NAME: &'static str = #model_name;
-                const MODEL_DESCRIPTION: &'static str = #model_description_xml;
+                const MODEL_VARIABLES_XML: &'static str = #model_variables_xml;
+                const MODEL_STRUCTURE_XML: &'static str = #model_structure_xml;
                 const INSTANTIATION_TOKEN: &'static str = #instantiation_token;
 
                 fn set_start_values(&mut self) {

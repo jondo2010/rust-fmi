@@ -27,72 +27,6 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
 pub struct StructAttr {
     /// Optional model description (defaults to the struct docstring)
     pub description: Option<String>,
-    /// ModelExchange interface configuration
-    pub model_exchange: Option<ModelExchangeAttr>,
-    /// CoSimulation interface configuration
-    pub co_simulation: Option<CoSimulationAttr>,
-    /// Logging categories for the model
-    #[from_attr(optional)]
-    pub logging_categories: Vec<LoggingCategoryAttr>,
-}
-
-/// ModelExchange interface capabilities that can be specified in attributes
-#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
-pub struct ModelExchangeAttr {
-    /// Optional custom model identifier (defaults to the struct name)
-    pub model_identifier: Option<String>,
-    pub needs_completed_integrator_step: Option<bool>,
-    pub provides_evaluate_discrete_states: Option<bool>,
-    pub needs_execution_tool: Option<bool>,
-    pub can_be_instantiated_only_once_per_process: Option<bool>,
-    pub can_get_and_set_fmu_state: Option<bool>,
-    pub can_serialize_fmu_state: Option<bool>,
-    pub provides_directional_derivatives: Option<bool>,
-    pub provides_adjoint_derivatives: Option<bool>,
-    pub provides_per_element_dependencies: Option<bool>,
-}
-
-/// CoSimulation interface capabilities that can be specified in attributes
-#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
-pub struct CoSimulationAttr {
-    /// Optional custom model identifier (defaults to the struct name)
-    pub model_identifier: Option<String>,
-    pub can_handle_variable_communication_step_size: Option<bool>,
-    pub fixed_internal_step_size: Option<f64>,
-    pub max_output_derivative_order: Option<u32>,
-    pub recommended_intermediate_input_smoothness: Option<i32>,
-    pub provides_intermediate_update: Option<bool>,
-    pub might_return_early_from_do_step: Option<bool>,
-    pub can_return_early_after_intermediate_update: Option<bool>,
-    pub has_event_mode: Option<bool>,
-    pub provides_evaluate_discrete_states: Option<bool>,
-    pub needs_execution_tool: Option<bool>,
-    pub can_be_instantiated_only_once_per_process: Option<bool>,
-    pub can_get_and_set_fmu_state: Option<bool>,
-    pub can_serialize_fmu_state: Option<bool>,
-    pub provides_directional_derivatives: Option<bool>,
-    pub provides_adjoint_derivatives: Option<bool>,
-    pub provides_per_element_dependencies: Option<bool>,
-}
-
-/// LoggingCategoryAttribute represents a logging category for the model
-#[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
-#[attribute(ident = category)]
-#[attribute(error(missing_field = "`{field}` was not specified"))]
-pub struct LoggingCategoryAttr {
-    pub name: String,
-    #[from_attr(optional)]
-    pub descr: Option<String>,
-}
-
-impl attribute_derive::parsing::AttributePositional for LoggingCategoryAttr {
-    fn parse_positional(
-        input: syn::parse::ParseStream,
-    ) -> syn::Result<Option<attribute_derive::parsing::SpannedValue<Self::Partial>>> {
-        use attribute_derive::parsing::AttributeNamed;
-        let parsed = LoggingCategoryAttr::parse_named("category", input)?;
-        Ok(parsed.map(|inner| inner.value))
-    }
 }
 
 /// FieldAttribute represents the attributes that can be applied to a model struct field
@@ -271,60 +205,6 @@ impl Model {
                 .unwrap_or_else(|| "".to_string())
         }
     }
-
-    /// Extract the interface type from model attributes
-    pub fn interface_type(&self) -> Option<String> {
-        self.attrs.iter().find_map(|attr| {
-            if let StructAttrOuter::Model(model_attr) = attr {
-                if model_attr.model_exchange.is_some() {
-                    Some("ModelExchange".to_string())
-                } else if model_attr.co_simulation.is_some() {
-                    Some("CoSimulation".to_string())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-    }
-
-    /// Extract the ModelExchange configuration from model attributes
-    pub fn model_exchange(&self) -> Option<&ModelExchangeAttr> {
-        self.attrs.iter().find_map(|attr| {
-            if let StructAttrOuter::Model(model_attr) = attr {
-                model_attr.model_exchange.as_ref()
-            } else {
-                None
-            }
-        })
-    }
-
-    /// Extract the CoSimulation configuration from model attributes
-    pub fn co_simulation(&self) -> Option<&CoSimulationAttr> {
-        self.attrs.iter().find_map(|attr| {
-            if let StructAttrOuter::Model(model_attr) = attr {
-                model_attr.co_simulation.as_ref()
-            } else {
-                None
-            }
-        })
-    }
-
-    /// Extract the logging categories from model attributes
-    pub fn log_categories(&self) -> Option<impl Iterator<Item = &LoggingCategoryAttr>> {
-        self.attrs.iter().find_map(|attr| {
-            if let StructAttrOuter::Model(model_attr) = attr {
-                if model_attr.logging_categories.is_empty() {
-                    None
-                } else {
-                    Some(model_attr.logging_categories.iter())
-                }
-            } else {
-                None
-            }
-        })
-    }
 }
 
 #[cfg(test)]
@@ -453,53 +333,6 @@ mod tests {
             model.fold_description(),
             "Custom model description".to_string(),
             "Model description should match the custom description"
-        );
-    }
-
-    #[test]
-    fn test_model_attributes() {
-        let input: syn::ItemStruct = syn::parse_quote! {
-            #[model(
-                model_exchange(needs_execution_tool),
-                logging_categories = [
-                    category(name = "logAll", descr ="Log all categories"),
-                    category(name = "logError"),
-                ],
-            )]
-            struct TestModel {
-                #[variable(causality = Output, start = 1.0)]
-                h: f64,
-            }
-        };
-        let model = Model::from(input);
-
-        assert_eq!(
-            model.attrs,
-            vec![StructAttrOuter::Model(StructAttr {
-                description: None,
-                model_exchange: Some(ModelExchangeAttr {
-                    needs_execution_tool: Some(true),
-                    ..Default::default()
-                }),
-                co_simulation: None,
-                logging_categories: vec![
-                    LoggingCategoryAttr {
-                        name: "logAll".to_string(),
-                        descr: Some("Log all categories".to_string())
-                    },
-                    LoggingCategoryAttr {
-                        name: "logError".to_string(),
-                        descr: None
-                    }
-                ],
-            })],
-            "Model should have one attribute with no description"
-        );
-        assert_eq!(model.fields.len(), 1, "Model should have one field");
-        let expected_ident: syn::Ident = syn::parse_quote!(h);
-        assert_eq!(
-            model.fields[0].ident, expected_ident,
-            "Field name should be 'h'"
         );
     }
 }

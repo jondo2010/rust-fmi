@@ -2,6 +2,8 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::Annotations;
 
+//TODO: Refactor these structs to use a common base struct / macros
+
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(rename = "InterfaceType")]
 pub struct Fmi3InterfaceType {

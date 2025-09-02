@@ -156,16 +156,34 @@ pub struct Category {
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct DefaultExperiment {
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
     #[yaserde(attribute = true, rename = "startTime")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
+    )]
     pub start_time: Option<f64>,
     #[yaserde(attribute = true, rename = "stopTime")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
+    )]
     pub stop_time: Option<f64>,
     #[yaserde(attribute = true, rename = "tolerance")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
+    )]
     pub tolerance: Option<f64>,
     #[yaserde(attribute = true, rename = "stepSize")]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
+    )]
     pub step_size: Option<f64>,
 }
 

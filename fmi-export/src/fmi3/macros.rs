@@ -13,11 +13,16 @@ macro_rules! checked_deref {
 #[macro_export]
 macro_rules! export_fmu {
     ($ty:ty) => {
-        /// Export the model description as a Rust str symbol
-        /// This allows extracting the XML from the compiled dylib
+        /// Export the model components as separate Rust str symbols
+        /// This allows extracting the individual XML components from the compiled dylib
         #[unsafe(no_mangle)]
-        #[allow(non_snake_case)]
-        pub static FMI3_MODEL_DESCRIPTION: &'static str = <$ty as ::fmi_export::fmi3::Model>::MODEL_DESCRIPTION;
+        pub static FMI3_MODEL_VARIABLES: &'static str = <$ty as ::fmi_export::fmi3::Model>::MODEL_VARIABLES_XML;
+
+        #[unsafe(no_mangle)]
+        pub static FMI3_MODEL_STRUCTURE: &'static str = <$ty as ::fmi_export::fmi3::Model>::MODEL_STRUCTURE_XML;
+
+        #[unsafe(no_mangle)]
+        pub static FMI3_INSTANTIATION_TOKEN: &'static str = <$ty as ::fmi_export::fmi3::Model>::INSTANTIATION_TOKEN;
 
         #[unsafe(no_mangle)]
         #[allow(non_snake_case)]

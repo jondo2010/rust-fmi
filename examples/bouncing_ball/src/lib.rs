@@ -1,4 +1,5 @@
 //! Example port of the BouncingBall FMU from the Reference FMUs
+#![deny(clippy::all)]
 
 use fmi::{
     EventFlags,
@@ -11,7 +12,7 @@ use fmi_export::{
 
 /// BouncingBall FMU model that can be exported as a complete FMU
 #[derive(FmuModel, Default, Debug)]
-#[model(model_exchange(model_identifier = "bouncing_ball"))]
+#[model()]
 struct BouncingBall {
     /// Height above ground (state output)
     #[variable(causality = Output, state, event_indicator, start = 1.0)]

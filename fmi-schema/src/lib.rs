@@ -16,6 +16,8 @@ pub mod fmi2;
 pub mod fmi3;
 pub mod minimal;
 pub mod traits;
+#[cfg(feature = "serde")]
+pub mod utils;
 pub mod variable_counts;
 
 /// The major version of the FMI standard
@@ -58,8 +60,14 @@ fn default_wrapper<T: Default>() -> T {
     T::default()
 }
 
-pub fn serialize<T: YaSerialize>(value: &T) -> Result<String, Error> {
-    yaserde::ser::to_string(value).map_err(Error::XmlParse)
+/// Serialize a value to XML string. If `fragment` is true, the XML declaration is omitted.
+pub fn serialize<T: YaSerialize>(value: &T, fragment: bool) -> Result<String, Error> {
+    let config = yaserde::ser::Config {
+        perform_indent: false,
+        write_document_declaration: !fragment,
+        indent_string: None,
+    };
+    yaserde::ser::to_string_with_config(value, &config).map_err(Error::XmlParse)
 }
 
 pub fn deserialize<T: YaDeserialize>(xml: &str) -> Result<T, Error> {

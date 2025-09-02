@@ -2,8 +2,8 @@ use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
+mod extractor;
 mod fmu_builder;
-mod model_description_extractor;
 mod platform;
 
 use fmu_builder::FmuBuilder;

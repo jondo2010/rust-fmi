@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
-use cargo_metadata::MetadataCommand;
+use cargo_metadata::{MetadataCommand, Package};
+use chrono::Utc;
 use log::{debug, info, warn};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -8,15 +9,15 @@ use tempfile::TempDir;
 use zip::write::SimpleFileOptions;
 use zip::ZipWriter;
 
-use fmi::fmi3::schema::{BuildConfiguration, Fmi3BuildDescription, SourceFile, SourceFileSet};
+use fmi::fmi3::{binding, schema};
 
-use crate::model_description_extractor;
+use crate::extractor;
 use crate::platform::PlatformMapping;
 
 /// Builder for creating FMU packages
 pub struct FmuBuilder {
-    crate_path: PathBuf,
-    target_name: String,
+    package: Package,
+    workspace_metadata: cargo_metadata::Metadata,
     model_identifier: String,
     output_dir: PathBuf,
     release: bool,
@@ -30,16 +31,27 @@ impl FmuBuilder {
         output_dir: PathBuf,
         release: bool,
     ) -> Result<Self> {
-        // Find the workspace root and package directory
+        // Get the workspace metadata
         let workspace_root = std::env::current_dir()?;
-        let package_path = Self::find_package_path(&workspace_root, &package_name)?;
+        let workspace_metadata = MetadataCommand::new()
+            .current_dir(&workspace_root)
+            .exec()
+            .context("Failed to execute cargo metadata")?;
+
+        // Find the package
+        let package = workspace_metadata
+            .packages
+            .iter()
+            .find(|p| p.name.as_str() == package_name)
+            .ok_or_else(|| anyhow::anyhow!("Package '{}' not found in workspace", package_name))?
+            .clone();
 
         // Check if this package can be built as a cdylib
-        Self::validate_package_for_fmu(&package_path)?;
+        Self::validate_package_for_fmu(&package)?;
 
         Ok(Self {
-            crate_path: package_path,
-            target_name: package_name.clone(),
+            package,
+            workspace_metadata,
             model_identifier,
             output_dir,
             release,
@@ -57,12 +69,8 @@ impl FmuBuilder {
     }
 
     /// Validate that a package can be built as an FMU
-    fn validate_package_for_fmu(package_path: &Path) -> Result<()> {
-        let cargo_toml_path = package_path.join("Cargo.toml");
-        if !cargo_toml_path.exists() {
-            bail!("No Cargo.toml found at {}", cargo_toml_path.display());
-        }
-
+    fn validate_package_for_fmu(package: &Package) -> Result<()> {
+        let cargo_toml_path = package.manifest_path.parent().unwrap().join("Cargo.toml");
         let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path)?;
 
         // Check if the package has lib crate-type = ["cdylib"]
@@ -73,33 +81,14 @@ impl FmuBuilder {
         bail!(
             "Package '{}' is not configured to build as a dynamic library (cdylib). \
             Add 'crate-type = [\"cdylib\"]' to [lib] section in Cargo.toml",
-            package_path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
+            package.name
         );
-    }
-
-    /// Find the path to a package in the workspace
-    fn find_package_path(workspace_root: &Path, package_name: &str) -> Result<PathBuf> {
-        let metadata = MetadataCommand::new()
-            .current_dir(workspace_root)
-            .exec()
-            .context("Failed to execute cargo metadata")?;
-
-        for package in metadata.packages {
-            if package.name.as_str() == package_name {
-                return Ok(package.manifest_path.parent().unwrap().into());
-            }
-        }
-
-        bail!("Package '{}' not found in workspace", package_name);
     }
 
     /// Get the cargo target directory using cargo metadata
     fn get_target_directory(&self) -> Result<PathBuf> {
         let metadata = MetadataCommand::new()
-            .current_dir(&self.crate_path)
+            .current_dir(&self.package.manifest_path.parent().unwrap())
             .no_deps()
             .exec()
             .context("Failed to execute cargo metadata")?;
@@ -145,8 +134,9 @@ impl FmuBuilder {
     fn build_dylib(&self, target: &str) -> Result<PathBuf> {
         debug!("Building dylib for target: {}", target);
 
+        let package_dir = self.package.manifest_path.parent().unwrap();
         let mut cmd = Command::new("cargo");
-        cmd.current_dir(&self.crate_path)
+        cmd.current_dir(&package_dir)
             .args(["build", "--lib"])
             .args(["--target", target]);
 
@@ -157,7 +147,6 @@ impl FmuBuilder {
         debug!("Executing cargo build command: {:?}", cmd);
         info!("Running cargo build for target: {}", target);
 
-        // Use spawn() instead of output() to preserve colors and real-time output
         let status = cmd.status().context("Failed to execute cargo build")?;
 
         if !status.success() {
@@ -173,9 +162,17 @@ impl FmuBuilder {
         let extension = self.platform_mapping.get_library_extension(target);
 
         let lib_name = if target.contains("windows") {
-            format!("{}.{}", self.target_name.replace('-', "_"), extension)
+            format!(
+                "{}.{}",
+                self.package.name.as_str().replace('-', "_"),
+                extension
+            )
         } else {
-            format!("lib{}.{}", self.target_name.replace('-', "_"), extension)
+            format!(
+                "lib{}.{}",
+                self.package.name.as_str().replace('-', "_"),
+                extension
+            )
         };
 
         // Construct the path using the target directory from cargo metadata
@@ -243,13 +240,16 @@ impl FmuBuilder {
             }
         }
 
-        // Extract model description from the first dylib
+        // Generate model description from dylib and package metadata
         let first_dylib = &dylib_paths[0].1;
-        self.extract_model_description(&fmu_temp.join("modelDescription.xml"), first_dylib)?;
+        self.create_model_description(&fmu_temp.join("modelDescription.xml"), first_dylib)?;
+
+        // Add buildDescription.xml and README.md to root
+        self.add_build_description(&fmu_temp)?;
+        self.add_readme(&fmu_temp)?;
 
         // Add sources and documentation
         self.add_source_files(&fmu_temp.join("sources"))?;
-        self.add_documentation(&fmu_temp.join("documentation"))?;
 
         // Create ZIP file
         self.create_zip(fmu_temp, fmu_path)?;
@@ -257,53 +257,106 @@ impl FmuBuilder {
         Ok(())
     }
 
-    /// Extract the modelDescription.xml file from the dylib
-    /// Extract model description XML from the built dylib
-    fn extract_model_description(&self, xml_path: &Path, dylib_path: &Path) -> Result<()> {
+    /// Parse FMU metadata from package.metadata.fmu and convert to DefaultExperiment
+    fn parse_fmu_metadata(&self) -> Result<Option<schema::DefaultExperiment>> {
+        // Check if the package has FMU metadata
+        if let Some(fmu_metadata_value) = self.package.metadata.get("fmu") {
+            debug!("Found FMU metadata in package: {:?}", fmu_metadata_value);
+
+            // Look for default_experiment in the metadata
+            if let Some(default_exp_value) = fmu_metadata_value.get("default_experiment") {
+                debug!(
+                    "Parsing DefaultExperiment from metadata: {:?}",
+                    default_exp_value
+                );
+
+                // Parse directly into DefaultExperiment using serde
+                let experiment: schema::DefaultExperiment = serde_json::from_value(default_exp_value.clone())
+                    .context("Failed to parse default_experiment metadata. Please check the format of your Cargo.toml [package.metadata.fmu.default_experiment] section.")?;
+
+                info!("Successfully parsed DefaultExperiment: start_time={:?}, stop_time={:?}, tolerance={:?}, step_size={:?}",
+                      experiment.start_time, experiment.stop_time, experiment.tolerance, experiment.step_size);
+
+                return Ok(Some(experiment));
+            }
+        }
+
+        debug!("No FMU metadata found in package");
+        Ok(None)
+    }
+
+    /// Create the modelDescription.xml file from package metadata and extracted dylib data
+    fn create_model_description(&self, xml_path: &Path, dylib_path: &Path) -> Result<()> {
         info!(
-            "Extracting model description from dylib: {}",
+            "Creating model description from package metadata and dylib: {}",
             self.to_relative_path(dylib_path)
         );
 
-        // Check if the dylib file exists and log its size
-        if !dylib_path.exists() {
-            return Err(anyhow::anyhow!(
-                "Dylib does not exist: {}",
-                self.to_relative_path(dylib_path)
-            ));
-        }
+        // Extract model variables, structure, and instantiation token from dylib
+        let model_data = extractor::extract_model_data(dylib_path)
+            .context("Failed to extract model data from dylib")?;
 
-        let metadata = fs::metadata(dylib_path)?;
-        debug!("Dylib file size: {} bytes", metadata.len());
+        // Parse FMU metadata for DefaultExperiment and other configurations
+        let default_experiment = self
+            .parse_fmu_metadata()
+            .context("Failed to parse FMU metadata from Cargo.toml")?;
 
-        let xml_content = model_description_extractor::extract_model_description(dylib_path)
-            .context("Failed to extract model description from dylib")?;
+        let fmi_version = unsafe { std::ffi::CStr::from_ptr(binding::fmi3Version.as_ptr() as _) }
+            .to_string_lossy();
 
-        debug!("Extracted XML content ({} bytes)", xml_content.len());
+        // Build model description from package metadata
+        let model_description = schema::Fmi3ModelDescription {
+            fmi_version: fmi_version.to_string(),
+            model_name: self.package.name.as_str().to_string(),
+            instantiation_token: model_data.instantiation_token,
+            description: self.package.description.clone(),
+            author: self.package.authors.first().map(|s| s.to_string()),
+            version: Some(self.package.version.to_string()),
+            generation_tool: Some("rust-fmi xtask".to_string()),
+            generation_date_and_time: Some(Utc::now().to_rfc3339()),
+            // Set the extracted model variables and structure
+            model_variables: model_data.model_variables,
+            model_structure: model_data.model_structure,
+            // Set the DefaultExperiment from metadata if present
+            default_experiment,
+            // For now we only support model-exchange
+            model_exchange: Some(schema::Fmi3ModelExchange {
+                model_identifier: self.model_identifier.clone(),
+                can_get_and_set_fmu_state: Some(false),
+                can_serialize_fmu_state: Some(false),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        // Serialize to XML
+        let xml_content = fmi::schema::serialize(&model_description, false)
+            .context("Failed to serialize model description to XML")?;
+
         fs::write(xml_path, xml_content)?;
         debug!("Model description written to: {}", xml_path.display());
 
         Ok(())
     }
 
-    /// Add source files to the FMU
-    fn add_source_files(&self, sources_dir: &Path) -> Result<()> {
-        debug!("Adding source files to: {}", sources_dir.display());
+    /// Add buildDescription.xml to the root of the FMU
+    fn add_build_description(&self, fmu_root: &Path) -> Result<()> {
+        debug!("Adding buildDescription.xml to: {}", fmu_root.display());
 
-        // Create a proper FMI 3.0 build description using the new schema structures
-        let build_description = Fmi3BuildDescription {
+        // Create build description
+        let build_description = schema::Fmi3BuildDescription {
             fmi_version: "3.0".to_string(),
-            build_configurations: vec![BuildConfiguration {
+            build_configurations: vec![schema::BuildConfiguration {
                 model_identifier: self.model_identifier.clone(),
                 platform: Some("generic".to_string()),
                 description: Some(format!(
                     "Build configuration for {} FMU generated from Rust",
                     self.model_identifier
                 )),
-                source_file_sets: vec![SourceFileSet {
+                source_file_sets: vec![schema::SourceFileSet {
                     name: Some("documentation".to_string()),
                     language: Some("Markdown".to_string()),
-                    source_files: vec![SourceFile {
+                    source_files: vec![schema::SourceFile {
                         name: "README.md".to_string(),
                         ..Default::default()
                     }],
@@ -314,85 +367,61 @@ impl FmuBuilder {
             ..Default::default()
         };
 
-        // Serialize the build description to XML using yaserde
-        let build_description_xml = fmi::schema::serialize(&build_description)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize build description to XML: {}", e))?;
+        // Serialize the build description to XML
+        let build_description_xml = fmi::schema::serialize(&build_description, false)
+            .context("Failed to serialize build description to XML")?;
 
-        fs::write(
-            sources_dir.join("buildDescription.xml"),
-            format!(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{}",
-                build_description_xml
-            ),
-        )?;
+        fs::write(fmu_root.join("buildDescription.xml"), build_description_xml)?;
 
-        // Add a README
-        let build_command = format!("cargo xtask bundle {}", self.target_name);
-
-        let readme = format!(
-            r#"# {} FMU Sources
-
-This FMU was generated from Rust code using rust-fmi.
-
-## Building
-
-This FMU was built using the rust-fmi xtask build system:
-
-```
-{}
-```
-
-## Model: {}
-
-Generated on: {}
-"#,
-            self.model_identifier,
-            build_command,
-            self.model_identifier,
-            chrono::Utc::now().to_rfc3339()
-        );
-
-        fs::write(sources_dir.join("README.md"), readme)?;
-        debug!("Source files added successfully");
-
+        debug!("buildDescription.xml added successfully");
         Ok(())
     }
 
-    /// Add documentation files to the FMU
-    fn add_documentation(&self, documentation_dir: &Path) -> Result<()> {
-        debug!("Adding documentation to: {}", documentation_dir.display());
+    /// Add README.md to the root of the FMU
+    fn add_readme(&self, fmu_root: &Path) -> Result<()> {
+        debug!("Adding README.md to: {}", fmu_root.display());
 
-        let target_info = format!("Package: {}", self.target_name);
+        let readme_content = format!(
+            r#"# {} FMU
 
-        let doc_content = format!(
-            r#"# {} Documentation
-
-This FMU was generated from Rust code using the rust-fmi library.
+This FMU (Functional Mock-up Unit) was generated from Rust code using the rust-fmi library.
 
 ## Model Information
+- Model Identifier: {}
+- FMI Version: 3.0
+- Generated: {}
 
-- **Model Identifier**: {}
-- **Target**: {}
-- **FMI Version**: 3.0
-- **Generated**: {}
+## Description
+This FMU implements a functional mock-up unit for use in simulation environments
+supporting the FMI (Functional Mock-up Interface) standard.
 
 ## Usage
+Load this FMU in any FMI-compatible simulation environment to use the model.
 
-This FMU can be used in any FMI-compatible simulation environment that supports FMI 3.0.
-
-## Source
-
-The source code for this FMU is available in the sources/ directory of this FMU archive.
+## Technical Details
+- Generated using rust-fmi
+- Implements FMI 3.0 standard
+- Platform: Cross-platform compatible
 "#,
             self.model_identifier,
             self.model_identifier,
-            target_info,
-            chrono::Utc::now().to_rfc3339()
+            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
         );
 
-        fs::write(documentation_dir.join("README.md"), doc_content)?;
-        debug!("Documentation added successfully");
+        fs::write(fmu_root.join("README.md"), readme_content)?;
 
+        debug!("README.md added successfully");
+        Ok(())
+    }
+
+    /// Add source files to the FMU
+    fn add_source_files(&self, sources_dir: &Path) -> Result<()> {
+        debug!("Adding source files to: {}", sources_dir.display());
+
+        // Note: buildDescription.xml and README.md are now added to the root of the FMU
+        // instead of the sources directory
+
+        debug!("Source files added successfully");
         Ok(())
     }
 

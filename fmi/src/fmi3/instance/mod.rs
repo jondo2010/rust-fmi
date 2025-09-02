@@ -73,7 +73,6 @@ where
                             (None, &Some(vr)) => {
                                 let mut dim_val = [0];
                                 self.get_uint64(&[vr.into()], &mut dim_val)
-                                    .ok()
                                     .expect("Error getting dimension");
                                 dim_val[0] as usize
                             }
