@@ -213,6 +213,7 @@ macro_rules! impl_float_type {
                 causality: Causality,
                 variability: Variability,
                 start: Vec<$type>,
+                initial: Option<Initial>,
             ) -> Self {
                 Self {
                     start,
@@ -233,7 +234,7 @@ macro_rules! impl_float_type {
                             },
                             declared_type: None,
                         },
-                        initial: None,
+                        initial,
                     },
                     ..Default::default()
                 }
@@ -269,6 +270,7 @@ macro_rules! impl_integer_type {
                 causality: Causality,
                 variability: Variability,
                 start: Option<$type>,
+                initial: Option<Initial>,
             ) -> Self {
                 Self {
                     start,
@@ -289,7 +291,7 @@ macro_rules! impl_integer_type {
                             },
                             declared_type: None,
                         },
-                        initial: None,
+                        initial,
                     },
                     ..Default::default()
                 }
@@ -506,6 +508,7 @@ impl FmiBoolean {
         causality: Causality,
         variability: Variability,
         start: Vec<bool>,
+        initial: Option<Initial>,
     ) -> Self {
         Self {
             start,
@@ -526,7 +529,7 @@ impl FmiBoolean {
                     },
                     declared_type: None,
                 },
-                initial: None,
+                initial,
             },
         }
     }
@@ -560,6 +563,7 @@ impl FmiString {
         causality: Causality,
         variability: Variability,
         start: Vec<String>,
+        initial: Option<Initial>,
     ) -> Self {
         Self {
             start: start
@@ -583,7 +587,7 @@ impl FmiString {
                     },
                     declared_type: None,
                 },
-                initial: None,
+                initial,
             },
         }
     }
@@ -644,6 +648,45 @@ impl FmiBinary {
     /// Get an iterator over the start values.
     pub fn start(&self) -> impl Iterator<Item = &BinaryStart> {
         self.start.iter()
+    }
+
+    /// Create a new FMI binary variable with the given parameters
+    pub fn new(
+        name: String,
+        value_reference: u32,
+        description: Option<String>,
+        causality: Causality,
+        variability: Variability,
+        start: Vec<String>,
+        initial: Option<Initial>,
+    ) -> Self {
+        Self {
+            start: start
+                .into_iter()
+                .map(|value| BinaryStart { value })
+                .collect(),
+            mime_type: default_mime_type(),
+            max_size: None,
+            init_var: InitializableVariable {
+                typed_arrayable_var: TypedArrayableVariable {
+                    arrayable_var: ArrayableVariable {
+                        abstract_var: AbstractVariable {
+                            name,
+                            value_reference,
+                            description,
+                            causality,
+                            variability: Some(variability),
+                            can_handle_multiple_set_per_time_instant: None,
+                        },
+                        dimensions: vec![],
+                        intermediate_update: None,
+                        previous: None,
+                    },
+                    declared_type: None,
+                },
+                initial,
+            },
+        }
     }
 }
 

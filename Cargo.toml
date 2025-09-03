@@ -1,12 +1,13 @@
 [workspace]
 members = [
+    "examples/*",
     "fmi",
+    "fmi-export",
+    "fmi-export-derive",
     "fmi-schema",
     "fmi-sim",
     "fmi-sys",
     "fmi-test-data",
-    "fmi-export",
-    "fmi-export-derive", "examples/bouncing_ball",
     "xtask",
 ]
 resolver = "2"

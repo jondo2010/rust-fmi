@@ -14,26 +14,26 @@ use fmi_export::{
 #[derive(FmuModel, Default, Debug)]
 #[model()]
 struct BouncingBall {
-    /// Height above ground (state output)
-    #[variable(causality = Output, state, event_indicator, start = 1.0)]
+    /// Position of the ball
+    #[variable(causality = Output, state, event_indicator, start = 1.0, initial = Exact)]
     h: f64,
 
     /// Velocity of the ball
-    #[variable(causality = Output, state, start = 0.0)]
-    #[alias(name="der(h)", causality = Local, derivative = h)]
+    #[variable(causality = Output, state, start = 0.0, initial = Exact)]
+    #[alias(name="der(h)", causality = Local, derivative = h, initial = Calculated)]
     v: f64,
 
-    /// Gravitational acceleration
-    #[variable(causality = Parameter, start = -9.81)]
-    #[alias(name = "der(v)", causality = Local, derivative = v)]
+    /// Gravity acting on the ball
+    #[variable(causality = Parameter, start = -9.81, initial = Exact)]
+    #[alias(name = "der(v)", causality = Local, derivative = v, initial = Calculated)]
     g: f64,
 
-    /// Coefficient of restitution (parameter)
-    #[variable(causality = Parameter, start = 0.7)]
+    /// Coefficient of restitution
+    #[variable(causality = Parameter, start = 0.7, initial = Exact)]
     e: f64,
 
-    /// Minimum velocity threshold (constant)
-    #[variable(causality = Local, start = 0.1)]
+    /// Minimum velocity threshold
+    #[variable(causality = Local, start = 0.1, initial = Exact)]
     v_min: f64,
 }
 

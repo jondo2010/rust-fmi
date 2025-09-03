@@ -849,6 +849,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dahlquist"
+version = "0.1.0"
+dependencies = [
+ "fmi",
+ "fmi-export",
+]
+
+[[package]]
 name = "deflate64"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

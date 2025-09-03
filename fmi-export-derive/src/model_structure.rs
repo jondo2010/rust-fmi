@@ -7,137 +7,139 @@
 //! - Event indicators: variables marked with event_indicator = true
 
 use crate::model::{Field, FieldAttributeOuter};
+use std::collections::{HashMap, HashSet};
 
-use fmi::fmi3::schema;
+use fmi::fmi3::schema::{self, AbstractVariableTrait, InitializableVariableTrait};
+
+/// Collection of mappings derived from ModelVariables for efficient lookup
+struct VariableMappings {
+    name_to_value_ref: HashMap<String, u32>,
+    name_to_initial: HashMap<String, schema::Initial>,
+}
+
+impl VariableMappings {
+    /// Create variable mappings from ModelVariables
+    fn new(model_variables: &schema::ModelVariables) -> Self {
+        let mut name_to_value_ref = HashMap::new();
+        let mut name_to_initial = HashMap::new();
+
+        // Helper macro to collect variables with initial attributes
+        macro_rules! collect_vars {
+            ($vars:expr) => {
+                for var in $vars {
+                    name_to_value_ref.insert(var.name().to_string(), var.value_reference());
+                    let initial = var.initial().unwrap_or(schema::Initial::Exact);
+                    name_to_initial.insert(var.name().to_string(), initial);
+                }
+            };
+        }
+
+        // Collect all variable types that have initial attributes
+        collect_vars!(&model_variables.float32);
+        collect_vars!(&model_variables.float64);
+        collect_vars!(&model_variables.int8);
+        collect_vars!(&model_variables.uint8);
+        collect_vars!(&model_variables.int16);
+        collect_vars!(&model_variables.uint16);
+        collect_vars!(&model_variables.int32);
+        collect_vars!(&model_variables.uint32);
+        collect_vars!(&model_variables.int64);
+        collect_vars!(&model_variables.uint64);
+        collect_vars!(&model_variables.boolean);
+        collect_vars!(&model_variables.string);
+        collect_vars!(&model_variables.binary);
+
+        Self {
+            name_to_value_ref,
+            name_to_initial,
+        }
+    }
+
+    /// Check if a variable should be an InitialUnknown based on FMI3 specification:
+    /// - Must not be an event indicator
+    /// - Must have initial="calculated" or initial="approx" (not initial="exact")
+    fn should_be_initial_unknown(
+        &self,
+        var_name: &str,
+        event_indicators: &HashSet<u32>,
+    ) -> Option<u32> {
+        let value_ref = *self.name_to_value_ref.get(var_name)?;
+
+        // Exclude event indicators
+        if event_indicators.contains(&value_ref) {
+            return None;
+        }
+
+        // Only include variables with initial="calculated" or initial="approx"
+        match self.name_to_initial.get(var_name) {
+            Some(schema::Initial::Calculated | schema::Initial::Approx) => Some(value_ref),
+            _ => None, // initial="exact" or missing -> not an InitialUnknown
+        }
+    }
+
+    fn get_value_ref(&self, var_name: &str) -> Option<u32> {
+        self.name_to_value_ref.get(var_name).copied()
+    }
+}
 
 pub fn build_model_structure(
     fields: &[Field],
     model_variables: &schema::ModelVariables,
 ) -> Result<schema::ModelStructure, String> {
-    let mut outputs = Vec::new();
-    let mut continuous_state_derivatives = Vec::new();
-    let mut initial_unknowns = Vec::new();
+    let mappings = VariableMappings::new(model_variables);
+
+    // Track which variables are event indicators to exclude them from InitialUnknowns
+    let mut event_indicator_value_refs = HashSet::new();
+
+    // First pass: identify event indicators and collect their value references
+    let event_indicators =
+        collect_event_indicators(fields, &mappings, &mut event_indicator_value_refs)?;
+
+    // Second pass: identify outputs, derivatives, and initial unknowns
+    let (outputs, continuous_state_derivatives, initial_unknowns) =
+        collect_outputs_and_unknowns(fields, &mappings, &event_indicator_value_refs)?;
+
+    Ok(schema::ModelStructure {
+        outputs,
+        continuous_state_derivative: continuous_state_derivatives,
+        initial_unknown: initial_unknowns,
+        event_indicator: event_indicators,
+        ..Default::default()
+    })
+}
+
+/// Collect event indicators from fields and populate the value reference set
+fn collect_event_indicators(
+    fields: &[Field],
+    mappings: &VariableMappings,
+    event_indicator_value_refs: &mut HashSet<u32>,
+) -> Result<Vec<schema::Fmi3Unknown>, String> {
     let mut event_indicators = Vec::new();
 
-    // Create a mapping from variable names to value references
-    let mut name_to_value_ref = std::collections::HashMap::new();
-
-    // Collect all variable names and their value references
-    for var in model_variables.iter_abstract() {
-        name_to_value_ref.insert(var.name().to_string(), var.value_reference());
-    }
-
-    // Track state variables and their derivative relationships
-    let mut state_variables = std::collections::HashMap::new();
-    let mut derivative_variables = Vec::new();
-
-    // First pass: identify state variables and derivatives
     for field in fields {
         for attr in &field.attrs {
             match attr {
                 FieldAttributeOuter::Variable(var_attr) => {
-                    if var_attr.state == Some(true) {
-                        state_variables.insert(field.ident.to_string(), field.ident.to_string());
-                    }
-
-                    // Check if this is an event indicator
                     if var_attr.event_indicator == Some(true) {
-                        if let Some(&value_ref) = name_to_value_ref.get(&field.ident.to_string()) {
+                        if let Some(value_ref) = mappings.get_value_ref(&field.ident.to_string()) {
                             event_indicators.push(schema::Fmi3Unknown {
                                 value_reference: value_ref,
                                 ..Default::default()
                             });
-                        }
-                    }
-
-                    // Check if this is an output variable
-                    if let Some(causality_ident) = &var_attr.causality {
-                        if causality_ident.to_string() == "Output" {
-                            if let Some(&value_ref) =
-                                name_to_value_ref.get(&field.ident.to_string())
-                            {
-                                outputs.push(schema::Fmi3Unknown {
-                                    value_reference: value_ref,
-                                    ..Default::default()
-                                });
-
-                                // Outputs are also initial unknowns
-                                initial_unknowns.push(schema::Fmi3Unknown {
-                                    value_reference: value_ref,
-                                    ..Default::default()
-                                });
-                            }
-                        } else if causality_ident.to_string() == "Local" {
-                            // Local variables are initial unknowns
-                            if let Some(&value_ref) =
-                                name_to_value_ref.get(&field.ident.to_string())
-                            {
-                                initial_unknowns.push(schema::Fmi3Unknown {
-                                    value_reference: value_ref,
-                                    ..Default::default()
-                                });
-                            }
+                            event_indicator_value_refs.insert(value_ref);
                         }
                     }
                 }
                 FieldAttributeOuter::Alias(alias_attr) => {
-                    // Check if this alias represents a derivative
-                    if let Some(alias_name) = &alias_attr.name {
-                        if alias_name.starts_with("der(") && alias_name.ends_with(")") {
-                            derivative_variables
-                                .push((alias_name.clone(), field.ident.to_string()));
-                        }
-                    }
-
-                    // Check if this alias is an event indicator
                     if alias_attr.event_indicator == Some(true) {
                         let field_name = field.ident.to_string();
                         let var_name = alias_attr.name.as_ref().unwrap_or(&field_name);
-                        if let Some(&value_ref) = name_to_value_ref.get(var_name) {
+                        if let Some(value_ref) = mappings.get_value_ref(var_name) {
                             event_indicators.push(schema::Fmi3Unknown {
                                 value_reference: value_ref,
                                 ..Default::default()
                             });
-                        }
-                    }
-
-                    // Check if this is an output alias
-                    if let Some(causality_ident) = &alias_attr.causality {
-                        if causality_ident.to_string() == "Output" {
-                            let field_name = field.ident.to_string();
-                            let var_name = alias_attr.name.as_ref().unwrap_or(&field_name);
-                            if let Some(&value_ref) = name_to_value_ref.get(var_name) {
-                                outputs.push(schema::Fmi3Unknown {
-                                    value_reference: value_ref,
-                                    ..Default::default()
-                                });
-
-                                // Outputs are also initial unknowns
-                                initial_unknowns.push(schema::Fmi3Unknown {
-                                    value_reference: value_ref,
-                                    ..Default::default()
-                                });
-                            }
-                        } else if causality_ident.to_string() == "Local" {
-                            let field_name = field.ident.to_string();
-                            let var_name = alias_attr.name.as_ref().unwrap_or(&field_name);
-                            if let Some(&value_ref) = name_to_value_ref.get(var_name) {
-                                // Check if this is a derivative of a state variable
-                                if let Some(alias_name) = &alias_attr.name {
-                                    if alias_name.starts_with("der(") && alias_name.ends_with(")") {
-                                        continuous_state_derivatives.push(schema::Fmi3Unknown {
-                                            value_reference: value_ref,
-                                            ..Default::default()
-                                        });
-                                    }
-                                }
-
-                                // Local variables are also initial unknowns
-                                initial_unknowns.push(schema::Fmi3Unknown {
-                                    value_reference: value_ref,
-                                    ..Default::default()
-                                });
-                            }
+                            event_indicator_value_refs.insert(value_ref);
                         }
                     }
                 }
@@ -148,13 +150,176 @@ pub fn build_model_structure(
         }
     }
 
-    Ok(schema::ModelStructure {
-        outputs,
-        continuous_state_derivative: continuous_state_derivatives,
-        initial_unknown: initial_unknowns,
-        event_indicator: event_indicators,
-        ..Default::default()
-    })
+    Ok(event_indicators)
+}
+
+/// Collect outputs, continuous state derivatives, and initial unknowns
+fn collect_outputs_and_unknowns(
+    fields: &[Field],
+    mappings: &VariableMappings,
+    event_indicator_value_refs: &HashSet<u32>,
+) -> Result<
+    (
+        Vec<schema::Fmi3Unknown>,
+        Vec<schema::Fmi3Unknown>,
+        Vec<schema::Fmi3Unknown>,
+    ),
+    String,
+> {
+    let mut outputs = Vec::new();
+    let mut continuous_state_derivatives = Vec::new();
+    let mut initial_unknowns = Vec::new();
+
+    for field in fields {
+        for attr in &field.attrs {
+            match attr {
+                FieldAttributeOuter::Variable(var_attr) => {
+                    let var_name = &field.ident.to_string();
+                    process_variable_attribute(
+                        var_attr,
+                        var_name,
+                        mappings,
+                        event_indicator_value_refs,
+                        &mut outputs,
+                        &mut continuous_state_derivatives,
+                        &mut initial_unknowns,
+                    )?;
+                }
+                FieldAttributeOuter::Alias(alias_attr) => {
+                    let field_name = field.ident.to_string();
+                    let var_name = alias_attr.name.as_ref().unwrap_or(&field_name);
+                    process_alias_attribute(
+                        alias_attr,
+                        var_name,
+                        mappings,
+                        event_indicator_value_refs,
+                        &mut outputs,
+                        &mut continuous_state_derivatives,
+                        &mut initial_unknowns,
+                    )?;
+                }
+                FieldAttributeOuter::Docstring(_) => {
+                    // Skip docstrings
+                }
+            }
+        }
+    }
+
+    Ok((outputs, continuous_state_derivatives, initial_unknowns))
+}
+
+/// Process a variable attribute and update the appropriate collections
+fn process_variable_attribute(
+    var_attr: &crate::model::FieldAttribute,
+    var_name: &str,
+    mappings: &VariableMappings,
+    event_indicator_value_refs: &HashSet<u32>,
+    outputs: &mut Vec<schema::Fmi3Unknown>,
+    continuous_state_derivatives: &mut Vec<schema::Fmi3Unknown>,
+    initial_unknowns: &mut Vec<schema::Fmi3Unknown>,
+) -> Result<(), String> {
+    if let Some(causality_ident) = &var_attr.causality {
+        let causality = causality_ident.to_string();
+
+        if causality == "Output" {
+            if let Some(value_ref) = mappings.get_value_ref(var_name) {
+                outputs.push(schema::Fmi3Unknown {
+                    value_reference: value_ref,
+                    ..Default::default()
+                });
+
+                // Check if this should be an InitialUnknown
+                if let Some(initial_unknown_ref) =
+                    mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
+                {
+                    initial_unknowns.push(schema::Fmi3Unknown {
+                        value_reference: initial_unknown_ref,
+                        ..Default::default()
+                    });
+                }
+            }
+        } else if causality == "Local" {
+            if let Some(value_ref) = mappings.get_value_ref(var_name) {
+                // Check if this is a derivative of a state variable
+                if var_attr.derivative.is_some() {
+                    continuous_state_derivatives.push(schema::Fmi3Unknown {
+                        value_reference: value_ref,
+                        ..Default::default()
+                    });
+                }
+
+                // Local variables are potential InitialUnknowns
+                if let Some(initial_unknown_ref) =
+                    mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
+                {
+                    initial_unknowns.push(schema::Fmi3Unknown {
+                        value_reference: initial_unknown_ref,
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Process an alias attribute and update the appropriate collections
+fn process_alias_attribute(
+    alias_attr: &crate::model::FieldAttribute,
+    var_name: &str,
+    mappings: &VariableMappings,
+    event_indicator_value_refs: &HashSet<u32>,
+    outputs: &mut Vec<schema::Fmi3Unknown>,
+    continuous_state_derivatives: &mut Vec<schema::Fmi3Unknown>,
+    initial_unknowns: &mut Vec<schema::Fmi3Unknown>,
+) -> Result<(), String> {
+    if let Some(causality_ident) = &alias_attr.causality {
+        let causality = causality_ident.to_string();
+
+        if causality == "Output" {
+            if let Some(value_ref) = mappings.get_value_ref(var_name) {
+                outputs.push(schema::Fmi3Unknown {
+                    value_reference: value_ref,
+                    ..Default::default()
+                });
+
+                // Check if this should be an InitialUnknown
+                if let Some(initial_unknown_ref) =
+                    mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
+                {
+                    initial_unknowns.push(schema::Fmi3Unknown {
+                        value_reference: initial_unknown_ref,
+                        ..Default::default()
+                    });
+                }
+            }
+        } else if causality == "Local" {
+            if let Some(value_ref) = mappings.get_value_ref(var_name) {
+                // Check if this is a derivative of a state variable
+                if let Some(alias_name) = &alias_attr.name {
+                    if alias_name.starts_with("der(") && alias_name.ends_with(")") {
+                        continuous_state_derivatives.push(schema::Fmi3Unknown {
+                            value_reference: value_ref,
+                            ..Default::default()
+                        });
+                    }
+                }
+
+                // Check if this should be an InitialUnknown
+                if let Some(initial_unknown_ref) =
+                    mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
+                {
+                    initial_unknowns.push(schema::Fmi3Unknown {
+                        value_reference: initial_unknown_ref,
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -284,7 +449,10 @@ mod tests {
                 .any(|der| der.value_reference == der_v_value_ref)
         );
 
-        // Test initial unknowns: should include outputs and local variables
-        assert!(model_structure.initial_unknown.len() >= 2); // At least outputs + locals
+        // Test initial unknowns: According to FMI3 specification, only variables with
+        // initial="calculated" or initial="approx" should be InitialUnknowns.
+        // Variables with initial="exact" (default) are NOT InitialUnknowns since they have known values.
+        // In this test, all variables use the default initial="exact", so there should be no InitialUnknowns.
+        assert_eq!(model_structure.initial_unknown.len(), 0);
     }
 }

@@ -198,8 +198,9 @@ pub trait UserModel: Sized {
     fn event_update(
         &mut self,
         _context: &ModelContext<Self>,
-        _event_flags: &mut EventFlags,
+        event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
+        event_flags.reset();
         Ok(Fmi3Res::OK)
     }
 

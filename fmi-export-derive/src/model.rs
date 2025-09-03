@@ -42,6 +42,8 @@ pub struct FieldAttribute {
     pub causality: Option<syn::Ident>,
     pub variability: Option<syn::Ident>,
     pub start: Option<syn::Expr>,
+    /// Indicate the initial value determination (exact, calculated, approx)
+    pub initial: Option<syn::Ident>,
     /// Indicate that this variable is the derivative of another variable
     pub derivative: Option<syn::Ident>,
     /// Indicate that this variable is a state variable

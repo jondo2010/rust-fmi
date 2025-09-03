@@ -71,6 +71,7 @@ fn create_and_add_variable(
     // Convert field type to VariableType
     let variable_type = rust_type_to_variable_type(&field.ty)?;
     let variability = get_variable_variability(attr, &variable_type)?;
+    let initial = get_variable_initial(attr);
 
     // Match on variable type and create appropriate FMI variable
     match variable_type {
@@ -87,6 +88,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.float32.push(variable);
         }
@@ -103,6 +105,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.float64.push(variable);
         }
@@ -120,6 +123,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.int8.push(variable);
         }
@@ -137,6 +141,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.int16.push(variable);
         }
@@ -154,6 +159,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.int32.push(variable);
         }
@@ -171,6 +177,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.int64.push(variable);
         }
@@ -188,6 +195,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.uint8.push(variable);
         }
@@ -205,6 +213,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.uint16.push(variable);
         }
@@ -222,6 +231,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.uint32.push(variable);
         }
@@ -239,6 +249,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.uint64.push(variable);
         }
@@ -255,6 +266,7 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.boolean.push(variable);
         }
@@ -271,13 +283,26 @@ fn create_and_add_variable(
                 causality,
                 variability,
                 start,
+                initial,
             );
             model_variables.string.push(variable);
         }
         schema::VariableType::FmiBinary => {
-            return Err(
-                "Binary variables are not yet supported in this implementation.".to_string(),
+            let start = attr
+                .start
+                .as_ref()
+                .map(parse_string_start_value) // Binary uses string start values
+                .unwrap_or_default();
+            let variable = schema::FmiBinary::new(
+                name,
+                value_reference,
+                description,
+                causality,
+                variability,
+                start,
+                initial,
             );
+            model_variables.binary.push(variable);
         }
     }
 
@@ -292,6 +317,18 @@ fn get_variable_description(field: &Field, attr: &crate::model::FieldAttribute) 
             None
         } else {
             Some(field_desc)
+        }
+    })
+}
+
+/// Get the initial value from the field attribute
+fn get_variable_initial(attr: &crate::model::FieldAttribute) -> Option<schema::Initial> {
+    attr.initial.as_ref().map(|ident| {
+        match ident.to_string().as_str() {
+            "Exact" => schema::Initial::Exact,
+            "Calculated" => schema::Initial::Calculated,
+            "Approx" => schema::Initial::Approx,
+            _ => schema::Initial::Exact, // Default to Exact if unknown
         }
     })
 }
