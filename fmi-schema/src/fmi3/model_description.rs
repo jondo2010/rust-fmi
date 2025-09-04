@@ -98,6 +98,7 @@ pub struct Fmi3ModelDescription {
     #[yaserde(rename = "ModelStructure")]
     pub model_structure: ModelStructure,
 
+    /// Optional annotations for the top-level element.
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
 }

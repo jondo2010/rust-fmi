@@ -1,9 +1,9 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
 use super::{
-    Float32Attributes, Float64Attributes, Int8Attributes, Int16Attributes, Int32Attributes,
-    Int64Attributes, IntegerBaseAttributes, RealBaseAttributes, RealVariableAttributes,
-    UInt8Attributes, UInt16Attributes, UInt32Attributes, UInt64Attributes,
+    Annotation, Annotations, Float32Attributes, Float64Attributes, Int8Attributes, Int16Attributes,
+    Int32Attributes, Int64Attributes, IntegerBaseAttributes, RealBaseAttributes,
+    RealVariableAttributes, UInt8Attributes, UInt16Attributes, UInt32Attributes, UInt64Attributes,
 };
 
 use crate::{Error, default_wrapper};
@@ -60,6 +60,7 @@ pub trait AbstractVariableTrait {
     fn variability(&self) -> Variability;
     fn can_handle_multiple_set_per_time_instant(&self) -> Option<bool>;
     fn data_type(&self) -> VariableType;
+    fn annotations(&self) -> Option<&Annotations>;
 }
 
 pub trait ArrayableVariableTrait: AbstractVariableTrait {
@@ -126,6 +127,14 @@ macro_rules! impl_abstract_variable {
             }
             fn data_type(&self) -> VariableType {
                 VariableType::$name
+            }
+            fn annotations(&self) -> Option<&Annotations> {
+                self.init_var
+                    .typed_arrayable_var
+                    .arrayable_var
+                    .abstract_var
+                    .annotations
+                    .as_ref()
             }
         }
     };
@@ -227,6 +236,7 @@ macro_rules! impl_float_type {
                                     causality,
                                     variability: Some(variability),
                                     can_handle_multiple_set_per_time_instant: None,
+                                    annotations: None,
                                 },
                                 dimensions: vec![],
                                 intermediate_update: None,
@@ -284,6 +294,7 @@ macro_rules! impl_integer_type {
                                     causality,
                                     variability: Some(variability),
                                     can_handle_multiple_set_per_time_instant: None,
+                                    annotations: None,
                                 },
                                 dimensions: vec![],
                                 intermediate_update: None,
@@ -401,6 +412,8 @@ pub struct AbstractVariable {
     pub variability: Option<Variability>,
     #[yaserde(attribute = true, rename = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
+    #[yaserde(rename = "Annotations")]
+    pub annotations: Option<Annotations>,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -522,6 +535,7 @@ impl FmiBoolean {
                             causality,
                             variability: Some(variability),
                             can_handle_multiple_set_per_time_instant: None,
+                            annotations: None,
                         },
                         dimensions: vec![],
                         intermediate_update: None,
@@ -580,6 +594,7 @@ impl FmiString {
                             causality,
                             variability: Some(variability),
                             can_handle_multiple_set_per_time_instant: None,
+                            annotations: None,
                         },
                         dimensions: vec![],
                         intermediate_update: None,
@@ -677,6 +692,7 @@ impl FmiBinary {
                             causality,
                             variability: Some(variability),
                             can_handle_multiple_set_per_time_instant: None,
+                            annotations: None,
                         },
                         dimensions: vec![],
                         intermediate_update: None,
@@ -1070,6 +1086,35 @@ mod tests {
             r#"<Float64 name="calc_var" valueReference="702" initial="calculated" start="1.0"/>"#;
         let var_calculated: FmiFloat64 = yaserde::de::from_str(xml_calculated).unwrap();
         assert_eq!(var_calculated.initial(), Some(Initial::Calculated));
+    }
+
+    #[test]
+    fn test_variable_annotations() {
+        let xml = r#"<Int32 name="annotated_var" valueReference="800" causality="local" start="42">
+            <Annotations>
+                <Annotation type="info">This is an informational annotation.</Annotation>
+                <Annotation type="warning">This is a warning annotation.</Annotation>
+            </Annotations>
+        </Int32>"#;
+
+        let var: FmiInt32 = yaserde::de::from_str(xml).unwrap();
+        assert_eq!(var.name(), "annotated_var");
+        assert_eq!(var.value_reference(), 800);
+        assert_eq!(var.causality(), Causality::Local);
+        assert_eq!(var.start, Some(42));
+
+        let annotations = var.annotations().unwrap();
+        assert_eq!(annotations.annotations.len(), 2);
+        assert_eq!(annotations.annotations[0].r#type, "info".to_string());
+        assert_eq!(
+            annotations.annotations[0].content,
+            "This is an informational annotation."
+        );
+        assert_eq!(annotations.annotations[1].r#type, "warning".to_string());
+        assert_eq!(
+            annotations.annotations[1].content,
+            "This is a warning annotation."
+        );
     }
 
     #[test]

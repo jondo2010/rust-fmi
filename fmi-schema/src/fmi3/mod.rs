@@ -12,7 +12,7 @@ mod unit;
 mod variable;
 mod variable_dependency;
 
-pub use annotation::Fmi3Annotations as Annotations;
+pub use annotation::{Annotation, Fmi3Annotations as Annotations};
 pub use attribute_groups::*;
 pub use build_description::*;
 pub use interface_type::*;
