@@ -182,8 +182,8 @@ pub trait UserModel: Sized {
 
     /// Calculate values (derivatives, outputs, etc.)
     /// This method is called whenever the model needs to update its calculated values
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Fmi3Status {
-        Fmi3Res::OK.into()
+    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+        Ok(Fmi3Res::OK)
     }
 
     /// Event update function for Model Exchange

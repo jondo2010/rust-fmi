@@ -67,7 +67,7 @@ where
     ) -> Result<Fmi3Res, Fmi3Error> {
         // Ensure values are up to date before computing derivatives
         if self.is_dirty_values {
-            self.model.calculate_values(&mut self.context);
+            self.model.calculate_values(&mut self.context)?;
             self.is_dirty_values = false;
         }
         self.model

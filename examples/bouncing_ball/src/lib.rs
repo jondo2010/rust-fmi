@@ -3,7 +3,7 @@
 
 use fmi::{
     EventFlags,
-    fmi3::{Fmi3Error, Fmi3Res, Fmi3Status},
+    fmi3::{Fmi3Error, Fmi3Res},
 };
 use fmi_export::{
     FmuModel,
@@ -40,9 +40,9 @@ struct BouncingBall {
 impl UserModel for BouncingBall {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Fmi3Status {
+    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // nothing to do
-        Fmi3Res::OK.into()
+        Ok(Fmi3Res::OK)
     }
 
     fn event_update(

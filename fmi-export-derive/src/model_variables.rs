@@ -66,7 +66,7 @@ fn create_and_add_variable(
 ) -> Result<(), String> {
     let name = override_name.unwrap_or_else(|| field.ident.to_string());
     let description = get_variable_description(field, attr);
-    let causality = get_variable_causality(attr)?;
+    let causality: schema::Causality = attr.causality.expect("Causality should be set").0;
 
     // Convert field type to VariableType
     let variable_type = rust_type_to_variable_type(&field.ty)?;
@@ -333,24 +333,13 @@ fn get_variable_initial(attr: &crate::model::FieldAttribute) -> Option<schema::I
     })
 }
 
-/// Helper function to get variable causality from attribute
-fn get_variable_causality(
-    attr: &crate::model::FieldAttribute,
-) -> Result<schema::Causality, String> {
-    attr.causality
-        .as_ref()
-        .map(|ident| build_causality(ident))
-        .transpose()
-        .map(|causality| causality.unwrap_or_default())
-}
-
 /// Helper function to get variable variability from attribute with smart defaults
 fn get_variable_variability(
     attr: &crate::model::FieldAttribute,
     variable_type: &schema::VariableType,
 ) -> Result<schema::Variability, String> {
     if let Some(variability_ident) = &attr.variability {
-        build_variability(variability_ident)
+        Ok(variability_ident.0)
     } else {
         // Use sensible defaults based on variable type
         match variable_type {
@@ -362,33 +351,9 @@ fn get_variable_variability(
     }
 }
 
-/// Convert a syn::Ident representing causality into the corresponding enum
-fn build_causality(ident: &syn::Ident) -> Result<schema::Causality, String> {
-    match ident.to_string().as_str() {
-        "Parameter" => Ok(schema::Causality::Parameter),
-        "Input" => Ok(schema::Causality::Input),
-        "Output" => Ok(schema::Causality::Output),
-        "Local" => Ok(schema::Causality::Local),
-        "Independent" => Ok(schema::Causality::Independent),
-        "CalculatedParameter" => Ok(schema::Causality::CalculatedParameter),
-        _ => Err(format!("Unknown causality: {}", ident)),
-    }
-}
-
-/// Convert a syn::Ident representing variability into the corresponding enum
-fn build_variability(ident: &syn::Ident) -> Result<schema::Variability, String> {
-    match ident.to_string().as_str() {
-        "Constant" => Ok(schema::Variability::Constant),
-        "Fixed" => Ok(schema::Variability::Fixed),
-        "Tunable" => Ok(schema::Variability::Tunable),
-        "Discrete" => Ok(schema::Variability::Discrete),
-        "Continuous" => Ok(schema::Variability::Continuous),
-        _ => Err(format!("Unknown variability: {}", ident)),
-    }
-}
-
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use fmi::{fmi3::schema, schema::fmi3::AbstractVariableTrait};
     use syn::parse_quote;
@@ -407,7 +372,7 @@ mod tests {
                         "Height above ground (state output)".to_string(),
                     ),
                     FieldAttributeOuter::Variable(FieldAttribute {
-                        causality: Some(parse_quote!(Output)),
+                        causality: Some(schema::Causality::Output.into()),
                         start: Some(parse_quote!(1.0)),
                         ..Default::default()
                     }),
@@ -419,7 +384,7 @@ mod tests {
                 attrs: vec![
                     FieldAttributeOuter::Docstring("Velocity of the ball".to_string()),
                     FieldAttributeOuter::Variable(FieldAttribute {
-                        causality: Some(parse_quote!(Output)),
+                        causality: Some(schema::Causality::Output.into()),
                         start: Some(parse_quote!(0.0)),
                         ..Default::default()
                     }),
@@ -461,7 +426,7 @@ mod tests {
                 ident: parse_quote!(position),
                 ty: parse_quote!(f32),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Output)),
+                    causality: Some(schema::Causality::Output.into()),
                     start: Some(parse_quote!(1.5)),
                     ..Default::default()
                 })],
@@ -470,7 +435,7 @@ mod tests {
                 ident: parse_quote!(count),
                 ty: parse_quote!(i32),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Parameter)),
+                    causality: Some(schema::Causality::Parameter.into()),
                     start: Some(parse_quote!(42)),
                     ..Default::default()
                 })],
@@ -479,7 +444,7 @@ mod tests {
                 ident: parse_quote!(enabled),
                 ty: parse_quote!(bool),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Input)),
+                    causality: Some(schema::Causality::Input.into()),
                     start: Some(parse_quote!(true)),
                     ..Default::default()
                 })],
@@ -488,7 +453,7 @@ mod tests {
                 ident: parse_quote!(name),
                 ty: parse_quote!(String),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Parameter)),
+                    causality: Some(schema::Causality::Parameter.into()),
                     start: Some(parse_quote!("test")),
                     ..Default::default()
                 })],
@@ -528,8 +493,8 @@ mod tests {
                 ident: parse_quote!(continuous_var),
                 ty: parse_quote!(f64),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Output)),
-                    variability: Some(parse_quote!(Continuous)),
+                    causality: Some(schema::Causality::Output.into()),
+                    variability: Some(crate::model::Variability(schema::Variability::Continuous)),
                     start: Some(parse_quote!(1.0)),
                     ..Default::default()
                 })],
@@ -538,8 +503,8 @@ mod tests {
                 ident: parse_quote!(discrete_var),
                 ty: parse_quote!(f64),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Output)),
-                    variability: Some(parse_quote!(Discrete)),
+                    causality: Some(schema::Causality::Output.into()),
+                    variability: Some(crate::model::Variability(schema::Variability::Discrete)),
                     start: Some(parse_quote!(2.0)),
                     ..Default::default()
                 })],
@@ -548,8 +513,8 @@ mod tests {
                 ident: parse_quote!(fixed_param),
                 ty: parse_quote!(i32),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Parameter)),
-                    variability: Some(parse_quote!(Fixed)),
+                    causality: Some(schema::Causality::Parameter.into()),
+                    variability: Some(crate::model::Variability(schema::Variability::Fixed)),
                     start: Some(parse_quote!(42)),
                     ..Default::default()
                 })],
@@ -558,8 +523,8 @@ mod tests {
                 ident: parse_quote!(constant_val),
                 ty: parse_quote!(bool),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Parameter)),
-                    variability: Some(parse_quote!(Constant)),
+                    causality: Some(schema::Causality::Parameter.into()),
+                    variability: Some(crate::model::Variability(schema::Variability::Constant)),
                     start: Some(parse_quote!(true)),
                     ..Default::default()
                 })],
@@ -568,7 +533,7 @@ mod tests {
                 ident: parse_quote!(default_float),
                 ty: parse_quote!(f32),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Output)),
+                    causality: Some(schema::Causality::Output.into()),
                     // No variability specified - should default to Continuous for floats
                     start: Some(parse_quote!(3.14)),
                     ..Default::default()
@@ -578,7 +543,7 @@ mod tests {
                 ident: parse_quote!(default_int),
                 ty: parse_quote!(u32),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Output)),
+                    causality: Some(schema::Causality::Output.into()),
                     // No variability specified - should default to Discrete for integers
                     start: Some(parse_quote!(100)),
                     ..Default::default()

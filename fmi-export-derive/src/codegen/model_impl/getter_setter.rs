@@ -17,6 +17,27 @@ impl<'a> GetterSetterGen<'a> {
     pub fn new(model: &'a Model) -> Self {
         Self { model }
     }
+
+    /// Check if the model has any variables of the given type
+    fn has_variables_of_type(&self, variable_type: schema::VariableType) -> bool {
+        self.model.fields.iter().any(|field| {
+            if let Ok(vtype) = rust_type_to_variable_type(&field.ty) {
+                if vtype == variable_type {
+                    // Check if field has a variable or alias attribute
+                    field.attrs.iter().any(|attr| {
+                        matches!(
+                            attr,
+                            FieldAttributeOuter::Variable(_) | FieldAttributeOuter::Alias(_)
+                        )
+                    })
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        })
+    }
 }
 
 impl ToTokens for GetterSetterGen<'_> {
@@ -88,6 +109,11 @@ impl ToTokens for GetterSetterGen<'_> {
 
         // Generate standard getter/setter methods
         for (rust_type, get_method, set_method, variable_type) in &method_configs {
+            // Only generate methods if the model actually has variables of this type
+            if !self.has_variables_of_type(*variable_type) {
+                continue;
+            }
+
             let get_method_name = format_ident!("{}", get_method);
             let set_method_name = format_ident!("{}", set_method);
             let rust_type: syn::Type = syn::parse_str(rust_type).unwrap();
@@ -129,60 +155,69 @@ impl ToTokens for GetterSetterGen<'_> {
         }
 
         // Generate special string methods with different signatures
-        let string_getter_cases = TypeGetterGen::new(self.model, schema::VariableType::FmiString);
-        let string_setter_cases = TypeSetterGen::new(self.model, schema::VariableType::FmiString);
+        if self.has_variables_of_type(schema::VariableType::FmiString) {
+            let string_getter_cases =
+                TypeGetterGen::new(self.model, schema::VariableType::FmiString);
+            let string_setter_cases =
+                TypeSetterGen::new(self.model, schema::VariableType::FmiString);
 
-        tokens.extend(quote! {
-            fn get_string(
-                &mut self,
-                vrs: &[Self::ValueRef],
-                values: &mut [std::ffi::CString],
-                context: &::fmi_export::fmi3::ModelContext<Self>,
-            ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                for (vr, value) in vrs.iter().zip(values.iter_mut()) {
-                    match ValueRef::from(*vr) {
-                        #string_getter_cases
-                        _ => {} // Ignore unknown VRs for robustness
+            tokens.extend(quote! {
+                fn get_string(
+                    &mut self,
+                    vrs: &[Self::ValueRef],
+                    values: &mut [std::ffi::CString],
+                    context: &::fmi_export::fmi3::ModelContext<Self>,
+                ) -> Result<(), fmi::fmi3::Fmi3Error> {
+                    for (vr, value) in vrs.iter().zip(values.iter_mut()) {
+                        match ValueRef::from(*vr) {
+                            #string_getter_cases
+                            _ => {} // Ignore unknown VRs for robustness
+                        }
                     }
+                    Ok(())
                 }
-                Ok(())
-            }
 
-            fn set_string(
-                &mut self,
-                vrs: &[Self::ValueRef],
-                values: &[std::ffi::CString],
-                context: &::fmi_export::fmi3::ModelContext<Self>,
-            ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                for (vr, value) in vrs.iter().zip(values.iter()) {
-                    match ValueRef::from(*vr) {
-                        #string_setter_cases
-                        _ => {} // Ignore unknown VRs for robustness
+                fn set_string(
+                    &mut self,
+                    vrs: &[Self::ValueRef],
+                    values: &[std::ffi::CString],
+                    context: &::fmi_export::fmi3::ModelContext<Self>,
+                ) -> Result<(), fmi::fmi3::Fmi3Error> {
+                    for (vr, value) in vrs.iter().zip(values.iter()) {
+                        match ValueRef::from(*vr) {
+                            #string_setter_cases
+                            _ => {} // Ignore unknown VRs for robustness
+                        }
                     }
+                    Ok(())
                 }
-                Ok(())
-            }
+            });
+        }
 
-            fn get_binary(
-                &mut self,
-                vrs: &[Self::ValueRef],
-                values: &mut [&mut [u8]],
-                context: &::fmi_export::fmi3::ModelContext<Self>,
-            ) -> Result<Vec<usize>, fmi::fmi3::Fmi3Error> {
-                // Binary not implemented for now - return empty sizes
-                Ok(vec![0; vrs.len()])
-            }
+        // Generate binary methods (placeholder implementations)
+        if self.has_variables_of_type(schema::VariableType::FmiBinary) {
+            tokens.extend(quote! {
+                fn get_binary(
+                    &mut self,
+                    vrs: &[Self::ValueRef],
+                    values: &mut [&mut [u8]],
+                    context: &::fmi_export::fmi3::ModelContext<Self>,
+                ) -> Result<Vec<usize>, fmi::fmi3::Fmi3Error> {
+                    // Binary not implemented for now - return empty sizes
+                    Ok(vec![0; vrs.len()])
+                }
 
-            fn set_binary(
-                &mut self,
-                vrs: &[Self::ValueRef],
-                values: &[&[u8]],
-                context: &::fmi_export::fmi3::ModelContext<Self>,
-            ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                // Binary not implemented for now
-                Ok(())
-            }
-        });
+                fn set_binary(
+                    &mut self,
+                    vrs: &[Self::ValueRef],
+                    values: &[&[u8]],
+                    context: &::fmi_export::fmi3::ModelContext<Self>,
+                ) -> Result<(), fmi::fmi3::Fmi3Error> {
+                    // Binary not implemented for now
+                    Ok(())
+                }
+            });
+        }
     }
 }
 
@@ -241,14 +276,12 @@ impl ToTokens for TypeGetterGen<'_> {
                                 if self.variable_type == schema::VariableType::FmiString {
                                     tokens.extend(quote! {
                                         ValueRef::#alias_variant_name => {
-                                            let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                                             *value = std::ffi::CString::new(self.#field_name.clone()).unwrap_or_default();
                                         },
                                     });
                                 } else {
                                     tokens.extend(quote! {
                                         ValueRef::#alias_variant_name => {
-                                            let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                                             *value = self.#field_name;
                                         },
                                     });

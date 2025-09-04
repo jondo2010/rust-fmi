@@ -8,6 +8,7 @@ use crate::model::{FieldAttributeOuter, Model};
 use crate::util::rust_type_to_variable_type;
 use fmi::fmi3::schema;
 
+mod get_set_states;
 mod getter_setter;
 mod start_values;
 
@@ -56,8 +57,8 @@ impl ToTokens for ModelImpl<'_> {
 
         // Generate function bodies
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
-        let get_continuous_states_body = GetContinuousStatesGen::new(&self.model);
-        let set_continuous_states_body = SetContinuousStatesGen::new(&self.model);
+        let get_continuous_states_body = get_set_states::GetContinuousStatesGen::new(&self.model);
+        let set_continuous_states_body = get_set_states::SetContinuousStatesGen::new(&self.model);
         let get_derivatives_body = GetDerivativesGen::new(&self.model);
         let variable_validation_body = VariableValidationGen::new(&self.model);
         let getter_setter_methods = GetterSetterGen::new(&self.model);
@@ -142,106 +143,6 @@ fn count_event_indicators(model: &Model) -> usize {
 
 // Helper generators for specific function bodies
 
-struct GetContinuousStatesGen<'a>(&'a Model);
-
-impl<'a> GetContinuousStatesGen<'a> {
-    fn new(model: &'a Model) -> Self {
-        Self(model)
-    }
-}
-
-impl ToTokens for GetContinuousStatesGen<'_> {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let mut state_assignments = Vec::new();
-        let mut index = 0usize;
-
-        for field in &self.0.fields {
-            let mut is_state = false;
-            for attr in &field.attrs {
-                if let FieldAttributeOuter::Variable(var_attr) = attr {
-                    // Check if this is explicitly marked as a state variable
-                    if var_attr.state == Some(true) {
-                        is_state = true;
-                        break;
-                    }
-                }
-            }
-
-            if is_state {
-                let field_name = &field.ident;
-                state_assignments.push(quote! {
-                    if #index < states.len() {
-                        states[#index] = self.#field_name;
-                    }
-                });
-                index += 1;
-            }
-        }
-
-        if state_assignments.is_empty() {
-            tokens.extend(quote! {
-                // No continuous states in this model
-                Ok(fmi::fmi3::Fmi3Res::OK)
-            });
-        } else {
-            tokens.extend(quote! {
-                #(#state_assignments)*
-                Ok(fmi::fmi3::Fmi3Res::OK)
-            });
-        }
-    }
-}
-
-struct SetContinuousStatesGen<'a>(&'a Model);
-
-impl<'a> SetContinuousStatesGen<'a> {
-    fn new(model: &'a Model) -> Self {
-        Self(model)
-    }
-}
-
-impl ToTokens for SetContinuousStatesGen<'_> {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let mut state_assignments = Vec::new();
-        let mut index = 0usize;
-
-        for field in &self.0.fields {
-            let mut is_state = false;
-            for attr in &field.attrs {
-                if let FieldAttributeOuter::Variable(var_attr) = attr {
-                    // Check if this is explicitly marked as a state variable
-                    if var_attr.state == Some(true) {
-                        is_state = true;
-                        break;
-                    }
-                }
-            }
-
-            if is_state {
-                let field_name = &field.ident;
-                state_assignments.push(quote! {
-                    if #index < states.len() {
-                        self.#field_name = states[#index];
-                    }
-                });
-                index += 1;
-            }
-        }
-
-        if state_assignments.is_empty() {
-            tokens.extend(quote! {
-                // No continuous states in this model
-                Ok(fmi::fmi3::Fmi3Res::OK)
-            });
-        } else {
-            tokens.extend(quote! {
-                #(#state_assignments)*
-                Ok(fmi::fmi3::Fmi3Res::OK)
-            });
-        }
-    }
-}
-
 struct GetDerivativesGen<'a>(&'a Model);
 
 impl<'a> GetDerivativesGen<'a> {
@@ -306,7 +207,6 @@ impl ToTokens for GetDerivativesGen<'_> {
                 let field_name = &der_field.ident;
                 derivative_assignments.push(quote! {
                     if #i < derivatives.len() {
-                        let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                         derivatives[#i] = self.#field_name;
                     }
                 });
@@ -315,7 +215,6 @@ impl ToTokens for GetDerivativesGen<'_> {
                 let derivative_field_name = format_ident!("der_{}", state_name);
                 derivative_assignments.push(quote! {
                     if #i < derivatives.len() {
-                        let _ = <Self as fmi_export::fmi3::UserModel>::calculate_values(self, context);
                         derivatives[#i] = self.#derivative_field_name;
                     }
                 });
@@ -354,22 +253,12 @@ impl ToTokens for VariableValidationGen<'_> {
                             let var_name = &field.ident.to_string();
 
                             // Generate validation based on causality and variability
-                            let causality_str = var_attr
-                                .causality
-                                .as_ref()
-                                .map(|c| c.to_string())
-                                .unwrap_or_default();
-                            let variability_str = var_attr
-                                .variability
-                                .as_ref()
-                                .map(|v| v.to_string())
-                                .unwrap_or_default();
+                            let causality = var_attr.causality.as_ref().map(|c| &c.0);
+                            let variability = var_attr.variability.as_ref().map(|v| &v.0);
 
-                            let validation = match (
-                                causality_str.as_str(),
-                                variability_str.as_str(),
-                            ) {
-                                ("Parameter", "Fixed") | ("Parameter", "") => {
+                            let validation = match (causality, variability) {
+                                (Some(schema::Causality::Parameter), Some(schema::Variability::Fixed)) 
+                                | (Some(schema::Causality::Parameter), None) => {
                                     quote! {
                                         ValueRef::#variant_name => {
                                             match state {
@@ -380,7 +269,7 @@ impl ToTokens for VariableValidationGen<'_> {
                                         }
                                     }
                                 }
-                                ("Parameter", "Tunable") => {
+                                (Some(schema::Causality::Parameter), Some(schema::Variability::Tunable)) => {
                                     quote! {
                                         ValueRef::#variant_name => {
                                             match state {
@@ -392,7 +281,8 @@ impl ToTokens for VariableValidationGen<'_> {
                                         }
                                     }
                                 }
-                                ("Local", "Fixed") | ("Local", "") => {
+                                (Some(schema::Causality::Local), Some(schema::Variability::Fixed)) 
+                                | (Some(schema::Causality::Local), None) => {
                                     quote! {
                                         ValueRef::#variant_name => {
                                             match state {
@@ -403,7 +293,7 @@ impl ToTokens for VariableValidationGen<'_> {
                                         }
                                     }
                                 }
-                                ("Input", _) => {
+                                (Some(schema::Causality::Input), _) => {
                                     quote! {
                                         ValueRef::#variant_name => {
                                             match state {

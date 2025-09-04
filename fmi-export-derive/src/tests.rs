@@ -66,12 +66,12 @@ fn test_comprehensive_datatype_support() {
             // Test alias functionality with different types
             /// Velocity alias (float)
             #[variable(causality = Output, start = 2.7)]
-            #[alias(name = "vel_alias", description = "Velocity alias")]
+            #[alias(name = "vel_alias", description = "Velocity alias", causality = Output)]
             velocity_alias: f64,
 
             /// Counter alias (integer)
             #[variable(causality = Parameter, start = 42)]
-            #[alias(name = "count_alias", description = "Counter alias")]
+            #[alias(name = "count_alias", description = "Counter alias", causality = Parameter)]
             counter_alias: i32,
         }
     };

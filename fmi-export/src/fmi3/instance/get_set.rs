@@ -11,6 +11,10 @@ macro_rules! instance_getter {
                 vrs: &[Self::ValueRef],
                 values: &mut [$ty],
             ) -> Result<Fmi3Res, Fmi3Error> {
+                if self.is_dirty_values {
+                    self.model.calculate_values(&self.context)?;
+                    self.is_dirty_values = false;
+                }
                 self.model.[<get_ $name>](vrs, values, &self.context)
             }
         }

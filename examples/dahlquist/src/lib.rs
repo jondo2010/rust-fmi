@@ -4,7 +4,7 @@
 //! where x is the state variable and k is a parameter.
 #![deny(clippy::all)]
 
-use fmi::fmi3::{Fmi3Res, Fmi3Status};
+use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
     fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
     FmuModel,
@@ -22,7 +22,7 @@ struct Dahlquist {
     x: f64,
 
     /// The derivative of x, calculated as der(x) = -k * x
-    #[variable(causality = Output, variability = Continuous, derivative = x, initial = Calculated)]
+    #[variable(causality = Local, variability = Continuous, derivative = x, initial = Calculated)]
     der_x: f64,
 
     /// The parameter k
@@ -33,10 +33,10 @@ struct Dahlquist {
 impl UserModel for Dahlquist {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Fmi3Status {
+    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // Calculate the derivative: der(x) = -k * x
         self.der_x = -self.k * self.x;
-        Fmi3Res::OK.into()
+        Ok(Fmi3Res::OK)
     }
 }
 

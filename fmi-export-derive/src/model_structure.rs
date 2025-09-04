@@ -219,44 +219,48 @@ fn process_variable_attribute(
     initial_unknowns: &mut Vec<schema::Fmi3Unknown>,
 ) -> Result<(), String> {
     if let Some(causality_ident) = &var_attr.causality {
-        let causality = causality_ident.to_string();
-
-        if causality == "Output" {
-            if let Some(value_ref) = mappings.get_value_ref(var_name) {
-                outputs.push(schema::Fmi3Unknown {
-                    value_reference: value_ref,
-                    ..Default::default()
-                });
-
-                // Check if this should be an InitialUnknown
-                if let Some(initial_unknown_ref) =
-                    mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
-                {
-                    initial_unknowns.push(schema::Fmi3Unknown {
-                        value_reference: initial_unknown_ref,
-                        ..Default::default()
-                    });
-                }
-            }
-        } else if causality == "Local" {
-            if let Some(value_ref) = mappings.get_value_ref(var_name) {
-                // Check if this is a derivative of a state variable
-                if var_attr.derivative.is_some() {
-                    continuous_state_derivatives.push(schema::Fmi3Unknown {
+        match &causality_ident.0 {
+            schema::Causality::Output => {
+                if let Some(value_ref) = mappings.get_value_ref(var_name) {
+                    outputs.push(schema::Fmi3Unknown {
                         value_reference: value_ref,
                         ..Default::default()
                     });
-                }
 
-                // Local variables are potential InitialUnknowns
-                if let Some(initial_unknown_ref) =
-                    mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
-                {
-                    initial_unknowns.push(schema::Fmi3Unknown {
-                        value_reference: initial_unknown_ref,
-                        ..Default::default()
-                    });
+                    // Check if this should be an InitialUnknown
+                    if let Some(initial_unknown_ref) =
+                        mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
+                    {
+                        initial_unknowns.push(schema::Fmi3Unknown {
+                            value_reference: initial_unknown_ref,
+                            ..Default::default()
+                        });
+                    }
                 }
+            }
+            schema::Causality::Local => {
+                if let Some(value_ref) = mappings.get_value_ref(var_name) {
+                    // Check if this is a derivative of a state variable
+                    if var_attr.derivative.is_some() {
+                        continuous_state_derivatives.push(schema::Fmi3Unknown {
+                            value_reference: value_ref,
+                            ..Default::default()
+                        });
+                    }
+
+                    // Local variables are potential InitialUnknowns
+                    if let Some(initial_unknown_ref) =
+                        mappings.should_be_initial_unknown(var_name, event_indicator_value_refs)
+                    {
+                        initial_unknowns.push(schema::Fmi3Unknown {
+                            value_reference: initial_unknown_ref,
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+            _ => {
+                // Other causality types don't need special handling here
             }
         }
     }
@@ -274,10 +278,8 @@ fn process_alias_attribute(
     continuous_state_derivatives: &mut Vec<schema::Fmi3Unknown>,
     initial_unknowns: &mut Vec<schema::Fmi3Unknown>,
 ) -> Result<(), String> {
-    if let Some(causality_ident) = &alias_attr.causality {
-        let causality = causality_ident.to_string();
-
-        if causality == "Output" {
+    match alias_attr.causality.as_ref().map(|c| &c.0) {
+        Some(schema::Causality::Output) => {
             if let Some(value_ref) = mappings.get_value_ref(var_name) {
                 outputs.push(schema::Fmi3Unknown {
                     value_reference: value_ref,
@@ -294,7 +296,8 @@ fn process_alias_attribute(
                     });
                 }
             }
-        } else if causality == "Local" {
+        }
+        Some(schema::Causality::Local) => {
             if let Some(value_ref) = mappings.get_value_ref(var_name) {
                 // Check if this is a derivative of a state variable
                 if let Some(alias_name) = &alias_attr.name {
@@ -316,6 +319,9 @@ fn process_alias_attribute(
                     });
                 }
             }
+        }
+        _ => {
+            // Other causalities are not processed for aliases
         }
     }
 
@@ -341,7 +347,7 @@ mod tests {
                 ident: parse_quote!(h),
                 ty: parse_quote!(f64),
                 attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(parse_quote!(Output)),
+                    causality: Some(crate::model::Causality(schema::Causality::Output)),
                     state: Some(true),
                     start: Some(parse_quote!(1.0)),
                     ..Default::default()
@@ -353,14 +359,14 @@ mod tests {
                 ty: parse_quote!(f64),
                 attrs: vec![
                     FieldAttributeOuter::Variable(FieldAttribute {
-                        causality: Some(parse_quote!(Output)),
+                        causality: Some(crate::model::Causality(schema::Causality::Output)),
                         state: Some(true),
                         start: Some(parse_quote!(0.0)),
                         ..Default::default()
                     }),
                     FieldAttributeOuter::Alias(FieldAttribute {
                         name: Some("der(h)".to_string()),
-                        causality: Some(parse_quote!(Local)),
+                        causality: Some(crate::model::Causality(schema::Causality::Local)),
                         derivative: Some(parse_quote!(h)),
                         ..Default::default()
                     }),
@@ -372,13 +378,13 @@ mod tests {
                 ty: parse_quote!(f64),
                 attrs: vec![
                     FieldAttributeOuter::Variable(FieldAttribute {
-                        causality: Some(parse_quote!(Parameter)),
+                        causality: Some(crate::model::Causality(schema::Causality::Parameter)),
                         start: Some(parse_quote!(-9.81)),
                         ..Default::default()
                     }),
                     FieldAttributeOuter::Alias(FieldAttribute {
                         name: Some("der(v)".to_string()),
-                        causality: Some(parse_quote!(Local)),
+                        causality: Some(crate::model::Causality(schema::Causality::Local)),
                         derivative: Some(parse_quote!(v)),
                         ..Default::default()
                     }),
