@@ -341,6 +341,13 @@ mod tests {
         use crate::model::{FieldAttribute, FieldAttributeOuter};
         use syn::parse_quote;
 
+        let input: syn::DeriveInput = parse_quote! {
+            /// A comprehensive FMI model demonstrating all supported datatypes
+            #[model()]
+            struct Dummy {
+            }
+        };
+
         let fields = vec![
             // State variable (height)
             Field {

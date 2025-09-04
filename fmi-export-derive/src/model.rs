@@ -413,9 +413,8 @@ mod tests {
     }
 
     #[test]
-    #[cfg(false)]
     fn test_model_description() {
-        let input: syn::ItemStruct = syn::parse_quote! {
+        let input: syn::DeriveInput = syn::parse_quote! {
             /// This is a test model
             #[model()]
             struct TestModel {
@@ -428,7 +427,7 @@ mod tests {
             "Model description should match the docstring"
         );
 
-        let input: syn::ItemStruct = syn::parse_quote! {
+        let input: syn::DeriveInput = syn::parse_quote! {
             /// This is a test model
             #[model(description = "Custom model description")]
             struct TestModel {

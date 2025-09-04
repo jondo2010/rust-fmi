@@ -115,14 +115,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<i8>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiInt8::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.int8.push(variable);
@@ -133,14 +132,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<i16>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiInt16::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.int16.push(variable);
@@ -151,14 +149,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<i32>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiInt32::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.int32.push(variable);
@@ -169,14 +166,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<i64>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiInt64::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.int64.push(variable);
@@ -187,14 +183,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<u8>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiUInt8::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.uint8.push(variable);
@@ -205,14 +200,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<u16>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiUInt16::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.uint16.push(variable);
@@ -223,14 +217,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<u32>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiUInt32::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.uint32.push(variable);
@@ -241,14 +234,13 @@ fn create_and_add_variable(
                 .as_ref()
                 .map(parse_numeric_start_value::<u64>)
                 .unwrap_or_default();
-            let start = start_vec.into_iter().next();
             let variable = schema::FmiUInt64::new(
                 name,
                 value_reference,
                 description,
                 causality,
                 variability,
-                start,
+                start_vec,
                 initial,
             );
             model_variables.uint64.push(variable);
@@ -353,6 +345,8 @@ fn get_variable_variability(
 
 #[cfg(test)]
 mod tests {
+
+    use crate::Model;
 
     use super::*;
     use fmi::{fmi3::schema, schema::fmi3::AbstractVariableTrait};
@@ -474,7 +468,7 @@ mod tests {
         assert_eq!(model_variables.float32[0].start(), &[1.5]);
 
         assert_eq!(model_variables.int32[0].name(), "count");
-        assert_eq!(model_variables.int32[0].start, Some(42));
+        assert_eq!(model_variables.int32[0].start, vec![42]);
 
         assert_eq!(model_variables.boolean[0].name(), "enabled");
         assert_eq!(model_variables.boolean[0].start, vec![true]);
@@ -618,5 +612,132 @@ mod tests {
                 .variability,
             Some(schema::Variability::Discrete) // Default for integers
         );
+    }
+
+    #[test]
+    fn test_foo() {
+        let input: syn::DeriveInput = parse_quote! {
+            #[model()]
+            struct ComprehensiveModel {
+                //f1: u32,
+
+                /// Example of a fixed-size array
+                #[variable(causality = Parameter, variability = Tunable, start = [0u16, 1, 2, 3])]
+                f2: [u16; 2],
+
+                /// Example of a fixed-2-dimensional array with starting values
+                #[variable(causality = Parameter, variability = Tunable, start = [0.0, 0.1, 1.0, 1.1, 2.0, 2.1])]
+                f3: [[f64; 2]; 2],
+            }
+        };
+
+        let model = Model::from(input);
+        dbg!(model);
+
+        trait FmiVariableBuilder {
+            type Var: schema::AbstractVariableTrait;
+            type Start;
+            fn build(
+                name: &str,
+                value_reference: u32,
+                causality: schema::Causality,
+                variability: schema::Variability,
+                start: impl Into<Self::Start>,
+            ) -> Self::Var;
+        }
+
+        impl FmiVariableBuilder for u16 {
+            type Var = schema::FmiUInt16;
+            type Start = Vec<u16>;
+            fn build(
+                name: &str,
+                value_reference: u32,
+                causality: schema::Causality,
+                variability: schema::Variability,
+                start: impl Into<Self::Start>,
+            ) -> Self::Var {
+                schema::FmiUInt16::new(
+                    name.to_owned(),
+                    value_reference,
+                    None,
+                    causality,
+                    variability,
+                    start.into(),
+                    None,
+                )
+            }
+        }
+
+        impl FmiVariableBuilder for f64 {
+            type Var = schema::FmiFloat64;
+            type Start = Vec<f64>;
+            fn build(
+                name: &str,
+                value_reference: u32,
+                causality: schema::Causality,
+                variability: schema::Variability,
+                start: impl Into<Self::Start>,
+            ) -> Self::Var {
+                schema::FmiFloat64::new(
+                    name.to_owned(),
+                    value_reference,
+                    None,
+                    causality,
+                    variability,
+                    start.into(),
+                    None,
+                )
+            }
+        }
+
+        impl<const N: usize, T> FmiVariableBuilder for [T; N]
+        where
+            T: FmiVariableBuilder,
+            T::Var: schema::ArrayableVariableTrait,
+            T::Start: Into<Vec<T>>,
+        {
+            type Var = T::Var;
+            type Start = T::Start;
+            fn build(
+                name: &str,
+                value_reference: u32,
+                causality: schema::Causality,
+                variability: schema::Variability,
+                start: impl Into<Self::Start>,
+            ) -> Self::Var {
+                let mut var = <T as FmiVariableBuilder>::build(
+                    name,
+                    value_reference,
+                    causality,
+                    variability,
+                    start,
+                );
+                schema::ArrayableVariableTrait::add_dimensions(
+                    &mut var,
+                    &[schema::Dimension::fixed(N)],
+                );
+                var
+            }
+        }
+
+        let var_f2 = <[u16; 2] as FmiVariableBuilder>::build(
+            "f2",
+            0,
+            schema::Causality::Parameter,
+            schema::Variability::Tunable,
+            vec![0u16, 1, 2, 3],
+        );
+        dbg!(var_f2);
+
+        /*
+        let var = <[[f64; 2]; 2] as FmiVariableBuilder>::build(
+            "f3",
+            0,
+            schema::Causality::Parameter,
+            schema::Variability::Tunable,
+            vec![0.0f32, 0.1, 1.0, 1.1, 2.0, 2.1],
+        );
+        dbg!(var);
+        */
     }
 }

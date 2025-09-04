@@ -6,7 +6,7 @@ use super::{
     RealVariableAttributes, UInt8Attributes, UInt16Attributes, UInt32Attributes, UInt64Attributes,
 };
 
-use crate::{Error, default_wrapper};
+use crate::{Error, default_wrapper, fmi3::ModelVariables};
 
 /// An enumeration that defines the type of a variable.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -63,9 +63,17 @@ pub trait AbstractVariableTrait {
     fn annotations(&self) -> Option<&Annotations>;
 }
 
+/// Append this variable to the given `ModelVariables` struct
+//fn append_to_variables(self, variables: &mut ModelVariables);
+
 pub trait ArrayableVariableTrait: AbstractVariableTrait {
+    /// Each `Dimension` element specifies the size of one dimension of the array
     fn dimensions(&self) -> &[Dimension];
+    /// Extend the dimensions of the variable
+    fn add_dimensions(&mut self, dims: &[Dimension]);
+    /// If `true`, the variable can be updated during intermediate update mode.
     fn intermediate_update(&self) -> Option<bool>;
+    /// The value reference of the variable that provides the previous value of this variable.
     fn previous(&self) -> Option<u32>;
 }
 
@@ -145,6 +153,13 @@ macro_rules! impl_arrayable_variable {
         impl ArrayableVariableTrait for $name {
             fn dimensions(&self) -> &[Dimension] {
                 &self.init_var.typed_arrayable_var.arrayable_var.dimensions
+            }
+            fn add_dimensions(&mut self, dims: &[Dimension]) {
+                self.init_var
+                    .typed_arrayable_var
+                    .arrayable_var
+                    .dimensions
+                    .extend_from_slice(dims);
             }
             fn intermediate_update(&self) -> Option<bool> {
                 self.init_var
@@ -264,7 +279,7 @@ macro_rules! impl_integer_type {
             pub int_attr: $int_attr,
             /// Initial or guess value of the variable. During instantiation, the FMU initializes its variables with their start values.
             #[yaserde(attribute = true)]
-            pub start: Option<$type>,
+            pub start: Vec<$type>,
             #[yaserde(flatten = true)]
             pub init_var: InitializableVariable,
         }
@@ -279,7 +294,7 @@ macro_rules! impl_integer_type {
                 description: Option<String>,
                 causality: Causality,
                 variability: Variability,
-                start: Option<$type>,
+                start: Vec<$type>,
                 initial: Option<Initial>,
             ) -> Self {
                 Self {
@@ -381,7 +396,8 @@ pub enum Variability {
     Continuous,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+//TODO: can this be an enum?
+#[derive(Default, Clone, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct Dimension {
     /// Defines a constant unsigned 64-bit integer size for this dimension. The variability of the
     /// dimension size is constant in this case.
@@ -396,6 +412,24 @@ pub struct Dimension {
     /// only if it is referenced in `Dimension`.
     #[yaserde(attribute = true, rename = "valueReference")]
     pub value_reference: Option<u32>,
+}
+
+impl Dimension {
+    /// Create a new fixed dimension with the given size
+    pub fn fixed(size: usize) -> Self {
+        Self {
+            start: Some(size as u64),
+            value_reference: None,
+        }
+    }
+
+    /// Create a new variable dimension with the given value reference
+    pub fn variable(value_reference: u32) -> Self {
+        Self {
+            start: None,
+            value_reference: Some(value_reference),
+        }
+    }
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -738,7 +772,7 @@ mod tests {
         assert_eq!(var.name(), "Int16_input");
         assert_eq!(var.value_reference(), 15);
         assert_eq!(var.causality(), Causality::Input);
-        assert_eq!(var.start, Some(0));
+        assert_eq!(var.start, vec![0]);
         assert_eq!(var.variability(), Variability::Discrete); // The default for non-float types should be discrete
     }
 
@@ -847,7 +881,7 @@ mod tests {
         assert_eq!(var.name(), "int8_var");
         assert_eq!(var.value_reference(), 20);
         assert_eq!(var.causality(), Causality::Parameter);
-        assert_eq!(var.start, Some(-128));
+        assert_eq!(var.start, vec![-128]);
         assert_eq!(var.variability(), Variability::Fixed);
     }
 
@@ -859,7 +893,7 @@ mod tests {
         assert_eq!(var.name(), "uint8_var");
         assert_eq!(var.value_reference(), 21);
         assert_eq!(var.causality(), Causality::Local);
-        assert_eq!(var.start, Some(255));
+        assert_eq!(var.start, vec![255]);
         assert_eq!(var.variability(), Variability::Discrete); // Default for integer types
     }
 
@@ -871,7 +905,7 @@ mod tests {
         assert_eq!(var.name(), "uint16_var");
         assert_eq!(var.value_reference(), 22);
         assert_eq!(var.causality(), Causality::CalculatedParameter);
-        assert_eq!(var.start, Some(65535));
+        assert_eq!(var.start, vec![65535]);
     }
 
     #[test]
@@ -882,7 +916,7 @@ mod tests {
         assert_eq!(var.name(), "int32_var");
         assert_eq!(var.value_reference(), 23);
         assert_eq!(var.causality(), Causality::StructuralParameter);
-        assert_eq!(var.start, Some(-2147483648));
+        assert_eq!(var.start, vec![-2147483648]);
         assert_eq!(var.variability(), Variability::Tunable);
     }
 
@@ -894,7 +928,7 @@ mod tests {
         assert_eq!(var.name(), "uint32_var");
         assert_eq!(var.value_reference(), 24);
         assert_eq!(var.causality(), Causality::Independent);
-        assert_eq!(var.start, Some(4294967295));
+        assert_eq!(var.start, vec![4294967295]);
     }
 
     #[test]
@@ -905,7 +939,7 @@ mod tests {
         assert_eq!(var.name(), "int64_var");
         assert_eq!(var.value_reference(), 25);
         assert_eq!(var.causality(), Causality::Dependent);
-        assert_eq!(var.start, Some(-9223372036854775808));
+        assert_eq!(var.start, vec![-9223372036854775808]);
     }
 
     #[test]
@@ -916,7 +950,7 @@ mod tests {
         assert_eq!(var.name(), "uint64_var");
         assert_eq!(var.value_reference(), 26);
         assert_eq!(var.causality(), Causality::Input);
-        assert_eq!(var.start, Some(18446744073709551615));
+        assert_eq!(var.start, vec![18446744073709551615]);
         assert_eq!(var.variability(), Variability::Constant);
     }
 
@@ -1101,7 +1135,7 @@ mod tests {
         assert_eq!(var.name(), "annotated_var");
         assert_eq!(var.value_reference(), 800);
         assert_eq!(var.causality(), Causality::Local);
-        assert_eq!(var.start, Some(42));
+        assert_eq!(var.start, vec![42]);
 
         let annotations = var.annotations().unwrap();
         assert_eq!(annotations.annotations.len(), 2);

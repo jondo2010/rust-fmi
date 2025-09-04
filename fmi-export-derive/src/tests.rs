@@ -6,7 +6,7 @@ use syn::parse_quote;
 #[test]
 fn test_comprehensive_datatype_support() {
     // Test that our expanded FMI datatype support works correctly
-    let input: syn::ItemStruct = parse_quote! {
+    let input: syn::DeriveInput = parse_quote! {
         /// A comprehensive FMI model demonstrating all supported datatypes
         #[model()]
         struct ComprehensiveModel {
@@ -103,14 +103,14 @@ fn test_comprehensive_datatype_support() {
     assert_eq!(model_variables.float64[0].start, vec![2.7]);
 
     // Integer types use Option<T> for start values
-    assert_eq!(model_variables.int8[0].start, Some(10));
-    assert_eq!(model_variables.int16[0].start, Some(1000));
-    assert_eq!(model_variables.int32[0].start, Some(50000));
-    assert_eq!(model_variables.int64[0].start, Some(9000000000));
-    assert_eq!(model_variables.uint8[0].start, Some(255));
-    assert_eq!(model_variables.uint16[0].start, Some(8080));
-    assert_eq!(model_variables.uint32[0].start, Some(1024));
-    assert_eq!(model_variables.uint64[0].start, Some(1234567890123));
+    assert_eq!(model_variables.int8[0].start, vec![10]);
+    assert_eq!(model_variables.int16[0].start, vec![1000]);
+    assert_eq!(model_variables.int32[0].start, vec![50000]);
+    assert_eq!(model_variables.int64[0].start, vec![9000000000]);
+    assert_eq!(model_variables.uint8[0].start, vec![255]);
+    assert_eq!(model_variables.uint16[0].start, vec![8080]);
+    assert_eq!(model_variables.uint32[0].start, vec![1024]);
+    assert_eq!(model_variables.uint64[0].start, vec![1234567890123]);
 
     // Boolean uses Vec<bool>
     assert_eq!(model_variables.boolean[0].start, vec![true]);
