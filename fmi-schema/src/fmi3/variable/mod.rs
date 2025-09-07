@@ -533,9 +533,11 @@ pub struct StringStart {
     pub value: String,
 }
 
-#[derive(Default, PartialEq, Debug)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiString {
+    #[yaserde(rename = "Start")]
     pub start: Option<Vec<StringStart>>,
+    #[yaserde(flatten = true)]
     pub init_var: InitializableVariable,
 }
 
@@ -611,23 +613,16 @@ impl BinaryStart {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiBinary {
+    #[yaserde(rename = "Start")]
     pub start: Option<Vec<BinaryStart>>,
+    #[yaserde(attribute = true, rename = "mimeType", default = "default_mime_type")]
     pub mime_type: String,
+    #[yaserde(attribute = true, rename = "maxSize")]
     pub max_size: Option<u32>,
+    #[yaserde(flatten = true)]
     pub init_var: InitializableVariable,
-}
-
-impl Default for FmiBinary {
-    fn default() -> Self {
-        Self {
-            start: None,
-            mime_type: default_mime_type(),
-            max_size: None,
-            init_var: InitializableVariable::default(),
-        }
-    }
 }
 
 fn default_mime_type() -> String {
