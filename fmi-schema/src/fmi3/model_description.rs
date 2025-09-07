@@ -3,10 +3,8 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 use crate::{Error, traits::FmiModelDescription};
 
 use super::{
-    AbstractVariableTrait, Annotations, Float32Type, Float64Type, Fmi3CoSimulation,
-    Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, FmiBinary, FmiBoolean,
-    FmiFloat32, FmiFloat64, FmiInt8, FmiInt16, FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16,
-    FmiUInt32, FmiUInt64, InitializableVariableTrait,
+    Annotations, Float32Type, Float64Type, Fmi3CoSimulation, Fmi3ModelExchange,
+    Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, ModelVariables,
 };
 
 #[derive(Default, Debug, PartialEq, YaDeserialize, YaSerialize)]
@@ -188,83 +186,6 @@ pub struct DefaultExperiment {
     pub step_size: Option<f64>,
 }
 
-#[derive(Default, Debug, PartialEq, YaDeserialize, YaSerialize)]
-pub struct ModelVariables {
-    #[yaserde(rename = "Float32")]
-    pub float32: Vec<FmiFloat32>,
-    #[yaserde(rename = "Float64")]
-    pub float64: Vec<FmiFloat64>,
-    #[yaserde(rename = "Int8")]
-    pub int8: Vec<FmiInt8>,
-    #[yaserde(rename = "UInt8")]
-    pub uint8: Vec<FmiUInt8>,
-    #[yaserde(rename = "Int16")]
-    pub int16: Vec<FmiInt16>,
-    #[yaserde(rename = "UInt16")]
-    pub uint16: Vec<FmiUInt16>,
-    #[yaserde(rename = "Int32")]
-    pub int32: Vec<FmiInt32>,
-    #[yaserde(rename = "UInt32")]
-    pub uint32: Vec<FmiUInt32>,
-    #[yaserde(rename = "Int64")]
-    pub int64: Vec<FmiInt64>,
-    #[yaserde(rename = "UInt64")]
-    pub uint64: Vec<FmiUInt64>,
-    #[yaserde(rename = "Boolean")]
-    pub boolean: Vec<FmiBoolean>,
-    #[yaserde(rename = "String")]
-    pub string: Vec<FmiString>,
-    #[yaserde(rename = "Binary")]
-    pub binary: Vec<FmiBinary>,
-}
-
-impl ModelVariables {
-    /// Returns the total number of variables in the model description
-    pub fn len(&self) -> usize {
-        self.iter_abstract().count()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Returns an iterator over all the AbstractVariables in the model description
-    pub fn iter_abstract(&self) -> impl Iterator<Item = &dyn AbstractVariableTrait> {
-        itertools::chain!(
-            self.float32.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.float64.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int8.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint8.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int16.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint16.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int32.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint32.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int64.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint64.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.boolean.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.string.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.binary.iter().map(|v| v as &dyn AbstractVariableTrait),
-        )
-    }
-
-    /// Returns an iterator over all the float32 and float64 variables in the model description
-    pub fn iter_floating(&self) -> impl Iterator<Item = &dyn InitializableVariableTrait> {
-        itertools::chain!(
-            self.float32
-                .iter()
-                .map(|v| v as &dyn InitializableVariableTrait),
-            self.float64
-                .iter()
-                .map(|v| v as &dyn InitializableVariableTrait),
-        )
-    }
-
-    /// Finds a variable by its name.
-    pub fn find_by_name(&self, name: &str) -> Option<&dyn AbstractVariableTrait> {
-        self.iter_abstract().find(|v| v.name() == name)
-    }
-}
-
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct ModelStructure {
     #[yaserde(rename = "Output")]
@@ -285,6 +206,8 @@ pub struct ModelStructure {
 
 #[cfg(test)]
 mod tests {
+    use crate::fmi3::AbstractVariableTrait;
+
     use super::*;
     #[test]
     fn test_model_descr() {
@@ -405,7 +328,7 @@ mod tests {
         assert_eq!(mv.boolean.len(), 2);
         assert_eq!(mv.boolean[0].name(), "Boolean_input");
         assert_eq!(mv.boolean[0].causality(), crate::fmi3::Causality::Input);
-        assert_eq!(mv.boolean[0].start, vec![false]);
+        assert_eq!(mv.boolean[0].start, Some(vec![false]));
         assert_eq!(mv.string.len(), 1);
         // assert_eq!(mv.binary.len(), 2);
         // assert_eq!(mv.enumeration.len(), 2);

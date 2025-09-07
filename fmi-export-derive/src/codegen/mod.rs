@@ -4,8 +4,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 
 use crate::model::Model;
-use crate::model_variables;
 use crate::model_structure;
+use crate::model_variables;
 use fmi::fmi3::schema;
 
 mod model_impl;
@@ -22,11 +22,11 @@ pub struct CodeGenerator {
 impl CodeGenerator {
     pub fn new(model: Model) -> Self {
         // Build model variables and structure directly
-        let model_variables = model_variables::build_model_variables(&model.fields)
-            .expect("Failed to build model variables");
-        
-        let model_structure = model_structure::build_model_structure(&model.fields, &model_variables)
-            .expect("Failed to build model structure");
+        let model_variables = model_variables::build_model_variables(&model.fields);
+
+        let model_structure =
+            model_structure::build_model_structure(&model.fields, &model_variables)
+                .expect("Failed to build model structure");
 
         Self {
             model,
@@ -47,8 +47,12 @@ impl ToTokens for CodeGenerator {
         //let logging_category_enum = logging_category::LoggingCategoryEnum::new(&self.model);
 
         // Generate Model implementation
-        let model_impl =
-            model_impl::ModelImpl::new(struct_name, &self.model, &self.model_variables, &self.model_structure);
+        let model_impl = model_impl::ModelImpl::new(
+            struct_name,
+            &self.model,
+            &self.model_variables,
+            &self.model_structure,
+        );
 
         // Combine all implementations
         tokens.extend(quote! {

@@ -11,6 +11,7 @@
 mod instance;
 mod macros;
 mod traits;
+mod variable_builder;
 
 use std::{fmt::Display, str::FromStr};
 

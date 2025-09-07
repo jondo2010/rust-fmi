@@ -3576,8 +3576,7 @@ dependencies = [
 [[package]]
 name = "yaserde_derive"
 version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f785831c0e09e0f1a83f917054fd59c088f6561db5b2a42c1c3e1687329325f"
+source = "git+https://github.com/jondo2010/yaserde.git?branch=serialize_vec_as_attribute#61733045abd36bfe4df0093ee7b6af1c50d6ccb3"
 dependencies = [
  "heck",
  "log",

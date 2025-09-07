@@ -61,25 +61,15 @@ where
 
         var_dims
             .map(|dims| {
-                dims.map(
-                    |schema::Dimension {
-                         start,
-                         value_reference,
-                     }| {
-                        match (start, value_reference) {
-                            // If the dimension has a start and no value reference, it is a constant
-                            (&Some(start), None) => start as usize,
-                            // If the dimension has a ValueRef, then it could be dynamically set during configuration mode
-                            (None, &Some(vr)) => {
-                                let mut dim_val = [0];
-                                self.get_uint64(&[vr.into()], &mut dim_val)
-                                    .expect("Error getting dimension");
-                                dim_val[0] as usize
-                            }
-                            _ => panic!("Invalid Dimension"),
-                        }
-                    },
-                )
+                dims.map(|dim| match dim {
+                    schema::Dimension::Fixed(start) => *start as usize,
+                    schema::Dimension::Variable(vr) => {
+                        let mut dim_val = [0];
+                        self.get_uint64(&[(*vr).into()], &mut dim_val)
+                            .expect("Error getting dimension");
+                        dim_val[0] as usize
+                    }
+                })
                 .product::<usize>()
             })
             .sum()

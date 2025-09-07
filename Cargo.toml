@@ -54,7 +54,7 @@ uuid = { version = "1.0", features = ["v5"] }
 zip = "4.0"
 
 [patch.crates-io]
-#arrow = { git = "https://github.com/jondo2010/arrow-rs.git", branch = "fine_grained_integer_inference" }
+yaserde_derive = { git = "https://github.com/jondo2010/yaserde.git", branch = "serialize_vec_as_attribute" }
 
 [package]
 name = "fmi-workspace"

@@ -1,5 +1,5 @@
 use crate::{model::Model, model_variables::build_model_variables};
-use fmi::fmi3::schema;
+use fmi::{fmi3::schema, schema::fmi3::InitializableVariableTrait};
 use schema::AbstractVariableTrait;
 use syn::parse_quote;
 
@@ -77,8 +77,7 @@ fn test_comprehensive_datatype_support() {
     };
 
     let model = Model::from(input);
-    let model_variables =
-        build_model_variables(&model.fields).expect("Failed to build model variables");
+    let model_variables = build_model_variables(&model.fields);
 
     // Test variable counts - each alias creates an additional variable
     assert_eq!(model_variables.float32.len(), 1);
@@ -99,24 +98,28 @@ fn test_comprehensive_datatype_support() {
 
     // Test specific variable properties
     // Float types use Vec<T> for start values
-    assert_eq!(model_variables.float32[0].start, vec![1.5]);
-    assert_eq!(model_variables.float64[0].start, vec![2.7]);
+    assert_eq!(model_variables.float32[0].start, Some(vec![1.5]));
+    assert_eq!(model_variables.float64[0].start, Some(vec![2.7]));
 
     // Integer types use Option<T> for start values
-    assert_eq!(model_variables.int8[0].start, vec![10]);
-    assert_eq!(model_variables.int16[0].start, vec![1000]);
-    assert_eq!(model_variables.int32[0].start, vec![50000]);
-    assert_eq!(model_variables.int64[0].start, vec![9000000000]);
-    assert_eq!(model_variables.uint8[0].start, vec![255]);
-    assert_eq!(model_variables.uint16[0].start, vec![8080]);
-    assert_eq!(model_variables.uint32[0].start, vec![1024]);
-    assert_eq!(model_variables.uint64[0].start, vec![1234567890123]);
+    assert_eq!(model_variables.int8[0].start, Some(vec![10]));
+    assert_eq!(model_variables.int16[0].start, Some(vec![1000]));
+    assert_eq!(model_variables.int32[0].start, Some(vec![50000]));
+    assert_eq!(model_variables.int64[0].start, Some(vec![9000000000]));
+    assert_eq!(model_variables.uint8[0].start, Some(vec![255]));
+    assert_eq!(model_variables.uint16[0].start, Some(vec![8080]));
+    assert_eq!(model_variables.uint32[0].start, Some(vec![1024]));
+    assert_eq!(model_variables.uint64[0].start, Some(vec![1234567890123]));
 
     // Boolean uses Vec<bool>
-    assert_eq!(model_variables.boolean[0].start, vec![true]);
+    assert_eq!(model_variables.boolean[0].start, Some(vec![true]));
 
     // String uses Vec<StringStart>
-    let string_values: Vec<&str> = model_variables.string[0].start().collect();
+    let string_values: Vec<&str> = model_variables.string[0]
+        .start()
+        .iter()
+        .map(|s| s.value.as_str())
+        .collect();
     assert_eq!(string_values, vec!["ComprehensiveModel"]);
 
     // Test causalities are preserved

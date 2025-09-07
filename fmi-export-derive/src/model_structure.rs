@@ -338,68 +338,28 @@ mod tests {
 
     #[test]
     fn test_model_structure() {
-        use crate::model::{FieldAttribute, FieldAttributeOuter};
-        use syn::parse_quote;
-
-        let input: syn::DeriveInput = parse_quote! {
-            /// A comprehensive FMI model demonstrating all supported datatypes
-            #[model()]
-            struct Dummy {
-            }
-        };
-
-        let fields = vec![
-            // State variable (height)
-            Field {
-                ident: parse_quote!(h),
-                ty: parse_quote!(f64),
-                attrs: vec![FieldAttributeOuter::Variable(FieldAttribute {
-                    causality: Some(crate::model::Causality(schema::Causality::Output)),
-                    state: Some(true),
-                    start: Some(parse_quote!(1.0)),
-                    ..Default::default()
-                })],
-            },
-            // State variable (velocity) with derivative alias
-            Field {
-                ident: parse_quote!(v),
-                ty: parse_quote!(f64),
-                attrs: vec![
-                    FieldAttributeOuter::Variable(FieldAttribute {
-                        causality: Some(crate::model::Causality(schema::Causality::Output)),
-                        state: Some(true),
-                        start: Some(parse_quote!(0.0)),
-                        ..Default::default()
-                    }),
-                    FieldAttributeOuter::Alias(FieldAttribute {
-                        name: Some("der(h)".to_string()),
-                        causality: Some(crate::model::Causality(schema::Causality::Local)),
-                        derivative: Some(parse_quote!(h)),
-                        ..Default::default()
-                    }),
-                ],
-            },
-            // Gravitational acceleration (derivative of velocity)
-            Field {
-                ident: parse_quote!(g),
-                ty: parse_quote!(f64),
-                attrs: vec![
-                    FieldAttributeOuter::Variable(FieldAttribute {
-                        causality: Some(crate::model::Causality(schema::Causality::Parameter)),
-                        start: Some(parse_quote!(-9.81)),
-                        ..Default::default()
-                    }),
-                    FieldAttributeOuter::Alias(FieldAttribute {
-                        name: Some("der(v)".to_string()),
-                        causality: Some(crate::model::Causality(schema::Causality::Local)),
-                        derivative: Some(parse_quote!(v)),
-                        ..Default::default()
-                    }),
-                ],
-            },
+        let fields: Vec<Field> = vec![
+            TryFrom::<syn::Field>::try_from(syn::parse_quote! {
+                /// This is a field description
+                #[variable(causality = Output, state, start = 1.0)]
+                h: f64
+            })
+            .unwrap(),
+            TryFrom::<syn::Field>::try_from(syn::parse_quote! {
+                #[variable(causality = Output, state, start = 0.0)]
+                #[alias(name = "der(h)", causality = Local, derivative = h)]
+                v: f64
+            })
+            .unwrap(),
+            TryFrom::<syn::Field>::try_from(syn::parse_quote! {
+                #[variable(causality = Parameter, start = -9.81)]
+                #[alias(name = "der(v)", causality = Local, derivative = v)]
+                g: f64
+            })
+            .unwrap(),
         ];
 
-        let model_variables = build_model_variables(&fields).unwrap();
+        let model_variables = build_model_variables(&fields);
         let model_structure = build_model_structure(&fields, &model_variables).unwrap();
 
         // Test outputs: h and v should be outputs

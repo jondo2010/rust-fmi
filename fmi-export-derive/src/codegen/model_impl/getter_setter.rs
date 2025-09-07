@@ -5,7 +5,6 @@ use quote::{ToTokens, format_ident, quote};
 
 use crate::codegen::util;
 use crate::model::{FieldAttributeOuter, Model};
-use crate::util::rust_type_to_variable_type;
 use fmi::fmi3::schema;
 
 /// Generator for all getter/setter method implementations in the Model trait
@@ -21,18 +20,14 @@ impl<'a> GetterSetterGen<'a> {
     /// Check if the model has any variables of the given type
     fn has_variables_of_type(&self, variable_type: schema::VariableType) -> bool {
         self.model.fields.iter().any(|field| {
-            if let Ok(vtype) = rust_type_to_variable_type(&field.ty) {
-                if vtype == variable_type {
-                    // Check if field has a variable or alias attribute
-                    field.attrs.iter().any(|attr| {
-                        matches!(
-                            attr,
-                            FieldAttributeOuter::Variable(_) | FieldAttributeOuter::Alias(_)
-                        )
-                    })
-                } else {
-                    false
-                }
+            if field.field_type.r#type == variable_type {
+                // Check if field has a variable or alias attribute
+                field.attrs.iter().any(|attr| {
+                    matches!(
+                        attr,
+                        FieldAttributeOuter::Variable(_) | FieldAttributeOuter::Alias(_)
+                    )
+                })
             } else {
                 false
             }
@@ -239,53 +234,51 @@ impl<'a> TypeGetterGen<'a> {
 impl ToTokens for TypeGetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         for field in &self.model.fields {
-            if let Ok(vtype) = rust_type_to_variable_type(&field.ty) {
-                if vtype == self.variable_type {
-                    // Add case for main variable
-                    let has_variable = field
-                        .attrs
-                        .iter()
-                        .any(|attr| matches!(attr, FieldAttributeOuter::Variable(_)));
-                    if has_variable {
-                        let variant_name =
-                            format_ident!("{}", util::to_pascal_case(&field.ident.to_string()));
-                        let field_name = &field.ident;
+            if field.field_type.r#type == self.variable_type {
+                // Add case for main variable
+                let has_variable = field
+                    .attrs
+                    .iter()
+                    .any(|attr| matches!(attr, FieldAttributeOuter::Variable(_)));
+                if has_variable {
+                    let variant_name =
+                        format_ident!("{}", util::to_pascal_case(&field.ident.to_string()));
+                    let field_name = &field.ident;
 
-                        // Special handling for string types
-                        if self.variable_type == schema::VariableType::FmiString {
-                            tokens.extend(quote! {
+                    // Special handling for string types
+                    if self.variable_type == schema::VariableType::FmiString {
+                        tokens.extend(quote! {
                                 ValueRef::#variant_name => {
                                     *value = std::ffi::CString::new(self.#field_name.clone()).unwrap_or_default();
                                 },
                             });
-                        } else {
-                            tokens.extend(quote! {
-                                ValueRef::#variant_name => *value = self.#field_name,
-                            });
-                        }
+                    } else {
+                        tokens.extend(quote! {
+                            ValueRef::#variant_name => *value = self.#field_name,
+                        });
                     }
+                }
 
-                    // Add cases for aliases of this variable
-                    for attr in &field.attrs {
-                        if let FieldAttributeOuter::Alias(alias_attr) = attr {
-                            if let Some(alias_name) = &alias_attr.name {
-                                let alias_variant_name = util::generate_variant_name(alias_name);
-                                let field_name = &field.ident;
+                // Add cases for aliases of this variable
+                for attr in &field.attrs {
+                    if let FieldAttributeOuter::Alias(alias_attr) = attr {
+                        if let Some(alias_name) = &alias_attr.name {
+                            let alias_variant_name = util::generate_variant_name(alias_name);
+                            let field_name = &field.ident;
 
-                                // Special handling for string types
-                                if self.variable_type == schema::VariableType::FmiString {
-                                    tokens.extend(quote! {
+                            // Special handling for string types
+                            if self.variable_type == schema::VariableType::FmiString {
+                                tokens.extend(quote! {
                                         ValueRef::#alias_variant_name => {
                                             *value = std::ffi::CString::new(self.#field_name.clone()).unwrap_or_default();
                                         },
                                     });
-                                } else {
-                                    tokens.extend(quote! {
-                                        ValueRef::#alias_variant_name => {
-                                            *value = self.#field_name;
-                                        },
-                                    });
-                                }
+                            } else {
+                                tokens.extend(quote! {
+                                    ValueRef::#alias_variant_name => {
+                                        *value = self.#field_name;
+                                    },
+                                });
                             }
                         }
                     }
@@ -313,33 +306,31 @@ impl<'a> TypeSetterGen<'a> {
 impl ToTokens for TypeSetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         for field in &self.model.fields {
-            if let Ok(vtype) = rust_type_to_variable_type(&field.ty) {
-                if vtype == self.variable_type {
-                    // Only generate setter for main variable (not aliases)
-                    let has_variable = field
-                        .attrs
-                        .iter()
-                        .any(|attr| matches!(attr, FieldAttributeOuter::Variable(_)));
-                    if has_variable {
-                        let variant_name =
-                            format_ident!("{}", util::to_pascal_case(&field.ident.to_string()));
-                        let field_name = &field.ident;
+            if field.field_type.r#type == self.variable_type {
+                // Only generate setter for main variable (not aliases)
+                let has_variable = field
+                    .attrs
+                    .iter()
+                    .any(|attr| matches!(attr, FieldAttributeOuter::Variable(_)));
+                if has_variable {
+                    let variant_name =
+                        format_ident!("{}", util::to_pascal_case(&field.ident.to_string()));
+                    let field_name = &field.ident;
 
-                        // Special handling for string types
-                        if self.variable_type == schema::VariableType::FmiString {
-                            tokens.extend(quote! {
-                                ValueRef::#variant_name => {
-                                    self.#field_name = value.to_string_lossy().to_string();
-                                },
-                            });
-                        } else {
-                            tokens.extend(quote! {
-                                ValueRef::#variant_name => self.#field_name = *value,
-                            });
-                        }
+                    // Special handling for string types
+                    if self.variable_type == schema::VariableType::FmiString {
+                        tokens.extend(quote! {
+                            ValueRef::#variant_name => {
+                                self.#field_name = value.to_string_lossy().to_string();
+                            },
+                        });
+                    } else {
+                        tokens.extend(quote! {
+                            ValueRef::#variant_name => self.#field_name = *value,
+                        });
                     }
-                    // Note: Aliases (especially derivatives) typically shouldn't be settable
                 }
+                // Note: Aliases (especially derivatives) typically shouldn't be settable
             }
         }
     }
