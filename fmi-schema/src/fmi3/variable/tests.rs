@@ -33,7 +33,7 @@ fn test_float64() {
     assert_eq!(var.initial(), Some(Initial::Exact));
     assert_eq!(var.causality(), Causality::Parameter);
     assert_eq!(var.declared_type(), Some("Acceleration"));
-    assert_eq!(var.start(), Some(&[-9.81]));
+    assert_eq!(var.start(), Some([-9.81].as_slice()));
     assert_eq!(var.derivative(), Some(1));
     assert_eq!(var.description(), Some("Gravity acting on the ball"));
     assert_eq!(var.can_handle_multiple_set_per_time_instant(), None);
@@ -61,7 +61,7 @@ fn test_dim_f64() {
     assert_eq!(var.description(), Some("Matrix coefficient A"));
     assert_eq!(
         var.start,
-        Some(&vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
+        Some(vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
     );
     assert_eq!(var.dimensions().len(), 2);
     assert_eq!(var.dimensions()[0].as_variable(), Some(2));
@@ -78,7 +78,8 @@ fn test_string() {
     assert_eq!(var.value_reference(), 29);
     assert_eq!(var.variability(), Variability::Fixed);
     assert_eq!(var.causality(), Causality::Parameter);
-    assert_eq!(var.start().next().unwrap(), "Set me!");
+    let start_values: Vec<&str> = var.start().unwrap().iter().map(|s| s.value.as_str()).collect();
+    assert_eq!(start_values, vec!["Set me!"]);
 }
 
 #[test]
@@ -92,7 +93,7 @@ fn test_binary() {
     assert_eq!(var.name(), "Binary_input");
     assert_eq!(var.value_reference(), 31);
     assert_eq!(var.causality(), Causality::Input);
-    let start0 = var.start().next().unwrap();
+    let start0 = &var.start().unwrap()[0];
     assert_eq!(start0.value.as_str(), "666f6f");
     assert_eq!(start0.as_bytes(), Ok(vec![0x66, 0x6f, 0x6f]));
 }
@@ -106,7 +107,7 @@ fn test_float32() {
     assert_eq!(var.name(), "float32_var");
     assert_eq!(var.value_reference(), 10);
     assert_eq!(var.causality(), Causality::Output);
-    assert_eq!(var.start(), &[3.14]);
+    assert_eq!(var.start(), Some([3.14].as_slice()));
     assert_eq!(var.variability(), Variability::Continuous); // Default for float types
     assert_eq!(var.derivative(), None);
     assert_eq!(var.reinit(), None);
@@ -120,7 +121,7 @@ fn test_int8() {
     assert_eq!(var.name(), "int8_var");
     assert_eq!(var.value_reference(), 20);
     assert_eq!(var.causality(), Causality::Parameter);
-    assert_eq!(var.start, vec![-128]);
+    assert_eq!(var.start, Some(vec![-128]));
     assert_eq!(var.variability(), Variability::Fixed);
 }
 
@@ -132,7 +133,7 @@ fn test_uint8() {
     assert_eq!(var.name(), "uint8_var");
     assert_eq!(var.value_reference(), 21);
     assert_eq!(var.causality(), Causality::Local);
-    assert_eq!(var.start, vec![255]);
+    assert_eq!(var.start, Some(vec![255]));
     assert_eq!(var.variability(), Variability::Discrete); // Default for integer types
 }
 
@@ -144,7 +145,7 @@ fn test_uint16() {
     assert_eq!(var.name(), "uint16_var");
     assert_eq!(var.value_reference(), 22);
     assert_eq!(var.causality(), Causality::CalculatedParameter);
-    assert_eq!(var.start, vec![65535]);
+    assert_eq!(var.start, Some(vec![65535]));
 }
 
 #[test]
@@ -155,7 +156,7 @@ fn test_int32() {
     assert_eq!(var.name(), "int32_var");
     assert_eq!(var.value_reference(), 23);
     assert_eq!(var.causality(), Causality::StructuralParameter);
-    assert_eq!(var.start, vec![-2147483648]);
+    assert_eq!(var.start, Some(vec![-2147483648]));
     assert_eq!(var.variability(), Variability::Tunable);
 }
 
@@ -167,7 +168,7 @@ fn test_uint32() {
     assert_eq!(var.name(), "uint32_var");
     assert_eq!(var.value_reference(), 24);
     assert_eq!(var.causality(), Causality::Independent);
-    assert_eq!(var.start, vec![4294967295]);
+    assert_eq!(var.start, Some(vec![4294967295]));
 }
 
 #[test]
@@ -178,7 +179,7 @@ fn test_int64() {
     assert_eq!(var.name(), "int64_var");
     assert_eq!(var.value_reference(), 25);
     assert_eq!(var.causality(), Causality::Dependent);
-    assert_eq!(var.start, vec![-9223372036854775808]);
+    assert_eq!(var.start, Some(vec![-9223372036854775808]));
 }
 
 #[test]
@@ -189,7 +190,7 @@ fn test_uint64() {
     assert_eq!(var.name(), "uint64_var");
     assert_eq!(var.value_reference(), 26);
     assert_eq!(var.causality(), Causality::Input);
-    assert_eq!(var.start, vec![18446744073709551615]);
+    assert_eq!(var.start, Some(vec![18446744073709551615]));
     assert_eq!(var.variability(), Variability::Constant);
 }
 
@@ -201,7 +202,7 @@ fn test_boolean() {
     assert_eq!(var.name(), "boolean_var");
     assert_eq!(var.value_reference(), 30);
     assert_eq!(var.causality(), Causality::Output);
-    assert_eq!(var.start, vec![true, false, true]);
+    assert_eq!(var.start, Some(vec![true, false, true]));
     assert_eq!(var.variability(), Variability::Discrete); // Default for boolean
 }
 
@@ -238,11 +239,11 @@ fn test_variable_with_all_attributes() {
     assert_eq!(var.previous(), Some(99));
     assert_eq!(var.initial(), Some(Initial::Calculated));
     assert_eq!(var.declared_type(), Some("CustomType"));
-    assert_eq!(var.start(), &[1.0, 2.0]);
+    assert_eq!(var.start(), Some([1.0, 2.0].as_slice()));
     assert_eq!(var.derivative(), Some(101));
     assert_eq!(var.reinit(), Some(true));
     assert_eq!(var.dimensions().len(), 1);
-    assert_eq!(var.dimensions()[0].start, Some(2));
+    assert_eq!(var.dimensions()[0].as_fixed(), Some(2));
 }
 
 #[test]
@@ -259,11 +260,11 @@ fn test_dimension_with_value_reference() {
     let var: FmiFloat32 = yaserde::de::from_str(xml).unwrap();
     assert_eq!(var.name(), "matrix_var");
     assert_eq!(var.dimensions().len(), 2);
-    assert_eq!(var.dimensions()[0].value_reference, Some(201));
-    assert_eq!(var.dimensions()[0].start, None);
-    assert_eq!(var.dimensions()[1].value_reference, None);
-    assert_eq!(var.dimensions()[1].start, Some(2));
-    assert_eq!(var.start(), &[1.0, 2.0, 3.0, 4.0]);
+    assert_eq!(var.dimensions()[0].as_variable(), Some(201));
+    assert_eq!(var.dimensions()[0].as_fixed(), None);
+    assert_eq!(var.dimensions()[1].as_variable(), None);
+    assert_eq!(var.dimensions()[1].as_fixed(), Some(2));
+    assert_eq!(var.start(), Some([1.0, 2.0, 3.0, 4.0].as_slice()));
 }
 
 #[test]
@@ -276,7 +277,7 @@ fn test_string_multiple_starts() {
 
     let var: FmiString = yaserde::de::from_str(xml).unwrap();
     assert_eq!(var.name(), "multi_string");
-    let start_values: Vec<&str> = var.start().collect();
+    let start_values: Vec<&str> = var.start().unwrap().iter().map(|s| s.value.as_str()).collect();
     assert_eq!(
         start_values,
         vec!["First string", "Second string", "Third string"]
@@ -300,7 +301,7 @@ fn test_binary_multiple_starts_and_attributes() {
     assert_eq!(var.mime_type, "application/custom");
     assert_eq!(var.max_size, Some(1024));
 
-    let start_values: Vec<&BinaryStart> = var.start().collect();
+    let start_values: Vec<&BinaryStart> = var.start().unwrap().iter().collect();
     assert_eq!(start_values.len(), 2);
     assert_eq!(start_values[0].value, "48656c6c6f");
     assert_eq!(start_values[1].value, "576f726c64");
@@ -323,7 +324,7 @@ fn test_binary_hex_parsing_with_prefix() {
         </Binary>"#;
 
     let var: FmiBinary = yaserde::de::from_str(xml).unwrap();
-    let start0 = var.start().next().unwrap();
+    let start0 = &var.start().unwrap()[0];
     assert_eq!(start0.as_bytes(), Ok(vec![0x48, 0x65, 0x6C, 0x6C, 0x6F])); // "HeLLO"
 }
 
@@ -334,7 +335,7 @@ fn test_binary_hex_parsing_with_whitespace() {
         </Binary>"#;
 
     let var: FmiBinary = yaserde::de::from_str(xml).unwrap();
-    let start0 = var.start().next().unwrap();
+    let start0 = &var.start().unwrap()[0];
     assert_eq!(
         start0.as_bytes(),
         Ok(vec![
@@ -374,7 +375,7 @@ fn test_variable_annotations() {
     assert_eq!(var.name(), "annotated_var");
     assert_eq!(var.value_reference(), 800);
     assert_eq!(var.causality(), Causality::Local);
-    assert_eq!(var.start, vec![42]);
+    assert_eq!(var.start, Some(vec![42]));
 
     let annotations = var.annotations().unwrap();
     assert_eq!(annotations.annotations.len(), 2);
