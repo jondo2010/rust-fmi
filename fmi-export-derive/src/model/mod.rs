@@ -161,10 +161,22 @@ pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
         .collect()
 }
 
+/// Check if a field has any FMU-relevant attributes (variable or alias)
+fn has_fmu_attributes(field: &syn::Field) -> bool {
+    field.attrs.iter().any(|attr| {
+        attr.meta
+            .path()
+            .get_ident()
+            .map(|ident| ident == "variable" || ident == "alias")
+            .unwrap_or(false)
+    })
+}
+
 pub fn build_fields(fields: syn::Fields) -> Vec<Field> {
     match fields {
         syn::Fields::Named(syn::FieldsNamed { named, .. }) => named
             .into_iter()
+            .filter(|field| has_fmu_attributes(field)) // Only process fields with FMU attributes
             .filter_map(|ref field| match Field::try_from(field.clone()) {
                 Ok(field) => Some(field),
                 Err(e) => {
@@ -333,5 +345,36 @@ mod tests {
             "Custom model description".to_string(),
             "Model description should match the custom description"
         );
+    }
+
+    #[test]
+    fn test_fields_without_fmu_attributes_are_ignored() {
+        let input: syn::ItemStruct = syn::parse_quote! {
+            struct TestModel {
+                /// Height above ground (state output) - has FMU attribute
+                #[variable(causality = Output, start = 1.0)]
+                h: f64,
+
+                /// User variable without FMU attributes - should be ignored
+                internal_state: Vec<bool>,
+
+                /// Another user variable - should be ignored
+                helper_data: std::collections::HashMap<String, i32>,
+
+                /// Velocity - has FMU attribute
+                #[variable(causality = Output, start = 0.0)]
+                v: f64,
+            }
+        };
+        let fields = build_fields(input.fields);
+
+        // Only fields with FMU attributes should be included
+        assert_eq!(
+            fields.len(),
+            2,
+            "Only fields with FMU attributes should be processed"
+        );
+        assert_eq!(fields[0].ident.to_string(), "h");
+        assert_eq!(fields[1].ident.to_string(), "v");
     }
 }

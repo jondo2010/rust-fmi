@@ -1,8 +1,8 @@
+#![deny(clippy::all)]
 //! Example port of the Dahlquist FMU from the Reference FMUs
 //!
 //! This implements a simple first-order linear ODE: der(x) = -k * x
 //! where x is the state variable and k is a parameter.
-#![deny(clippy::all)]
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
