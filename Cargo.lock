@@ -1001,6 +1001,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fmi-export"
+version = "0.5.0"
+dependencies = [
+ "chrono",
+ "document-features",
+ "fmi",
+ "fmi-export-derive",
+ "paste",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "fmi-export-derive"
 version = "0.5.0"
 dependencies = [
