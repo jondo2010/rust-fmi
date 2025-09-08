@@ -1,5 +1,7 @@
 use yaserde_derive::{YaDeserialize, YaSerialize};
 
+use crate::traits::FmiInterfaceType;
+
 #[derive(Default, Debug, YaSerialize, YaDeserialize)]
 #[yaserde(tag = "File")]
 pub struct File {
@@ -100,6 +102,60 @@ pub struct CoSimulation {
     /// code FMUs).
     #[yaserde(rename = "SourceFiles")]
     pub source_files: Option<SourceFiles>,
+}
+
+impl FmiInterfaceType for ModelExchange {
+    fn model_identifier(&self) -> &str {
+        &self.model_identifier
+    }
+    fn needs_execution_tool(&self) -> Option<bool> {
+        self.needs_execution_tool
+    }
+    fn can_be_instantiated_only_once_per_process(&self) -> Option<bool> {
+        self.can_be_instantiated_only_once_per_process
+    }
+    fn can_get_and_set_fmu_state(&self) -> Option<bool> {
+        self.can_get_and_set_fmu_state
+    }
+    fn can_serialize_fmu_state(&self) -> Option<bool> {
+        self.can_serialize_fmu_state
+    }
+    fn provides_directional_derivatives(&self) -> Option<bool> {
+        self.provides_directional_derivative
+    }
+    fn provides_adjoint_derivatives(&self) -> Option<bool> {
+        None
+    }
+    fn provides_per_element_dependencies(&self) -> Option<bool> {
+        None
+    }
+}
+
+impl FmiInterfaceType for CoSimulation {
+    fn model_identifier(&self) -> &str {
+        &self.model_identifier
+    }
+    fn needs_execution_tool(&self) -> Option<bool> {
+        self.needs_execution_tool
+    }
+    fn can_be_instantiated_only_once_per_process(&self) -> Option<bool> {
+        self.can_be_instantiated_only_once_per_process
+    }
+    fn can_get_and_set_fmu_state(&self) -> Option<bool> {
+        self.can_get_and_set_fmu_state
+    }
+    fn can_serialize_fmu_state(&self) -> Option<bool> {
+        self.can_serialize_fmu_state
+    }
+    fn provides_directional_derivatives(&self) -> Option<bool> {
+        self.provides_directional_derivative
+    }
+    fn provides_adjoint_derivatives(&self) -> Option<bool> {
+        None
+    }
+    fn provides_per_element_dependencies(&self) -> Option<bool> {
+        None
+    }
 }
 
 #[cfg(test)]

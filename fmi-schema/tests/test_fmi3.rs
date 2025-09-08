@@ -3,9 +3,12 @@
 #[test]
 #[cfg(feature = "fmi3")]
 fn test_fmi3() {
-    use fmi_schema::fmi3::{
-        AbstractVariableTrait, BaseTypeTrait, BaseUnit, DependenciesKind, Fmi3ModelDescription,
-        Fmi3ModelExchange, Variability,
+    use fmi_schema::{
+        fmi3::{
+            AbstractVariableTrait, BaseTypeTrait, BaseUnit, DependenciesKind, Fmi3ModelDescription,
+            Variability,
+        },
+        traits::FmiInterfaceType,
     };
 
     let test_file = std::env::current_dir()
@@ -16,15 +19,21 @@ fn test_fmi3() {
     let model: Fmi3ModelDescription = yaserde::de::from_reader(buf_reader).unwrap();
 
     let model_exchange = model.model_exchange.unwrap();
+    assert_eq!(model_exchange.model_identifier(), "BouncingBall");
+    assert_eq!(model_exchange.can_get_and_set_fmu_state(), Some(true));
+    assert_eq!(model_exchange.can_serialize_fmu_state(), Some(true));
+
+    let cosim = model.co_simulation.unwrap();
+    assert_eq!(cosim.model_identifier(), "BouncingBall");
+    assert_eq!(cosim.can_get_and_set_fmu_state(), Some(true));
+    assert_eq!(cosim.can_serialize_fmu_state(), Some(true));
     assert_eq!(
-        model_exchange,
-        Fmi3ModelExchange {
-            model_identifier: "BouncingBall".to_owned(),
-            can_get_and_set_fmu_state: Some(true),
-            can_serialize_fmu_state: Some(true),
-            ..Default::default()
-        }
+        cosim.can_handle_variable_communication_step_size,
+        Some(true)
     );
+    assert_eq!(cosim.provides_intermediate_update, Some(true));
+    assert_eq!(cosim.can_return_early_after_intermediate_update, Some(true));
+    assert_eq!(cosim.fixed_internal_step_size, Some(1e-3));
 
     let unit_defs = model.unit_definitions.unwrap();
     assert_eq!(unit_defs.units.len(), 3);

@@ -1,5 +1,7 @@
 use std::ffi::CString;
 
+use crate::schema::traits::FmiInterfaceType;
+
 use crate::{
     Error, EventFlags,
     fmi3::{CoSimulation, Common, Fmi3Error, Fmi3Res, Fmi3Status, binding, import, logger},
@@ -73,10 +75,10 @@ impl<'a> Instance<'a, CS> {
 
         log::debug!(
             "Instantiating CS: {} '{name}'",
-            co_simulation.model_identifier
+            co_simulation.model_identifier()
         );
 
-        let binding = import.binding(&co_simulation.model_identifier)?;
+        let binding = import.binding(&co_simulation.model_identifier())?;
 
         let instance_name = CString::new(instance_name).expect("Invalid instance name");
         let instantiation_token = CString::new(model_description.instantiation_token.as_bytes())
