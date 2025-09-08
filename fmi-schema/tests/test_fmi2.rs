@@ -5,6 +5,8 @@ use fmi_schema::fmi2::{BaseUnit, Fmi2ModelDescription, SimpleTypeElement};
 #[test]
 #[cfg(feature = "fmi2")]
 fn test_fmi2() {
+    use fmi_schema::traits::FmiInterfaceType;
+
     let test_file = std::env::current_dir()
         .map(|path| path.join("tests/FMI2.xml"))
         .unwrap();
@@ -24,18 +26,28 @@ fn test_fmi2() {
     assert_eq!(md.number_of_event_indicators, 1);
 
     let me = md.model_exchange.unwrap();
-    assert_eq!(me.model_identifier, "BouncingBall");
+    assert_eq!(me.model_identifier(), "BouncingBall");
+    assert_eq!(me.needs_execution_tool(), None);
+    assert_eq!(me.can_be_instantiated_only_once_per_process(), None);
+    assert_eq!(me.can_get_and_set_fmu_state(), Some(true));
+    assert_eq!(me.can_serialize_fmu_state(), Some(true));
+    assert_eq!(me.provides_directional_derivatives(), None);
+    assert_eq!(me.provides_adjoint_derivatives(), None);
+    assert_eq!(me.provides_per_element_dependencies(), None);
     assert_eq!(me.can_not_use_memory_management_functions, Some(true));
-    assert_eq!(me.can_get_and_set_fmu_state, Some(true));
-    assert_eq!(me.can_serialize_fmu_state, Some(true));
     assert_eq!(me.source_files.unwrap().files[0].name, "all.c");
 
     let cs = md.co_simulation.unwrap();
-    assert_eq!(cs.model_identifier, "BouncingBall");
+    assert_eq!(cs.model_identifier(), "BouncingBall");
+    assert_eq!(cs.needs_execution_tool(), None);
+    assert_eq!(cs.can_be_instantiated_only_once_per_process(), None);
+    assert_eq!(cs.can_get_and_set_fmu_state(), Some(true));
+    assert_eq!(cs.can_serialize_fmu_state(), Some(true));
+    assert_eq!(cs.provides_directional_derivatives(), None);
+    assert_eq!(cs.provides_adjoint_derivatives(), None);
+    assert_eq!(cs.provides_per_element_dependencies(), None);
     assert_eq!(cs.can_handle_variable_communication_step_size, Some(true));
     assert_eq!(cs.can_not_use_memory_management_functions, Some(true));
-    assert_eq!(cs.can_get_and_set_fmu_state, Some(true));
-    assert_eq!(cs.can_serialize_fmu_state, Some(true));
     assert_eq!(cs.source_files.unwrap().files[0].name, "all.c");
 
     let units = md.unit_definitions.unwrap();
