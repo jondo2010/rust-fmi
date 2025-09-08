@@ -1,107 +1,111 @@
 //! Test the FMI2.0 instance API.
 
-#[cfg(target_os = "linux")]
 use fmi::{
-    fmi2::instance::{CS, CoSimulation as _, Common as _, Instance, ME},
-    traits::{FmiImport as _, FmiStatus},
+    fmi2::{
+        import::Fmi2Import,
+        instance::{CoSimulation as _, Common as _},
+    },
+    traits::FmiImport as _,
 };
-#[cfg(target_os = "linux")]
 use fmi_test_data::ReferenceFmus;
 
 extern crate fmi;
 extern crate fmi_test_data;
 
-#[cfg(target_os = "linux")]
 #[test]
 fn test_instance_me() {
     let mut ref_fmus = ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu("Dahlquist").unwrap();
-    let mut instance1 = Instance::<ME>::new(&import, "inst1", false, true).unwrap();
-    assert_eq!(instance1.get_version(), "2.0");
+    let import: Fmi2Import = ref_fmus.get_reference_fmu("Dahlquist").unwrap();
+    let inst1 = import.instantiate_me("inst1", true, true);
 
-    let categories = &import
-        .model_description()
-        .log_categories
-        .as_ref()
-        .unwrap()
-        .categories
-        .iter()
-        .map(|cat| cat.name.as_ref())
-        .collect::<Vec<&str>>();
+    if cfg!(target_os = "macos") {
+        // FMI2 Reference FMUs are not built for MacOS
+        assert!(inst1.is_err());
+    } else {
+        let mut inst1 = inst1.expect("instantiate_me");
+        assert_eq!(inst1.get_version(), "2.0");
 
-    instance1
-        .set_debug_logging(true, categories)
-        .expect("set_debug_logging");
-    instance1
-        .setup_experiment(Some(1.0e-6_f64), 0.0, None)
-        .ok()
-        .expect("setup_experiment");
-    instance1
-        .enter_initialization_mode()
-        .ok()
-        .expect("enter_initialization_mode");
-    instance1
-        .exit_initialization_mode()
-        .ok()
-        .expect("exit_initialization_mode");
-    instance1.terminate().ok().expect("terminate");
-    instance1.reset().ok().expect("reset");
+        let categories = &import
+            .model_description()
+            .log_categories
+            .as_ref()
+            .unwrap()
+            .categories
+            .iter()
+            .map(|cat| cat.name.as_ref())
+            .collect::<Vec<&str>>();
+
+        inst1
+            .set_debug_logging(true, categories)
+            .expect("set_debug_logging");
+        inst1
+            .setup_experiment(Some(1.0e-6_f64), 0.0, None)
+            .ok()
+            .expect("setup_experiment");
+        inst1
+            .enter_initialization_mode()
+            .ok()
+            .expect("enter_initialization_mode");
+        inst1
+            .exit_initialization_mode()
+            .ok()
+            .expect("exit_initialization_mode");
+        inst1.terminate().ok().expect("terminate");
+        inst1.reset().ok().expect("reset");
+    }
 }
 
-#[cfg(target_os = "linux")]
 #[test]
 fn test_instance_cs() {
     let mut ref_fmus = ReferenceFmus::new().unwrap();
-    let import = ref_fmus.get_reference_fmu("Dahlquist").unwrap();
 
-    let mut instance1 = Instance::<CS>::new(&import, "inst1", false, true).unwrap();
-    assert_eq!(instance1.get_version(), "2.0");
+    let import: Fmi2Import = ref_fmus.get_reference_fmu("Dahlquist").unwrap();
+    let inst1 = import.instantiate_cs("inst1", true, true);
 
-    instance1
-        .setup_experiment(Some(1.0e-6_f64), 0.0, None)
-        .ok()
-        .expect("setup_experiment");
+    if cfg!(target_os = "macos") {
+        // FMI2 Reference FMUs are not built for MacOS
+        assert!(inst1.is_err());
+    } else {
+        let mut inst1 = inst1.expect("instantiate_cs");
+        assert_eq!(inst1.get_version(), "2.0");
 
-    instance1
-        .enter_initialization_mode()
-        .ok()
-        .expect("enter_initialization_mode");
+        inst1
+            .setup_experiment(Some(1.0e-6_f64), 0.0, None)
+            .ok()
+            .expect("setup_experiment");
 
-    let sv = import
-        .model_description()
-        .model_variable_by_name("k")
-        .unwrap();
+        inst1
+            .enter_initialization_mode()
+            .ok()
+            .expect("enter_initialization_mode");
 
-    instance1
-        .set_real(&[sv.value_reference], &[2.0f64])
-        .ok()
-        .expect("set k parameter");
+        let sv = import
+            .model_description()
+            .model_variable_by_name("k")
+            .unwrap();
 
-    instance1
-        .exit_initialization_mode()
-        .ok()
-        .expect("exit_initialization_mode");
+        inst1
+            .set_real(&[sv.value_reference], &[2.0f64])
+            .ok()
+            .expect("set k parameter");
 
-    let sv = import
-        .model_description()
-        .model_variable_by_name("x")
-        .unwrap();
+        inst1
+            .exit_initialization_mode()
+            .ok()
+            .expect("exit_initialization_mode");
 
-    let mut x = [0.0];
+        let sv = import
+            .model_description()
+            .model_variable_by_name("x")
+            .unwrap();
 
-    instance1
-        .get_real(&[sv.value_reference], &mut x)
-        .ok()
-        .unwrap();
+        let mut x = [0.0];
 
-    assert_eq!(x, [1.0]);
+        inst1.get_real(&[sv.value_reference], &mut x).ok().unwrap();
+        assert_eq!(x, [1.0]);
 
-    instance1.do_step(0.0, 0.125, false).ok().expect("do_step");
-
-    instance1
-        .get_real(&[sv.value_reference], &mut x)
-        .ok()
-        .unwrap();
-
-    assert_eq!(x, [0.8]);
+        inst1.do_step(0.0, 0.125, false).ok().expect("do_step");
+        inst1.get_real(&[sv.value_reference], &mut x).ok().unwrap();
+        assert_eq!(x, [0.8]);
+    }
 }
