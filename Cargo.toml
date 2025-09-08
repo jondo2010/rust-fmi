@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "examples/*",
     "fmi",
     "fmi-export",
     "fmi-export-derive",
@@ -7,6 +8,7 @@ members = [
     "fmi-sim",
     "fmi-sys",
     "fmi-test-data",
+    "xtask",
 ]
 resolver = "2"
 
