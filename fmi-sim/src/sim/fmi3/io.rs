@@ -12,10 +12,6 @@ use arrow::{
         UInt16Type, UInt32Type, UInt64Type,
     },
 };
-use fmi::{
-    fmi3::GetSet,
-    traits::{FmiInstance, FmiStatus},
-};
 
 use crate::sim::{
     RecorderState,
@@ -24,12 +20,14 @@ use crate::sim::{
     traits::{InstRecordValues, InstSetValues},
 };
 
+use fmi::{fmi3::GetSet, traits::FmiInstance};
+
 use itertools::Itertools;
 
 macro_rules! impl_recorder {
     ($getter:ident, $builder_type:ident, $inst:expr, $vr:ident, $builder:ident) => {{
         let mut value = [std::default::Default::default()];
-        $inst.$getter(&[*$vr], &mut value).ok()?;
+        $inst.$getter(&[*$vr], &mut value)?;
         $builder
             .as_any_mut()
             .downcast_mut::<$builder_type>()
@@ -128,40 +126,40 @@ macro_rules! impl_set_values {
                 match values.data_type() {
                     DataType::Boolean => {
                         let values = values.as_boolean().iter().map(|x| x.unwrap()).collect_vec();
-                        self.set_boolean(vrs, &values);
+                        self.set_boolean(vrs, &values).unwrap();
                     }
                     DataType::Int8 => {
-                        self.set_int8(vrs, values.as_primitive::<Int8Type>().values());
+                        self.set_int8(vrs, values.as_primitive::<Int8Type>().values()).unwrap();
                     }
                     DataType::Int16 => {
-                        self.set_int16(vrs, values.as_primitive::<Int16Type>().values());
+                        self.set_int16(vrs, values.as_primitive::<Int16Type>().values()).unwrap();
                     }
                     DataType::Int32 => {
-                        self.set_int32(vrs, values.as_primitive::<Int32Type>().values());
+                        self.set_int32(vrs, values.as_primitive::<Int32Type>().values()).unwrap();
                     }
                     DataType::Int64 => {
-                        self.set_int64(vrs, values.as_primitive::<Int64Type>().values());
+                        self.set_int64(vrs, values.as_primitive::<Int64Type>().values()).unwrap();
                     }
                     DataType::UInt8 => {
-                        self.set_uint8(vrs, values.as_primitive::<UInt8Type>().values());
+                        self.set_uint8(vrs, values.as_primitive::<UInt8Type>().values()).unwrap();
                     }
                     DataType::UInt16 => {
-                        self.set_uint16(vrs, values.as_primitive::<UInt16Type>().values());
+                        self.set_uint16(vrs, values.as_primitive::<UInt16Type>().values()).unwrap();
                     }
                     DataType::UInt32 => {
-                        self.set_uint32(vrs, values.as_primitive::<UInt32Type>().values());
+                        self.set_uint32(vrs, values.as_primitive::<UInt32Type>().values()).unwrap();
                     }
                     DataType::UInt64 => {
-                        self.set_uint64(vrs, values.as_primitive::<UInt64Type>().values());
+                        self.set_uint64(vrs, values.as_primitive::<UInt64Type>().values()).unwrap();
                     }
                     DataType::Float16 => {
                         unimplemented!()
                     }
                     DataType::Float32 => {
-                        self.set_float32(vrs, values.as_primitive::<Float32Type>().values());
+                        self.set_float32(vrs, values.as_primitive::<Float32Type>().values()).unwrap();
                     }
                     DataType::Float64 => {
-                        self.set_float64(vrs, values.as_primitive::<Float64Type>().values());
+                        self.set_float64(vrs, values.as_primitive::<Float64Type>().values()).unwrap();
                     }
                     DataType::Binary => {
                         let binary_refs: Vec<&[u8]> = values
@@ -198,52 +196,52 @@ macro_rules! impl_set_values {
                     DataType::Int8 => {
                         let array = array.as_primitive::<Int8Type>();
                         let value = I::interpolate(pl, &array);
-                        self.set_int8(&[vr], &[value]).ok()?;
+                        self.set_int8(&[vr], &[value])?;
                     }
                     DataType::Int16 => {
                         let array = array.as_primitive::<Int16Type>();
                         let value = I::interpolate(pl, &array);
-                        self.set_int16(&[vr], &[value]).ok()?;
+                        self.set_int16(&[vr], &[value])?;
                     }
                     DataType::Int32 => {
                         let array = array.as_primitive::<Int32Type>();
                         let value = I::interpolate(pl, &array);
-                        self.set_int32(&[vr], &[value]).ok()?;
+                        self.set_int32(&[vr], &[value])?;
                     }
                     DataType::Int64 => {
                         let array = array.as_primitive::<Int64Type>();
                         let value = I::interpolate(pl, &array);
-                        self.set_int64(&[vr], &[value]).ok()?;
+                        self.set_int64(&[vr], &[value])?;
                     }
                     DataType::UInt8 => {
                         let array: UInt8Array = downcast_array(&array);
                         let value = I::interpolate(pl, &array);
-                        self.set_uint8(&[vr], &[value]).ok()?;
+                        self.set_uint8(&[vr], &[value])?;
                     }
                     DataType::UInt16 => {
                         let array: UInt16Array = downcast_array(&array);
                         let value = I::interpolate(pl, &array);
-                        self.set_uint16(&[vr], &[value]).ok()?;
+                        self.set_uint16(&[vr], &[value])?;
                     }
                     DataType::UInt32 => {
                         let array: UInt32Array = downcast_array(&array);
                         let value = I::interpolate(pl, &array);
-                        self.set_uint32(&[vr], &[value]).ok()?;
+                        self.set_uint32(&[vr], &[value])?;
                     }
                     DataType::UInt64 => {
                         let array: UInt64Array = downcast_array(&array);
                         let value = I::interpolate(pl, &array);
-                        self.set_uint64(&[vr], &[value]).ok()?;
+                        self.set_uint64(&[vr], &[value])?;
                     }
                     DataType::Float32 => {
                         let array: Float32Array = downcast_array(&array);
                         let value = I::interpolate(pl, &array);
-                        self.set_float32(&[vr], &[value]).ok()?;
+                        self.set_float32(&[vr], &[value])?;
                     }
                     DataType::Float64 => {
                         let array: Float64Array = downcast_array(&array);
                         let value = I::interpolate(pl, &array);
-                        self.set_float64(&[vr], &[value]).ok()?;
+                        self.set_float64(&[vr], &[value])?;
                     }
                     DataType::Binary => todo!(),
                     DataType::Utf8 => {

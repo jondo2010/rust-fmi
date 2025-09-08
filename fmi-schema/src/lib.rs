@@ -7,6 +7,7 @@
 use std::fmt::Display;
 
 use thiserror::Error;
+use yaserde::{YaDeserialize, YaSerialize};
 
 pub mod date_time;
 #[cfg(feature = "fmi2")]
@@ -15,6 +16,8 @@ pub mod fmi2;
 pub mod fmi3;
 pub mod minimal;
 pub mod traits;
+#[cfg(feature = "serde")]
+pub mod utils;
 pub mod variable_counts;
 
 /// The major version of the FMI standard
@@ -55,4 +58,18 @@ pub enum Error {
 #[inline]
 fn default_wrapper<T: Default>() -> T {
     T::default()
+}
+
+/// Serialize a value to XML string. If `fragment` is true, the XML declaration is omitted.
+pub fn serialize<T: YaSerialize>(value: &T, fragment: bool) -> Result<String, Error> {
+    let config = yaserde::ser::Config {
+        perform_indent: false,
+        write_document_declaration: !fragment,
+        indent_string: None,
+    };
+    yaserde::ser::to_string_with_config(value, &config).map_err(Error::XmlParse)
+}
+
+pub fn deserialize<T: YaDeserialize>(xml: &str) -> Result<T, Error> {
+    yaserde::de::from_str(xml).map_err(|e| Error::XmlParse(e.to_string()))
 }

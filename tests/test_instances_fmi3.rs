@@ -2,7 +2,7 @@
 
 use fmi::{
     fmi3::{Common, Fmi3Model, GetSet, ModelExchange, import::Fmi3Import},
-    schema::fmi3::AbstractVariableTrait,
+    schema::fmi3::{AbstractVariableTrait, InitializableVariableTrait},
     traits::FmiImport as _,
 };
 use fmi_test_data::ReferenceFmus;
@@ -89,9 +89,8 @@ fn test_instance_feedthrough_string() {
         .unwrap();
     let expected = string_var
         .start()
-        .next()
         .expect("No start value on string variable");
-    assert_eq!(my_strings[0].to_str().unwrap(), expected);
+    assert_eq!(my_strings[0].to_str().unwrap(), &expected[0].value);
 
     // Set the string variable to a new value
     inst1
@@ -124,7 +123,7 @@ fn test_instance_feedthrough_binary() {
         .get_binary(&[binary_var.value_reference()], &mut [&mut my_binary])
         .unwrap();
 
-    let binary_start = binary_var.start[0]
+    let binary_start = binary_var.start().unwrap()[0]
         .as_bytes()
         .expect("Binary variable start value invalid");
 

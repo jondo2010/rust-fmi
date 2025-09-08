@@ -1,11 +1,9 @@
 //! Traits for the different instance types.
 
 use crate::{
-    Error,
-    fmi3::{Fmi3Error, Fmi3Res},
+    Error, EventFlags,
+    fmi3::{Fmi3Error, Fmi3Res, binding},
 };
-
-use super::{Fmi3Status, binding};
 
 macro_rules! default_getter_setter {
     ($name:ident, $ty:ty) => {
@@ -13,13 +11,13 @@ macro_rules! default_getter_setter {
             /// Get the values of the specified variable references.
             ///
             /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
-            fn [<get_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &mut [$ty]) -> Fmi3Status {
+            fn [<get_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &mut [$ty]) -> Result<Fmi3Res, Fmi3Error> {
                 unimplemented!();
             }
             /// Set the values of the specified variable references.
             ///
             /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
-            fn [<set_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &[$ty]) -> Fmi3Status {
+            fn [<set_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &[$ty]) -> Result<Fmi3Res, Fmi3Error> {
                 unimplemented!();
             }
         }
@@ -181,18 +179,15 @@ pub trait Common: GetSet {
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates>
     fn update_discrete_states(
         &mut self,
-        _discrete_states_need_update: &mut bool,
-        _terminate_simulation: &mut bool,
-        _nominals_of_continuous_states_changed: &mut bool,
-        _values_of_continuous_states_changed: &mut bool,
-        _next_event_time: &mut Option<f64>,
-    ) -> Result<Fmi3Res, Fmi3Error> {
-        unimplemented!()
-    }
+        event_flags: &mut EventFlags,
+    ) -> Result<Fmi3Res, Fmi3Error>;
 }
 
 /// Interface for Model Exchange instances
 pub trait ModelExchange: Common {
+    /// This function must be called to change from Event Mode into Continuous-Time Mode in Model Exchange.
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3EnterContinuousTimeMode>
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
     /// This function is called after every completed step of the integrator provided the capability

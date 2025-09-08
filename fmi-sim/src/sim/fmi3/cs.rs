@@ -113,7 +113,11 @@ impl<'a> SimState<InstanceCS<'a>> {
 
             if self.sim_params.event_mode_used && (input_event || event_encountered) {
                 log::trace!("Event encountered at t = {time}");
-                self.handle_events(time, input_event, &mut terminate_simulation)?;
+                let (_reset_solver, terminate) = self.handle_events(time, input_event)?;
+
+                if terminate {
+                    break;
+                }
 
                 self.inst
                     .enter_step_mode()

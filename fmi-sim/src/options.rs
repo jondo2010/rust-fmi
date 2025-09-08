@@ -98,7 +98,7 @@ pub struct CommonOptions {
     /// "variableName=value", where variableName is the name of the variable and value is the
     /// value to set. The value must be of the same type as the variable. The variable name must
     /// be a valid FMI variable name, i.e. it must be a valid identifier and it must be unique.
-    #[arg(short = 'v')]
+    #[arg(long = "init-values")]
     pub initial_values: Vec<String>,
 
     /// Print also left limit values at event points to the output file to investigate event
@@ -115,7 +115,7 @@ pub struct CommonOptions {
     /// Observe that if a small stepSize is used the number of saved outputs will still be limited
     /// by the number of output points. Default is to calculated a step size from the number of
     /// output points. See the -n option for how the number of outputs is set.
-    #[arg(long = "ss")]
+    #[arg(long = "step")]
     pub step_size: Option<f64>,
 
     #[arg(long = "output-interval")]
@@ -165,4 +165,7 @@ pub struct FmiSimOptions {
     /// according to the CrossCheck rules).
     #[arg(short = 'm')]
     pub mangle_names: bool,
+    /// Verbosity level. Use -v for info, -vv for debug, -vvv for trace. Also controls FMU log messages.
+    #[command(flatten)]
+    pub verbose: clap_verbosity_flag::Verbosity,
 }

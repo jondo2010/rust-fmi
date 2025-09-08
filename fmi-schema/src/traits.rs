@@ -9,7 +9,8 @@ pub trait DefaultExperiment {
     fn step_size(&self) -> Option<f64>;
 }
 
-pub trait FmiModelDescription {
+/// A trait common between all FMI schema versions
+pub trait FmiModelDescription: Sized {
     /// Returns the model name
     fn model_name(&self) -> &str;
 
@@ -30,4 +31,32 @@ pub trait FmiModelDescription {
             v => panic!("Invalid version {}", v.major),
         }
     }
+
+    /// Deserialize the model description from XML
+    fn deserialize(xml: &str) -> Result<Self, crate::Error>;
+
+    /// Serialize the model description to XML
+    fn serialize(&self) -> Result<String, crate::Error>;
+}
+
+/// A trait for FMI interface types (Model Exchange, Co-Simulation, Scheduled Execution) and versions
+pub trait FmiInterfaceType: Sized {
+    /// Returns the model identifier
+    fn model_identifier(&self) -> &str;
+    /// Returns true if the FMU needs an execution tool
+    fn needs_execution_tool(&self) -> Option<bool>;
+    /// Returns true if the FMU can be instantiated only once per process
+    fn can_be_instantiated_only_once_per_process(&self) -> Option<bool>;
+    /// Returns true if the FMU can get and set FMU state
+    fn can_get_and_set_fmu_state(&self) -> Option<bool>;
+    /// Returns true if the FMU can serialize FMU state
+    fn can_serialize_fmu_state(&self) -> Option<bool>;
+    /// Returns true if the FMU provides directional derivatives
+    fn provides_directional_derivatives(&self) -> Option<bool>;
+    /// Returns true if the FMU provides adjoint derivatives
+    /// (only FMI 3.0)
+    fn provides_adjoint_derivatives(&self) -> Option<bool>;
+    /// Returns true if the FMU provides per element dependencies
+    /// (only FMI 3.0)
+    fn provides_per_element_dependencies(&self) -> Option<bool>;
 }

@@ -27,7 +27,7 @@ fn ref_fmus() -> fmi_test_data::ReferenceFmus {
 #[case::cs(Interface::CoSimulation(CoSimulationOptions {common: CommonOptions { start_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
 #[case::me(Interface::ModelExchange(ModelExchangeOptions {common: CommonOptions { start_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
 #[trace]
-#[test_log::test]
+#[test]
 fn test_start_time(
     mut ref_fmus: fmi_test_data::ReferenceFmus,
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
@@ -62,7 +62,7 @@ fn test_start_time(
 #[case::cs(Interface::CoSimulation(CoSimulationOptions {common: CommonOptions { stop_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
 #[case::me(Interface::ModelExchange(ModelExchangeOptions {common: CommonOptions { stop_time: Some(0.5), output_interval: Some(0.1), ..Default::default() }, ..Default::default()}))]
 #[trace]
-#[test_log::test]
+#[test]
 fn test_stop_time(
     mut ref_fmus: fmi_test_data::ReferenceFmus,
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
@@ -91,8 +91,10 @@ fn test_stop_time(
     assert_eq!(time.value(time.len() - 1), 0.5,);
 }
 
-#[test_log::test]
+#[test]
 fn test_start_value_types() {
+    flexi_logger::init();
+
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
     let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
 
@@ -348,8 +350,7 @@ fn feedthrough_output_data(
 #[rstest::rstest]
 #[case::cs(Interface::CoSimulation(CoSimulationOptions {common: CommonOptions { stop_time: Some(5.0), output_interval: Some(1.0), ..Default::default() }, ..Default::default()}))]
 #[case::me(Interface::ModelExchange(ModelExchangeOptions {common: CommonOptions { stop_time: Some(5.0), output_interval: Some(1.0), ..Default::default() }, ..Default::default()}))]
-//#[trace]
-#[test_log::test]
+#[test]
 fn test_input_data(
     mut ref_fmus: fmi_test_data::ReferenceFmus,
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
