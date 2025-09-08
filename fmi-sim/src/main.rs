@@ -1,9 +1,16 @@
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
-    sensible_env_logger::try_init_timed!()?;
-
     let options = fmi_sim::options::FmiSimOptions::try_parse()?;
+
+    // Initialize simple env_logger for now (temporary fallback)
+    //env_logger::Builder::new()
+    //    .filter_level(options.verbose.log_level_filter())
+    //    .try_init()
+    //    .unwrap_or_else(|_| {}); // Ignore if already initialized
+
+    let _logger = flexi_logger::Logger::try_with_env()?.start()?;
+
     let (outputs, stats) = fmi_sim::simulate(&options)?;
 
     log::info!(

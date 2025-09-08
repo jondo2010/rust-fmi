@@ -1,10 +1,7 @@
 use std::{path::PathBuf, str::FromStr};
 
-use super::{
-    binding,
-    instance::{CS, Instance, ME},
-};
-use crate::{Error, traits::FmiImport};
+use super::{binding, instance::Instance};
+use crate::{CS, Error, ME, traits::FmiImport};
 
 use fmi_schema::{MajorVersion, fmi2 as schema};
 

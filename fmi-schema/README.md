@@ -17,13 +17,17 @@ The FMI version can initially be determined in a non-specific way by using [`min
 
 ## Example
 
+The [`FmiModelDescription`] trait is implemented for both FMI2 and FMI3, and has serialize/deserialize methods.
+
 ```rust,no_run
-# use std::str::FromStr;
 #[cfg(feature = "fmi3")]
-let md = fmi_schema::fmi3::Fmi3ModelDescription::from_str(
-    std::fs::read_to_string("tests/FMI3.xml").unwrap().as_str(),
-)
-.unwrap();
+{
+  // deserialize an XML string into a model:
+  let xml = std::fs::read_to_string("tests/FMI3.xml").unwrap();
+  let model: fmi_schema::fmi3::Fmi3ModelDescription = fmi_schema::deserialize(xml.as_str()).unwrap();
+  // now serialize it back again:
+  let xml = fmi_schema::serialize(&model, false).unwrap();
+}
 ```
 
 ## License

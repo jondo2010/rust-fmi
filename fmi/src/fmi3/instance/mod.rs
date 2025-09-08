@@ -1,11 +1,12 @@
 //! FMI 3.0 instance interface
 
 use crate::{
+    CS, InterfaceType, ME, SE,
     fmi3::{
-        CS, Fmi3Error, Fmi3Res, ME, SE,
+        Fmi3Error, Fmi3Res,
         traits::{Common, GetSet},
     },
-    traits::{FmiImport, FmiInstance, FmiStatus},
+    traits::{FmiImport, FmiInstance, InstanceTag},
 };
 
 use super::{Fmi3Status, binding, import::Fmi3Import, schema};
@@ -60,33 +61,22 @@ where
 
         var_dims
             .map(|dims| {
-                dims.map(
-                    |schema::Dimension {
-                         start,
-                         value_reference,
-                     }| {
-                        match (start, value_reference) {
-                            // If the dimension has a start and no value reference, it is a constant
-                            (&Some(start), None) => start as usize,
-                            // If the dimension has a ValueRef, then it could be dynamically set during configuration mode
-                            (None, &Some(vr)) => {
-                                let mut dim_val = [0];
-                                self.get_uint64(&[vr.into()], &mut dim_val)
-                                    .ok()
-                                    .expect("Error getting dimension");
-                                dim_val[0] as usize
-                            }
-                            _ => panic!("Invalid Dimension"),
-                        }
-                    },
-                )
+                dims.map(|dim| match dim {
+                    schema::Dimension::Fixed(start) => *start as usize,
+                    schema::Dimension::Variable(vr) => {
+                        let mut dim_val = [0];
+                        self.get_uint64(&[(*vr).into()], &mut dim_val)
+                            .expect("Error getting dimension");
+                        dim_val[0] as usize
+                    }
+                })
                 .product::<usize>()
             })
             .sum()
     }
 }
 
-impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
+impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
     type ModelDescription = schema::Fmi3ModelDescription;
     type ValueRef = <Fmi3Import as FmiImport>::ValueRef;
     type Status = Fmi3Status;
@@ -97,6 +87,10 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
 
     fn get_version(&self) -> &str {
         Common::get_version(self)
+    }
+
+    fn interface_type(&self) -> InterfaceType {
+        Tag::TYPE
     }
 
     fn model_description(&self) -> &Self::ModelDescription {
@@ -122,7 +116,7 @@ impl<'a, Tag> FmiInstance for Instance<'a, Tag> {
         self.get_variable_dimensions(&cts_vars)
     }
 
-    fn get_number_of_event_indicator_values(&mut self) -> usize {
+    fn get_number_of_event_indicators(&mut self) -> usize {
         let md = self.model_description();
         let event_vars = md
             .model_structure
@@ -170,26 +164,4 @@ impl<'a, Tag> Drop for Fmu3State<'a, Tag> {
                 .fmi3FreeFMUState(self.instance.ptr, &mut self.state);
         }
     }
-}
-
-/// Return value of [`Common::update_discrete_states()`]
-#[derive(Default, Debug, PartialEq)]
-pub struct DiscreteStates {
-    /// The importer must stay in Event Mode for another event iteration, starting a new
-    /// super-dense time instant.
-    pub discrete_states_need_update: bool,
-    /// The FMU requests to stop the simulation and the importer must call [`Common::terminate()`].
-    pub terminate_simulation: bool,
-    /// At least one nominal value of the states has changed and can be inquired with
-    /// [`crate::fmi3::ModelExchange::get_nominals_of_continuous_states()`]. This argument is only valid in
-    /// Model Exchange.
-    pub nominals_of_continuous_states_changed: bool,
-    /// At least one continuous state has changed its value because it was re-initialized (see <https://fmi-standard.org/docs/3.0.1/#reinit>).
-    pub values_of_continuous_states_changed: bool,
-    /// The absolute time of the next time event 𝑇next. The importer must compute up to
-    /// `next_event_time` (or if needed slightly further) and then enter Event Mode using
-    /// [`Common::enter_event_mode()`]. The FMU must handle this time event during the Event
-    /// Mode that is entered by the first call to [`Common::enter_event_mode()`], at or after
-    /// `next_event_time`.
-    pub next_event_time: Option<f64>,
 }

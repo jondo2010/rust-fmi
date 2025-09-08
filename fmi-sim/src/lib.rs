@@ -51,12 +51,30 @@ pub fn simulate(options: &options::FmiSimOptions) -> Result<(RecordBatch, SimSta
         #[cfg(feature = "fmi2")]
         MajorVersion::FMI2 => {
             let import: fmi::fmi2::import::Fmi2Import = fmi::import::from_path(&options.model)?;
+
+            // Register FMU log categories for proper filtering
+            //if let Some(log_categories) = &import.model_description().log_categories {
+            //    let category_names = log_categories.categories.iter()
+            //        .map(|cat| cat.name.clone())
+            //        .collect::<Vec<_>>();
+            //    crate::logging::register_fmu_log_categories(category_names);
+            //}
+
             sim::simulate_with(input_data, &options.interface, import)
         }
 
         #[cfg(feature = "fmi3")]
         MajorVersion::FMI3 => {
             let import: fmi::fmi3::import::Fmi3Import = fmi::import::from_path(&options.model)?;
+
+            // Register FMU log categories for proper filtering
+            //if let Some(log_categories) = &import.model_description().log_categories {
+            //    let category_names = log_categories.categories.iter()
+            //        .map(|cat| cat.name.clone())
+            //        .collect::<Vec<_>>();
+            //    crate::logging::register_fmu_log_categories(category_names);
+            //}
+
             sim::simulate_with(input_data, &options.interface, import)
         }
     }

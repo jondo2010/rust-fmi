@@ -69,10 +69,13 @@ fn test_fmi3() {
     assert_eq!(model_structure.continuous_state_derivative.len(), 2);
     assert_eq!(model_structure.initial_unknown.len(), 2);
     assert_eq!(model_structure.initial_unknown[0].value_reference, 2);
-    assert_eq!(model_structure.initial_unknown[0].dependencies, vec![3]);
+    assert_eq!(
+        model_structure.initial_unknown[0].dependencies,
+        Some(vec![3])
+    );
     assert_eq!(
         model_structure.initial_unknown[0].dependencies_kind,
-        vec![DependenciesKind::Constant]
+        Some(vec![DependenciesKind::Constant])
     );
     assert_eq!(model_structure.event_indicator.len(), 1);
 }

@@ -23,7 +23,8 @@ where
         self.inst.enter_continuous_time_mode().map_err(Into::into)?;
 
         let nx = self.inst.get_number_of_continuous_state_values();
-        let nz = self.inst.get_number_of_event_indicator_values();
+        let nz =
+            FmiModelExchange::get_number_of_event_indicators(&mut self.inst).map_err(Into::into)?;
 
         let mut solver = <S as Solver<Inst>>::new(
             self.sim_params.start_time,
@@ -87,8 +88,7 @@ where
                     "Event encountered at t = {time}. [INPUT/TIME/STATE/STEP] = [{input_event}/{time_event}/{state_event}/{step_event}]"
                 );
                 stats.num_events += 1;
-                let mut terminate = false;
-                let reset_solver = self.handle_events(time, input_event, &mut terminate)?;
+                let (reset_solver, terminate) = self.handle_events(time, input_event)?;
 
                 if terminate {
                     break;

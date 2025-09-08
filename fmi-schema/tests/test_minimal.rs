@@ -1,5 +1,3 @@
-use std::str::FromStr as _;
-
 use fmi_schema::traits::FmiModelDescription;
 use semver::{BuildMetadata, Prerelease};
 
@@ -7,14 +5,14 @@ use semver::{BuildMetadata, Prerelease};
 fn test_minimal() -> Result<(), Box<dyn std::error::Error>> {
     let test_file = std::env::current_dir().map(|path| path.join("tests/FMI2.xml"))?;
     let data = std::fs::read_to_string(test_file)?;
-    let md = fmi_schema::minimal::MinModelDescription::from_str(&data)?;
+    let md = fmi_schema::minimal::MinModelDescription::deserialize(&data)?;
     assert_eq!(md.major_version()?, fmi_schema::MajorVersion::FMI2);
     assert_eq!(md.version()?, semver::Version::new(2, 0, 0));
     assert_eq!(md.model_name, "BouncingBall");
 
     let test_file = std::env::current_dir().map(|path| path.join("tests/FMI3.xml"))?;
     let data = std::fs::read_to_string(test_file)?;
-    let md = fmi_schema::minimal::MinModelDescription::from_str(&data)?;
+    let md = fmi_schema::minimal::MinModelDescription::deserialize(&data)?;
     assert_eq!(md.major_version()?, fmi_schema::MajorVersion::FMI3);
     assert_eq!(
         md.version()?,

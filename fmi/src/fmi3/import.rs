@@ -1,6 +1,6 @@
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
-use fmi_schema::MajorVersion;
+use fmi_schema::{MajorVersion, traits::FmiModelDescription};
 use tempfile::TempDir;
 
 use crate::{
@@ -26,7 +26,7 @@ impl FmiImport for Fmi3Import {
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
     fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {
-        let model_description = schema::Fmi3ModelDescription::from_str(schema_xml)?;
+        let model_description = schema::Fmi3ModelDescription::deserialize(schema_xml)?;
         Ok(Self {
             dir,
             model_description,

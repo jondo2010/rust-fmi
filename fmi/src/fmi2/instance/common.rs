@@ -1,11 +1,11 @@
 use std::ffi::CStr;
 
 use crate::fmi2::{Fmi2Error, Fmi2Res, Fmi2Status, binding};
-use crate::traits::FmiStatus;
+use crate::traits::{FmiStatus, InstanceTag};
 
 use super::{Common, Instance};
 
-impl<'a, Tag> Common for Instance<'a, Tag> {
+impl<'a, Tag: InstanceTag> Common for Instance<'a, Tag> {
     fn get_version(&self) -> &str {
         // Safety: The FMI API guarantees that the pointer is valid within the lifetime of the FMU
         unsafe { CStr::from_ptr(self.binding.fmi2GetVersion()) }

@@ -5,7 +5,7 @@ use fmi_schema::{
     traits::{DefaultExperiment, FmiModelDescription},
 };
 
-use crate::Error;
+use crate::{Error, EventFlags, InterfaceType};
 
 /// Generic FMI import trait
 pub trait FmiImport: Sized {
@@ -56,6 +56,10 @@ pub trait FmiStatus {
     fn is_error(&self) -> bool;
 }
 
+pub trait InstanceTag {
+    const TYPE: InterfaceType;
+}
+
 /// Result type alias for FMI instances
 ///
 /// This is essentially a `Result<FmiStatus, FmiError>` and maps the FMI result codes onto
@@ -74,6 +78,9 @@ pub trait FmiInstance {
 
     /// Get the version of the FMU
     fn get_version(&self) -> &str;
+
+    /// Get the instance type of the FMU
+    fn interface_type(&self) -> InterfaceType;
 
     /// Get the model description of the FMU
     fn model_description(&self) -> &Self::ModelDescription;
@@ -108,7 +115,9 @@ pub trait FmiInstance {
     fn get_number_of_continuous_state_values(&mut self) -> usize;
 
     /// Get the number of values required to store the event indicators. Array dimensions are expanded.
-    fn get_number_of_event_indicator_values(&mut self) -> usize;
+    ///
+    /// TODO: Determine if this is necessary in this trait. The impls are pulling from modelDescription which is maybe not as authoritative as the API calls?
+    fn get_number_of_event_indicators(&mut self) -> usize;
 }
 
 /// Generic FMI ModelExchange trait
@@ -122,14 +131,7 @@ pub trait FmiModelExchange: FmiInstance {
     /// instant.
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3UpdateDiscreteStates>
-    fn update_discrete_states(
-        &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
-    ) -> InstanceResult<Self>;
+    fn update_discrete_states(&mut self, event_flags: &mut EventFlags) -> InstanceResult<Self>;
 
     fn completed_integrator_step(
         &mut self,
@@ -148,6 +150,9 @@ pub trait FmiModelExchange: FmiInstance {
     fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> InstanceResult<Self>;
 
     fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> InstanceResult<Self, bool>;
+    /// Return the number of event indicators.
+    ///
+    /// Note: for FMI3 this is implemented as an API call, while on FMI2 it is a modelDescription property
     fn get_number_of_event_indicators(&mut self) -> InstanceResult<Self, usize>;
 }
 
@@ -155,12 +160,5 @@ pub trait FmiModelExchange: FmiInstance {
 pub trait FmiEventHandler: FmiInstance {
     fn enter_event_mode(&mut self) -> InstanceResult<Self>;
 
-    fn update_discrete_states(
-        &mut self,
-        discrete_states_need_update: &mut bool,
-        terminate_simulation: &mut bool,
-        nominals_of_continuous_states_changed: &mut bool,
-        values_of_continuous_states_changed: &mut bool,
-        next_event_time: &mut Option<f64>,
-    ) -> InstanceResult<Self>;
+    fn update_discrete_states(&mut self, event_flags: &mut EventFlags) -> InstanceResult<Self>;
 }

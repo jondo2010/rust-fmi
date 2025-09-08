@@ -244,6 +244,14 @@ impl FmiModelDescription for Fmi2ModelDescription {
     fn version_string(&self) -> &str {
         &self.fmi_version
     }
+
+    fn deserialize(xml: &str) -> Result<Self, crate::Error> {
+        yaserde::de::from_str(xml).map_err(crate::Error::XmlParse)
+    }
+
+    fn serialize(&self) -> Result<String, crate::Error> {
+        yaserde::ser::to_string(self).map_err(crate::Error::XmlParse)
+    }
 }
 
 #[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -350,7 +358,7 @@ mod tests {
     <InitialUnknowns />
 </ModelStructure>
 </fmiModelDescription>"##;
-        let md: Fmi2ModelDescription = yaserde::de::from_str(s).unwrap();
+        let md = Fmi2ModelDescription::deserialize(&s).unwrap();
         assert_eq!(md.fmi_version, "2.0");
         assert_eq!(md.model_name, "MyLibrary.SpringMassDamper");
         assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}");
