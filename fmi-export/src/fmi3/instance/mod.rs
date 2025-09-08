@@ -104,7 +104,7 @@ impl<M: Model> ModelInstance<M> {
             state: ModelState::Instantiated,
             clocks_ticked: false,
             n_steps: 0,
-            is_dirty_values: false,
+            is_dirty_values: true,
             model: M::default(),
             _marker: std::marker::PhantomData,
         };

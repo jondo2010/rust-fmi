@@ -117,6 +117,7 @@ fn test_comprehensive_datatype_support() {
     // String uses Vec<StringStart>
     let string_values: Vec<&str> = model_variables.string[0]
         .start()
+        .unwrap()
         .iter()
         .map(|s| s.value.as_str())
         .collect();

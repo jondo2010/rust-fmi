@@ -330,36 +330,40 @@ fn process_alias_attribute(
 
 #[cfg(test)]
 mod tests {
-    use fmi::schema::fmi3::AbstractVariableTrait;
-
-    use crate::model_variables::build_model_variables;
+    use fmi::fmi3::schema::AbstractVariableTrait;
 
     use super::*;
 
     #[test]
     fn test_model_structure() {
-        let fields: Vec<Field> = vec![
-            TryFrom::<syn::Field>::try_from(syn::parse_quote! {
-                /// This is a field description
+        let input: syn::ItemStruct = syn::parse_quote! {
+            struct TestModel {
+                /// Height position
                 #[variable(causality = Output, state, start = 1.0)]
-                h: f64
-            })
-            .unwrap(),
-            TryFrom::<syn::Field>::try_from(syn::parse_quote! {
+                h: f64,
+
+                /// Velocity
                 #[variable(causality = Output, state, start = 0.0)]
                 #[alias(name = "der(h)", causality = Local, derivative = h)]
-                v: f64
-            })
-            .unwrap(),
-            TryFrom::<syn::Field>::try_from(syn::parse_quote! {
+                v: f64,
+
+                /// Gravity acceleration
                 #[variable(causality = Parameter, start = -9.81)]
                 #[alias(name = "der(v)", causality = Local, derivative = v)]
-                g: f64
-            })
-            .unwrap(),
-        ];
+                g: f64,
 
-        let model_variables = build_model_variables(&fields);
+                /// Kinetic energy (calculated variable)
+                #[variable(causality = Local, initial = Calculated)]
+                kinetic_energy: f64,
+
+                /// Ground contact event indicator
+                #[variable(causality = Local, event_indicator = true)]
+                ground_contact: f64,
+            }
+        };
+
+        let fields = crate::model::build_fields(input.fields);
+        let model_variables = crate::model_variables::build_model_variables(&fields);
         let model_structure = build_model_structure(&fields, &model_variables).unwrap();
 
         // Test outputs: h and v should be outputs
@@ -425,7 +429,41 @@ mod tests {
         // Test initial unknowns: According to FMI3 specification, only variables with
         // initial="calculated" or initial="approx" should be InitialUnknowns.
         // Variables with initial="exact" (default) are NOT InitialUnknowns since they have known values.
-        // In this test, all variables use the default initial="exact", so there should be no InitialUnknowns.
-        assert_eq!(model_structure.initial_unknown.len(), 0);
+        // Event indicators are also excluded from InitialUnknowns.
+        // In this test, kinetic_energy has initial="calculated", so it should be an InitialUnknown.
+        assert_eq!(model_structure.initial_unknown.len(), 1);
+
+        // Find value reference for kinetic_energy
+        let kinetic_energy_value_ref = model_variables
+            .float64
+            .iter()
+            .find(|var| var.name() == "kinetic_energy")
+            .map(|var| var.value_reference())
+            .unwrap();
+
+        assert!(
+            model_structure
+                .initial_unknown
+                .iter()
+                .any(|unknown| unknown.value_reference == kinetic_energy_value_ref)
+        );
+
+        // Test event indicators: ground_contact should be an event indicator
+        assert_eq!(model_structure.event_indicator.len(), 1);
+
+        // Find value reference for ground_contact
+        let ground_contact_value_ref = model_variables
+            .float64
+            .iter()
+            .find(|var| var.name() == "ground_contact")
+            .map(|var| var.value_reference())
+            .unwrap();
+
+        assert!(
+            model_structure
+                .event_indicator
+                .iter()
+                .any(|indicator| indicator.value_reference == ground_contact_value_ref)
+        );
     }
 }

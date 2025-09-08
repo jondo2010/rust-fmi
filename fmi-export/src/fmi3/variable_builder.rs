@@ -34,7 +34,7 @@ macro_rules! impl_fmi_variable_builder {
                     Some(description.to_owned()),
                     causality,
                     variability,
-                    start.into(),
+                    Some(start.into()),
                     initial,
                 )
             }

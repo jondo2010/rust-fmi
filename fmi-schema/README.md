@@ -24,9 +24,9 @@ The [`FmiModelDescription`] trait is implemented for both FMI2 and FMI3, and has
 {
   // deserialize an XML string into a model:
   let xml = std::fs::read_to_string("tests/FMI3.xml").unwrap();
-  let model = fmi_schema::fmi3::Fmi3ModelDescription::deserialize(xml.as_str()).unwrap();
+  let model: fmi_schema::fmi3::Fmi3ModelDescription = fmi_schema::deserialize(xml.as_str()).unwrap();
   // now serialize it back again:
-  let xml = model.serialize().unwrap();
+  let xml = fmi_schema::serialize(&model, false).unwrap();
 }
 ```
 

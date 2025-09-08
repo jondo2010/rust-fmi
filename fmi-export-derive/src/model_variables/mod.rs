@@ -78,11 +78,10 @@ fn create_and_add_variable(
 
     macro_rules! create_variable {
         ($type:ty, $var_type:ty) => {{
-            let start = attr.start.map(|start| {
+            let start = attr.start.as_ref().map(|start| {
                 let parsed = parse_start_value::<$type>(start);
                 if parsed.is_empty() {
                     emit_error!(start, format!("Failed to parse start value for {}", name));
-                    return;
                 }
                 parsed
             });
@@ -116,8 +115,7 @@ fn create_and_add_variable(
             let start = attr
                 .start
                 .as_ref()
-                .map(parse_start_value)
-                .unwrap_or_default();
+                .map(parse_start_value);
             let variable = schema::FmiBoolean::new(
                 name,
                 value_reference,
@@ -133,8 +131,7 @@ fn create_and_add_variable(
             let start = attr
                 .start
                 .as_ref()
-                .map(parse_start_value)
-                .unwrap_or_default();
+                .map(parse_start_value);
             let variable = schema::FmiString::new(
                 name,
                 value_reference,
@@ -150,8 +147,7 @@ fn create_and_add_variable(
             let start = attr
                 .start
                 .as_ref()
-                .map(parse_start_value) // Binary uses string start values
-                .unwrap_or_default();
+                .map(parse_start_value); // Binary uses string start values
             let variable = schema::FmiBinary::new(
                 name,
                 value_reference,
@@ -237,14 +233,14 @@ mod tests {
             Some("Height above ground (state output)")
         );
         assert_eq!(h_var.causality(), schema::Causality::Output);
-        assert_eq!(h_var.start(), &[1.0]);
+        assert_eq!(h_var.start(), Some([1.0].as_slice()));
 
         // Test the second variable
         let v_var = &model_variables.float64[1];
         assert_eq!(v_var.name(), "v");
         assert_eq!(v_var.description(), Some("Velocity of the ball"));
         assert_eq!(v_var.causality(), schema::Causality::Output);
-        assert_eq!(v_var.start(), &[0.0]);
+        assert_eq!(v_var.start(), Some([0.0].as_slice()));
     }
 
     #[test]
@@ -273,17 +269,17 @@ mod tests {
 
         // Test specific variables
         assert_eq!(model_variables.float32[0].name(), "position");
-        assert_eq!(&model_variables.float32[0].start, &[1.5]);
+        assert_eq!(&model_variables.float32[0].start, &Some(vec![1.5]));
 
         assert_eq!(model_variables.int32[0].name(), "count");
-        assert_eq!(&model_variables.int32[0].start, &[42]);
+        assert_eq!(&model_variables.int32[0].start, &Some(vec![42]));
 
         assert_eq!(model_variables.boolean[0].name(), "enabled");
-        assert_eq!(&model_variables.boolean[0].start, &[true]);
+        assert_eq!(&model_variables.boolean[0].start, &Some(vec![true]));
 
         assert_eq!(model_variables.string[0].name(), "name");
         assert_eq!(
-            &model_variables.string[0].start.first().unwrap().value,
+            &model_variables.string[0].start.as_ref().unwrap()[0].value,
             "test"
         );
     }
@@ -365,10 +361,10 @@ mod tests {
         let model = Model::from(input);
         let vars = build_model_variables(&model.fields);
 
-        assert_eq!(vars.uint16[0].start(), &[0u16, 1, 2, 3]);
+        assert_eq!(vars.uint16[0].start(), Some([0u16, 1, 2, 3].as_slice()));
         assert_eq!(vars.uint16[0].dimensions(), &[Dimension::Fixed(4)]);
 
-        assert_eq!(vars.float64[0].start(), &[0.0, 0.1, 1.0, 1.1, 2.0, 2.1]);
+        assert_eq!(vars.float64[0].start(), Some([0.0, 0.1, 1.0, 1.1, 2.0, 2.1].as_slice()));
         assert_eq!(
             vars.float64[0].dimensions(),
             &[Dimension::Fixed(2), Dimension::Fixed(2)]
