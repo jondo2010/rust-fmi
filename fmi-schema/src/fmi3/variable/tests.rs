@@ -78,7 +78,12 @@ fn test_string() {
     assert_eq!(var.value_reference(), 29);
     assert_eq!(var.variability(), Variability::Fixed);
     assert_eq!(var.causality(), Causality::Parameter);
-    let start_values: Vec<&str> = var.start().unwrap().iter().map(|s| s.value.as_str()).collect();
+    let start_values: Vec<&str> = var
+        .start()
+        .unwrap()
+        .iter()
+        .map(|s| s.value.as_str())
+        .collect();
     assert_eq!(start_values, vec!["Set me!"]);
 }
 
@@ -277,7 +282,12 @@ fn test_string_multiple_starts() {
 
     let var: FmiString = yaserde::de::from_str(xml).unwrap();
     assert_eq!(var.name(), "multi_string");
-    let start_values: Vec<&str> = var.start().unwrap().iter().map(|s| s.value.as_str()).collect();
+    let start_values: Vec<&str> = var
+        .start()
+        .unwrap()
+        .iter()
+        .map(|s| s.value.as_str())
+        .collect();
     assert_eq!(
         start_values,
         vec!["First string", "Second string", "Third string"]

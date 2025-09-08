@@ -52,7 +52,7 @@ fn test_fmi2_imports() {
     }
 }
 
-#[test_log::test]
+#[test]
 fn test_fmi3_imports() {
     let mut ref_fmus = ReferenceFmus::new().unwrap();
 

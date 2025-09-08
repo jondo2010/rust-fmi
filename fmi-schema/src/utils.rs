@@ -12,7 +12,7 @@ where
     D: Deserializer<'de>,
 {
     use serde::de::Error;
-    
+
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum StringOrF64 {
@@ -21,13 +21,12 @@ where
     }
 
     let value = Option::<StringOrF64>::deserialize(deserializer)?;
-    
+
     match value {
-        Some(StringOrF64::String(s)) => {
-            s.parse::<f64>()
-                .map(Some)
-                .map_err(|_| D::Error::custom(format!("Invalid number format: '{}'", s)))
-        }
+        Some(StringOrF64::String(s)) => s
+            .parse::<f64>()
+            .map(Some)
+            .map_err(|_| D::Error::custom(format!("Invalid number format: '{}'", s))),
         Some(StringOrF64::F64(f)) => Ok(Some(f)),
         None => Ok(None),
     }

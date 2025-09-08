@@ -46,4 +46,3 @@ assert_cmd = "2.0.14"
 float-cmp = { version = "0.10", features = ["std"] }
 fmi-test-data = { workspace = true }
 rstest = "0.21"
-test-log = { workspace = true }
