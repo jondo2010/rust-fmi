@@ -48,7 +48,7 @@ log = "0.4"
 paste = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tempfile = "3.1"
-test-log = { version = "0.2", features = ["trace"] }
+test-log = { version = "0.2", features = [] }
 thiserror = "1.0"
 uuid = { version = "1.0", features = ["v5"] }
 zip = "4.0"
