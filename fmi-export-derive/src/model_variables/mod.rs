@@ -112,10 +112,7 @@ fn create_and_add_variable(
         schema::VariableType::FmiUInt32 => create_variable!(u32, schema::FmiUInt32),
         schema::VariableType::FmiUInt64 => create_variable!(u64, schema::FmiUInt64),
         schema::VariableType::FmiBoolean => {
-            let start = attr
-                .start
-                .as_ref()
-                .map(parse_start_value);
+            let start = attr.start.as_ref().map(parse_start_value);
             let variable = schema::FmiBoolean::new(
                 name,
                 value_reference,
@@ -128,10 +125,7 @@ fn create_and_add_variable(
             model_variables.boolean.push(variable);
         }
         schema::VariableType::FmiString => {
-            let start = attr
-                .start
-                .as_ref()
-                .map(parse_start_value);
+            let start = attr.start.as_ref().map(parse_start_value);
             let variable = schema::FmiString::new(
                 name,
                 value_reference,
@@ -144,10 +138,7 @@ fn create_and_add_variable(
             model_variables.string.push(variable);
         }
         schema::VariableType::FmiBinary => {
-            let start = attr
-                .start
-                .as_ref()
-                .map(parse_start_value); // Binary uses string start values
+            let start = attr.start.as_ref().map(parse_start_value); // Binary uses string start values
             let variable = schema::FmiBinary::new(
                 name,
                 value_reference,
@@ -364,7 +355,10 @@ mod tests {
         assert_eq!(vars.uint16[0].start(), Some([0u16, 1, 2, 3].as_slice()));
         assert_eq!(vars.uint16[0].dimensions(), &[Dimension::Fixed(4)]);
 
-        assert_eq!(vars.float64[0].start(), Some([0.0, 0.1, 1.0, 1.1, 2.0, 2.1].as_slice()));
+        assert_eq!(
+            vars.float64[0].start(),
+            Some([0.0, 0.1, 1.0, 1.1, 2.0, 2.1].as_slice())
+        );
         assert_eq!(
             vars.float64[0].dimensions(),
             &[Dimension::Fixed(2), Dimension::Fixed(2)]
