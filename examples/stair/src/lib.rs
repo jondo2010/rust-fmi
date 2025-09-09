@@ -5,12 +5,12 @@
 //! every second, demonstrating event handling and discrete variables.
 
 use fmi::{
-    EventFlags,
     fmi3::{Fmi3Error, Fmi3Res},
+    EventFlags,
 };
 use fmi_export::{
-    FmuModel,
     fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
+    FmuModel,
 };
 
 /// Stair FMU model implementing a discrete counter that increments every second
@@ -43,11 +43,14 @@ impl UserModel for Stair {
     ) -> Result<Fmi3Res, Fmi3Error> {
         let epsilon = (1.0 + context.time().abs()) * f64::EPSILON;
 
-        let next_event_time = event_flags.next_event_time.unwrap_or(1.0);
-
-        if dbg!(context.time() + epsilon >= next_event_time) {
-            self.counter += 1;
-            event_flags.next_event_time = Some(next_event_time + 1.0); // Schedule next event in 1 second
+        if let Some(next_event) = &mut event_flags.next_event_time {
+            if (context.time() + epsilon) >= *next_event {
+                self.counter += 1;
+                *next_event += 1.0; // Schedule next event in 1 second
+            }
+        } else {
+            // First call to event_update, schedule the first event
+            event_flags.next_event_time = Some(1.0);
         }
 
         event_flags.values_of_continuous_states_changed = false;
@@ -60,3 +63,6 @@ impl UserModel for Stair {
 
 // Export the FMU with full C API
 fmi_export::export_fmu!(Stair);
+
+#[test]
+fn test() {}
