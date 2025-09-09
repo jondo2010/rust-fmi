@@ -30,12 +30,31 @@ impl ToTokens for GetContinuousStatesGen<'_> {
 
             if is_state {
                 let field_name = &field.ident;
-                state_assignments.push(quote! {
-                    if #index < states.len() {
-                        states[#index] = self.#field_name;
+                
+                if field.field_type.dimensions.is_empty() {
+                    // Scalar field
+                    state_assignments.push(quote! {
+                        if #index < states.len() {
+                            states[#index] = self.#field_name;
+                        } else {
+                            return Err(fmi::fmi3::Fmi3Error::Error);
+                        }
+                    });
+                    index += 1;
+                } else {
+                    // Array field - copy each element
+                    let total_elements = field.field_type.total_elements();
+                    for i in 0..total_elements {
+                        state_assignments.push(quote! {
+                            if #index < states.len() {
+                                states[#index] = self.#field_name[#i];
+                            } else {
+                                return Err(fmi::fmi3::Fmi3Error::Error);
+                            }
+                        });
+                        index += 1;
                     }
-                });
-                index += 1;
+                }
             }
         }
 
@@ -80,12 +99,31 @@ impl ToTokens for SetContinuousStatesGen<'_> {
 
             if is_state {
                 let field_name = &field.ident;
-                state_assignments.push(quote! {
-                    if #index < states.len() {
-                        self.#field_name = states[#index];
+                
+                if field.field_type.dimensions.is_empty() {
+                    // Scalar field
+                    state_assignments.push(quote! {
+                        if #index < states.len() {
+                            self.#field_name = states[#index];
+                        } else {
+                            return Err(fmi::fmi3::Fmi3Error::Error);
+                        }
+                    });
+                    index += 1;
+                } else {
+                    // Array field - copy each element
+                    let total_elements = field.field_type.total_elements();
+                    for i in 0..total_elements {
+                        state_assignments.push(quote! {
+                            if #index < states.len() {
+                                self.#field_name[#i] = states[#index];
+                            } else {
+                                return Err(fmi::fmi3::Fmi3Error::Error);
+                            }
+                        });
+                        index += 1;
                     }
-                });
-                index += 1;
+                }
             }
         }
 

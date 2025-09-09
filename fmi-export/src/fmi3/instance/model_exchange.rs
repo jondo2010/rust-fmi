@@ -80,8 +80,15 @@ where
             self.model.calculate_values(&mut self.context)?;
             self.is_dirty_values = false;
         }
-        self.model
-            .get_continuous_state_derivatives(derivatives, &self.context)
+        let res = self
+            .model
+            .get_continuous_state_derivatives(derivatives, &self.context)?;
+        self.context.log(
+            Fmi3Res::OK,
+            M::LoggingCategory::trace_category(),
+            format_args!("get_continuous_state_derivatives({derivatives:?})"),
+        );
+        Ok(res)
     }
 
     fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {

@@ -16,6 +16,24 @@ pub struct FieldType {
     pub dimensions: Vec<schema::Dimension>,
 }
 
+impl FieldType {
+    /// Calculate the total number of elements for this field type.
+    /// For scalar types, returns 1. For arrays, returns the product of all dimensions.
+    pub fn total_elements(&self) -> usize {
+        if self.dimensions.is_empty() {
+            1 // Scalar
+        } else {
+            self.dimensions
+                .iter()
+                .map(|dim| match dim {
+                    schema::Dimension::Fixed(size) => *size as usize,
+                    schema::Dimension::Variable(_) => 1, // Variable dimensions default to 1 for now
+                })
+                .product()
+        }
+    }
+}
+
 impl TryFrom<syn::Type> for FieldType {
     type Error = String;
     fn try_from(ty: syn::Type) -> Result<Self, Self::Error> {

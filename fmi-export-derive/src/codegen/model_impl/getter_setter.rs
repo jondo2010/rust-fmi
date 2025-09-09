@@ -37,6 +37,9 @@ impl<'a> GetterSetterGen<'a> {
 
 impl ToTokens for GetterSetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let struct_name = &self.model.ident;
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+
         // Configuration for all supported types
         let method_configs = [
             (
@@ -106,16 +109,17 @@ impl ToTokens for GetterSetterGen<'_> {
         for (rust_type, get_method, set_method, variable_type) in &method_configs {
             // Always generate Float64 methods since Time VR is always available
             // For other types, only generate if the model actually has variables of this type
-            let should_generate = *variable_type == schema::VariableType::FmiFloat64 
+            let should_generate = *variable_type == schema::VariableType::FmiFloat64
                 || self.has_variables_of_type(*variable_type);
-            
+
             if !should_generate {
                 continue;
             }
 
             let get_method_name = format_ident!("{}", get_method);
             let set_method_name = format_ident!("{}", set_method);
-            let rust_type: syn::Type = syn::parse_str(rust_type).unwrap();
+            let rust_type: syn::Type = syn::parse_str(rust_type)
+                .expect("Failed to parse rust type - this is a bug in the code generator");
 
             let getter_cases = TypeGetterGen::new(self.model, *variable_type);
             let setter_cases = TypeSetterGen::new(self.model, *variable_type);
@@ -127,10 +131,18 @@ impl ToTokens for GetterSetterGen<'_> {
                     values: &mut [#rust_type],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
                 ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    for (vr, value) in vrs.iter().zip(values.iter_mut()) {
-                        match ValueRef::from(*vr) {
+                    let mut value_index = 0;
+                    for vr in vrs.iter() {
+                        match #value_ref_enum_name::from(*vr) {
                             #getter_cases
-                            _ => {} // Ignore unknown VRs for robustness
+                            _ => {
+                                context.log(
+                                    fmi::fmi3::Fmi3Error::Error,
+                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                    format_args!("Unknown value reference {} in getter", vr)
+                                );
+                                return Err(fmi::fmi3::Fmi3Error::Error);
+                            }
                         }
                     }
                     Ok(fmi::fmi3::Fmi3Res::OK)
@@ -142,10 +154,18 @@ impl ToTokens for GetterSetterGen<'_> {
                     values: &[#rust_type],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
                 ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    for (vr, value) in vrs.iter().zip(values.iter()) {
-                        match ValueRef::from(*vr) {
+                    let mut value_index = 0;
+                    for vr in vrs.iter() {
+                        match #value_ref_enum_name::from(*vr) {
                             #setter_cases
-                            _ => {} // Ignore unknown VRs for robustness
+                            _ => {
+                                context.log(
+                                    fmi::fmi3::Fmi3Error::Error,
+                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                    format_args!("Unknown value reference {} in setter", vr)
+                                );
+                                return Err(fmi::fmi3::Fmi3Error::Error);
+                            }
                         }
                     }
                     Ok(fmi::fmi3::Fmi3Res::OK)
@@ -167,10 +187,18 @@ impl ToTokens for GetterSetterGen<'_> {
                     values: &mut [std::ffi::CString],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
                 ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                    for (vr, value) in vrs.iter().zip(values.iter_mut()) {
-                        match ValueRef::from(*vr) {
+                    let mut value_index = 0;
+                    for vr in vrs.iter() {
+                        match #value_ref_enum_name::from(*vr) {
                             #string_getter_cases
-                            _ => {} // Ignore unknown VRs for robustness
+                            _ => {
+                                context.log(
+                                    fmi::fmi3::Fmi3Error::Error,
+                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                    format_args!("Unknown value reference {} in string getter", vr)
+                                );
+                                return Err(fmi::fmi3::Fmi3Error::Error);
+                            }
                         }
                     }
                     Ok(())
@@ -182,10 +210,18 @@ impl ToTokens for GetterSetterGen<'_> {
                     values: &[std::ffi::CString],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
                 ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                    for (vr, value) in vrs.iter().zip(values.iter()) {
-                        match ValueRef::from(*vr) {
+                    let mut value_index = 0;
+                    for vr in vrs.iter() {
+                        match #value_ref_enum_name::from(*vr) {
                             #string_setter_cases
-                            _ => {} // Ignore unknown VRs for robustness
+                            _ => {
+                                context.log(
+                                    fmi::fmi3::Fmi3Error::Error,
+                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                    format_args!("Unknown value reference {} in string setter", vr)
+                                );
+                                return Err(fmi::fmi3::Fmi3Error::Error);
+                            }
                         }
                     }
                     Ok(())
@@ -237,10 +273,25 @@ impl<'a> TypeGetterGen<'a> {
 
 impl ToTokens for TypeGetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let struct_name = &self.model.ident;
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+
         // Special handling for Float64 to include Time VR
         if self.variable_type == schema::VariableType::FmiFloat64 {
             tokens.extend(quote! {
-                ValueRef::Time => *value = context.time(),
+                #value_ref_enum_name::Time => {
+                    if value_index < values.len() {
+                        values[value_index] = context.time();
+                        value_index += 1;
+                    } else {
+                        context.log(
+                            fmi::fmi3::Fmi3Error::Error,
+                            <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                            format_args!("Value array index {} out of bounds for Time variable", value_index)
+                        );
+                        return Err(fmi::fmi3::Fmi3Error::Error);
+                    }
+                },
             });
         }
 
@@ -259,14 +310,69 @@ impl ToTokens for TypeGetterGen<'_> {
                     // Special handling for string types
                     if self.variable_type == schema::VariableType::FmiString {
                         tokens.extend(quote! {
-                                ValueRef::#variant_name => {
-                                    *value = std::ffi::CString::new(self.#field_name.clone()).unwrap_or_default();
+                                #value_ref_enum_name::#variant_name => {
+                                    if value_index < values.len() {
+                                        match std::ffi::CString::new(self.#field_name.clone()) {
+                                            Ok(cstring) => values[value_index] = cstring,
+                                            Err(_) => {
+                                                context.log(
+                                                    fmi::fmi3::Fmi3Error::Error,
+                                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                                    format_args!("String variable {} contains null bytes and cannot be converted to CString", stringify!(#field_name))
+                                                );
+                                                return Err(fmi::fmi3::Fmi3Error::Error);
+                                            }
+                                        }
+                                        value_index += 1;
+                                    } else {
+                                        context.log(
+                                            fmi::fmi3::Fmi3Error::Error,
+                                            <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                            format_args!("Value array index {} out of bounds for string variable {}", value_index, stringify!(#field_name))
+                                        );
+                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                    }
                                 },
                             });
                     } else {
-                        tokens.extend(quote! {
-                            ValueRef::#variant_name => *value = self.#field_name,
-                        });
+                        // Handle both scalar and array types
+                        if field.field_type.dimensions.is_empty() {
+                            // Scalar field
+                            tokens.extend(quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    if value_index < values.len() {
+                                        values[value_index] = self.#field_name;
+                                        value_index += 1;
+                                    } else {
+                                        context.log(
+                                            fmi::fmi3::Fmi3Error::Error,
+                                            <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                            format_args!("Value array index {} out of bounds for variable {}", value_index, stringify!(#field_name))
+                                        );
+                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                    }
+                                },
+                            });
+                        } else {
+                            // Array field - copy all elements
+                            tokens.extend(quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    let array_len = self.#field_name.len();
+                                    if value_index + array_len <= values.len() {
+                                        values[value_index..value_index + array_len].copy_from_slice(&self.#field_name);
+                                        value_index += array_len;
+                                    } else {
+                                        context.log(
+                                            fmi::fmi3::Fmi3Error::Error,
+                                            <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                            format_args!("Value array too small for array variable {}: need {} elements, have {} available",
+                                                       stringify!(#field_name), array_len, values.len() - value_index)
+                                        );
+                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                    }
+                                },
+                            });
+                        }
                     }
                 }
 
@@ -280,16 +386,69 @@ impl ToTokens for TypeGetterGen<'_> {
                             // Special handling for string types
                             if self.variable_type == schema::VariableType::FmiString {
                                 tokens.extend(quote! {
-                                        ValueRef::#alias_variant_name => {
-                                            *value = std::ffi::CString::new(self.#field_name.clone()).unwrap_or_default();
+                                        #value_ref_enum_name::#alias_variant_name => {
+                                            if value_index < values.len() {
+                                                match std::ffi::CString::new(self.#field_name.clone()) {
+                                                    Ok(cstring) => values[value_index] = cstring,
+                                                    Err(_) => {
+                                                        context.log(
+                                                            fmi::fmi3::Fmi3Error::Error,
+                                                            <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                                            format_args!("String variable {} (alias {}) contains null bytes and cannot be converted to CString", stringify!(#field_name), stringify!(#alias_variant_name))
+                                                        );
+                                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                                    }
+                                                }
+                                                value_index += 1;
+                                            } else {
+                                                context.log(
+                                                    fmi::fmi3::Fmi3Error::Error,
+                                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                                    format_args!("Value array index {} out of bounds for string alias {} of variable {}", value_index, stringify!(#alias_variant_name), stringify!(#field_name))
+                                                );
+                                                return Err(fmi::fmi3::Fmi3Error::Error);
+                                            }
                                         },
                                     });
                             } else {
-                                tokens.extend(quote! {
-                                    ValueRef::#alias_variant_name => {
-                                        *value = self.#field_name;
-                                    },
-                                });
+                                // Handle both scalar and array types
+                                if field.field_type.dimensions.is_empty() {
+                                    // Scalar field
+                                    tokens.extend(quote! {
+                                        #value_ref_enum_name::#alias_variant_name => {
+                                            if value_index < values.len() {
+                                                values[value_index] = self.#field_name;
+                                                value_index += 1;
+                                            } else {
+                                                context.log(
+                                                    fmi::fmi3::Fmi3Error::Error,
+                                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                                    format_args!("Value array index {} out of bounds for alias {} of variable {}", value_index, stringify!(#alias_variant_name), stringify!(#field_name))
+                                                );
+                                                return Err(fmi::fmi3::Fmi3Error::Error);
+                                            }
+                                        },
+                                    });
+                                } else {
+                                    // Array field - copy all elements
+                                    tokens.extend(quote! {
+                                        #value_ref_enum_name::#alias_variant_name => {
+                                            let array_len = self.#field_name.len();
+                                            if value_index + array_len <= values.len() {
+                                                values[value_index..value_index + array_len].copy_from_slice(&self.#field_name);
+                                                value_index += array_len;
+                                            } else {
+                                                context.log(
+                                                    fmi::fmi3::Fmi3Error::Error,
+                                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                                    format_args!("Value array too small for array alias {} of variable {}: need {} elements, have {} available",
+                                                               stringify!(#alias_variant_name), stringify!(#field_name), array_len, values.len() - value_index)
+                                                );
+                                                return Err(fmi::fmi3::Fmi3Error::Error);
+                                            }
+                                        },
+                                    });
+                                }
                             }
                         }
                     }
@@ -316,10 +475,13 @@ impl<'a> TypeSetterGen<'a> {
 
 impl ToTokens for TypeSetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let struct_name = &self.model.ident;
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+
         // Special handling for Float64: Time VR should not be settable
         if self.variable_type == schema::VariableType::FmiFloat64 {
             tokens.extend(quote! {
-                ValueRef::Time => {
+                #value_ref_enum_name::Time => {
                     // Time is read-only, cannot be set through fmi3SetFloat64
                     // Time is set through fmi3SetTime function instead
                     return Err(fmi::fmi3::Fmi3Error::Error);
@@ -342,14 +504,59 @@ impl ToTokens for TypeSetterGen<'_> {
                     // Special handling for string types
                     if self.variable_type == schema::VariableType::FmiString {
                         tokens.extend(quote! {
-                            ValueRef::#variant_name => {
-                                self.#field_name = value.to_string_lossy().to_string();
+                            #value_ref_enum_name::#variant_name => {
+                                if value_index < values.len() {
+                                    self.#field_name = values[value_index].to_string_lossy().to_string();
+                                    value_index += 1;
+                                } else {
+                                    context.log(
+                                        fmi::fmi3::Fmi3Error::Error,
+                                        <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                        format_args!("Value array index {} out of bounds for string variable {}", value_index, stringify!(#field_name))
+                                    );
+                                    return Err(fmi::fmi3::Fmi3Error::Error);
+                                }
                             },
                         });
                     } else {
-                        tokens.extend(quote! {
-                            ValueRef::#variant_name => self.#field_name = *value,
-                        });
+                        // Handle both scalar and array types
+                        if field.field_type.dimensions.is_empty() {
+                            // Scalar field
+                            tokens.extend(quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    if value_index < values.len() {
+                                        self.#field_name = values[value_index];
+                                        value_index += 1;
+                                    } else {
+                                        context.log(
+                                            fmi::fmi3::Fmi3Error::Error,
+                                            <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                            format_args!("Value array index {} out of bounds for variable {}", value_index, stringify!(#field_name))
+                                        );
+                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                    }
+                                },
+                            });
+                        } else {
+                            // Array field - copy all elements
+                            tokens.extend(quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    let array_len = self.#field_name.len();
+                                    if value_index + array_len <= values.len() {
+                                        self.#field_name.copy_from_slice(&values[value_index..value_index + array_len]);
+                                        value_index += array_len;
+                                    } else {
+                                        context.log(
+                                            fmi::fmi3::Fmi3Error::Error,
+                                            <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                            format_args!("Value array too small for array variable {}: need {} elements, have {} available",
+                                                       stringify!(#field_name), array_len, values.len() - value_index)
+                                        );
+                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                    }
+                                },
+                            });
+                        }
                     }
                 }
                 // Note: Aliases (especially derivatives) typically shouldn't be settable

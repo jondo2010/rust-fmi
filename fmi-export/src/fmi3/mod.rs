@@ -85,4 +85,7 @@ impl ModelLoggingCategory for DefaultLoggingCategory {
     fn trace_category() -> Self {
         Self::Trace
     }
+    fn error_category() -> Self {
+        Self::LogAll
+    }
 }

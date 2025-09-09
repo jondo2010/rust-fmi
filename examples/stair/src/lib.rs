@@ -31,11 +31,6 @@ struct Stair {
 impl UserModel for Stair {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
-        // Nothing to calculate in this discrete model
-        Ok(Fmi3Res::OK)
-    }
-
     fn event_update(
         &mut self,
         context: &ModelContext<Self>,
@@ -63,6 +58,3 @@ impl UserModel for Stair {
 
 // Export the FMU with full C API
 fmi_export::export_fmu!(Stair);
-
-#[test]
-fn test() {}

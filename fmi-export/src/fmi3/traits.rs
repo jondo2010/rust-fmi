@@ -169,6 +169,8 @@ pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
     fn all_categories() -> impl Iterator<Item = Self>;
     /// Get the category for tracing FMI API calls
     fn trace_category() -> Self;
+    /// Get the category for logging errors
+    fn error_category() -> Self;
 }
 
 /// User-defined model behavior trait

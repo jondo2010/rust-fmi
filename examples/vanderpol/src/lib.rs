@@ -25,25 +25,13 @@ use fmi_export::{
 /// - der(x0) = x1
 /// - der(x1) = μ(1 - x0²)x1 - x0
 #[derive(FmuModel, Default, Debug)]
-#[model()]
 struct VanDerPol {
-    /// The first state variable (position)
-    #[variable(causality = Output, variability = Continuous, state, start = 2.0, initial = Exact)]
-    x0: f64,
+    #[variable(causality = Output, variability = Continuous, state, start = [2.0, 0.0], initial = Exact)]
+    x: [f64; 2],
 
-    /// The derivative of x0
-    #[variable(causality = Local, variability = Continuous, derivative = x0, initial = Calculated)]
-    der_x0: f64,
+    #[variable(causality = Local, variability = Continuous, derivative = x, initial = Calculated)]
+    der_x: [f64; 2],
 
-    /// The second state variable (velocity)
-    #[variable(causality = Output, variability = Continuous, state, start = 0.0, initial = Exact)]
-    x1: f64,
-
-    /// The derivative of x1
-    #[variable(causality = Local, variability = Continuous, derivative = x1, initial = Calculated)]
-    der_x1: f64,
-
-    /// The parameter controlling the nonlinearity
     #[variable(causality = Parameter, variability = Fixed, start = 1.0, initial = Exact)]
     mu: f64,
 }
@@ -53,12 +41,12 @@ impl UserModel for VanDerPol {
 
     fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // Calculate the derivatives according to Van der Pol equations:
-        // der(x0) = x1
-        self.der_x0 = self.x1;
-        
-        // der(x1) = mu * ((1 - x0²) * x1) - x0
-        self.der_x1 = self.mu * ((1.0 - self.x0 * self.x0) * self.x1) - self.x0;
-        
+        // der(x[0]) = x[1]
+        self.der_x[0] = self.x[1];
+
+        // der(x[1]) = mu * ((1 - x[0]²) * x[1]) - x[0]
+        self.der_x[1] = self.mu * ((1.0 - self.x[0] * self.x[0]) * self.x[1]) - self.x[0];
+
         Ok(Fmi3Res::OK)
     }
 }

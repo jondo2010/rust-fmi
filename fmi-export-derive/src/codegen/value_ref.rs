@@ -23,6 +23,9 @@ impl<'a> ValueRefEnum<'a> {
 
 impl ToTokens for ValueRefEnum<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let struct_name = &self.model.ident;
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+        
         let mut value_ref_variants = Vec::new();
         let mut from_u32_arms = Vec::new();
         let mut into_u32_arms = Vec::new();
@@ -32,10 +35,10 @@ impl ToTokens for ValueRefEnum<'_> {
             Time = 0
         });
         from_u32_arms.push(quote! {
-            0 => ValueRef::Time
+            0 => #value_ref_enum_name::Time
         });
         into_u32_arms.push(quote! {
-            ValueRef::Time => 0
+            #value_ref_enum_name::Time => 0
         });
 
         // Collect all variables from the model description and create a mapping
@@ -98,11 +101,11 @@ impl ToTokens for ValueRefEnum<'_> {
                     });
 
                     from_u32_arms.push(quote! {
-                        #vr => ValueRef::#variant_name
+                        #vr => #value_ref_enum_name::#variant_name
                     });
 
                     into_u32_arms.push(quote! {
-                        ValueRef::#variant_name => #vr
+                        #value_ref_enum_name::#variant_name => #vr
                     });
                 }
             }
@@ -120,11 +123,11 @@ impl ToTokens for ValueRefEnum<'_> {
                         });
 
                         from_u32_arms.push(quote! {
-                            #vr => ValueRef::#variant_name
+                            #vr => #value_ref_enum_name::#variant_name
                         });
 
                         into_u32_arms.push(quote! {
-                            ValueRef::#variant_name => #vr
+                            #value_ref_enum_name::#variant_name => #vr
                         });
                     }
                 }
@@ -134,11 +137,11 @@ impl ToTokens for ValueRefEnum<'_> {
         tokens.extend(quote! {
             #[repr(u32)]
             #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-            enum ValueRef {
+            enum #value_ref_enum_name {
                 #(#value_ref_variants,)*
             }
 
-            impl From<fmi::fmi3::binding::fmi3ValueReference> for ValueRef {
+            impl From<fmi::fmi3::binding::fmi3ValueReference> for #value_ref_enum_name {
                 fn from(value: fmi::fmi3::binding::fmi3ValueReference) -> Self {
                     match value {
                         #(#from_u32_arms,)*
@@ -147,8 +150,8 @@ impl ToTokens for ValueRefEnum<'_> {
                 }
             }
 
-            impl From<ValueRef> for fmi::fmi3::binding::fmi3ValueReference {
-                fn from(value: ValueRef) -> Self {
+            impl From<#value_ref_enum_name> for fmi::fmi3::binding::fmi3ValueReference {
+                fn from(value: #value_ref_enum_name) -> Self {
                     match value {
                         #(#into_u32_arms,)*
                     }
