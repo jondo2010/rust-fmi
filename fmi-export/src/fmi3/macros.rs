@@ -1,3 +1,24 @@
+/// Safely dereferences an FMI instance pointer and validates it.
+///
+/// This macro performs null-pointer checks and safely casts the opaque FMI instance
+/// pointer to a mutable reference to the actual ModelInstance type.
+///
+/// # Safety
+///
+/// This macro performs unsafe pointer dereferencing. The caller must ensure that:
+/// - The pointer was originally created by this library's instantiation functions
+/// - The pointer has not been freed via `fmi3FreeInstance`
+/// - The pointer points to a valid `ModelInstance<$ty>`
+///
+/// # Parameters
+///
+/// - `$ptr`: The FMI instance pointer to dereference
+/// - `$ty`: The model type that the instance should contain
+///
+/// # Returns
+///
+/// Returns a mutable reference to the ModelInstance, or returns early with
+/// `fmi3Status_fmi3Error` if the pointer is null.
 #[macro_export]
 macro_rules! checked_deref {
     ($ptr:expr, $ty:ty) => {{
@@ -10,6 +31,186 @@ macro_rules! checked_deref {
     }};
 }
 
+/// Generates getter and setter functions for FMI3 data types.
+///
+/// This macro creates both `fmi3Get{TypeName}` and `fmi3Set{TypeName}` functions
+/// with proper error handling, parameter validation, and consistent API behavior.
+///
+/// # Parameters
+///
+/// - `$ty`: The model type
+/// - `$type_name`: The FMI type name (e.g., Float64, Int32, Boolean)
+/// - `$fmi_type`: The corresponding FMI C type (e.g., fmi3Float64)
+/// - `$get_method`: The trait method name for getting values (e.g., get_float64)
+/// - `$set_method`: The trait method name for setting values (e.g., set_float64)
+///
+/// # Generated Functions
+///
+/// - `fmi3Get{TypeName}`: Retrieves values from the model
+/// - `fmi3Set{TypeName}`: Sets values in the model
+///
+/// Both functions include:
+/// - Null pointer validation
+/// - Array length validation
+/// - Proper error handling and status conversion
+/// - Safe slice creation from raw pointers
+#[macro_export]
+macro_rules! generate_getset_functions {
+    ($ty:ty, $type_name:ident, $fmi_type:ty, $get_method:ident, $set_method:ident) => {
+        $crate::paste::paste! {
+            #[unsafe(no_mangle)]
+            #[allow(non_snake_case)]
+            pub unsafe extern "C" fn [<fmi3Get $type_name>](
+                instance: ::fmi::fmi3::binding::fmi3Instance,
+                value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
+                n_value_references: usize,
+                values: *mut $fmi_type,
+                n_values: usize,
+            ) -> ::fmi::fmi3::binding::fmi3Status {
+                let instance = $crate::checked_deref!(instance, $ty);
+                
+                // Validate array lengths match
+                if n_value_references != n_values {
+                    eprintln!("FMI3: Array length mismatch in fmi3Get{}: value_references={}, values={}", 
+                             stringify!($type_name), n_value_references, n_values);
+                    return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
+                }
+                
+                let value_refs = ::std::slice::from_raw_parts(value_references, n_value_references);
+                let values = ::std::slice::from_raw_parts_mut(values, n_values);
+                
+                match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::GetSet>::$get_method(
+                    instance, value_refs, values
+                ) {
+                    Ok(res) => {
+                        let status: ::fmi::fmi3::Fmi3Status = res.into();
+                        status.into()
+                    }
+                    Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
+                }
+            }
+
+            #[unsafe(no_mangle)]
+            #[allow(non_snake_case)]
+            pub unsafe extern "C" fn [<fmi3Set $type_name>](
+                instance: ::fmi::fmi3::binding::fmi3Instance,
+                value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
+                n_value_references: usize,
+                values: *const $fmi_type,
+                n_values: usize,
+            ) -> ::fmi::fmi3::binding::fmi3Status {
+                let instance = $crate::checked_deref!(instance, $ty);
+                
+                // Validate array lengths match
+                if n_value_references != n_values {
+                    eprintln!("FMI3: Array length mismatch in fmi3Set{}: value_references={}, values={}", 
+                             stringify!($type_name), n_value_references, n_values);
+                    return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
+                }
+                
+                let value_refs = ::std::slice::from_raw_parts(value_references, n_value_references);
+                let values = ::std::slice::from_raw_parts(values, n_values);
+                
+                match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::GetSet>::$set_method(
+                    instance, value_refs, values
+                ) {
+                    Ok(res) => {
+                        let status: ::fmi::fmi3::Fmi3Status = res.into();
+                        status.into()
+                    }
+                    Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
+                }
+            }
+        }
+    };
+}/// Main macro for exporting an FMI 3.0 model as a shared library.
+///
+/// This macro generates all the required C API functions for an FMI 3.0 Functional Mockup Unit (FMU).
+/// It creates the complete interface needed for Model Exchange simulation mode, including:
+///
+/// - Static exports for model metadata (variables, structure, instantiation token)
+/// - Instance lifecycle functions (instantiate, free)
+/// - Initialization and mode transition functions
+/// - Model Exchange specific functions (continuous states, derivatives, events)
+/// - Simulation control functions (terminate, reset, update discrete states)
+///
+/// # Usage
+///
+/// ## Basic Export
+/// ```ignore
+/// // Export a model type as an FMU
+/// fmi_export::export_fmu!(MyModel);
+/// ```
+///
+/// ## With Getter/Setter Functions
+/// ```ignore
+/// // Export with variable access functions
+/// fmi_export::export_fmu!(MyModel);
+/// fmi_export::export_fmu!(GetSet);
+/// ```
+///
+/// # Parameters
+///
+/// - `$ty`: The model type that implements the `Model` trait
+/// - `GetSet`: Optional parameter to generate getter/setter functions for all FMI data types
+///
+/// # Requirements
+///
+/// The model type `$ty` must implement:
+/// - `Model` trait: Provides model metadata and core simulation functionality
+/// - `Default`: For creating initial model instances
+/// - `UserModel`: For user-defined model behavior
+///
+/// # Generated Functions
+///
+/// ## Metadata Functions
+/// - `fmi3GetVersion()`: Returns FMI version string
+///
+/// ## Lifecycle Functions
+/// - `fmi3InstantiateModelExchange()`: Creates new model instance
+/// - `fmi3FreeInstance()`: Destroys model instance and frees resources
+///
+/// ## Initialization Functions
+/// - `fmi3EnterInitializationMode()`: Enters initialization mode
+/// - `fmi3ExitInitializationMode()`: Exits initialization mode and finalizes setup
+///
+/// ## Mode Transition Functions
+/// - `fmi3EnterEventMode()`: Enters event mode for discrete computations
+/// - `fmi3EnterContinuousTimeMode()`: Enters continuous time mode
+///
+/// ## Model Exchange Functions
+/// - `fmi3SetTime()`: Sets current simulation time
+/// - `fmi3SetContinuousStates()`: Sets continuous state values
+/// - `fmi3GetContinuousStates()`: Gets continuous state values
+/// - `fmi3GetContinuousStateDerivatives()`: Gets state derivatives
+/// - `fmi3GetNumberOfEventIndicators()`: Gets event indicator count
+/// - `fmi3GetEventIndicators()`: Gets event indicator values
+/// - `fmi3CompletedIntegratorStep()`: Signals integrator step completion
+///
+/// ## Control Functions
+/// - `fmi3SetDebugLogging()`: Configures debug logging
+/// - `fmi3Terminate()`: Terminates simulation
+/// - `fmi3Reset()`: Resets model to initial state
+/// - `fmi3UpdateDiscreteStates()`: Updates discrete states and events
+///
+/// ## Variable Access Functions (when GetSet is specified)
+/// - `fmi3Get*()` / `fmi3Set*()`: For all FMI data types (Float64, Int32, Boolean, etc.)
+/// - Includes proper handling of String and Binary types
+///
+/// # Static Exports
+///
+/// The macro also exports static symbols that can be extracted from the compiled library:
+/// - `FMI3_MODEL_VARIABLES`: XML description of model variables
+/// - `FMI3_MODEL_STRUCTURE`: XML description of model structure
+/// - `FMI3_INSTANTIATION_TOKEN`: Unique token for model validation
+///
+/// # Safety
+///
+/// All generated functions include appropriate safety checks:
+/// - Null pointer validation for instance parameters
+/// - Array bounds checking for multi-value operations
+/// - Proper error handling and status reporting
+/// - Safe conversion between C and Rust data types
 #[macro_export]
 macro_rules! export_fmu {
     ($ty:ty) => {
@@ -390,25 +591,182 @@ macro_rules! export_fmu {
             }
         }
 
+        // Generate getter/setter functions for all FMI3 basic data types
+        $crate::generate_getset_functions!($ty, Float64, ::fmi::fmi3::binding::fmi3Float64, get_float64, set_float64);
+        $crate::generate_getset_functions!($ty, Float32, ::fmi::fmi3::binding::fmi3Float32, get_float32, set_float32);
+        $crate::generate_getset_functions!($ty, Int64, ::fmi::fmi3::binding::fmi3Int64, get_int64, set_int64);
+        $crate::generate_getset_functions!($ty, Int32, ::fmi::fmi3::binding::fmi3Int32, get_int32, set_int32);
+        $crate::generate_getset_functions!($ty, Int16, ::fmi::fmi3::binding::fmi3Int16, get_int16, set_int16);
+        $crate::generate_getset_functions!($ty, Int8, ::fmi::fmi3::binding::fmi3Int8, get_int8, set_int8);
+        $crate::generate_getset_functions!($ty, UInt64, ::fmi::fmi3::binding::fmi3UInt64, get_uint64, set_uint64);
+        $crate::generate_getset_functions!($ty, UInt32, ::fmi::fmi3::binding::fmi3UInt32, get_uint32, set_uint32);
+        $crate::generate_getset_functions!($ty, UInt16, ::fmi::fmi3::binding::fmi3UInt16, get_uint16, set_uint16);
+        $crate::generate_getset_functions!($ty, UInt8, ::fmi::fmi3::binding::fmi3UInt8, get_uint8, set_uint8);
+        $crate::generate_getset_functions!($ty, Boolean, ::fmi::fmi3::binding::fmi3Boolean, get_boolean, set_boolean);
+
+        // String and Binary types need special handling due to their different signatures
         #[unsafe(no_mangle)]
         #[allow(non_snake_case)]
-        pub unsafe fn fmi3GetFloat64(
+        pub unsafe extern "C" fn fmi3GetString(
             instance: ::fmi::fmi3::binding::fmi3Instance,
             value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
             n_value_references: usize,
-            values: *mut ::fmi::fmi3::binding::fmi3Float64,
+            values: *mut ::fmi::fmi3::binding::fmi3String,
             n_values: usize,
         ) -> ::fmi::fmi3::binding::fmi3Status {
             let instance = $crate::checked_deref!(instance, $ty);
+
+            if n_value_references != n_values {
+                eprintln!("FMI3: Array length mismatch in fmi3GetString: value_references={}, values={}",
+                         n_value_references, n_values);
+                return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
+            }
+
             let value_refs = ::std::slice::from_raw_parts(value_references, n_value_references);
-            let values = ::std::slice::from_raw_parts_mut(values, n_values);
-            match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::GetSet>::get_float64(instance, value_refs, values) {
-                Ok(res) => {
-                    let status: ::fmi::fmi3::Fmi3Status = res.into();
-                    status.into()
+
+            // Create temporary buffer for CString results
+            let mut temp_strings = vec![::std::ffi::CString::default(); n_values];
+
+            match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::GetSet>::get_string(
+                instance, value_refs, &mut temp_strings
+            ) {
+                Ok(_) => {
+                    // Copy C string pointers to output array
+                    let values_slice = ::std::slice::from_raw_parts_mut(values, n_values);
+                    for (i, cstring) in temp_strings.iter().enumerate() {
+                        values_slice[i] = cstring.as_ptr();
+                    }
+                    ::fmi::fmi3::binding::fmi3Status_fmi3OK
                 }
                 Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
             }
         }
-    };
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        pub unsafe extern "C" fn fmi3SetString(
+            instance: ::fmi::fmi3::binding::fmi3Instance,
+            value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
+            n_value_references: usize,
+            values: *const ::fmi::fmi3::binding::fmi3String,
+            n_values: usize,
+        ) -> ::fmi::fmi3::binding::fmi3Status {
+            let instance = $crate::checked_deref!(instance, $ty);
+
+            if n_value_references != n_values {
+                eprintln!("FMI3: Array length mismatch in fmi3SetString: value_references={}, values={}",
+                         n_value_references, n_values);
+                return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
+            }
+
+            let value_refs = ::std::slice::from_raw_parts(value_references, n_value_references);
+            let string_ptrs = ::std::slice::from_raw_parts(values, n_values);
+
+            // Convert C strings to CString objects
+            let mut temp_strings = Vec::with_capacity(n_values);
+            for &ptr in string_ptrs {
+                if ptr.is_null() {
+                    temp_strings.push(::std::ffi::CString::default());
+                } else {
+                    let cstring = ::std::ffi::CStr::from_ptr(ptr).to_owned();
+                    temp_strings.push(cstring);
+                }
+            }
+
+            match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::GetSet>::set_string(
+                instance, value_refs, &temp_strings
+            ) {
+                Ok(_) => ::fmi::fmi3::binding::fmi3Status_fmi3OK,
+                Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        pub unsafe extern "C" fn fmi3GetBinary(
+            instance: ::fmi::fmi3::binding::fmi3Instance,
+            value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
+            n_value_references: usize,
+            value_sizes: *mut usize,
+            values: *mut *mut ::fmi::fmi3::binding::fmi3Byte,
+            n_values: usize,
+        ) -> ::fmi::fmi3::binding::fmi3Status {
+            let instance = $crate::checked_deref!(instance, $ty);
+
+            if n_value_references != n_values {
+                eprintln!("FMI3: Array length mismatch in fmi3GetBinary: value_references={}, values={}",
+                         n_value_references, n_values);
+                return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
+            }
+
+            let value_refs = ::std::slice::from_raw_parts(value_references, n_value_references);
+            let sizes_slice = ::std::slice::from_raw_parts_mut(value_sizes, n_values);
+            let values_slice = ::std::slice::from_raw_parts_mut(values, n_values);
+
+            // Create temporary buffers for binary data
+            let mut temp_buffers: Vec<&mut [u8]> = Vec::with_capacity(n_values);
+            for i in 0..n_values {
+                if values_slice[i].is_null() || sizes_slice[i] == 0 {
+                    temp_buffers.push(&mut []);
+                } else {
+                    let buffer = ::std::slice::from_raw_parts_mut(values_slice[i], sizes_slice[i]);
+                    temp_buffers.push(buffer);
+                }
+            }
+
+            match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::GetSet>::get_binary(
+                instance, value_refs, &mut temp_buffers
+            ) {
+                Ok(actual_sizes) => {
+                    // Update the actual sizes
+                    for (i, &size) in actual_sizes.iter().enumerate() {
+                        sizes_slice[i] = size;
+                    }
+                    ::fmi::fmi3::binding::fmi3Status_fmi3OK
+                }
+                Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
+            }
+        }
+
+        #[unsafe(no_mangle)]
+        #[allow(non_snake_case)]
+        pub unsafe extern "C" fn fmi3SetBinary(
+            instance: ::fmi::fmi3::binding::fmi3Instance,
+            value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
+            n_value_references: usize,
+            value_sizes: *const usize,
+            values: *const *const ::fmi::fmi3::binding::fmi3Byte,
+            n_values: usize,
+        ) -> ::fmi::fmi3::binding::fmi3Status {
+            let instance = $crate::checked_deref!(instance, $ty);
+
+            if n_value_references != n_values {
+                eprintln!("FMI3: Array length mismatch in fmi3SetBinary: value_references={}, values={}",
+                         n_value_references, n_values);
+                return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
+            }
+
+            let value_refs = ::std::slice::from_raw_parts(value_references, n_value_references);
+            let sizes_slice = ::std::slice::from_raw_parts(value_sizes, n_values);
+            let values_slice = ::std::slice::from_raw_parts(values, n_values);
+
+            // Create temporary slices for binary data
+            let mut temp_buffers: Vec<&[u8]> = Vec::with_capacity(n_values);
+            for i in 0..n_values {
+                if values_slice[i].is_null() || sizes_slice[i] == 0 {
+                    temp_buffers.push(&[]);
+                } else {
+                    let buffer = ::std::slice::from_raw_parts(values_slice[i], sizes_slice[i]);
+                    temp_buffers.push(buffer);
+                }
+            }
+
+            match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::GetSet>::set_binary(
+                instance, value_refs, &temp_buffers
+            ) {
+                Ok(_) => ::fmi::fmi3::binding::fmi3Status_fmi3OK,
+                Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
+            }
+        }
+    }
 }

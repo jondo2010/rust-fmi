@@ -8,3 +8,7 @@ pub mod fmi3;
 
 // Re-export the derive macro
 pub use fmi_export_derive::FmuModel;
+
+// Re-export paste for use in macros
+#[doc(hidden)]
+pub use paste;

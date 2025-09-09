@@ -118,11 +118,35 @@ impl TryFrom<syn::Field> for Field {
     }
 }
 
+/// Check for variable name conflicts with the built-in "time" variable
+fn check_time_variable_conflicts(fields: &[Field]) {
+    for field in fields {
+        let field_name = field.ident.to_string();
+        if field_name.to_lowercase() == "time" {
+            emit_error!(field.ident, "'time' is a reserved name.");
+        }
+
+        // Check alias names too
+        for attr in &field.attrs {
+            if let FieldAttributeOuter::Alias(alias_attr) = attr {
+                if let Some(alias_name) = &alias_attr.name {
+                    if alias_name.to_lowercase() == "time" {
+                        emit_error!(field.ident, "'time' is a reserved name.");
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl From<syn::DeriveInput> for Model {
     fn from(item: syn::DeriveInput) -> Self {
         if let syn::Data::Struct(struct_data) = item.data {
             let attrs = build_attrs(item.attrs);
             let fields = build_fields(struct_data.fields);
+
+            // Check for time variable name conflicts
+            check_time_variable_conflicts(&fields);
 
             Self {
                 ident: item.ident,

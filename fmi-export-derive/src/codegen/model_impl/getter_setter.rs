@@ -104,8 +104,12 @@ impl ToTokens for GetterSetterGen<'_> {
 
         // Generate standard getter/setter methods
         for (rust_type, get_method, set_method, variable_type) in &method_configs {
-            // Only generate methods if the model actually has variables of this type
-            if !self.has_variables_of_type(*variable_type) {
+            // Always generate Float64 methods since Time VR is always available
+            // For other types, only generate if the model actually has variables of this type
+            let should_generate = *variable_type == schema::VariableType::FmiFloat64 
+                || self.has_variables_of_type(*variable_type);
+            
+            if !should_generate {
                 continue;
             }
 
@@ -233,6 +237,13 @@ impl<'a> TypeGetterGen<'a> {
 
 impl ToTokens for TypeGetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        // Special handling for Float64 to include Time VR
+        if self.variable_type == schema::VariableType::FmiFloat64 {
+            tokens.extend(quote! {
+                ValueRef::Time => *value = context.time(),
+            });
+        }
+
         for field in &self.model.fields {
             if field.field_type.r#type == self.variable_type {
                 // Add case for main variable
@@ -305,6 +316,17 @@ impl<'a> TypeSetterGen<'a> {
 
 impl ToTokens for TypeSetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        // Special handling for Float64: Time VR should not be settable
+        if self.variable_type == schema::VariableType::FmiFloat64 {
+            tokens.extend(quote! {
+                ValueRef::Time => {
+                    // Time is read-only, cannot be set through fmi3SetFloat64
+                    // Time is set through fmi3SetTime function instead
+                    return Err(fmi::fmi3::Fmi3Error::Error);
+                },
+            });
+        }
+
         for field in &self.model.fields {
             if field.field_type.r#type == self.variable_type {
                 // Only generate setter for main variable (not aliases)

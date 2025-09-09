@@ -27,6 +27,17 @@ impl ToTokens for ValueRefEnum<'_> {
         let mut from_u32_arms = Vec::new();
         let mut into_u32_arms = Vec::new();
 
+        // Always add Time variant with VR 0 first
+        value_ref_variants.push(quote! {
+            Time = 0
+        });
+        from_u32_arms.push(quote! {
+            0 => ValueRef::Time
+        });
+        into_u32_arms.push(quote! {
+            ValueRef::Time => 0
+        });
+
         // Collect all variables from the model description and create a mapping
         // from field name to value reference
         let mut field_to_vr = std::collections::HashMap::new();
@@ -36,6 +47,11 @@ impl ToTokens for ValueRefEnum<'_> {
         for variable in self.model_variables.iter_abstract() {
             let var_name = variable.name();
             let vr = variable.value_reference();
+
+            // Skip VR 0 as it's reserved for Time
+            if vr == 0 {
+                continue;
+            }
 
             // Try to match this variable to a field or alias in the model
             for field in &self.model.fields {

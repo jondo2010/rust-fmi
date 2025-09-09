@@ -177,7 +177,7 @@ pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
 pub trait UserModel: Sized {
     /// The logging category type for this model
     ///
-    /// This is typically an enum that implements `ModelLoggingCategory`
+    /// This is an enum that implements `ModelLoggingCategory`
     type LoggingCategory: ModelLoggingCategory + 'static;
 
     /// Calculate values (derivatives, outputs, etc.)

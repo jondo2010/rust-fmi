@@ -62,6 +62,11 @@ impl<M: UserModel> ModelContext<M> {
     pub fn resource_path(&self) -> &PathBuf {
         &self.resource_path
     }
+
+    /// Get the current simulation time.
+    pub fn time(&self) -> f64 {
+        self.time
+    }
 }
 
 impl<M: Model> ModelInstance<M> {
