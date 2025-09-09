@@ -1,0 +1,15 @@
+[package]
+name = "vanderpol"
+version = "0.1.0"
+edition = "2021"
+description = "Van der Pol oscillator FMU example ported from Reference FMUs"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
+
+[package.metadata.fmu]
+default_experiment = { start_time = "0", stop_time = "20", step_size = "0.01" }

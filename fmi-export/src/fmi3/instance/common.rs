@@ -1,5 +1,5 @@
 use super::ModelInstance;
-use crate::fmi3::{Model, ModelState};
+use crate::fmi3::{Model, ModelState, traits::ModelLoggingCategory};
 use fmi::{
     EventFlags, InterfaceType,
     fmi3::{Common, Fmi3Error, Fmi3Res, binding},
@@ -122,6 +122,11 @@ where
     }
 
     fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
+        self.context.log(
+            Fmi3Res::OK,
+            F::LoggingCategory::trace_category(),
+            format_args!("enter_event_mode()"),
+        );
         self.state = ModelState::EventMode;
         Ok(Fmi3Res::OK)
     }
@@ -130,6 +135,11 @@ where
         &mut self,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
+        self.context.log(
+            Fmi3Res::OK,
+            F::LoggingCategory::trace_category(),
+            format_args!("update_discrete_states()"),
+        );
         self.model.event_update(&self.context, event_flags)
     }
 }
