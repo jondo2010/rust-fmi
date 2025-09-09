@@ -823,7 +823,13 @@ macro_rules! export_fmu {
             instance: ::fmi::fmi3::binding::fmi3Instance
         ) -> ::fmi::fmi3::binding::fmi3Status {
             let instance = $crate::checked_deref!(instance, $ty);
-            todo!("Enter configuration mode not yet implemented");
+            match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::Common>::enter_configuration_mode(instance) {
+                Ok(res) => {
+                    let status: ::fmi::fmi3::Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
+            }
         }
 
         #[unsafe(no_mangle)]
@@ -832,7 +838,13 @@ macro_rules! export_fmu {
             instance: ::fmi::fmi3::binding::fmi3Instance
         ) -> ::fmi::fmi3::binding::fmi3Status {
             let instance = $crate::checked_deref!(instance, $ty);
-            todo!("Exit configuration mode not yet implemented");
+            match <::fmi_export::fmi3::ModelInstance<$ty> as ::fmi::fmi3::Common>::exit_configuration_mode(instance) {
+                Ok(res) => {
+                    let status: ::fmi::fmi3::Fmi3Status = res.into();
+                    status.into()
+                }
+                Err(_) => ::fmi::fmi3::binding::fmi3Status_fmi3Error,
+            }
         }
 
         // Clock related functions

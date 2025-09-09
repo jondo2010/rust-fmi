@@ -114,11 +114,70 @@ where
     }
 
     fn enter_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
-        todo!()
+        self.context.log(
+            Fmi3Res::OK,
+            F::LoggingCategory::trace_category(),
+            format_args!("enter_configuration_mode()"),
+        );
+
+        match self.state {
+            ModelState::Instantiated => {
+                self.state = ModelState::ConfigurationMode;
+            }
+            _ => {
+                self.state = ModelState::ReconfigurationMode;
+            }
+        }
+
+        Ok(Fmi3Res::OK)
     }
 
     fn exit_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
-        todo!()
+        self.context.log(
+            Fmi3Res::OK,
+            F::LoggingCategory::trace_category(),
+            format_args!("exit_configuration_mode()"),
+        );
+
+        match self.state {
+            ModelState::ConfigurationMode => {
+                self.state = ModelState::Instantiated;
+            }
+
+            ModelState::ReconfigurationMode => {
+                match self.interface_type() {
+                    InterfaceType::ModelExchange => {
+                        self.state = ModelState::EventMode;
+                    }
+                    InterfaceType::CoSimulation => {
+                        //TODO support event mode switch
+                        let event_mode_used = false;
+                        if event_mode_used {
+                            self.state = ModelState::EventMode;
+                        } else {
+                            self.state = ModelState::StepMode;
+                        }
+                    }
+                    InterfaceType::ScheduledExecution => {
+                        self.state = ModelState::ClockActivationMode;
+                    }
+                }
+            }
+
+            _ => {
+                self.context.log(
+                    Fmi3Error::Error,
+                    F::LoggingCategory::default(),
+                    format_args!(
+                        "exit_configuration_mode() called in invalid state {:?}",
+                        self.state
+                    ),
+                );
+                return Err(Fmi3Error::Error);
+            }
+        }
+
+        Ok(Fmi3Res::OK)
     }
 
     fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
