@@ -25,7 +25,7 @@ impl ToTokens for ValueRefEnum<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let struct_name = &self.model.ident;
         let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
-        
+
         let mut value_ref_variants = Vec::new();
         let mut from_u32_arms = Vec::new();
         let mut into_u32_arms = Vec::new();

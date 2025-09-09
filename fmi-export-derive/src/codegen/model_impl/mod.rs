@@ -124,7 +124,6 @@ fn count_continuous_states(model: &Model) -> usize {
             let is_state = field.attrs.iter().any(|attr| {
                 matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.state == Some(true))
             });
-            
             if is_state {
                 // For arrays, count the number of elements; for scalars, count as 1
                 Some(field.field_type.total_elements())
@@ -207,7 +206,7 @@ impl ToTokens for GetDerivativesGen<'_> {
                         }
                     }
                 }
-                
+
                 // If not found, check for derivative attribute
                 if derivative_field.is_none() {
                     for attr in &field.attrs {
@@ -221,7 +220,7 @@ impl ToTokens for GetDerivativesGen<'_> {
                         }
                     }
                 }
-                
+
                 if derivative_field.is_some() {
                     break;
                 }
@@ -229,7 +228,7 @@ impl ToTokens for GetDerivativesGen<'_> {
 
             if let Some(der_field) = derivative_field {
                 let der_field_name = &der_field.ident;
-                
+
                 if state_field.field_type.dimensions.is_empty() {
                     // Scalar state and derivative
                     derivative_assignments.push(quote! {
@@ -293,7 +292,7 @@ impl ToTokens for VariableValidationGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let struct_name = &self.0.ident;
         let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
-        
+
         let mut cases = Vec::new();
 
         for field in &self.0.fields {

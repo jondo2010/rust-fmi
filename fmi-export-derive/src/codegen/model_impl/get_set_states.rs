@@ -30,7 +30,7 @@ impl ToTokens for GetContinuousStatesGen<'_> {
 
             if is_state {
                 let field_name = &field.ident;
-                
+
                 if field.field_type.dimensions.is_empty() {
                     // Scalar field
                     state_assignments.push(quote! {
@@ -99,7 +99,7 @@ impl ToTokens for SetContinuousStatesGen<'_> {
 
             if is_state {
                 let field_name = &field.ident;
-                
+
                 if field.field_type.dimensions.is_empty() {
                     // Scalar field
                     state_assignments.push(quote! {
