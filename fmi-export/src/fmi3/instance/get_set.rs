@@ -125,4 +125,22 @@ where
     // Special getter/setter pairs with different signatures
     instance_getter_setter_special!(string);
     instance_getter_setter_special!(binary);
+
+    fn get_clock(
+        &mut self,
+        _vrs: &[Self::ValueRef],
+        _values: &mut [binding::fmi3Clock],
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        // Default implementation: clocks not supported
+        Err(Fmi3Error::Error)
+    }
+
+    fn set_clock(
+        &mut self,
+        _vrs: &[Self::ValueRef],
+        _values: &[binding::fmi3Clock],
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        // Default implementation: clocks not supported
+        Err(Fmi3Error::Error)
+    }
 }

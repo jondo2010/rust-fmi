@@ -1,4 +1,5 @@
 use fmi::{
+    EventFlags,
     fmi2::{
         Fmi2Error,
         import::Fmi2Import,
@@ -32,7 +33,7 @@ impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi2Import> for SimState<InstanceCS<'
             input_state,
             recorder_state,
             inst,
-            next_event_time: None,
+            event_flags: EventFlags::default(),
         })
     }
 }

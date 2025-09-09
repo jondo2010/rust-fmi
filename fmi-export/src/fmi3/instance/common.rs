@@ -142,4 +142,20 @@ where
         );
         self.model.event_update(&self.context, event_flags)
     }
+
+    fn get_number_of_variable_dependencies(
+        &mut self,
+        _vr: Self::ValueRef,
+    ) -> Result<usize, Fmi3Error> {
+        // Default implementation: no dependencies
+        Ok(0)
+    }
+
+    fn get_variable_dependencies(
+        &mut self,
+        _dependent: Self::ValueRef,
+    ) -> Result<Vec<fmi::fmi3::VariableDependency<Self::ValueRef>>, Fmi3Error> {
+        // Default implementation: no dependencies
+        Ok(Vec::new())
+    }
 }

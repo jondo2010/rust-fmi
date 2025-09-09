@@ -313,6 +313,30 @@ impl<'a, Tag> GetSet for Instance<'a, Tag> {
 
         Ok(())
     }
+
+    fn get_clock(
+        &mut self,
+        vrs: &[Self::ValueRef],
+        values: &mut [binding::fmi3Clock],
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe {
+            self.binding
+                .fmi3GetClock(self.ptr, vrs.as_ptr(), vrs.len() as _, values.as_mut_ptr())
+        })
+        .ok()
+    }
+
+    fn set_clock(
+        &mut self,
+        vrs: &[Self::ValueRef],
+        values: &[binding::fmi3Clock],
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe {
+            self.binding
+                .fmi3SetClock(self.ptr, vrs.as_ptr(), vrs.len() as _, values.as_ptr())
+        })
+        .ok()
+    }
 }
 
 impl<'a, Tag> Common for Instance<'a, Tag> {
@@ -403,8 +427,8 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         &mut self,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
-        let mut next_event_time_defined = false;
-        let mut next_event_time_value = 0.0;
+        let mut next_event_time_defined = event_flags.next_event_time.is_some();
+        let mut next_event_time_value = event_flags.next_event_time.unwrap_or_default();
 
         let status: Fmi3Status = unsafe {
             self.binding.fmi3UpdateDiscreteStates(
@@ -426,5 +450,88 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         };
 
         status.ok()
+    }
+
+    fn get_number_of_variable_dependencies(
+        &mut self,
+        vr: Self::ValueRef,
+    ) -> Result<usize, Fmi3Error> {
+        let mut n_dependencies: usize = 0;
+        Fmi3Status::from(unsafe {
+            self.binding.fmi3GetNumberOfVariableDependencies(
+                self.ptr,
+                vr.into(),
+                &mut n_dependencies as *mut usize,
+            )
+        })
+        .ok()?;
+        Ok(n_dependencies)
+    }
+
+    fn get_variable_dependencies(
+        &mut self,
+        dependent: Self::ValueRef,
+    ) -> Result<Vec<crate::fmi3::VariableDependency<Self::ValueRef>>, Fmi3Error> {
+        let n_dependencies = self.get_number_of_variable_dependencies(dependent)?;
+
+        if n_dependencies == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut element_indices_of_dependent = vec![MaybeUninit::<usize>::uninit(); n_dependencies];
+        let mut independents = vec![MaybeUninit::<Self::ValueRef>::uninit(); n_dependencies];
+        let mut element_indices_of_independents =
+            vec![MaybeUninit::<usize>::uninit(); n_dependencies];
+        let mut dependency_kinds =
+            vec![MaybeUninit::<binding::fmi3DependencyKind>::uninit(); n_dependencies];
+
+        Fmi3Status::from(unsafe {
+            self.binding.fmi3GetVariableDependencies(
+                self.ptr,
+                dependent.into(),
+                element_indices_of_dependent.as_mut_ptr() as *mut usize,
+                independents.as_mut_ptr() as *mut binding::fmi3ValueReference,
+                element_indices_of_independents.as_mut_ptr() as *mut usize,
+                dependency_kinds.as_mut_ptr() as *mut binding::fmi3DependencyKind,
+                n_dependencies,
+            )
+        })
+        .ok()?;
+
+        // Convert MaybeUninit arrays to initialized values
+        let element_indices_of_dependent: Vec<usize> = element_indices_of_dependent
+            .into_iter()
+            .map(|d| unsafe { d.assume_init() })
+            .collect();
+        let independents: Vec<Self::ValueRef> = independents
+            .into_iter()
+            .map(|d| unsafe { d.assume_init() })
+            .collect();
+        let element_indices_of_independents: Vec<usize> = element_indices_of_independents
+            .into_iter()
+            .map(|d| unsafe { d.assume_init() })
+            .collect();
+        let dependency_kinds: Vec<binding::fmi3DependencyKind> = dependency_kinds
+            .into_iter()
+            .map(|k| unsafe { k.assume_init() })
+            .collect();
+
+        // Combine into VariableDependency structs
+        let result = element_indices_of_dependent
+            .into_iter()
+            .zip(independents.into_iter())
+            .zip(element_indices_of_independents.into_iter())
+            .zip(dependency_kinds.into_iter())
+            .map(
+                |(((dep_idx, indep_vr), indep_idx), kind)| crate::fmi3::VariableDependency {
+                    dependent_element_index: dep_idx,
+                    independent: indep_vr,
+                    independent_element_index: indep_idx,
+                    dependency_kind: kind,
+                },
+            )
+            .collect();
+
+        Ok(result)
     }
 }

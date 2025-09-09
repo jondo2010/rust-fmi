@@ -1,5 +1,6 @@
 use anyhow::Context;
 use fmi::{
+    EventFlags,
     fmi3::{CoSimulation, Fmi3Model, import::Fmi3Import, instance::InstanceCS},
     traits::FmiInstance,
 };
@@ -34,7 +35,7 @@ impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi3Import> for SimState<InstanceCS<'
             input_state,
             recorder_state: output_state,
             inst,
-            next_event_time: None,
+            event_flags: EventFlags::default(),
         })
     }
 }

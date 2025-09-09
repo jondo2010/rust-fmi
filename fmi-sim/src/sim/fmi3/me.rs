@@ -1,4 +1,7 @@
-use fmi::fmi3::{Fmi3Model, import::Fmi3Import, instance::InstanceME};
+use fmi::{
+    EventFlags,
+    fmi3::{Fmi3Model, import::Fmi3Import, instance::InstanceME},
+};
 
 use crate::{
     Error,
@@ -18,7 +21,7 @@ impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi3Import> for SimState<InstanceME<'
             input_state,
             recorder_state,
             inst,
-            next_event_time: None,
+            event_flags: EventFlags::default(),
         })
     }
 }

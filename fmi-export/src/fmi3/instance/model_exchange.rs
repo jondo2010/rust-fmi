@@ -84,6 +84,16 @@ where
             .get_continuous_state_derivatives(derivatives, &self.context)
     }
 
+    fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
+        self.context.log(
+            Fmi3Res::OK,
+            M::LoggingCategory::trace_category(),
+            format_args!("get_event_indicators()"),
+        );
+        self.model
+            .get_event_indicators(&mut self.context, indicators)
+    }
+
     fn get_nominals_of_continuous_states(
         &mut self,
         nominals: &mut [f64],
@@ -99,13 +109,7 @@ where
         Ok(M::get_number_of_event_indicators())
     }
 
-    fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
-        self.context.log(
-            Fmi3Res::OK,
-            M::LoggingCategory::trace_category(),
-            format_args!("get_event_indicators()"),
-        );
-        self.model
-            .get_event_indicators(&mut self.context, indicators)
+    fn get_number_of_continuous_states(&mut self) -> Result<usize, Fmi3Error> {
+        Ok(M::get_number_of_continuous_states())
     }
 }

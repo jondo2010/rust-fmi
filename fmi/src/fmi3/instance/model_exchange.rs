@@ -173,6 +173,16 @@ impl ModelExchange for Instance<'_, ME> {
         .ok()?;
         Ok(number_of_event_indicators)
     }
+
+    fn get_number_of_continuous_states(&mut self) -> Result<usize, Fmi3Error> {
+        let mut number_of_continuous_states = 0usize;
+        Fmi3Status::from(unsafe {
+            self.binding
+                .fmi3GetNumberOfContinuousStates(self.ptr, &mut number_of_continuous_states)
+        })
+        .ok()?;
+        Ok(number_of_continuous_states)
+    }
 }
 
 impl FmiModelExchange for Instance<'_, ME> {
