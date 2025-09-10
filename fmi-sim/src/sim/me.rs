@@ -49,11 +49,11 @@ where
             let next_input_event_time = self.input_state.next_input_event(time);
 
             let input_event = next_regular_point >= next_input_event_time;
-            let time_event = next_regular_point >= self.next_event_time.unwrap_or(f64::INFINITY);
+            let time_event = next_regular_point >= self.next_event_time();
 
             // Use the earliest of [next_input_event, next_event_time, and next_regular_point]
             let next_communication_point = if input_event || time_event {
-                next_input_event_time.min(self.next_event_time.unwrap_or(f64::INFINITY))
+                next_input_event_time.min(self.next_event_time())
             } else {
                 next_regular_point
             };
@@ -85,7 +85,7 @@ where
 
             if input_event || time_event || state_event || step_event {
                 log::trace!(
-                    "Event encountered at t = {time}. [INPUT/TIME/STATE/STEP] = [{input_event}/{time_event}/{state_event}/{step_event}]"
+                    "Event encountered at t = {time}. [Input: {input_event}, Time: {time_event}, State: {state_event}, Step: {step_event}]"
                 );
                 stats.num_events += 1;
                 let (reset_solver, terminate) = self.handle_events(time, input_event)?;

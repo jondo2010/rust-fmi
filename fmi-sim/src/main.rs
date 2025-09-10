@@ -14,9 +14,10 @@ fn main() -> anyhow::Result<()> {
     let (outputs, stats) = fmi_sim::simulate(&options)?;
 
     log::info!(
-        "Simulation finished at t = {:.1} after {} steps.",
+        "Simulation finished at t = {:.1} after {} steps and {} events.",
         stats.end_time,
-        stats.num_steps
+        stats.num_steps,
+        stats.num_events
     );
 
     if let Some(output_file) = options.output_file {

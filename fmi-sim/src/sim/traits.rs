@@ -67,7 +67,7 @@ pub trait InstRecordValues: FmiInstance + Sized {
 /// Implemented by ME in fmi2 and ME+CS in fmi3.
 pub trait SimHandleEvents {
     /// Handle events during the simulation.
-    /// 
+    ///
     /// # Returns
     /// Returns a tuple of (reset_solver: bool, terminate_simulation: bool)
     fn handle_events(&mut self, time: f64, input_event: bool) -> Result<(bool, bool), Error>;

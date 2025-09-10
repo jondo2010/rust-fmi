@@ -16,6 +16,7 @@ Always reference these instructions first and fallback to search or bash command
 - **WARNING**: Full test suite requires internet access:
   - `cargo test --all` -- FAILS in restricted environments due to TLS certificate issues downloading Reference-FMUs
   - Integration tests download test data from GitHub and will fail offline
+- **IMPORTANT**: When using types from the `fmi-schema` or `fmi-sys` crates in other crates, prefer to use them through the re-exports in the `fmi` crate: `use fmi::fmi3::{schema, binding}`, and with prefix.
 
 ## Validation
 
@@ -35,7 +36,7 @@ Always reference these instructions first and fallback to search or bash command
 
 ## Repository Structure
 
-This is a Rust workspace with 5 main crates:
+This is a Rust workspace with 6 main crates:
 
 | Crate           | Purpose                                        | Key Features                                |
 | --------------- | ---------------------------------------------- | ------------------------------------------- |
@@ -44,6 +45,7 @@ This is a Rust workspace with 5 main crates:
 | `fmi-schema`    | XML parsing of FMU Model Description         | Handles FMI 2.0/3.0 XML schemas            |
 | `fmi-sim`       | FMU simulation CLI tool                       | ME/CS/SE simulation modes                   |
 | `fmi-test-data` | Reference FMUs for testing                    | Downloads test data from GitHub             |
+| `xtask`         | Development automation for FMU building      | Bundle, inspect, multi-platform builds     |
 
 ## Common Tasks
 
@@ -54,7 +56,7 @@ The following are tested commands and expected behaviors:
 # Essential preparation
 git submodule update --init --recursive  # ~30 seconds, downloads FMI headers
 
-# Core build commands  
+# Core build commands
 cargo check --all        # ~75 seconds - NEVER CANCEL. Set timeout to 120+ seconds.
 cargo build --all        # ~49 seconds - NEVER CANCEL. Set timeout to 90+ seconds.
 cargo build --all --release  # ~163 seconds (2m 42s) - NEVER CANCEL. Set timeout to 300+ seconds.
@@ -71,9 +73,43 @@ cargo run -p fmi-sim -- --help                    # Show main help
 cargo run -p fmi-sim -- --model file.fmu --help   # Show model-specific options
 
 # Subcommands available:
-# - model-exchange: Perform ModelExchange simulation  
+# - model-exchange: Perform ModelExchange simulation
 # - co-simulation: Perform CoSimulation simulation
 ```
+
+### XTask Development Tool
+The `xtask` crate provides development automation for FMU building and inspection:
+
+```bash
+# Show available commands
+cargo run -p xtask -- --help
+
+# Bundle a package as FMU for native platform
+cargo run -p xtask -- bundle --package dahlquist
+cargo run -p xtask -- bundle --package dahlquist --release
+
+# Bundle for specific target platform
+cargo run -p xtask -- bundle --package dahlquist --target x86_64-unknown-linux-gnu
+
+# Bundle for multiple platforms (creates multi-platform FMU)
+cargo run -p xtask -- bundle-multi --package dahlquist
+cargo run -p xtask -- bundle-multi --package dahlquist --targets "aarch64-apple-darwin,x86_64-unknown-linux-gnu"
+
+# Inspect ModelData extracted from dylib (debugging FMU export)
+cargo run -p xtask -- inspect --package dahlquist
+cargo run -p xtask -- inspect --package stair --target x86_64-unknown-linux-gnu --release
+
+# All commands support:
+# --package/-p <PACKAGE>  # Required: name of example package to process
+# --target <TARGET>       # Optional: specific target platform
+# --release/-r            # Optional: build in release mode
+```
+
+**XTask Command Examples**:
+- Available example packages: `dahlquist`, `stair`, `vanderpol`, `bouncing_ball`
+- Default multi-platform targets: `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-gnu`, `aarch64-apple-darwin`
+- Inspect command shows raw XML for ModelVariables and ModelStructure extracted from dylib symbols
+- Generated FMUs are placed in `target/fmu/` directory
 
 ### Documentation
 ```bash
@@ -85,12 +121,25 @@ cargo doc --package fmi-schema --no-deps  # Generate docs, ~4 seconds
 ```
 Cargo.toml              # Workspace configuration
 fmi-sys/                # C bindings with submodules
-├── fmi-standard2/      # FMI 2.0 headers (submodule)  
+├── fmi-standard2/      # FMI 2.0 headers (submodule)
 ├── fmi-standard3/      # FMI 3.0 headers (submodule)
 └── build.rs           # Bindgen build script
 fmi-sim/
 ├── examples/          # Contains bouncing_ball.rs example
 └── src/main.rs       # CLI application entry point
+xtask/
+├── src/
+│   ├── main.rs        # CLI entry point
+│   ├── commands/      # Command implementations (bundle, inspect, etc.)
+│   ├── fmu_builder.rs # Core FMU building logic
+│   ├── extractor.rs   # ModelData extraction from dylibs
+│   └── platform.rs    # Platform mapping for cross-compilation
+└── Cargo.toml        # Development tool dependencies
+examples/              # Example FMU packages
+├── dahlquist/         # Simple ODE example
+├── stair/             # Step function example
+├── vanderpol/         # Van der Pol oscillator
+└── bouncing_ball/     # Physics simulation example
 .github/workflows/ci.yml  # CI configuration
 rustfmt.toml          # Code formatting config (requires nightly for full features)
 ```
@@ -101,7 +150,7 @@ rustfmt.toml          # Code formatting config (requires nightly for full featur
 - **ALWAYS** initialize submodules before building - required for FMI headers
 - **DO NOT** expect examples or integration tests to work offline - they require GitHub downloads
 - **DO NOT** run full clippy or rustfmt until known issues are resolved
-- **ALWAYS** use timeouts of 120+ seconds for check operations, 300+ seconds for release builds  
+- **ALWAYS** use timeouts of 120+ seconds for check operations, 300+ seconds for release builds
 - **INTERNET ACCESS REQUIRED** for integration tests and examples (downloads Reference-FMUs)
 - **BUILD TIMING**: Debug builds ~49s, Release builds ~163s (2m 42s) - plan accordingly
 
@@ -109,9 +158,9 @@ rustfmt.toml          # Code formatting config (requires nightly for full featur
 
 - **REQUIRED**: All commits MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) specification
 - **Format**: `<type>[optional scope]: <description>`
-- **Types**: 
+- **Types**:
   - `feat`: New features
-  - `fix`: Bug fixes  
+  - `fix`: Bug fixes
   - `docs`: Documentation changes
   - `style`: Formatting, missing semi-colons, etc (no code change)
   - `refactor`: Code change that neither fixes bug nor adds feature

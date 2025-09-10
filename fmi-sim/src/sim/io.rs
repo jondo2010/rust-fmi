@@ -147,6 +147,8 @@ where
         Ok(())
     }
 
+    /// Get the time of the next input event after the given time.
+    /// If no such event exists, returns `f64::INFINITY`.
     pub fn next_input_event(&self, time: f64) -> f64 {
         if let Some(input_data) = &self.input_data {
             let time_array: Float64Array =

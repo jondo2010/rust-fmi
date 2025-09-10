@@ -5,6 +5,22 @@ use crate::{
     fmi3::{Fmi3Error, Fmi3Res, binding},
 };
 
+/// Represents a single variable dependency relationship.
+///
+/// This structure encapsulates all the information about how one variable depends
+/// on another, including element indices for array variables and the type of dependency.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VariableDependency<VR: Copy> {
+    /// Element index of the dependent variable (0 = all elements, 1+ = specific element)
+    pub dependent_element_index: usize,
+    /// Value reference of the independent variable this dependency relates to
+    pub independent: VR,
+    /// Element index of the independent variable (0 = all elements, 1+ = specific element)
+    pub independent_element_index: usize,
+    /// The kind/type of dependency relationship
+    pub dependency_kind: binding::fmi3DependencyKind,
+}
+
 macro_rules! default_getter_setter {
     ($name:ident, $ty:ty) => {
         paste::paste! {
@@ -89,6 +105,18 @@ pub trait GetSet {
     /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetFMUState]
     #[cfg(false)]
     fn set_fmu_state<Tag>(&mut self, state: &Fmu3State<'_, Tag>) -> Fmi3Status;
+
+    fn get_clock(
+        &mut self,
+        vrs: &[Self::ValueRef],
+        values: &mut [binding::fmi3Clock],
+    ) -> Result<Fmi3Res, Fmi3Error>;
+
+    fn set_clock(
+        &mut self,
+        vrs: &[Self::ValueRef],
+        values: &[binding::fmi3Clock],
+    ) -> Result<Fmi3Res, Fmi3Error>;
 }
 
 /// Interface common to all FMI3 instance types
@@ -181,6 +209,36 @@ pub trait Common: GetSet {
         &mut self,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error>;
+
+    /// This function returns the number of dependencies for a given variable.
+    fn get_number_of_variable_dependencies(
+        &mut self,
+        vr: Self::ValueRef,
+    ) -> Result<usize, Fmi3Error>;
+
+    /// This function returns the dependency information for a single variable.
+    ///
+    /// Returns a vector of dependencies for the specified dependent variable.
+    /// Each dependency describes how an element of the dependent variable
+    /// depends on an element of an independent variable.
+    ///
+    /// The returned dependencies correspond to either:
+    /// - Initial dependencies (if called before `exit_initialization_mode`)
+    /// - Runtime dependencies (if called after `exit_initialization_mode`)
+    ///
+    /// The dependency information becomes invalid when structural parameters
+    /// linked to the variable or its dependencies are modified.
+    ///
+    /// # Arguments
+    /// * `dependent` - Value reference of the variable for which dependencies are requested
+    ///
+    /// # Returns
+    /// * `Ok(dependencies)` - Vector of dependency relationships
+    /// * `Err(Fmi3Error)` - If the operation fails
+    fn get_variable_dependencies(
+        &mut self,
+        dependent: Self::ValueRef,
+    ) -> Result<Vec<VariableDependency<Self::ValueRef>>, Fmi3Error>;
 }
 
 /// Interface for Model Exchange instances
@@ -306,6 +364,11 @@ pub trait ModelExchange: Common {
     ///
     /// See: <https://fmi-standard.org/docs/3.0/#fmi3GetNumberOfEventIndicators>
     fn get_number_of_event_indicators(&mut self) -> Result<usize, Fmi3Error>;
+
+    /// This function returns the number of continuous states.
+    ///
+    /// See: <https://fmi-standard.org/docs/3.0/#fmi3GetNumberOfContinuousStates>
+    fn get_number_of_continuous_states(&mut self) -> Result<usize, Fmi3Error>;
 }
 
 /// Interface for Co-Simulation instances

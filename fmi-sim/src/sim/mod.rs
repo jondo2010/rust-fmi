@@ -36,7 +36,14 @@ where
     input_state: InputState<Inst>,
     recorder_state: RecorderState<Inst>,
     inst: Inst,
-    next_event_time: Option<f64>,
+    event_flags: EventFlags,
+}
+
+impl<Inst: FmiInstance> SimState<Inst> {
+    /// Get the next event time, or `f64::INFINITY` if none is scheduled.
+    pub fn next_event_time(&self) -> f64 {
+        self.event_flags.next_event_time.unwrap_or(f64::INFINITY)
+    }
 }
 
 pub trait SimStateTrait<'a, Inst: FmiInstance, Import: FmiImport> {
@@ -62,23 +69,19 @@ where
                 .apply_input::<Linear>(time, &mut self.inst, true, true, true)?;
         }
         let mut reset_solver = false;
-        let mut event_flags = EventFlags::default();
-        event_flags.discrete_states_need_update = true;
 
-        while event_flags.discrete_states_need_update {
+        self.event_flags.discrete_states_need_update = true;
+        while self.event_flags.discrete_states_need_update {
             self.inst
-                .update_discrete_states(
-                    &mut event_flags,
-                    //&mut self.next_event_time,
-                )
+                .update_discrete_states(&mut self.event_flags)
                 .map_err(Into::into)?;
-            if event_flags.terminate_simulation {
+            if self.event_flags.terminate_simulation {
                 break;
             }
-            reset_solver |= event_flags.nominals_of_continuous_states_changed
-                || event_flags.values_of_continuous_states_changed;
+            reset_solver |= self.event_flags.nominals_of_continuous_states_changed
+                || self.event_flags.values_of_continuous_states_changed;
         }
-        Ok((reset_solver, event_flags.terminate_simulation))
+        Ok((reset_solver, self.event_flags.terminate_simulation))
     }
 }
 
@@ -128,20 +131,18 @@ macro_rules! impl_sim_default_initialize {
 
                 if self.sim_params.event_mode_used {
                     // update discrete states
-                    let mut event_flags = EventFlags::default();
-                    event_flags.discrete_states_need_update = true;
-                    while event_flags.discrete_states_need_update {
+                    self.event_flags.discrete_states_need_update = true;
+                    while self.event_flags.discrete_states_need_update {
                         self.inst
-                            .update_discrete_states(&mut event_flags)
+                            .update_discrete_states(&mut self.event_flags)
                             .map_err(fmi::Error::from)?;
 
-                        if event_flags.terminate_simulation {
+                        if self.event_flags.terminate_simulation {
                             self.inst.terminate().map_err(fmi::Error::from)?;
-                            log::error!("update_discrete_states() requested termination.");
+                            log::warn!("update_discrete_states() requested termination.");
                             break;
                         }
                     }
-                    self.next_event_time = event_flags.next_event_time;
                 }
                 Ok(())
             }
