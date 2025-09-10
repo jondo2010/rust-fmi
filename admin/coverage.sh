@@ -20,6 +20,7 @@ cargo xtask bundle --package vanderpol
 cargo run --package fmi-sim -- --model target/fmu/bouncing_ball.fmu model-exchange
 cargo run --package fmi-sim -- --model target/fmu/dahlquist.fmu model-exchange
 cargo run --package fmi-sim -- --model target/fmu/stair.fmu model-exchange
-cargo run --package fmi-sim -- --model target/fmu/vanderpol.fmu model-exchange
+# Disabled until fmi-sim supports arrays
+#cargo run --package fmi-sim -- --model target/fmu/vanderpol.fmu model-exchange
 
 cargo llvm-cov report "$@"
