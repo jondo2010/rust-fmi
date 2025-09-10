@@ -68,7 +68,13 @@ where
         &mut self,
         continuous_states: &mut [f64],
     ) -> Result<Fmi3Res, Fmi3Error> {
-        self.model.get_continuous_states(continuous_states)
+        let res = self.model.get_continuous_states(continuous_states)?;
+        self.context.log(
+            Fmi3Res::OK,
+            M::LoggingCategory::trace_category(),
+            format_args!("get_continuous_states({continuous_states:?})"),
+        );
+        Ok(res)
     }
 
     fn get_continuous_state_derivatives(
@@ -92,13 +98,15 @@ where
     }
 
     fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
+        let res = self
+            .model
+            .get_event_indicators(&mut self.context, indicators)?;
         self.context.log(
             Fmi3Res::OK,
             M::LoggingCategory::trace_category(),
-            format_args!("get_event_indicators()"),
+            format_args!("get_event_indicators({indicators:?})={res}"),
         );
-        self.model
-            .get_event_indicators(&mut self.context, indicators)
+        Ok(res)
     }
 
     fn get_nominals_of_continuous_states(

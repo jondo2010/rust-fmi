@@ -36,7 +36,7 @@ Always reference these instructions first and fallback to search or bash command
 
 ## Repository Structure
 
-This is a Rust workspace with 5 main crates:
+This is a Rust workspace with 6 main crates:
 
 | Crate           | Purpose                                        | Key Features                                |
 | --------------- | ---------------------------------------------- | ------------------------------------------- |
@@ -45,6 +45,7 @@ This is a Rust workspace with 5 main crates:
 | `fmi-schema`    | XML parsing of FMU Model Description         | Handles FMI 2.0/3.0 XML schemas            |
 | `fmi-sim`       | FMU simulation CLI tool                       | ME/CS/SE simulation modes                   |
 | `fmi-test-data` | Reference FMUs for testing                    | Downloads test data from GitHub             |
+| `xtask`         | Development automation for FMU building      | Bundle, inspect, multi-platform builds     |
 
 ## Common Tasks
 
@@ -76,6 +77,40 @@ cargo run -p fmi-sim -- --model file.fmu --help   # Show model-specific options
 # - co-simulation: Perform CoSimulation simulation
 ```
 
+### XTask Development Tool
+The `xtask` crate provides development automation for FMU building and inspection:
+
+```bash
+# Show available commands
+cargo run -p xtask -- --help
+
+# Bundle a package as FMU for native platform
+cargo run -p xtask -- bundle --package dahlquist
+cargo run -p xtask -- bundle --package dahlquist --release
+
+# Bundle for specific target platform
+cargo run -p xtask -- bundle --package dahlquist --target x86_64-unknown-linux-gnu
+
+# Bundle for multiple platforms (creates multi-platform FMU)
+cargo run -p xtask -- bundle-multi --package dahlquist
+cargo run -p xtask -- bundle-multi --package dahlquist --targets "aarch64-apple-darwin,x86_64-unknown-linux-gnu"
+
+# Inspect ModelData extracted from dylib (debugging FMU export)
+cargo run -p xtask -- inspect --package dahlquist
+cargo run -p xtask -- inspect --package stair --target x86_64-unknown-linux-gnu --release
+
+# All commands support:
+# --package/-p <PACKAGE>  # Required: name of example package to process
+# --target <TARGET>       # Optional: specific target platform
+# --release/-r            # Optional: build in release mode
+```
+
+**XTask Command Examples**:
+- Available example packages: `dahlquist`, `stair`, `vanderpol`, `bouncing_ball`
+- Default multi-platform targets: `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-gnu`, `aarch64-apple-darwin`
+- Inspect command shows raw XML for ModelVariables and ModelStructure extracted from dylib symbols
+- Generated FMUs are placed in `target/fmu/` directory
+
 ### Documentation
 ```bash
 cargo doc --package fmi-schema --no-deps  # Generate docs, ~4 seconds
@@ -92,6 +127,19 @@ fmi-sys/                # C bindings with submodules
 fmi-sim/
 ├── examples/          # Contains bouncing_ball.rs example
 └── src/main.rs       # CLI application entry point
+xtask/
+├── src/
+│   ├── main.rs        # CLI entry point
+│   ├── commands/      # Command implementations (bundle, inspect, etc.)
+│   ├── fmu_builder.rs # Core FMU building logic
+│   ├── extractor.rs   # ModelData extraction from dylibs
+│   └── platform.rs    # Platform mapping for cross-compilation
+└── Cargo.toml        # Development tool dependencies
+examples/              # Example FMU packages
+├── dahlquist/         # Simple ODE example
+├── stair/             # Step function example
+├── vanderpol/         # Van der Pol oscillator
+└── bouncing_ball/     # Physics simulation example
 .github/workflows/ci.yml  # CI configuration
 rustfmt.toml          # Code formatting config (requires nightly for full features)
 ```

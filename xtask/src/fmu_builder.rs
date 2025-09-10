@@ -25,12 +25,7 @@ pub struct FmuBuilder {
 }
 
 impl FmuBuilder {
-    pub fn new_for_package(
-        package_name: String,
-        model_identifier: String,
-        output_dir: PathBuf,
-        release: bool,
-    ) -> Result<Self> {
+    pub fn new_for_package(package_name: String, release: bool) -> Result<Self> {
         // Get the workspace metadata
         let workspace_root = std::env::current_dir()?;
         let workspace_metadata = MetadataCommand::new()
@@ -48,6 +43,10 @@ impl FmuBuilder {
 
         // Check if this package can be built as a cdylib
         Self::validate_package_for_fmu(&package)?;
+
+        // Use package name as model identifier and fixed output directory
+        let model_identifier = package.name.to_string();
+        let output_dir = PathBuf::from("target/fmu");
 
         Ok(Self {
             package,
@@ -130,8 +129,30 @@ impl FmuBuilder {
         Ok(())
     }
 
+    /// Build FMU for multiple target platforms
+    pub fn build_for_multiple_targets(&self, targets: &[String]) -> Result<()> {
+        info!("Building FMU for multiple targets: {:?}", targets);
+
+        let mut dylib_paths = Vec::new();
+
+        // Build the dynamic library for each target
+        for target in targets {
+            let dylib_path = self.build_dylib(target)?;
+            dylib_paths.push((target.as_str(), dylib_path));
+        }
+
+        // Create single FMU package with all platforms
+        let fmu_path = self
+            .output_dir
+            .join(format!("{}.fmu", self.model_identifier));
+        self.create_fmu_package(&fmu_path, &dylib_paths)?;
+
+        info!("Created multi-platform FMU: {}", fmu_path.display());
+        Ok(())
+    }
+
     /// Build the dynamic library for a specific target
-    fn build_dylib(&self, target: &str) -> Result<PathBuf> {
+    pub fn build_dylib(&self, target: &str) -> Result<PathBuf> {
         debug!("Building dylib for target: {}", target);
 
         let package_dir = self.package.manifest_path.parent().unwrap();

@@ -63,7 +63,7 @@ fn default_wrapper<T: Default>() -> T {
 /// Serialize a value to XML string. If `fragment` is true, the XML declaration is omitted.
 pub fn serialize<T: YaSerialize>(value: &T, fragment: bool) -> Result<String, Error> {
     let config = yaserde::ser::Config {
-        perform_indent: false,
+        perform_indent: true,
         write_document_declaration: !fragment,
         indent_string: None,
     };

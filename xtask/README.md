@@ -5,7 +5,7 @@ This directory contains the xtask infrastructure for building FMU (Functional Mo
 ## Overview
 
 The xtask system automates the process of:
-1. Building dynamic libraries from Rust FMU examples
+1. Building dynamic libraries from Rust FMU dylib crates
 2. Creating the proper FMU directory structure
 3. Generating model description XML files
 4. Packaging everything into a compliant FMU ZIP file
@@ -18,20 +18,16 @@ The xtask system automates the process of:
 Build an FMU for the current platform:
 
 ```bash
-cargo run --package xtask -- build-fmu \
-  --crate-path fmi-export \
-  --example bouncing_ball_fmu \
-  --output target/fmu
+cargo run --package xtask -- bundle \
+  --package bouncing_ball \
 ```
 
 Build for a specific target:
 
 ```bash
-cargo run --package xtask -- build-fmu \
-  --crate-path fmi-export \
-  --example bouncing_ball_fmu \
+cargo run --package xtask -- bundle \
+  --package bouncing_ball \
   --target x86_64-pc-windows-gnu \
-  --output target/fmu \
   --release
 ```
 
@@ -40,13 +36,16 @@ cargo run --package xtask -- build-fmu \
 Build an FMU containing binaries for multiple platforms:
 
 ```bash
-cargo run --package xtask -- build-fmu-multi \
-  --crate-path fmi-export \
-  --example bouncing_ball_fmu \
+cargo run --package xtask -- bundle-multi \
+  --package bouncing_ball_fmu \
   --targets x86_64-unknown-linux-gnu,x86_64-pc-windows-gnu,x86_64-apple-darwin \
-  --output target/fmu \
   --release
 ```
+
+When executing `bundle-multi` without any targets specified, it will default to building for the following targets:
+- x86_64-unknown-linux-gnu
+- x86_64-pc-windows-gnu
+- aarch64-apple-darwin
 
 ### Supported Platforms
 
@@ -129,11 +128,8 @@ sudo apt-get install gcc-aarch64-linux-gnu
 
 ### Common Options
 
-- `--crate-path`: Path to the crate containing the FMU example
-- `--example`: Name of the example to build (must be configured as cdylib in Cargo.toml)
-- `--output`: Output directory for the FMU file (default: `target/fmu`)
-- `--release`: Build in release mode for optimized binaries
-- `--model-identifier`: Override the model identifier (defaults to example name)
+- `-p`, `--package`: The Cargo package to build
+- `-r`, `--release`: Build in release mode for optimized binaries
 
 ### Single Platform Options
 
@@ -163,13 +159,11 @@ To use this xtask system in your own Rust FMI projects:
 
 ## Future Enhancements
 
-- [ ] Automatic model description generation from Rust derive macros
 - [ ] Support for FMI 2.0 in addition to FMI 3.0
 - [ ] Validation of generated FMUs
 - [ ] Integration with CI/CD pipelines
 - [ ] Support for Co-Simulation and Scheduled Execution modes
-- [ ] Resource file handling
-- [ ] Advanced model metadata extraction
+- [ ] Resource file bundling
 
 ## Troubleshooting
 

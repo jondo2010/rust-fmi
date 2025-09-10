@@ -1,12 +1,28 @@
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
-use std::path::PathBuf;
 
+mod commands;
 mod extractor;
 mod fmu_builder;
 mod platform;
 
-use fmu_builder::FmuBuilder;
+use commands::{bundle, bundle_multi, inspect};
+
+/// Common arguments shared across commands
+#[derive(Args)]
+pub struct CommonArgs {
+    /// Name of the package
+    #[arg(short = 'p', long = "package")]
+    pub package: String,
+
+    /// Target platform (e.g., x86_64-unknown-linux-gnu)
+    #[arg(long)]
+    pub target: Option<String>,
+
+    /// Build in release mode
+    #[arg(short = 'r', long = "release")]
+    pub release: bool,
+}
 
 #[derive(Parser)]
 #[command(name = "xtask")]
@@ -18,30 +34,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Bundle a package as an FMU
-    Bundle(BundleArgs),
-}
-
-#[derive(Args)]
-struct BundleArgs {
-    /// Name of the package to bundle as FMU
-    package: String,
-
-    /// Target platform (e.g., x86_64-unknown-linux-gnu)
-    #[arg(short, long)]
-    target: Option<String>,
-
-    /// Output directory for the FMU file
-    #[arg(short, long, default_value = "target/fmu")]
-    output: PathBuf,
-
-    /// Build in release mode
-    #[arg(short, long)]
-    release: bool,
-
-    /// Model identifier (defaults to package name)
-    #[arg(long)]
-    model_identifier: Option<String>,
+    /// Bundle a package as an FMU for single platform
+    Bundle(bundle::BundleArgs),
+    /// Bundle a package as an FMU for multiple platforms
+    BundleMulti(bundle_multi::BundleMultiArgs),
+    /// Inspect and pretty-print ModelData extracted from a dylib
+    Inspect(inspect::InspectArgs),
 }
 
 fn main() -> Result<()> {
@@ -55,24 +53,8 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Bundle(args) => {
-            let model_identifier = args
-                .model_identifier
-                .unwrap_or_else(|| args.package.clone());
-            let builder = FmuBuilder::new_for_package(
-                args.package,
-                model_identifier,
-                args.output,
-                args.release,
-            )?;
-
-            if let Some(target) = args.target {
-                builder.build_for_target(&target)?;
-            } else {
-                builder.build_native()?;
-            }
-        }
+        Commands::Bundle(args) => bundle::run(args),
+        Commands::BundleMulti(args) => bundle_multi::run(args),
+        Commands::Inspect(args) => inspect::run(args),
     }
-
-    Ok(())
 }

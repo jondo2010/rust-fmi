@@ -22,7 +22,20 @@ pub use field_type::FieldType;
 
 pub fn build_model_variables(fields: &[Field]) -> schema::ModelVariables {
     let mut model_variables = schema::ModelVariables::default();
-    let mut value_reference_counter = 1u32; // FMI value references start at 1
+
+    // Always add the required independent time variable with VR 0
+    let time_variable = schema::FmiFloat64::new(
+        "time".to_string(),
+        0, // Value reference 0 is reserved for time
+        Some("Simulation time".to_string()),
+        schema::Causality::Independent,
+        schema::Variability::Continuous,
+        None, // No start value needed for independent variable
+        None, // No initial value needed for independent variable
+    );
+    model_variables.float64.push(time_variable);
+
+    let mut value_reference_counter = 1u32; // User variables start at VR 1
 
     for field in fields {
         // Process each variable and alias attribute for this field
@@ -212,12 +225,20 @@ mod tests {
         let fields = build_fields(input.fields);
         let model_variables = build_model_variables(&fields);
 
-        // Test that we have the correct number of float64 variables
-        assert_eq!(model_variables.float64.len(), 2);
-        assert_eq!(model_variables.len(), 2);
+        // Test that we have the correct number of float64 variables (including automatic time variable)
+        assert_eq!(model_variables.float64.len(), 3);
+        assert_eq!(model_variables.len(), 3);
 
-        // Test the first variable
-        let h_var = &model_variables.float64[0];
+        // Test the automatic time variable (first variable)
+        let time_var = &model_variables.float64[0];
+        assert_eq!(time_var.name(), "time");
+        assert_eq!(time_var.description(), Some("Simulation time"));
+        assert_eq!(time_var.causality(), schema::Causality::Independent);
+        assert_eq!(time_var.variability(), schema::Variability::Continuous);
+        assert_eq!(time_var.value_reference(), 0);
+
+        // Test the first user variable (h)
+        let h_var = &model_variables.float64[1]; // Now at index 1 due to time variable
         assert_eq!(h_var.name(), "h");
         assert_eq!(
             h_var.description(),
@@ -226,8 +247,8 @@ mod tests {
         assert_eq!(h_var.causality(), schema::Causality::Output);
         assert_eq!(h_var.start(), Some([1.0].as_slice()));
 
-        // Test the second variable
-        let v_var = &model_variables.float64[1];
+        // Test the second user variable (v)
+        let v_var = &model_variables.float64[2]; // Now at index 2 due to time variable
         assert_eq!(v_var.name(), "v");
         assert_eq!(v_var.description(), Some("Velocity of the ball"));
         assert_eq!(v_var.causality(), schema::Causality::Output);
@@ -251,12 +272,12 @@ mod tests {
         let fields = build_fields(input.fields);
         let model_variables = build_model_variables(&fields);
 
-        // Test that we have the correct distribution of variable types
+        // Test that we have the correct distribution of variable types (including automatic time variable)
         assert_eq!(model_variables.float32.len(), 1);
         assert_eq!(model_variables.int32.len(), 1);
         assert_eq!(model_variables.boolean.len(), 1);
         assert_eq!(model_variables.string.len(), 1);
-        assert_eq!(model_variables.len(), 4);
+        assert_eq!(model_variables.len(), 5); // 4 user variables + 1 time variable
 
         // Test specific variables
         assert_eq!(model_variables.float32[0].name(), "position");
@@ -297,21 +318,21 @@ mod tests {
 
         let model_variables = build_model_variables(&fields);
 
-        // Test that we have the correct number and distribution of variables
-        assert_eq!(model_variables.float64.len(), 2);
+        // Test that we have the correct number and distribution of variables (including automatic time variable)
+        assert_eq!(model_variables.float64.len(), 3); // 2 user variables + 1 time variable
         assert_eq!(model_variables.float32.len(), 1);
         assert_eq!(model_variables.int32.len(), 1);
         assert_eq!(model_variables.boolean.len(), 1);
         assert_eq!(model_variables.uint32.len(), 1);
-        assert_eq!(model_variables.len(), 6);
+        assert_eq!(model_variables.len(), 7); // 6 user variables + 1 time variable
 
-        // Test explicit variability settings
+        // Test explicit variability settings (skip time variable at index 0)
         assert_eq!(
-            model_variables.float64[0].variability(),
+            model_variables.float64[1].variability(), // First user variable
             schema::Variability::Continuous
         );
         assert_eq!(
-            model_variables.float64[1].variability(),
+            model_variables.float64[2].variability(), // Second user variable
             schema::Variability::Discrete
         );
         assert_eq!(
@@ -352,15 +373,16 @@ mod tests {
         let model = Model::from(input);
         let vars = build_model_variables(&model.fields);
 
+        // Skip the automatic time variable at index 0
         assert_eq!(vars.uint16[0].start(), Some([0u16, 1, 2, 3].as_slice()));
         assert_eq!(vars.uint16[0].dimensions(), &[Dimension::Fixed(4)]);
 
         assert_eq!(
-            vars.float64[0].start(),
+            vars.float64[1].start(), // User variable is at index 1 (time variable is at index 0)
             Some([0.0, 0.1, 1.0, 1.1, 2.0, 2.1].as_slice())
         );
         assert_eq!(
-            vars.float64[0].dimensions(),
+            vars.float64[1].dimensions(),
             &[Dimension::Fixed(2), Dimension::Fixed(2)]
         );
     }
