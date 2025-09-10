@@ -31,7 +31,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Measure coverage
-        run: ./admin/coverage --lcov --output-path lcov.info
+        run: ./admin/coverage.sh --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
