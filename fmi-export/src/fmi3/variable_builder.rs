@@ -113,7 +113,7 @@ where
         );
         schema::ArrayableVariableTrait::add_dimensions(
             &mut var,
-            &[schema::Dimension::Variable(todo!())],
+            &[schema::Dimension::Variable(panic!("Variable-sized arrays are not supported in FmiVariableBuilder for Vec<T>"))],
         );
         var
     }
