@@ -17,7 +17,7 @@ pub use traits::{
     CoSimulation, Common, Fmi3Model, GetSet, ModelExchange, ScheduledExecution, VariableDependency,
 };
 
-use crate::traits::FmiStatus;
+use crate::{Error, traits::FmiStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fmi3Res {
@@ -132,5 +132,25 @@ impl From<Fmi3Status> for Result<Fmi3Res, Fmi3Error> {
             binding::fmi3Status_fmi3Fatal => Err(Fmi3Error::Fatal),
             _ => unreachable!("Invalid status"),
         }
+    }
+}
+
+/// Get the platform folder name within an FMU for the given OS and architecture.
+///
+/// See <https://fmi-standard.org/docs/3.0.1/#platform-tupe-definition>
+pub fn platform_folder(os: &str, arch: &str) -> Result<&'static str, Error> {
+    match (os, arch) {
+        ("windows", "x86") => Ok("x86-windows"),
+        ("windows", "x86_64") => Ok("x86_64-windows"),
+        ("linux", "x86") => Ok("x86-linux"),
+        ("linux", "x86_64") => Ok("x86_64-linux"),
+        ("linux", "aarch64") => Ok("aarch64-linux"),
+        ("macos", "x86") => Ok("x86-darwin"),
+        ("macos", "x86_64") => Ok("x86_64-darwin"),
+        ("macos", "aarch64") => Ok("aarch64-darwin"),
+        _ => Err(Error::UnsupportedPlatform {
+            os: os.to_string(),
+            arch: arch.to_string(),
+        }),
     }
 }
