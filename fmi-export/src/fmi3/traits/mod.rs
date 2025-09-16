@@ -7,6 +7,10 @@ use fmi::{
 
 use crate::fmi3::{ModelState, instance::ModelContext};
 
+mod wrappers;
+
+pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
+
 /// Macro to generate getter and setter method declarations for the Model trait
 macro_rules! model_getter_setter {
     ($name:ident, $ty:ty) => {

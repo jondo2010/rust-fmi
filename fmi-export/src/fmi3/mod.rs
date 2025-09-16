@@ -8,15 +8,20 @@
 //! the FMI 3.0 API. All user-model-specific functions are delegated to the [`Model`] trait,
 //! which the user model must implement.
 
+// Disable coverage for the export module. Due to some bug in llvm-cov, the generated C functions
+// are never covered. This is ok since they are just thin wrappers around the Rust functions.
+#[cfg_attr(coverage_nightly, coverage(off))]
+mod export;
 mod instance;
-mod macros;
 mod traits;
 mod variable_builder;
 
 use std::{fmt::Display, str::FromStr};
 
 pub use instance::{ModelContext, ModelInstance};
-pub use traits::{Model, ModelLoggingCategory, UserModel};
+pub use traits::{
+    Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Model, ModelLoggingCategory, UserModel,
+};
 
 /// Represents the current state of the model instance
 #[derive(Debug)]

@@ -22,3 +22,6 @@ fmi = { workspace = true }
 fmi-export-derive = { workspace = true }
 paste = { workspace = true }
 thiserror = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
