@@ -4,6 +4,7 @@ macro_rules! generate_getset_functions {
     ($ty:ty, $type_name:ident, $fmi_type:ty) => {
         $crate::paste::paste! {
             #[unsafe(export_name = stringify!([<fmi3Get $type_name>]))]
+            #[cfg_attr(coverage_nightly, coverage(off))]
             pub unsafe extern "C" fn [<fmi3_get_ $type_name:snake>](
                 instance: ::fmi::fmi3::binding::fmi3Instance,
                 value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
@@ -21,6 +22,7 @@ macro_rules! generate_getset_functions {
             }
 
             #[unsafe(export_name = stringify!([<fmi3Set $type_name>]))]
+            #[cfg_attr(coverage_nightly, coverage(off))]
             pub unsafe extern "C" fn [<fmi3_set_ $type_name:snake>](
                 instance: ::fmi::fmi3::binding::fmi3Instance,
                 value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
@@ -90,11 +92,13 @@ macro_rules! export_fmu {
         // Inquire version numbers and set debug logging
 
         #[unsafe(export_name = "fmi3GetVersion")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         pub unsafe extern "C" fn fmi3_get_version() -> *const ::std::os::raw::c_char {
             <$ty as $crate::fmi3::Fmi3Common>::fmi3_get_version()
         }
 
         #[unsafe(export_name = "fmi3SetDebugLogging")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         pub unsafe extern "C" fn fmi3_set_debug_logging(
             instance: ::fmi::fmi3::binding::fmi3Instance,
             logging_on: ::fmi::fmi3::binding::fmi3Boolean,
@@ -112,6 +116,7 @@ macro_rules! export_fmu {
         // Creation and destruction of FMU instances
 
         #[unsafe(export_name = "fmi3InstantiateModelExchange")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_instantiate_model_exchange(
             instance_name: ::fmi::fmi3::binding::fmi3String,
             instantiation_token: ::fmi::fmi3::binding::fmi3String,
@@ -133,6 +138,7 @@ macro_rules! export_fmu {
         }
 
         #[unsafe(export_name = "fmi3InstantiateCoSimulation")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_instantiate_co_simulation(
             instance_name: ::fmi::fmi3::binding::fmi3String,
             instantiation_token: ::fmi::fmi3::binding::fmi3String,
@@ -164,6 +170,7 @@ macro_rules! export_fmu {
         }
 
         #[unsafe(export_name = "fmi3InstantiateScheduledExecution")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_instantiate_scheduled_execution(
             instance_name: ::fmi::fmi3::binding::fmi3String,
             instantiation_token: ::fmi::fmi3::binding::fmi3String,
@@ -191,6 +198,7 @@ macro_rules! export_fmu {
         }
 
         #[unsafe(export_name = "fmi3FreeInstance")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_free_instance(instance: ::fmi::fmi3::binding::fmi3Instance) {
             <$ty as $crate::fmi3::Fmi3Common>::fmi3_free_instance(instance)
         }
@@ -198,6 +206,7 @@ macro_rules! export_fmu {
         // Enter and exit initialization mode, terminate and reset
 
         #[unsafe(export_name = "fmi3EnterInitializationMode")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_enter_initialization_mode(
             instance: ::fmi::fmi3::binding::fmi3Instance,
             tolerance_defined: ::fmi::fmi3::binding::fmi3Boolean,
@@ -217,6 +226,7 @@ macro_rules! export_fmu {
         }
 
         #[unsafe(export_name = "fmi3ExitInitializationMode")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_exit_initialization_mode(
             instance: ::fmi::fmi3::binding::fmi3Instance,
         ) -> ::fmi::fmi3::binding::fmi3Status {
@@ -224,6 +234,7 @@ macro_rules! export_fmu {
         }
 
         #[unsafe(export_name = "fmi3EnterEventMode")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_enter_event_mode(
             instance: ::fmi::fmi3::binding::fmi3Instance,
         ) -> ::fmi::fmi3::binding::fmi3Status {
@@ -231,6 +242,7 @@ macro_rules! export_fmu {
         }
 
         #[unsafe(export_name = "fmi3Terminate")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_terminate(
             instance: ::fmi::fmi3::binding::fmi3Instance,
         ) -> ::fmi::fmi3::binding::fmi3Status {
@@ -238,6 +250,7 @@ macro_rules! export_fmu {
         }
 
         #[unsafe(export_name = "fmi3Reset")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
         unsafe extern "C" fn fmi3_reset(
             instance: ::fmi::fmi3::binding::fmi3Instance,
         ) -> ::fmi::fmi3::binding::fmi3Status {
