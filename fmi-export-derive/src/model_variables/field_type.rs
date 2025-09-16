@@ -78,7 +78,7 @@ impl TryFrom<syn::Type> for FieldType {
                         "u64" => schema::VariableType::FmiUInt64,
                         "bool" => schema::VariableType::FmiBoolean,
                         "String" => schema::VariableType::FmiString,
-                        "Bytes" => schema::VariableType::FmiBinary,
+                        "BytesMut" => schema::VariableType::FmiBinary,
                         _ => return Err(format!("Unsupported scalar type: {}", type_name)),
                     };
 

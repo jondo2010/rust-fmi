@@ -1,0 +1,17 @@
+[package]
+name = "feedthrough"
+version = "0.1.0"
+edition = "2021"
+description = "Feedthrough FMU example ported from Reference FMUs"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
+
+bytes = "1.10"
+
+[package.metadata.fmu]
+default_experiment = { start_time = "0", stop_time = "2" }
