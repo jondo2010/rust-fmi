@@ -14,14 +14,14 @@ This repository is composed of the following crates:
 
 | Crate               | Description                                        | Latest API Docs                                     | README                        |
 | ------------------- | -------------------------------------------------- | --------------------------------------------------- | ----------------------------- |
-| `fmi`               | Core functionality for importing and excuting FMUs | [docs.rs](https://docs.rs/fmi/latest)               | [(README)][fmi-readme]        |
-| `fmi-sys`           | Raw generated Rust bindings to the FMI API         | [docs.rs](https://docs.rs/fmi-sys/latest)           | [(README)][fmi-sys-readme]    |
-| `fmi-schema`        | XML parsing of the FMU Model Description           | [docs.rs](https://docs.rs/fmi-schema/latest)        | [(README)][fmi-schema-readme] |
-| `fmi-sim`           | Work-in-progress FMU Simulation master             | [docs.rs](https://docs.rs/fmi-sim/latest)           | [(README)][fmi-sim-readme]    |
-| `fmi-test-data`     | Reference FMUs for testing                         | [docs.rs](https://docs.rs/fmi-test-data/latest)     | [(README)][fmi-test-data]     |
-| `fmi-export`        | Types and traits necessary for exporting FMUs      | [docs.rs](https://docs.rs/fmi-export/latest)        | [(README)][fmi-export/README.md] |
-| `fmi-export-derive` | Procedural macros for `fmi-export`                 | [docs.rs](https://docs.rs/fmi-export-derive/latest) | [(README)][fmi-export-derive/README.md] |
-| `fmi-xtask`         | FMU export build tooling                           | [docs.rs](https://docs.rs/fmi-xtask/latest)         | [(README)][fmi-xtask/README.md] |
+| `fmi`               | Core functionality for importing and excuting FMUs | [docs.rs](https://docs.rs/fmi/latest)               | [README][fmi-readme]          |
+| `fmi-sys`           | Raw generated Rust bindings to the FMI API         | [docs.rs](https://docs.rs/fmi-sys/latest)           | [README][fmi-sys-readme]      |
+| `fmi-schema`        | XML parsing of the FMU Model Description           | [docs.rs](https://docs.rs/fmi-schema/latest)        | [README][fmi-schema-readme]   |
+| `fmi-sim`           | Work-in-progress FMU Simulation master             | [docs.rs](https://docs.rs/fmi-sim/latest)           | [README][fmi-sim-readme]      |
+| `fmi-test-data`     | Reference FMUs for testing                         | [docs.rs](https://docs.rs/fmi-test-data/latest)     | [README][fmi-test-data-readme]|
+| `fmi-export`        | Types and traits necessary for exporting FMUs      | [docs.rs](https://docs.rs/fmi-export/latest)        | [README][fmi-export-readme]   |
+| `fmi-export-derive` | Procedural macros for `fmi-export`                 | [docs.rs](https://docs.rs/fmi-export-derive/latest) | [README][fmi-export-derive-readme] |
+| `fmi-xtask`         | FMU export build tooling                           | [docs.rs](https://docs.rs/fmi-xtask/latest)         | [README][fmi-xtask-readme]    |
 
 ## Development
 
@@ -44,4 +44,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 [fmi-schema-readme]: fmi-schema/README.md
 [fmi-sys-readme]: fmi-sys/README.md
 [fmi-sim-readme]: fmi-sim/README.md
-[fmi-test-data]: fmi-test-data/README.md
+[fmi-test-data-readme]: fmi-test-data/README.md
+[fmi-export-readme]: fmi-export/README.md
+[fmi-export-derive-readme]: fmi-export-derive/README.md
+[fmi-xtask-readme]: fmi-xtask/README.md
