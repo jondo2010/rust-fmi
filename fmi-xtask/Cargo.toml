@@ -1,0 +1,27 @@
+[package]
+name = "fmi-xtask"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+include.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+cargo_metadata = "0.22"
+chrono = "0.4"
+clap = { workspace = true }
+flexi_logger = { workspace = true }
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-schema = { workspace = true, features = ["serde"] }
+libloading = { workspace = true }
+log = { workspace = true }
+platforms = { version = "3.6" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = { workspace = true }
+zip = { workspace = true }

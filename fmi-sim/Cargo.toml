@@ -30,11 +30,11 @@ se = []
 [dependencies]
 anyhow = { workspace = true }
 arrow = { workspace = true, features = ["csv", "prettyprint"] }
-clap = { version = "4.5", features = ["derive"] }
+clap.workspace = true
 clap-verbosity-flag = "2.2"
 comfy-table = "7.1"
 document-features = { workspace = true }
-flexi_logger = "0.31"
+flexi_logger.workspace = true
 fmi = { workspace = true, features = ["arrow"] }
 itertools = { workspace = true }
 log = "0.4"
