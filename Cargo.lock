@@ -1061,6 +1061,7 @@ version = "0.5.0"
 dependencies = [
  "arrow",
  "built",
+ "bytes",
  "document-features",
  "fmi-schema",
  "fmi-sys",

@@ -7,3 +7,5 @@
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
+#[cfg(feature = "ls-bus")]
+pub mod ls_bus;
