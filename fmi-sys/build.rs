@@ -54,6 +54,8 @@ fn main() {
             .allowlist_item("fmi3LsBus.*")
             .allowlist_item("FMI3_LS_BUS.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            // Configure for Rust 2024 edition compatibility
+            .wrap_unsafe_ops(true)
             .generate()
             .expect("Unable to generate bindings");
 

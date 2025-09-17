@@ -18,7 +18,7 @@ default = [
     "export",
     "fmi2",
     "fmi3",
-    #"ls-bus",
+    "ls-bus",
     #"arrow"
 ]
 ## Enable suuport for exporting FMUs
@@ -28,12 +28,13 @@ fmi2 = ["fmi-schema/fmi2", "dep:libc", "dep:url"]
 ## Enable support for FMI 3.0
 fmi3 = ["fmi-schema/fmi3"]
 ## Enable support for FMI 3.0 LS-Bus
-ls-bus = ["fmi3", "fmi-sys/ls-bus"]
+ls-bus = ["fmi3", "fmi-sys/ls-bus", "dep:bytes"]
 ## Enable support for Apache Arrow Schema
 arrow = ["dep:arrow", "fmi-schema/arrow"]
 
 [dependencies]
 arrow = { workspace = true, optional = true }
+bytes = { version = "1.10", optional = true }
 document-features = { workspace = true }
 fmi-schema = { workspace = true, default-features = false }
 fmi-sys = { workspace = true }

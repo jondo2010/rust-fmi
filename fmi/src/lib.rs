@@ -60,7 +60,6 @@
 pub use fmi_schema as schema;
 
 use schema::MajorVersion;
-use zerocopy::FromBytes;
 
 mod event_flags;
 #[cfg(feature = "fmi2")]

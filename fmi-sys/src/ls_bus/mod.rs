@@ -4,11 +4,16 @@
 #![allow(clippy::all)]
 include!(concat!(env!("OUT_DIR"), "/ls_bus_bindings.rs"));
 
+/// FMI virtual bus operation of type 'Format Error'.
 pub const FMI3_LS_BUS_OP_FORMAT_ERROR: fmi3LsBusOperationCode = 0x0001;
 
 // CAN bus-specific operation codes
+
+/// FMI virtual bus operation of type 'CAN Transmit'.
 pub const FMI3_LS_BUS_CAN_OP_CAN_TRANSMIT: fmi3LsBusOperationCode = 0x0010;
+/// FMI virtual bus operation of type 'CAN FD Transmit'.
 pub const FMI3_LS_BUS_CAN_OP_CANFD_TRANSMIT: fmi3LsBusOperationCode = 0x0011;
+/// FMI virtual bus operation of type 'CAN XL Transmit'.
 pub const FMI3_LS_BUS_CAN_OP_CANXL_TRANSMIT: fmi3LsBusOperationCode = 0x0012;
 pub const FMI3_LS_BUS_CAN_OP_CONFIRM: fmi3LsBusOperationCode = 0x0020;
 pub const FMI3_LS_BUS_CAN_OP_ARBITRATION_LOST: fmi3LsBusOperationCode = 0x0030;
@@ -26,7 +31,10 @@ pub const FMI3_LS_BUS_CAN_BUSERROR_PARAM_ERROR_CODE_ACK_ERROR: fmi3LsBusCanError
 pub const FMI3_LS_BUS_CAN_BUSERROR_PARAM_ERROR_CODE_BROKEN_ERROR_FRAME: fmi3LsBusCanErrorCode = 0x6;
 
 // CAN bus error flags
+
+/// Indicates that a specified Network FMU is detecting the given Bus Error first.
 pub const FMI3_LS_BUS_CAN_BUSERROR_PARAM_ERROR_FLAG_PRIMARY_ERROR_FLAG: fmi3LsBusCanErrorFlag = 0x1;
+/// Indicates that a specified Network FMU is reacting on a Bus Error and does not detect it.
 pub const FMI3_LS_BUS_CAN_BUSERROR_PARAM_ERROR_FLAG_SECONDARY_ERROR_FLAG: fmi3LsBusCanErrorFlag =
     0x2;
 
