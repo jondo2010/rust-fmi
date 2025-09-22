@@ -3,24 +3,45 @@
 //! This module provides a safe, ergonomic Rust interface for FMI-LS-BUS operations
 //! that is binary compatible with the C implementation.
 
-use bytes::{BufMut, BytesMut};
+use bytes::BytesMut;
 use std::mem;
 
 use crate::fmi3::binding;
 use fmi_sys::ls_bus;
+
+#[cfg(feature = "ls-bus-can")]
+pub mod can;
+#[cfg(test)]
+mod tests;
+
+#[derive(Debug, thiserror::Error)]
+pub enum FmiLsBusError {
+    #[error("Buffer overflow: not enough space in buffer")]
+    BufferOverflow,
+    #[error("Invalid variant code: {0}")]
+    InvalidVariant(u32),
+    #[error("Invalid operation code or size mismatch: {0}")]
+    InvalidOperation(ls_bus::fmi3LsBusOperationCode),
+}
+
+pub trait LsBusOperation<'a>: Sized {
+    /// Transmit the operation by writing it into the provided LS-BUS buffer.
+    fn transmit(self, bus: &mut FmiLsBus) -> Result<(), FmiLsBusError>;
+
+    fn read_next_operation(bus: &'a mut FmiLsBus) -> Result<Option<Self>, FmiLsBusError>;
+}
 
 /// A Rust wrapper around FMI-LS-BUS buffer operations using the `bytes` crate.
 ///
 /// This provides a safe, ergonomic interface that's binary compatible with
 /// the C `fmi3LsBusUtilBufferInfo` structure and associated macros.
 #[derive(Debug)]
-pub struct LsBusBuffer {
+pub struct FmiLsBus {
     buffer: BytesMut,
     read_pos: usize,
-    status: bool,
 }
 
-impl LsBusBuffer {
+impl FmiLsBus {
     /// Create a new LS-BUS buffer with the specified capacity.
     ///
     /// This is equivalent to initializing `fmi3LsBusUtilBufferInfo` with
@@ -29,7 +50,6 @@ impl LsBusBuffer {
         Self {
             buffer: BytesMut::with_capacity(capacity),
             read_pos: 0,
-            status: true,
         }
     }
 
@@ -39,7 +59,6 @@ impl LsBusBuffer {
     pub fn reset(&mut self) {
         self.buffer.clear();
         self.read_pos = 0;
-        self.status = true;
     }
 
     /// Check if the buffer is empty.
@@ -63,64 +82,34 @@ impl LsBusBuffer {
         self.buffer.len()
     }
 
-    /// Get the status of the last operation.
-    pub fn status(&self) -> bool {
-        self.status
+    /// Get a reference to the internal buffer as a byte slice.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buffer
+    }
+
+    pub fn write_operation<'a, OP: LsBusOperation<'a>>(
+        &mut self,
+        op: OP,
+    ) -> Result<(), FmiLsBusError> {
+        op.transmit(self)
     }
 
     /// Write raw data to the buffer, replacing existing content.
     ///
     /// Equivalent to `FMI3_LS_BUS_BUFFER_WRITE`.
-    pub fn write(&mut self, data: &[u8]) {
+    pub fn write(&mut self, data: &[u8]) -> Result<(), FmiLsBusError> {
         if data.len() <= self.buffer.capacity() {
             self.buffer.clear();
             self.buffer.extend_from_slice(data);
             self.read_pos = 0;
-            self.status = true;
+            Ok(())
         } else {
-            self.status = false;
+            Err(FmiLsBusError::BufferOverflow)
         }
     }
 
-    /// Create a CAN baudrate configuration operation.
-    ///
-    /// This is the Rust equivalent of the C macro:
-    /// `FMI3_LS_BUS_CAN_CREATE_OP_CONFIGURATION_CAN_BAUDRATE`
-    pub fn create_can_baudrate_config(&mut self, baudrate: binding::fmi3UInt32) {
-        let op = ls_bus::fmi3LsBusCanOperationConfiguration {
-            header: ls_bus::fmi3LsBusOperationHeader {
-                opCode: ls_bus::FMI3_LS_BUS_CAN_OP_CONFIGURATION,
-                length: std::mem::size_of::<ls_bus::fmi3LsBusCanOperationConfiguration>()
-                    as binding::fmi3UInt32,
-            },
-            parameterType: ls_bus::FMI3_LS_BUS_CAN_CONFIG_PARAM_TYPE_CAN_BAUDRATE,
-            __bindgen_anon_1: ls_bus::fmi3LsBusCanOperationConfiguration__bindgen_ty_1 { baudrate },
-        };
-
-        // Calculate total size needed
-        let op_size = std::mem::size_of::<ls_bus::fmi3LsBusCanOperationConfiguration>();
-
-        // Check if we have enough space
-        if self.buffer.remaining_mut() >= op_size {
-            // Safety: We're transmuting to bytes for a packed, repr(C) struct
-            // This is equivalent to the memcpy operations in the C macro
-            let op_bytes =
-                unsafe { std::slice::from_raw_parts(&op as *const _ as *const u8, op_size) };
-
-            self.buffer.extend_from_slice(op_bytes);
-            self.status = true;
-        } else {
-            self.status = false;
-        }
-    }
-
-    /// Read the next operation from the buffer.
-    ///
-    /// Returns `Some((op_code, data))` if an operation is available,
-    /// or `None` if no complete operation is available.
-    ///
-    /// This is equivalent to `FMI3_LS_BUS_READ_NEXT_OPERATION`.
-    pub fn read_next_operation(&mut self) -> Option<(binding::fmi3UInt32, &[u8])> {
+    /// Peek at the next operation's opcode and length without advancing the read position.
+    pub fn peek_next_operation(&self) -> Option<(ls_bus::fmi3LsBusOperationCode, usize)> {
         let remaining = self.buffer.len() - self.read_pos;
 
         // Need at least header size
@@ -137,16 +126,19 @@ impl LsBusBuffer {
             )
         };
 
-        // Check if we have the complete operation
-        if remaining < header.length as usize {
-            return None;
-        }
+        Some((header.opCode, header.length as usize))
+    }
 
-        // Extract operation data
-        let op_data = &self.buffer[self.read_pos..self.read_pos + header.length as usize];
-        self.read_pos += header.length as usize;
-
-        Some((header.opCode, op_data))
+    /// Read the next operation from the buffer.
+    ///
+    /// Returns `Some((op_code, data))` if an operation is available,
+    /// or `None` if no complete operation is available.
+    ///
+    /// This is equivalent to `FMI3_LS_BUS_READ_NEXT_OPERATION`.
+    pub fn read_next_operation<'a, OP: LsBusOperation<'a>>(
+        &'a mut self,
+    ) -> Result<Option<OP>, FmiLsBusError> {
+        OP::read_next_operation(self)
     }
 
     /// Get a direct reference to the raw bytes for FFI compatibility.
@@ -169,68 +161,6 @@ impl LsBusBuffer {
         Self {
             buffer,
             read_pos: 0,
-            status: true,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_buffer_creation() {
-        let buffer = LsBusBuffer::new(1024);
-        assert!(buffer.is_empty());
-        assert_eq!(buffer.len(), 0);
-        assert!(buffer.status());
-    }
-
-    #[test]
-    fn test_can_baudrate_config() {
-        let mut buffer = LsBusBuffer::new(1024);
-        let baudrate = 500000; // 500 kbps
-
-        buffer.create_can_baudrate_config(baudrate);
-        assert!(buffer.status());
-        assert!(!buffer.is_empty());
-
-        // Read back the operation
-        let (op_code, _data) = buffer.read_next_operation().unwrap();
-        assert_eq!(op_code, ls_bus::FMI3_LS_BUS_CAN_OP_CONFIGURATION);
-    }
-
-    #[test]
-    fn test_binary_compatibility() {
-        // Test that our structures have the same size as the C equivalents
-        assert_eq!(mem::size_of::<ls_bus::fmi3LsBusOperationHeader>(), 8); // As per C static_assert
-
-        // The minimum size from the C static_assert
-        assert!(mem::size_of::<ls_bus::fmi3LsBusCanOperationConfiguration>() >= 8 + 4 + 1);
-    }
-
-    #[test]
-    fn test_buffer_reset() {
-        let mut buffer = LsBusBuffer::new(1024);
-        buffer.create_can_baudrate_config(125000);
-        assert!(!buffer.is_empty());
-
-        buffer.reset();
-        assert!(buffer.is_empty());
-        assert_eq!(buffer.len(), 0);
-    }
-
-    #[test]
-    fn test_ffi_compatibility() {
-        let mut buffer = LsBusBuffer::new(1024);
-        buffer.create_can_baudrate_config(250000);
-
-        let (ptr, len) = buffer.as_fmi_binary();
-        assert!(!ptr.is_null());
-        assert!(len > 0);
-
-        // Test round-trip through FFI
-        let buffer2 = unsafe { LsBusBuffer::from_raw_buffer(ptr, len) };
-        assert_eq!(buffer2.len(), len);
     }
 }
