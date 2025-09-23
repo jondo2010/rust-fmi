@@ -527,6 +527,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "can-triggered-output"
+version = "0.1.0"
+dependencies = [
+ "fmi",
+ "fmi-export",
+]
+
+[[package]]
 name = "cargo-platform"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
