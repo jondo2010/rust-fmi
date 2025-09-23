@@ -16,6 +16,7 @@ pub use getter_setter::GetterSetterGen;
 /// Generate the Model trait implementation
 pub struct ModelImpl<'a> {
     struct_name: &'a Ident,
+    value_ref_enum_name: Ident,
     model: &'a Model,
     model_variables: &'a schema::ModelVariables,
     model_structure: &'a schema::ModelStructure,
@@ -28,8 +29,10 @@ impl<'a> ModelImpl<'a> {
         model_variables: &'a schema::ModelVariables,
         model_structure: &'a schema::ModelStructure,
     ) -> Self {
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
         Self {
             struct_name,
+            value_ref_enum_name,
             model,
             model_variables,
             model_structure,
@@ -59,15 +62,18 @@ impl ToTokens for ModelImpl<'_> {
         let get_continuous_states_body = get_set_states::GetContinuousStatesGen::new(&self.model);
         let set_continuous_states_body = get_set_states::SetContinuousStatesGen::new(&self.model);
         let get_derivatives_body = GetDerivativesGen::new(&self.model);
-        let variable_validation_body = VariableValidationGen::new(&self.model);
-        let getter_setter_methods = GetterSetterGen::new(&self.model);
+        let variable_validation_body = VariableValidationGen::new(&self.model, &self.value_ref_enum_name);
+        let getter_setter_methods = GetterSetterGen::new(&self.model, &self.value_ref_enum_name);
 
         let number_of_continuous_states = count_continuous_states(&self.model);
         let number_of_event_indicators = count_event_indicators(&self.model);
 
+        // Generate the ValueRef enum name
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+
         tokens.extend(quote! {
             impl ::fmi_export::fmi3::Model for #struct_name {
-                type ValueRef = ::fmi::fmi3::binding::fmi3ValueReference;
+                type ValueRef = #value_ref_enum_name;
 
                 const MODEL_NAME: &'static str = #model_name;
                 const MODEL_VARIABLES_XML: &'static str = #model_variables_xml;
@@ -103,7 +109,7 @@ impl ToTokens for ModelImpl<'_> {
                 }
 
                 fn validate_variable_setting(
-                    vr: fmi::fmi3::binding::fmi3ValueReference,
+                    vr: Self::ValueRef,
                     state: &fmi_export::fmi3::ModelState,
                 ) -> Result<(), &'static str> {
                     #variable_validation_body
@@ -280,18 +286,17 @@ impl ToTokens for GetDerivativesGen<'_> {
     }
 }
 
-struct VariableValidationGen<'a>(&'a Model);
+struct VariableValidationGen<'a>(&'a Model, &'a Ident);
 
 impl<'a> VariableValidationGen<'a> {
-    fn new(model: &'a Model) -> Self {
-        Self(model)
+    fn new(model: &'a Model, value_ref_enum_name: &'a Ident) -> Self {
+        Self(model, value_ref_enum_name)
     }
 }
 
 impl ToTokens for VariableValidationGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let struct_name = &self.0.ident;
-        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+        let value_ref_enum_name = &self.1;
 
         let mut cases = Vec::new();
 
@@ -383,7 +388,7 @@ impl ToTokens for VariableValidationGen<'_> {
         }
 
         tokens.extend(quote! {
-            match #value_ref_enum_name::from(vr) {
+            match vr {
                 #(#cases)*
                 _ => Ok(()), // Unknown variables are allowed by default
             }

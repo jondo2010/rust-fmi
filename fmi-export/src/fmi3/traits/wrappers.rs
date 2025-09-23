@@ -85,7 +85,7 @@ macro_rules! wrapper_getset_functions {
     };
 }
 
-pub trait Fmi3Common: Model<ValueRef = binding::fmi3ValueReference> + Sized {
+pub trait Fmi3Common: Model + Sized {
     #[inline(always)]
     unsafe fn fmi3_get_version() -> *const ::std::os::raw::c_char {
         binding::fmi3Version.as_ptr() as *const _
@@ -163,9 +163,8 @@ pub trait Fmi3Common: Model<ValueRef = binding::fmi3ValueReference> + Sized {
                 &token,
             ) {
                 Ok(instance) => {
-                    let this: ::std::boxed::Box<
-                        dyn ::fmi::fmi3::Common<ValueRef = binding::fmi3ValueReference>,
-                    > = ::std::boxed::Box::new(instance);
+                    let this: ::std::boxed::Box<dyn ::fmi::fmi3::Common> =
+                        ::std::boxed::Box::new(instance);
                     ::std::boxed::Box::into_raw(this) as binding::fmi3Instance
                 }
                 Err(_) => {
@@ -1144,6 +1143,6 @@ pub trait Fmi3CoSimulation: Fmi3Common {
 }
 
 // Automatic implementations for all models
-impl<T> Fmi3Common for T where T: Model<ValueRef = binding::fmi3ValueReference> {}
+impl<T> Fmi3Common for T where T: Model {}
 impl<T> Fmi3ModelExchange for T where T: Model + Fmi3Common {}
 impl<T> Fmi3CoSimulation for T where T: Model + Fmi3Common {}

@@ -7,7 +7,7 @@ use fmi::{
 
 impl<F> Common for ModelInstance<F>
 where
-    F: Model<ValueRef = binding::fmi3ValueReference>,
+    F: Model,
 {
     fn get_version(&self) -> &str {
         // Safety: binding::fmi3Version is a null-terminated byte array representing the version string
@@ -204,7 +204,7 @@ where
 
     fn get_number_of_variable_dependencies(
         &mut self,
-        _vr: Self::ValueRef,
+        _vr: binding::fmi3ValueReference,
     ) -> Result<usize, Fmi3Error> {
         // Default implementation: no dependencies
         Ok(0)
@@ -212,8 +212,8 @@ where
 
     fn get_variable_dependencies(
         &mut self,
-        _dependent: Self::ValueRef,
-    ) -> Result<Vec<fmi::fmi3::VariableDependency<Self::ValueRef>>, Fmi3Error> {
+        _dependent: binding::fmi3ValueReference,
+    ) -> Result<Vec<fmi::fmi3::VariableDependency>, Fmi3Error> {
         // Default implementation: no dependencies
         Ok(Vec::new())
     }

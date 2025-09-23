@@ -3,12 +3,11 @@ use std::mem::MaybeUninit;
 use crate::{
     EventFlags,
     fmi3::{
-        Fmi3Error, Fmi3Res, Fmi3Status, binding,
-        import::Fmi3Import,
+        Fmi3Error, Fmi3Res, Fmi3Status, VariableDependency, binding,
         instance::Instance,
         traits::{Common, GetSet},
     },
-    traits::{FmiImport, FmiStatus},
+    traits::FmiStatus,
 };
 
 macro_rules! impl_getter_setter {
@@ -50,7 +49,6 @@ macro_rules! impl_getter_setter {
 }
 
 impl<'a, Tag> GetSet for Instance<'a, Tag> {
-    type ValueRef = <Fmi3Import as FmiImport>::ValueRef;
     impl_getter_setter!(
         bool,
         get_boolean,
@@ -83,7 +81,7 @@ impl<'a, Tag> GetSet for Instance<'a, Tag> {
 
     fn get_string(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &mut [std::ffi::CString],
     ) -> Result<(), Fmi3Error> {
         let n_values = values.len();
@@ -147,7 +145,7 @@ impl<'a, Tag> GetSet for Instance<'a, Tag> {
 
     fn set_string(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &[std::ffi::CString],
     ) -> Result<(), Fmi3Error> {
         let n_values = values.len();
@@ -316,7 +314,7 @@ impl<'a, Tag> GetSet for Instance<'a, Tag> {
 
     fn get_clock(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &mut [binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error> {
         Fmi3Status::from(unsafe {
@@ -328,7 +326,7 @@ impl<'a, Tag> GetSet for Instance<'a, Tag> {
 
     fn set_clock(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &[binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error> {
         Fmi3Status::from(unsafe {
@@ -454,7 +452,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
 
     fn get_number_of_variable_dependencies(
         &mut self,
-        vr: Self::ValueRef,
+        vr: binding::fmi3ValueReference,
     ) -> Result<usize, Fmi3Error> {
         let mut n_dependencies: usize = 0;
         Fmi3Status::from(unsafe {
@@ -470,8 +468,8 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
 
     fn get_variable_dependencies(
         &mut self,
-        dependent: Self::ValueRef,
-    ) -> Result<Vec<crate::fmi3::VariableDependency<Self::ValueRef>>, Fmi3Error> {
+        dependent: binding::fmi3ValueReference,
+    ) -> Result<Vec<VariableDependency>, Fmi3Error> {
         let n_dependencies = self.get_number_of_variable_dependencies(dependent)?;
 
         if n_dependencies == 0 {
@@ -479,7 +477,8 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
         }
 
         let mut element_indices_of_dependent = vec![MaybeUninit::<usize>::uninit(); n_dependencies];
-        let mut independents = vec![MaybeUninit::<Self::ValueRef>::uninit(); n_dependencies];
+        let mut independents =
+            vec![MaybeUninit::<binding::fmi3ValueReference>::uninit(); n_dependencies];
         let mut element_indices_of_independents =
             vec![MaybeUninit::<usize>::uninit(); n_dependencies];
         let mut dependency_kinds =
@@ -503,7 +502,7 @@ impl<'a, Tag> Common for Instance<'a, Tag> {
             .into_iter()
             .map(|d| unsafe { d.assume_init() })
             .collect();
-        let independents: Vec<Self::ValueRef> = independents
+        let independents: Vec<binding::fmi3ValueReference> = independents
             .into_iter()
             .map(|d| unsafe { d.assume_init() })
             .collect();

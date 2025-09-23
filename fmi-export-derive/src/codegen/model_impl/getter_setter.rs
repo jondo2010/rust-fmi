@@ -1,6 +1,6 @@
 //! Getter and setter method generation for the Model trait
 
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::{ToTokens, format_ident, quote};
 
 use crate::codegen::util;
@@ -10,11 +10,15 @@ use fmi::fmi3::schema;
 /// Generator for all getter/setter method implementations in the Model trait
 pub struct GetterSetterGen<'a> {
     model: &'a Model,
+    value_ref_enum_name: &'a Ident,
 }
 
 impl<'a> GetterSetterGen<'a> {
-    pub fn new(model: &'a Model) -> Self {
-        Self { model }
+    pub fn new(model: &'a Model, value_ref_enum_name: &'a Ident) -> Self {
+        Self { 
+            model,
+            value_ref_enum_name,
+        }
     }
 
     /// Check if the model has any variables of the given type
@@ -37,8 +41,7 @@ impl<'a> GetterSetterGen<'a> {
 
 impl ToTokens for GetterSetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let struct_name = &self.model.ident;
-        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+        let value_ref_enum_name = &self.value_ref_enum_name;
 
         // Configuration for all supported types
         let method_configs = [
@@ -121,54 +124,46 @@ impl ToTokens for GetterSetterGen<'_> {
             let rust_type: syn::Type = syn::parse_str(rust_type)
                 .expect("Failed to parse rust type - this is a bug in the code generator");
 
-            let getter_cases = TypeGetterGen::new(self.model, *variable_type);
-            let setter_cases = TypeSetterGen::new(self.model, *variable_type);
+            let getter_cases = TypeGetterGen::new(self.model, *variable_type, value_ref_enum_name);
+            let setter_cases = TypeSetterGen::new(self.model, *variable_type, value_ref_enum_name);
 
             tokens.extend(quote! {
                 fn #get_method_name(
                     &mut self,
-                    vrs: &[Self::ValueRef],
+                    vr: Self::ValueRef,
                     values: &mut [#rust_type],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
-                ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    let mut value_index = 0;
-                    for vr in vrs.iter() {
-                        match #value_ref_enum_name::from(*vr) {
-                            #getter_cases
-                            _ => {
-                                context.log(
-                                    fmi::fmi3::Fmi3Error::Error,
-                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                    format_args!("Unknown value reference {} in getter", vr)
-                                );
-                                return Err(fmi::fmi3::Fmi3Error::Error);
-                            }
+                ) -> Result<usize, fmi::fmi3::Fmi3Error> {
+                    match vr {
+                        #getter_cases
+                        _ => {
+                            context.log(
+                                fmi::fmi3::Fmi3Error::Error,
+                                <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                format_args!("Unknown value reference {} in getter", vr)
+                            );
+                            Err(fmi::fmi3::Fmi3Error::Error)
                         }
                     }
-                    Ok(fmi::fmi3::Fmi3Res::OK)
                 }
 
                 fn #set_method_name(
                     &mut self,
-                    vrs: &[Self::ValueRef],
+                    vr: Self::ValueRef,
                     values: &[#rust_type],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
-                ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    let mut value_index = 0;
-                    for vr in vrs.iter() {
-                        match #value_ref_enum_name::from(*vr) {
-                            #setter_cases
-                            _ => {
-                                context.log(
-                                    fmi::fmi3::Fmi3Error::Error,
-                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                    format_args!("Unknown value reference {} in setter", vr)
-                                );
-                                return Err(fmi::fmi3::Fmi3Error::Error);
-                            }
+                ) -> Result<usize, fmi::fmi3::Fmi3Error> {
+                    match vr {
+                        #setter_cases
+                        _ => {
+                            context.log(
+                                fmi::fmi3::Fmi3Error::Error,
+                                <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                format_args!("Unknown value reference {} in setter", vr)
+                            );
+                            Err(fmi::fmi3::Fmi3Error::Error)
                         }
                     }
-                    Ok(fmi::fmi3::Fmi3Res::OK)
                 }
             });
         }
@@ -176,55 +171,47 @@ impl ToTokens for GetterSetterGen<'_> {
         // Generate special string methods with different signatures
         if self.has_variables_of_type(schema::VariableType::FmiString) {
             let string_getter_cases =
-                TypeGetterGen::new(self.model, schema::VariableType::FmiString);
+                TypeGetterGen::new(self.model, schema::VariableType::FmiString, value_ref_enum_name);
             let string_setter_cases =
-                TypeSetterGen::new(self.model, schema::VariableType::FmiString);
+                TypeSetterGen::new(self.model, schema::VariableType::FmiString, value_ref_enum_name);
 
             tokens.extend(quote! {
                 fn get_string(
                     &mut self,
-                    vrs: &[Self::ValueRef],
+                    vr: Self::ValueRef,
                     values: &mut [std::ffi::CString],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
-                ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                    let mut value_index = 0;
-                    for vr in vrs.iter() {
-                        match #value_ref_enum_name::from(*vr) {
-                            #string_getter_cases
-                            _ => {
-                                context.log(
-                                    fmi::fmi3::Fmi3Error::Error,
-                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                    format_args!("Unknown value reference {} in string getter", vr)
-                                );
-                                return Err(fmi::fmi3::Fmi3Error::Error);
-                            }
+                ) -> Result<usize, fmi::fmi3::Fmi3Error> {
+                    match vr {
+                        #string_getter_cases
+                        _ => {
+                            context.log(
+                                fmi::fmi3::Fmi3Error::Error,
+                                <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                format_args!("Unknown value reference {} in string getter", vr)
+                            );
+                            Err(fmi::fmi3::Fmi3Error::Error)
                         }
                     }
-                    Ok(())
                 }
 
                 fn set_string(
                     &mut self,
-                    vrs: &[Self::ValueRef],
+                    vr: Self::ValueRef,
                     values: &[std::ffi::CString],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
-                ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                    let mut value_index = 0;
-                    for vr in vrs.iter() {
-                        match #value_ref_enum_name::from(*vr) {
-                            #string_setter_cases
-                            _ => {
-                                context.log(
-                                    fmi::fmi3::Fmi3Error::Error,
-                                    <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                    format_args!("Unknown value reference {} in string setter", vr)
-                                );
-                                return Err(fmi::fmi3::Fmi3Error::Error);
-                            }
+                ) -> Result<usize, fmi::fmi3::Fmi3Error> {
+                    match vr {
+                        #string_setter_cases
+                        _ => {
+                            context.log(
+                                fmi::fmi3::Fmi3Error::Error,
+                                <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
+                                format_args!("Unknown value reference {} in string setter", vr)
+                            );
+                            Err(fmi::fmi3::Fmi3Error::Error)
                         }
                     }
-                    Ok(())
                 }
             });
         }
@@ -234,22 +221,22 @@ impl ToTokens for GetterSetterGen<'_> {
             tokens.extend(quote! {
                 fn get_binary(
                     &mut self,
-                    vrs: &[Self::ValueRef],
+                    vr: Self::ValueRef,
                     values: &mut [&mut [u8]],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
                 ) -> Result<Vec<usize>, fmi::fmi3::Fmi3Error> {
                     // Binary not implemented for now - return empty sizes
-                    Ok(vec![0; vrs.len()])
+                    Ok(vec![0; values.len()])
                 }
 
                 fn set_binary(
                     &mut self,
-                    vrs: &[Self::ValueRef],
+                    vr: Self::ValueRef,
                     values: &[&[u8]],
                     context: &::fmi_export::fmi3::ModelContext<Self>,
-                ) -> Result<(), fmi::fmi3::Fmi3Error> {
-                    // Binary not implemented for now
-                    Ok(())
+                ) -> Result<usize, fmi::fmi3::Fmi3Error> {
+                    // Binary not implemented for now - return number of elements written
+                    Ok(values.len())
                 }
             });
         }
@@ -260,36 +247,37 @@ impl ToTokens for GetterSetterGen<'_> {
 pub struct TypeGetterGen<'a> {
     model: &'a Model,
     variable_type: schema::VariableType,
+    value_ref_enum_name: &'a Ident,
 }
 
 impl<'a> TypeGetterGen<'a> {
-    pub fn new(model: &'a Model, variable_type: schema::VariableType) -> Self {
+    pub fn new(model: &'a Model, variable_type: schema::VariableType, value_ref_enum_name: &'a Ident) -> Self {
         Self {
             model,
             variable_type,
+            value_ref_enum_name,
         }
     }
 }
 
 impl ToTokens for TypeGetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let struct_name = &self.model.ident;
-        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+        let value_ref_enum_name = &self.value_ref_enum_name;
 
         // Special handling for Float64 to include Time VR
         if self.variable_type == schema::VariableType::FmiFloat64 {
             tokens.extend(quote! {
                 #value_ref_enum_name::Time => {
-                    if value_index < values.len() {
-                        values[value_index] = context.time();
-                        value_index += 1;
+                    if values.len() >= 1 {
+                        values[0] = context.time();
+                        Ok(1) // Return number of elements read
                     } else {
                         context.log(
                             fmi::fmi3::Fmi3Error::Error,
                             <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                            format_args!("Value array index {} out of bounds for Time variable", value_index)
+                            format_args!("Values array too small for Time variable: expected at least 1, got {}", values.len())
                         );
-                        return Err(fmi::fmi3::Fmi3Error::Error);
+                        Err(fmi::fmi3::Fmi3Error::Error)
                     }
                 },
             });
@@ -311,26 +299,28 @@ impl ToTokens for TypeGetterGen<'_> {
                     if self.variable_type == schema::VariableType::FmiString {
                         tokens.extend(quote! {
                                 #value_ref_enum_name::#variant_name => {
-                                    if value_index < values.len() {
+                                    if values.len() >= 1 {
                                         match std::ffi::CString::new(self.#field_name.clone()) {
-                                            Ok(cstring) => values[value_index] = cstring,
+                                            Ok(cstring) => {
+                                                values[0] = cstring;
+                                                Ok(1) // Return number of elements read
+                                            },
                                             Err(_) => {
                                                 context.log(
                                                     fmi::fmi3::Fmi3Error::Error,
                                                     <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
                                                     format_args!("String variable {} contains null bytes and cannot be converted to CString", stringify!(#field_name))
                                                 );
-                                                return Err(fmi::fmi3::Fmi3Error::Error);
+                                                Err(fmi::fmi3::Fmi3Error::Error)
                                             }
                                         }
-                                        value_index += 1;
                                     } else {
                                         context.log(
                                             fmi::fmi3::Fmi3Error::Error,
                                             <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                            format_args!("Value array index {} out of bounds for string variable {}", value_index, stringify!(#field_name))
+                                            format_args!("Values array too small for string variable {}: expected at least 1, got {}", stringify!(#field_name), values.len())
                                         );
-                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                        Err(fmi::fmi3::Fmi3Error::Error)
                                     }
                                 },
                             });
@@ -340,16 +330,16 @@ impl ToTokens for TypeGetterGen<'_> {
                             // Scalar field
                             tokens.extend(quote! {
                                 #value_ref_enum_name::#variant_name => {
-                                    if value_index < values.len() {
-                                        values[value_index] = self.#field_name;
-                                        value_index += 1;
+                                    if values.len() >= 1 {
+                                        values[0] = self.#field_name;
+                                        Ok(1) // Return number of elements read
                                     } else {
                                         context.log(
                                             fmi::fmi3::Fmi3Error::Error,
                                             <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                            format_args!("Value array index {} out of bounds for variable {}", value_index, stringify!(#field_name))
+                                            format_args!("Values array too small for variable {}: expected at least 1, got {}", stringify!(#field_name), values.len())
                                         );
-                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                        Err(fmi::fmi3::Fmi3Error::Error)
                                     }
                                 },
                             });
@@ -358,17 +348,16 @@ impl ToTokens for TypeGetterGen<'_> {
                             tokens.extend(quote! {
                                 #value_ref_enum_name::#variant_name => {
                                     let array_len = self.#field_name.len();
-                                    if value_index + array_len <= values.len() {
-                                        values[value_index..value_index + array_len].copy_from_slice(&self.#field_name);
-                                        value_index += array_len;
+                                    if values.len() >= array_len {
+                                        values[..array_len].copy_from_slice(&self.#field_name);
+                                        Ok(array_len) // Return number of elements read
                                     } else {
                                         context.log(
                                             fmi::fmi3::Fmi3Error::Error,
                                             <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                            format_args!("Value array too small for array variable {}: need {} elements, have {} available",
-                                                       stringify!(#field_name), array_len, values.len() - value_index)
+                                            format_args!("Values array too small for array variable {}: expected at least {}, got {}", stringify!(#field_name), array_len, values.len())
                                         );
-                                        return Err(fmi::fmi3::Fmi3Error::Error);
+                                        Err(fmi::fmi3::Fmi3Error::Error)
                                     }
                                 },
                             });
@@ -387,9 +376,9 @@ impl ToTokens for TypeGetterGen<'_> {
                             if self.variable_type == schema::VariableType::FmiString {
                                 tokens.extend(quote! {
                                         #value_ref_enum_name::#alias_variant_name => {
-                                            if value_index < values.len() {
+                                            if !values.is_empty() {
                                                 match std::ffi::CString::new(self.#field_name.clone()) {
-                                                    Ok(cstring) => values[value_index] = cstring,
+                                                    Ok(cstring) => values[0] = cstring,
                                                     Err(_) => {
                                                         context.log(
                                                             fmi::fmi3::Fmi3Error::Error,
@@ -399,12 +388,12 @@ impl ToTokens for TypeGetterGen<'_> {
                                                         return Err(fmi::fmi3::Fmi3Error::Error);
                                                     }
                                                 }
-                                                value_index += 1;
+                                                return Ok(1);
                                             } else {
                                                 context.log(
                                                     fmi::fmi3::Fmi3Error::Error,
                                                     <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                                    format_args!("Value array index {} out of bounds for string alias {} of variable {}", value_index, stringify!(#alias_variant_name), stringify!(#field_name))
+                                                    format_args!("Empty value array for string alias {} of variable {}", stringify!(#alias_variant_name), stringify!(#field_name))
                                                 );
                                                 return Err(fmi::fmi3::Fmi3Error::Error);
                                             }
@@ -416,14 +405,14 @@ impl ToTokens for TypeGetterGen<'_> {
                                     // Scalar field
                                     tokens.extend(quote! {
                                         #value_ref_enum_name::#alias_variant_name => {
-                                            if value_index < values.len() {
-                                                values[value_index] = self.#field_name;
-                                                value_index += 1;
+                                            if !values.is_empty() {
+                                                values[0] = self.#field_name;
+                                                return Ok(1);
                                             } else {
                                                 context.log(
                                                     fmi::fmi3::Fmi3Error::Error,
                                                     <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                                    format_args!("Value array index {} out of bounds for alias {} of variable {}", value_index, stringify!(#alias_variant_name), stringify!(#field_name))
+                                                    format_args!("Empty value array for alias {} of variable {}", stringify!(#alias_variant_name), stringify!(#field_name))
                                                 );
                                                 return Err(fmi::fmi3::Fmi3Error::Error);
                                             }
@@ -434,15 +423,15 @@ impl ToTokens for TypeGetterGen<'_> {
                                     tokens.extend(quote! {
                                         #value_ref_enum_name::#alias_variant_name => {
                                             let array_len = self.#field_name.len();
-                                            if value_index + array_len <= values.len() {
-                                                values[value_index..value_index + array_len].copy_from_slice(&self.#field_name);
-                                                value_index += array_len;
+                                            if array_len <= values.len() {
+                                                values[..array_len].copy_from_slice(&self.#field_name);
+                                                return Ok(array_len);
                                             } else {
                                                 context.log(
                                                     fmi::fmi3::Fmi3Error::Error,
                                                     <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
                                                     format_args!("Value array too small for array alias {} of variable {}: need {} elements, have {} available",
-                                                               stringify!(#alias_variant_name), stringify!(#field_name), array_len, values.len() - value_index)
+                                                               stringify!(#alias_variant_name), stringify!(#field_name), array_len, values.len())
                                                 );
                                                 return Err(fmi::fmi3::Fmi3Error::Error);
                                             }
@@ -462,21 +451,22 @@ impl ToTokens for TypeGetterGen<'_> {
 pub struct TypeSetterGen<'a> {
     model: &'a Model,
     variable_type: schema::VariableType,
+    value_ref_enum_name: &'a Ident,
 }
 
 impl<'a> TypeSetterGen<'a> {
-    pub fn new(model: &'a Model, variable_type: schema::VariableType) -> Self {
+    pub fn new(model: &'a Model, variable_type: schema::VariableType, value_ref_enum_name: &'a Ident) -> Self {
         Self {
             model,
             variable_type,
+            value_ref_enum_name,
         }
     }
 }
 
 impl ToTokens for TypeSetterGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let struct_name = &self.model.ident;
-        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+        let value_ref_enum_name = &self.value_ref_enum_name;
 
         // Special handling for Float64: Time VR should not be settable
         if self.variable_type == schema::VariableType::FmiFloat64 {
@@ -505,14 +495,14 @@ impl ToTokens for TypeSetterGen<'_> {
                     if self.variable_type == schema::VariableType::FmiString {
                         tokens.extend(quote! {
                             #value_ref_enum_name::#variant_name => {
-                                if value_index < values.len() {
-                                    self.#field_name = values[value_index].to_string_lossy().to_string();
-                                    value_index += 1;
+                                if !values.is_empty() {
+                                    self.#field_name = values[0].to_string_lossy().to_string();
+                                    return Ok(1);
                                 } else {
                                     context.log(
                                         fmi::fmi3::Fmi3Error::Error,
                                         <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                        format_args!("Value array index {} out of bounds for string variable {}", value_index, stringify!(#field_name))
+                                        format_args!("Empty value array for string variable {}", stringify!(#field_name))
                                     );
                                     return Err(fmi::fmi3::Fmi3Error::Error);
                                 }
@@ -524,14 +514,14 @@ impl ToTokens for TypeSetterGen<'_> {
                             // Scalar field
                             tokens.extend(quote! {
                                 #value_ref_enum_name::#variant_name => {
-                                    if value_index < values.len() {
-                                        self.#field_name = values[value_index];
-                                        value_index += 1;
+                                    if !values.is_empty() {
+                                        self.#field_name = values[0];
+                                        return Ok(1);
                                     } else {
                                         context.log(
                                             fmi::fmi3::Fmi3Error::Error,
                                             <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
-                                            format_args!("Value array index {} out of bounds for variable {}", value_index, stringify!(#field_name))
+                                            format_args!("Empty value array for variable {}", stringify!(#field_name))
                                         );
                                         return Err(fmi::fmi3::Fmi3Error::Error);
                                     }
@@ -542,15 +532,15 @@ impl ToTokens for TypeSetterGen<'_> {
                             tokens.extend(quote! {
                                 #value_ref_enum_name::#variant_name => {
                                     let array_len = self.#field_name.len();
-                                    if value_index + array_len <= values.len() {
-                                        self.#field_name.copy_from_slice(&values[value_index..value_index + array_len]);
-                                        value_index += array_len;
+                                    if array_len <= values.len() {
+                                        self.#field_name.copy_from_slice(&values[..array_len]);
+                                        return Ok(array_len);
                                     } else {
                                         context.log(
                                             fmi::fmi3::Fmi3Error::Error,
                                             <Self::LoggingCategory as ::fmi_export::fmi3::ModelLoggingCategory>::error_category(),
                                             format_args!("Value array too small for array variable {}: need {} elements, have {} available",
-                                                       stringify!(#field_name), array_len, values.len() - value_index)
+                                                       stringify!(#field_name), array_len, values.len())
                                         );
                                         return Err(fmi::fmi3::Fmi3Error::Error);
                                     }
