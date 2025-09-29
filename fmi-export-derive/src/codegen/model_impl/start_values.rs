@@ -4,7 +4,6 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 
 use crate::model::{FieldAttributeOuter, Model};
-use fmi::fmi3::schema;
 
 pub struct SetStartValuesGen<'a>(&'a Model);
 
@@ -24,49 +23,9 @@ impl ToTokens for SetStartValuesGen<'_> {
                     if let Some(start_expr) = &var_attr.start {
                         let field_name = &field.ident;
 
-                        let vtype = field.field_type.r#type;
-
-                        match vtype {
-                            schema::VariableType::FmiFloat64 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiFloat32 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiInt8
-                            | schema::VariableType::FmiInt16
-                            | schema::VariableType::FmiInt32
-                            | schema::VariableType::FmiInt64 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiUInt8
-                            | schema::VariableType::FmiUInt16
-                            | schema::VariableType::FmiUInt32
-                            | schema::VariableType::FmiUInt64 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiBoolean => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiString => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr.to_string();
-                                });
-                            }
-                            schema::VariableType::FmiBinary => {
-                                // Skip binary for now
-                            }
-                        }
+                        assignments.push(quote! {
+                            self.#field_name = #start_expr;
+                        });
                     }
                 }
             }

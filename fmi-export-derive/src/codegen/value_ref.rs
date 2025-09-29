@@ -136,11 +136,11 @@ impl ToTokens for ValueRefEnum<'_> {
 
         tokens.extend(quote! {
             #[repr(u32)]
-            #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+            #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
             enum #value_ref_enum_name {
                 #(#value_ref_variants,)*
             }
-            
+
             impl std::fmt::Display for #value_ref_enum_name {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     match self {
@@ -152,7 +152,7 @@ impl ToTokens for ValueRefEnum<'_> {
 
             impl TryFrom<fmi::fmi3::binding::fmi3ValueReference> for #value_ref_enum_name {
                 type Error = fmi::fmi3::Fmi3Error;
-                
+
                 fn try_from(value: fmi::fmi3::binding::fmi3ValueReference) -> Result<Self, Self::Error> {
                     match value {
                         #(#from_u32_arms,)*

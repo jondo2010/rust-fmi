@@ -1,13 +1,16 @@
 use super::ModelInstance;
-use crate::fmi3::{Model, ModelState, traits::ModelLoggingCategory};
+use crate::fmi3::{
+    Model, ModelState,
+    traits::{ModelGetSet, ModelLoggingCategory},
+};
 use fmi::{
     EventFlags, InterfaceType,
     fmi3::{Common, Fmi3Error, Fmi3Res, binding},
 };
 
-impl<F> Common for ModelInstance<F>
+impl<M> Common for ModelInstance<M>
 where
-    F: Model,
+    M: Model + ModelGetSet<M>,
 {
     fn get_version(&self) -> &str {
         // Safety: binding::fmi3Version is a null-terminated byte array representing the version string
@@ -21,7 +24,7 @@ where
     ) -> Result<Fmi3Res, Fmi3Error> {
         for &cat in categories.iter() {
             if let Some(cat) = cat
-                .parse::<F::LoggingCategory>()
+                .parse::<M::LoggingCategory>()
                 .ok()
                 .and_then(|level| self.context.logging_on.get_mut(&level))
             {
@@ -29,7 +32,7 @@ where
             } else {
                 self.context.log(
                     Fmi3Error::Error,
-                    F::LoggingCategory::default(),
+                    M::LoggingCategory::default(),
                     format_args!("Unknown logging category {cat}"),
                 );
                 return Err(Fmi3Error::Error);
@@ -60,7 +63,7 @@ where
             _ => {
                 self.context.log(
                     Fmi3Error::Error,
-                    F::LoggingCategory::default(),
+                    M::LoggingCategory::default(),
                     format_args!(
                         "enter_initialization_mode() called in invalid state {:?}",
                         self.state
@@ -116,7 +119,7 @@ where
     fn enter_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
             Fmi3Res::OK,
-            F::LoggingCategory::trace_category(),
+            M::LoggingCategory::trace_category(),
             format_args!("enter_configuration_mode()"),
         );
 
@@ -135,7 +138,7 @@ where
     fn exit_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
             Fmi3Res::OK,
-            F::LoggingCategory::trace_category(),
+            M::LoggingCategory::trace_category(),
             format_args!("exit_configuration_mode()"),
         );
 
@@ -167,7 +170,7 @@ where
             _ => {
                 self.context.log(
                     Fmi3Error::Error,
-                    F::LoggingCategory::default(),
+                    M::LoggingCategory::default(),
                     format_args!(
                         "exit_configuration_mode() called in invalid state {:?}",
                         self.state
@@ -183,7 +186,7 @@ where
     fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
             Fmi3Res::OK,
-            F::LoggingCategory::trace_category(),
+            M::LoggingCategory::trace_category(),
             format_args!("enter_event_mode()"),
         );
         self.state = ModelState::EventMode;
@@ -196,7 +199,7 @@ where
     ) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
             Fmi3Res::OK,
-            F::LoggingCategory::trace_category(),
+            M::LoggingCategory::trace_category(),
             format_args!("update_discrete_states()"),
         );
         self.model.event_update(&self.context, event_flags)

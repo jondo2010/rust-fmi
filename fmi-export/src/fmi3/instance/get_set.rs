@@ -1,6 +1,6 @@
 use fmi::fmi3::{Fmi3Error, Fmi3Res, GetSet, binding};
 
-use crate::fmi3::Model;
+use crate::fmi3::{Model, traits::ModelGetSet};
 
 /// Macro to generate getter implementations for ModelInstance
 macro_rules! instance_getter {
@@ -17,8 +17,7 @@ macro_rules! instance_getter {
                 }
                 let mut value_index = 0;
                 for vr in vrs.iter() {
-                    let vr = F::ValueRef::try_from(*vr)?;
-                    let elements_read = self.model.[<get_ $name>](vr, &mut values[value_index..], &self.context)?;
+                    let elements_read = self.model.[<get_ $name>](*vr, &mut values[value_index..], &self.context)?;
                     value_index += elements_read;
                 }
                 Ok(Fmi3Res::OK)
@@ -40,8 +39,7 @@ macro_rules! instance_setter {
                 let mut value_index = 0;
                 for vr in vrs.iter() {
                     self.validate_variable_setting(*vr)?;
-                    let vr = F::ValueRef::try_from(*vr)?;
-                    let elements_written = self.model.[<set_ $name>](vr, &values[value_index..], &self.context)?;
+                    let elements_written = self.model.[<set_ $name>](*vr, &values[value_index..], &self.context)?;
                     value_index += elements_written;
                 }
 
@@ -60,9 +58,9 @@ macro_rules! instance_getter_setter {
     };
 }
 
-impl<F> GetSet for super::ModelInstance<F>
+impl<M> GetSet for super::ModelInstance<M>
 where
-    F: Model,
+    M: Model + ModelGetSet<M>,
 {
     // Standard getter/setter pairs
     instance_getter_setter!(boolean, bool);
@@ -84,8 +82,9 @@ where
     ) -> Result<(), Fmi3Error> {
         let mut value_index = 0;
         for vr in vrs.iter() {
-            let vr = F::ValueRef::try_from(*vr)?;
-            let elements_read = self.model.get_string(vr, &mut values[value_index..], &self.context)?;
+            let elements_read =
+                self.model
+                    .get_string(*vr, &mut values[value_index..], &self.context)?;
             value_index += elements_read;
         }
         Ok(())
@@ -99,8 +98,9 @@ where
         let mut value_index = 0;
         for vr in vrs.iter() {
             self.validate_variable_setting(*vr)?;
-            let vr = F::ValueRef::try_from(*vr)?;
-            let elements_written = self.model.set_string(vr, &values[value_index..], &self.context)?;
+            let elements_written =
+                self.model
+                    .set_string(*vr, &values[value_index..], &self.context)?;
             value_index += elements_written;
         }
         self.is_dirty_values = true;
@@ -115,8 +115,10 @@ where
         let mut result_sizes = Vec::new();
         let mut value_index = 0;
         for vr in vrs.iter() {
-            let vr = F::ValueRef::try_from(*vr)?;
-            let binary_sizes = self.model.get_binary(vr, &mut values[value_index..], &self.context)?;
+            let vr = M::ValueRef::try_from(*vr)?;
+            let binary_sizes =
+                self.model
+                    .get_binary(vr, &mut values[value_index..], &self.context)?;
             result_sizes.extend(binary_sizes.iter());
             value_index += binary_sizes.len();
         }
@@ -131,8 +133,10 @@ where
         let mut value_index = 0;
         for vr in vrs.iter() {
             self.validate_variable_setting(*vr)?;
-            let vr = F::ValueRef::try_from(*vr)?;
-            let elements_written = self.model.set_binary(vr, &values[value_index..], &self.context)?;
+            let vr = M::ValueRef::try_from(*vr)?;
+            let elements_written =
+                self.model
+                    .set_binary(vr, &values[value_index..], &self.context)?;
             value_index += elements_written;
         }
         self.is_dirty_values = true;

@@ -46,6 +46,7 @@ pub enum StructAttrOuter {
 pub struct Field {
     pub ident: syn::Ident,
     pub field_type: FieldType,
+    pub rust_type: syn::Type,
     pub attrs: Vec<FieldAttributeOuter>,
 }
 
@@ -108,11 +109,12 @@ impl TryFrom<syn::Field> for Field {
             })
             .collect();
 
-        let ty = FieldType::try_from(field.ty)?;
+        let ty = FieldType::try_from(field.ty.clone())?;
 
         Ok(Self {
             ident: field.ident.expect("Expected named field"),
             field_type: ty,
+            rust_type: field.ty,
             attrs,
         })
     }

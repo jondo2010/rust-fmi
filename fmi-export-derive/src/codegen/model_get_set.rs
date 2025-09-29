@@ -1,0 +1,149 @@
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{ToTokens, format_ident, quote};
+use syn::{Ident, parse_quote};
+
+use crate::model::Model;
+use fmi::fmi3::schema;
+
+pub struct ModelGetSetImpl<'a> {
+    pub struct_name: &'a Ident,
+    pub model: &'a Model,
+}
+
+fn build_getter_fn(
+    fn_name: Ident,
+    ty: syn::Type,
+    model: &crate::model::Model,
+) -> proc_macro2::TokenStream {
+    // Create scalar count variables:
+    // for each field, `let field_name_count = <FieldType as ModelGetSet<Self>>::FIELD_COUNT;`
+    let scalar_var_counts = model.fields.iter().map(|f| {
+        let count_name = format_ident!("{}_count", f.ident);
+        let field_type = &f.rust_type;
+        quote! {
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT as u32;
+        }
+    });
+
+    // Generate if-else conditions to route to the correct field
+    // We need to compute cumulative sums like f0_count, f0_count + inner_count, etc.
+    let mut conditions = Vec::new();
+
+    for (i, field) in model.fields.iter().enumerate() {
+        let field_name = &field.ident;
+        let field_type = &field.rust_type;
+        let count_name = format_ident!("{}_count", field.ident);
+
+        // Build cumulative sum for the condition
+        let cumulative_sum = if i == 0 {
+            quote! { #count_name }
+        } else {
+            let prev_sums: Vec<_> = model
+                .fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { #(#prev_sums)+* + #count_name }
+        };
+
+        // Build vr offset for the field call
+        let vr_offset = if i == 0 {
+            quote! { vr }
+        } else {
+            let prev_sums: Vec<_> = model
+                .fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { vr - (#(#prev_sums)+*) }
+        };
+
+        conditions.push(quote! {
+            if vr < #cumulative_sum {
+                <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::#fn_name(&self.#field_name, #vr_offset, values, context)
+            }
+        });
+    }
+
+    // Chain all conditions together with else if
+    let chained_conditions = if conditions.is_empty() {
+        quote! { Err(::fmi::fmi3::Fmi3Error::Error) }
+    } else {
+        let mut result = quote! { { Err(::fmi::fmi3::Fmi3Error::Error) } };
+        for condition in conditions.into_iter().rev() {
+            result = quote! { #condition else #result };
+        }
+        result
+    };
+
+    quote! {
+        fn #fn_name(
+            &self,
+            vr: ::fmi::fmi3::binding::fmi3ValueReference,
+            values: &mut [#ty],
+            context: &::fmi_export::fmi3::ModelContext<Self>
+        ) -> Result<usize, ::fmi::fmi3::Fmi3Error> {
+            #(#scalar_var_counts)*
+            #chained_conditions
+        }
+    }
+}
+
+impl ToTokens for ModelGetSetImpl<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let struct_name = self.struct_name;
+
+        let field_types = self.model.fields.iter().map(|f| &f.rust_type);
+
+        // Generate all getter/setter functions
+        let boolean_get_fn =
+            build_getter_fn(format_ident!("get_boolean"), parse_quote!(bool), self.model);
+        let float32_get_fn =
+            build_getter_fn(format_ident!("get_float32"), parse_quote!(f32), self.model);
+        let float64_get_fn =
+            build_getter_fn(format_ident!("get_float64"), parse_quote!(f64), self.model);
+        let int8_get_fn = build_getter_fn(format_ident!("get_int8"), parse_quote!(i8), self.model);
+        let int16_get_fn =
+            build_getter_fn(format_ident!("get_int16"), parse_quote!(i16), self.model);
+        let int32_get_fn =
+            build_getter_fn(format_ident!("get_int32"), parse_quote!(i32), self.model);
+        let int64_get_fn =
+            build_getter_fn(format_ident!("get_int64"), parse_quote!(i64), self.model);
+        let uint8_get_fn =
+            build_getter_fn(format_ident!("get_uint8"), parse_quote!(u8), self.model);
+        let uint16_get_fn =
+            build_getter_fn(format_ident!("get_uint16"), parse_quote!(u16), self.model);
+        let uint32_get_fn =
+            build_getter_fn(format_ident!("get_uint32"), parse_quote!(u32), self.model);
+        let uint64_get_fn =
+            build_getter_fn(format_ident!("get_uint64"), parse_quote!(u64), self.model);
+        let string_get_fn = build_getter_fn(
+            format_ident!("get_string"),
+            parse_quote!(std::ffi::CString),
+            self.model,
+        );
+
+        tokens.extend(quote! {
+            impl ::fmi_export::fmi3::ModelGetSet<Self> for #struct_name {
+                const FIELD_COUNT: usize = #(
+                    <#field_types as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT
+                )+*;
+
+                #boolean_get_fn
+                #float32_get_fn
+                #float64_get_fn
+                #int8_get_fn
+                #int16_get_fn
+                #int32_get_fn
+                #int64_get_fn
+                #uint8_get_fn
+                #uint16_get_fn
+                #uint32_get_fn
+                #uint64_get_fn
+                #string_get_fn
+            }
+        });
+    }
+}
