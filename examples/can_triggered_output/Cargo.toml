@@ -1,0 +1,15 @@
+[package]
+name = "can-triggered-output"
+version = "0.1.0"
+edition = "2021"
+description = "CAN triggered output example"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
+
+[package.metadata.fmu]
+default_experiment = { start_time = "0", step_size = "0.001" }

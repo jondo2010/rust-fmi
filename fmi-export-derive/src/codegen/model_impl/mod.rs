@@ -7,15 +7,12 @@ use crate::codegen::util;
 use crate::model::{FieldAttributeOuter, Model};
 use fmi::fmi3::schema;
 
-mod get_set_states;
-mod getter_setter;
 mod start_values;
-
-pub use getter_setter::GetterSetterGen;
 
 /// Generate the Model trait implementation
 pub struct ModelImpl<'a> {
     struct_name: &'a Ident,
+    value_ref_enum_name: Ident,
     model: &'a Model,
     model_variables: &'a schema::ModelVariables,
     model_structure: &'a schema::ModelStructure,
@@ -28,8 +25,10 @@ impl<'a> ModelImpl<'a> {
         model_variables: &'a schema::ModelVariables,
         model_structure: &'a schema::ModelStructure,
     ) -> Self {
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
         Self {
             struct_name,
+            value_ref_enum_name,
             model,
             model_variables,
             model_structure,
@@ -56,18 +55,17 @@ impl ToTokens for ModelImpl<'_> {
 
         // Generate function bodies
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
-        let get_continuous_states_body = get_set_states::GetContinuousStatesGen::new(&self.model);
-        let set_continuous_states_body = get_set_states::SetContinuousStatesGen::new(&self.model);
-        let get_derivatives_body = GetDerivativesGen::new(&self.model);
-        let variable_validation_body = VariableValidationGen::new(&self.model);
-        let getter_setter_methods = GetterSetterGen::new(&self.model);
+        let variable_validation_body =
+            VariableValidationGen::new(&self.model, &self.value_ref_enum_name);
 
-        let number_of_continuous_states = count_continuous_states(&self.model);
         let number_of_event_indicators = count_event_indicators(&self.model);
+
+        // Generate the ValueRef enum name
+        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
 
         tokens.extend(quote! {
             impl ::fmi_export::fmi3::Model for #struct_name {
-                type ValueRef = ::fmi::fmi3::binding::fmi3ValueReference;
+                type ValueRef = #value_ref_enum_name;
 
                 const MODEL_NAME: &'static str = #model_name;
                 const MODEL_VARIABLES_XML: &'static str = #model_variables_xml;
@@ -78,60 +76,19 @@ impl ToTokens for ModelImpl<'_> {
                     #set_start_values_body
                 }
 
-                fn get_continuous_states(&self, states: &mut [f64]) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    #get_continuous_states_body
-                }
-
-                fn set_continuous_states(&mut self, states: &[f64]) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    #set_continuous_states_body
-                }
-
-                fn get_continuous_state_derivatives(
-                    &mut self,
-                    derivatives: &mut [f64],
-                    context: &::fmi_export::fmi3::ModelContext<Self>
-                ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    #get_derivatives_body
-                }
-
-                fn get_number_of_continuous_states() -> usize {
-                    #number_of_continuous_states
-                }
-
                 fn get_number_of_event_indicators() -> usize {
                     #number_of_event_indicators
                 }
 
                 fn validate_variable_setting(
-                    vr: fmi::fmi3::binding::fmi3ValueReference,
+                    vr: Self::ValueRef,
                     state: &fmi_export::fmi3::ModelState,
                 ) -> Result<(), &'static str> {
                     #variable_validation_body
                 }
-
-                #getter_setter_methods
             }
         });
     }
-}
-
-/// Count the number of continuous states in the model
-fn count_continuous_states(model: &Model) -> usize {
-    model
-        .fields
-        .iter()
-        .filter_map(|field| {
-            let is_state = field.attrs.iter().any(|attr| {
-                matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.state == Some(true))
-            });
-            if is_state {
-                // For arrays, count the number of elements; for scalars, count as 1
-                Some(field.field_type.total_elements())
-            } else {
-                None
-            }
-        })
-        .sum()
 }
 
 /// Count the number of event indicators in the model
@@ -148,150 +105,17 @@ fn count_event_indicators(model: &Model) -> usize {
 
 // Helper generators for specific function bodies
 
-struct GetDerivativesGen<'a>(&'a Model);
-
-impl<'a> GetDerivativesGen<'a> {
-    fn new(model: &'a Model) -> Self {
-        Self(model)
-    }
-}
-
-impl ToTokens for GetDerivativesGen<'_> {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let mut derivative_assignments = Vec::new();
-        let mut state_fields = Vec::new();
-
-        // Collect state fields
-        for field in &self.0.fields {
-            let mut is_state = false;
-            for attr in &field.attrs {
-                if let FieldAttributeOuter::Variable(var_attr) = attr {
-                    if var_attr.state == Some(true) {
-                        is_state = true;
-                        break;
-                    }
-                }
-            }
-            if is_state {
-                state_fields.push(field);
-            }
-        }
-
-        if state_fields.is_empty() {
-            tokens.extend(quote! {
-                // No derivatives in this model
-                Ok(fmi::fmi3::Fmi3Res::OK)
-            });
-            return;
-        }
-
-        // Generate assignments that find the derivative field for each state
-        let mut derivative_index = 0usize;
-        for state_field in state_fields.iter() {
-            let state_name = &state_field.ident.to_string();
-            let derivative_name = format!("der({})", state_name);
-
-            // Look for a field that has an alias matching the derivative name OR
-            // Look for a field with derivative attribute pointing to this state
-            let mut derivative_field = None;
-            for field in &self.0.fields {
-                // Check for alias attribute first
-                for attr in &field.attrs {
-                    if let FieldAttributeOuter::Alias(alias_attr) = attr {
-                        if let Some(alias_name) = &alias_attr.name {
-                            if alias_name == &derivative_name {
-                                derivative_field = Some(field);
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // If not found, check for derivative attribute
-                if derivative_field.is_none() {
-                    for attr in &field.attrs {
-                        if let FieldAttributeOuter::Variable(var_attr) = attr {
-                            if let Some(derivative_of) = &var_attr.derivative {
-                                if &derivative_of.to_string() == state_name {
-                                    derivative_field = Some(field);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if derivative_field.is_some() {
-                    break;
-                }
-            }
-
-            if let Some(der_field) = derivative_field {
-                let der_field_name = &der_field.ident;
-
-                if state_field.field_type.dimensions.is_empty() {
-                    // Scalar state and derivative
-                    derivative_assignments.push(quote! {
-                        if #derivative_index < derivatives.len() {
-                            derivatives[#derivative_index] = self.#der_field_name;
-                        }
-                    });
-                    derivative_index += 1;
-                } else {
-                    // Array state and derivative - copy each element
-                    let total_elements = state_field.field_type.total_elements();
-                    for i in 0..total_elements {
-                        derivative_assignments.push(quote! {
-                            if #derivative_index < derivatives.len() {
-                                derivatives[#derivative_index] = self.#der_field_name[#i];
-                            }
-                        });
-                        derivative_index += 1;
-                    }
-                }
-            } else {
-                // Fallback to old behavior if no derivative field found
-                let derivative_field_name = format_ident!("der_{}", state_name);
-                if state_field.field_type.dimensions.is_empty() {
-                    derivative_assignments.push(quote! {
-                        if #derivative_index < derivatives.len() {
-                            derivatives[#derivative_index] = self.#derivative_field_name;
-                        }
-                    });
-                    derivative_index += 1;
-                } else {
-                    let total_elements = state_field.field_type.total_elements();
-                    for i in 0..total_elements {
-                        derivative_assignments.push(quote! {
-                            if #derivative_index < derivatives.len() {
-                                derivatives[#derivative_index] = self.#derivative_field_name[#i];
-                            }
-                        });
-                        derivative_index += 1;
-                    }
-                }
-            }
-        }
-
-        tokens.extend(quote! {
-            #(#derivative_assignments)*
-            Ok(fmi::fmi3::Fmi3Res::OK)
-        });
-    }
-}
-
-struct VariableValidationGen<'a>(&'a Model);
+struct VariableValidationGen<'a>(&'a Model, &'a Ident);
 
 impl<'a> VariableValidationGen<'a> {
-    fn new(model: &'a Model) -> Self {
-        Self(model)
+    fn new(model: &'a Model, value_ref_enum_name: &'a Ident) -> Self {
+        Self(model, value_ref_enum_name)
     }
 }
 
 impl ToTokens for VariableValidationGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let struct_name = &self.0.ident;
-        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
+        let value_ref_enum_name = &self.1;
 
         let mut cases = Vec::new();
 
@@ -383,7 +207,7 @@ impl ToTokens for VariableValidationGen<'_> {
         }
 
         tokens.extend(quote! {
-            match #value_ref_enum_name::from(vr) {
+            match vr {
                 #(#cases)*
                 _ => Ok(()), // Unknown variables are allowed by default
             }

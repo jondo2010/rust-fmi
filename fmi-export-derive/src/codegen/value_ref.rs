@@ -35,7 +35,7 @@ impl ToTokens for ValueRefEnum<'_> {
             Time = 0
         });
         from_u32_arms.push(quote! {
-            0 => #value_ref_enum_name::Time
+            0 => Ok(#value_ref_enum_name::Time)
         });
         into_u32_arms.push(quote! {
             #value_ref_enum_name::Time => 0
@@ -101,7 +101,7 @@ impl ToTokens for ValueRefEnum<'_> {
                     });
 
                     from_u32_arms.push(quote! {
-                        #vr => #value_ref_enum_name::#variant_name
+                        #vr => Ok(#value_ref_enum_name::#variant_name)
                     });
 
                     into_u32_arms.push(quote! {
@@ -123,7 +123,7 @@ impl ToTokens for ValueRefEnum<'_> {
                         });
 
                         from_u32_arms.push(quote! {
-                            #vr => #value_ref_enum_name::#variant_name
+                            #vr => Ok(#value_ref_enum_name::#variant_name)
                         });
 
                         into_u32_arms.push(quote! {
@@ -136,16 +136,27 @@ impl ToTokens for ValueRefEnum<'_> {
 
         tokens.extend(quote! {
             #[repr(u32)]
-            #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+            #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
             enum #value_ref_enum_name {
                 #(#value_ref_variants,)*
             }
 
-            impl From<fmi::fmi3::binding::fmi3ValueReference> for #value_ref_enum_name {
-                fn from(value: fmi::fmi3::binding::fmi3ValueReference) -> Self {
+            impl std::fmt::Display for #value_ref_enum_name {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    match self {
+                        Self::Time => write!(f, "Time"),
+                        _ => write!(f, "{:?}", self),
+                    }
+                }
+            }
+
+            impl TryFrom<fmi::fmi3::binding::fmi3ValueReference> for #value_ref_enum_name {
+                type Error = fmi::fmi3::Fmi3Error;
+
+                fn try_from(value: fmi::fmi3::binding::fmi3ValueReference) -> Result<Self, Self::Error> {
                     match value {
                         #(#from_u32_arms,)*
-                        _ => panic!("Invalid value reference: {}", value),
+                        _ => Err(fmi::fmi3::Fmi3Error::Error),
                     }
                 }
             }

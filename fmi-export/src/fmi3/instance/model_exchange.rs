@@ -1,10 +1,13 @@
 use super::ModelInstance;
-use crate::fmi3::{Model, ModelState, traits::ModelLoggingCategory};
-use fmi::fmi3::{Fmi3Error, Fmi3Res, ModelExchange, binding};
+use crate::fmi3::{
+    Model, ModelGetSetStates, ModelState,
+    traits::{ModelGetSet, ModelLoggingCategory},
+};
+use fmi::fmi3::{Fmi3Error, Fmi3Res, ModelExchange};
 
 impl<M> ModelExchange for ModelInstance<M>
 where
-    M: Model<ValueRef = binding::fmi3ValueReference>,
+    M: Model + ModelGetSet<M> + ModelGetSetStates,
 {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
@@ -68,13 +71,13 @@ where
         &mut self,
         continuous_states: &mut [f64],
     ) -> Result<Fmi3Res, Fmi3Error> {
-        let res = self.model.get_continuous_states(continuous_states)?;
+        self.model.get_continuous_states(continuous_states)?;
         self.context.log(
             Fmi3Res::OK,
             M::LoggingCategory::trace_category(),
             format_args!("get_continuous_states({continuous_states:?})"),
         );
-        Ok(res)
+        Ok(Fmi3Res::OK)
     }
 
     fn get_continuous_state_derivatives(
@@ -86,15 +89,13 @@ where
             self.model.calculate_values(&mut self.context)?;
             self.is_dirty_values = false;
         }
-        let res = self
-            .model
-            .get_continuous_state_derivatives(derivatives, &self.context)?;
+        self.model.get_continuous_state_derivatives(derivatives)?;
         self.context.log(
             Fmi3Res::OK,
             M::LoggingCategory::trace_category(),
             format_args!("get_continuous_state_derivatives({derivatives:?})"),
         );
-        Ok(res)
+        Ok(Fmi3Res::OK)
     }
 
     fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
@@ -125,6 +126,6 @@ where
     }
 
     fn get_number_of_continuous_states(&mut self) -> Result<usize, Fmi3Error> {
-        Ok(M::get_number_of_continuous_states())
+        Ok(M::NUM_STATES)
     }
 }

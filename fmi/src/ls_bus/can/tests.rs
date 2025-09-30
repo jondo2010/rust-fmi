@@ -1,0 +1,579 @@
+use crate::ls_bus::{
+    FmiLsBus,
+    can::{
+        LsBusCanArbitrationLostBehavior, LsBusCanErrorCode, LsBusCanErrorFlag, LsBusCanOp,
+        LsBusCanStatusKind,
+    },
+};
+
+use std::borrow::Cow;
+
+#[test]
+fn test_can_transmit_operation() {
+    let mut buffer = FmiLsBus::new(2048);
+    let test_data = b"test_data";
+
+    // Test creating CAN transmit operation
+    buffer
+        .write_operation(LsBusCanOp::Transmit {
+            id: 0x123,
+            ide: 1,
+            rtr: 0,
+            data: Cow::Borrowed(test_data),
+        })
+        .unwrap();
+
+    // Read back the operation
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Transmit { id, ide, rtr, data }) => {
+            assert_eq!(id, 0x123);
+            assert_eq!(ide, 1);
+            assert_eq!(rtr, 0);
+            assert_eq!(data.as_ref(), test_data);
+        }
+        _ => panic!("Expected Transmit operation"),
+    }
+}
+
+#[test]
+fn test_can_fd_transmit_operation() {
+    let mut buffer = FmiLsBus::new(2048);
+    let test_data = b"canfd_test";
+
+    // Create CAN FD transmit operation
+    buffer
+        .write_operation(LsBusCanOp::FdTransmit {
+            id: 0x456,
+            ide: 0,
+            brs: 1,
+            esi: 0,
+            data: Cow::Borrowed(test_data),
+        })
+        .unwrap();
+
+    // Read back the operation
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::FdTransmit {
+            id,
+            ide,
+            brs,
+            esi,
+            data,
+        }) => {
+            assert_eq!(id, 0x456);
+            assert_eq!(ide, 0);
+            assert_eq!(brs, 1);
+            assert_eq!(esi, 0);
+            assert_eq!(data.as_ref(), test_data);
+        }
+        _ => panic!("Expected FdTransmit operation"),
+    }
+}
+
+#[test]
+fn test_can_xl_transmit_operation() {
+    let mut buffer = FmiLsBus::new(2048);
+    let test_data = b"canxl_test";
+
+    // Create CAN XL transmit operation
+    buffer
+        .write_operation(LsBusCanOp::XlTransmit {
+            id: 0x789,
+            ide: 1,
+            sec: 1,
+            sdt: 0,
+            vcid: 2,
+            af: 0xABC,
+            data: Cow::Borrowed(test_data),
+        })
+        .unwrap();
+
+    // Read back the operation
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::XlTransmit {
+            id,
+            ide,
+            sec,
+            sdt,
+            vcid,
+            af,
+            data,
+        }) => {
+            assert_eq!(id, 0x789);
+            assert_eq!(ide, 1);
+            assert_eq!(sec, 1);
+            assert_eq!(sdt, 0);
+            assert_eq!(vcid, 2);
+            assert_eq!(af, 0xABC);
+            assert_eq!(data.as_ref(), test_data);
+        }
+        _ => panic!("Expected XlTransmit operation"),
+    }
+}
+
+#[test]
+fn test_can_confirm_operation() {
+    let mut buffer = FmiLsBus::new(1024);
+
+    // Create confirm operation
+    buffer.write_operation(LsBusCanOp::Confirm(0x555)).unwrap();
+
+    // Read back the operation
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Confirm(id)) => {
+            assert_eq!(id, 0x555);
+        }
+        _ => panic!("Expected Confirm operation"),
+    }
+}
+
+#[test]
+fn test_can_baudrate_config() {
+    let mut buffer = FmiLsBus::new(1024);
+
+    // Create baudrate configuration
+    buffer
+        .write_operation(LsBusCanOp::ConfigBaudrate(500000))
+        .unwrap();
+
+    // Read back the operation
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::ConfigBaudrate(baudrate)) => {
+            assert_eq!(baudrate, 500000);
+        }
+        _ => panic!("Expected ConfigBaudrate operation"),
+    }
+}
+
+#[test]
+fn test_can_config_arbitration_lost_operation() {
+    let mut buffer = FmiLsBus::new(1024);
+
+    // Test buffer and retransmit behavior
+    buffer
+        .write_operation(LsBusCanOp::ConfigArbitrationLost(
+            LsBusCanArbitrationLostBehavior::BufferAndRetransmit,
+        ))
+        .unwrap();
+
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::ConfigArbitrationLost(behavior)) => {
+            assert!(matches!(
+                behavior,
+                LsBusCanArbitrationLostBehavior::BufferAndRetransmit
+            ));
+        }
+        _ => panic!("Expected ConfigArbitrationLost operation"),
+    }
+
+    buffer.reset();
+
+    // Test discard and notify behavior
+    buffer
+        .write_operation(LsBusCanOp::ConfigArbitrationLost(
+            LsBusCanArbitrationLostBehavior::DiscardAndNotify,
+        ))
+        .unwrap();
+
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::ConfigArbitrationLost(behavior)) => {
+            assert!(matches!(
+                behavior,
+                LsBusCanArbitrationLostBehavior::DiscardAndNotify
+            ));
+        }
+        _ => panic!("Expected ConfigArbitrationLost operation"),
+    }
+}
+
+#[test]
+fn test_can_arbitration_lost_operation() {
+    let mut buffer = FmiLsBus::new(1024);
+    let test_id = 0x456;
+
+    buffer
+        .write_operation(LsBusCanOp::ArbitrationLost { id: test_id })
+        .unwrap();
+
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::ArbitrationLost { id }) => {
+            assert_eq!(id, test_id);
+        }
+        _ => panic!("Expected ArbitrationLost operation"),
+    }
+}
+
+#[test]
+fn test_can_bus_error_operation() {
+    let mut buffer = FmiLsBus::new(1024);
+    let test_id = 0x789;
+
+    buffer
+        .write_operation(LsBusCanOp::BusError {
+            id: test_id,
+            error_code: LsBusCanErrorCode::BitError,
+            error_flags: LsBusCanErrorFlag::Primary,
+            is_sender: true,
+        })
+        .unwrap();
+
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::BusError {
+            id,
+            error_code,
+            error_flags,
+            is_sender,
+        }) => {
+            assert_eq!(id, test_id);
+            assert!(matches!(error_code, LsBusCanErrorCode::BitError));
+            assert!(matches!(error_flags, LsBusCanErrorFlag::Primary));
+            assert!(is_sender);
+        }
+        _ => panic!("Expected BusError operation"),
+    }
+}
+
+#[test]
+fn test_can_status_operation() {
+    let mut buffer = FmiLsBus::new(1024);
+
+    // Test ErrorActive status
+    buffer
+        .write_operation(LsBusCanOp::Status(LsBusCanStatusKind::ErrorActive))
+        .unwrap();
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Status(LsBusCanStatusKind::ErrorActive)) => {}
+        _ => panic!("Expected Status(ErrorActive) operation"),
+    }
+
+    buffer.reset();
+
+    // Test ErrorPassive status
+    buffer
+        .write_operation(LsBusCanOp::Status(LsBusCanStatusKind::ErrorPassive))
+        .unwrap();
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Status(LsBusCanStatusKind::ErrorPassive)) => {}
+        _ => panic!("Expected Status(ErrorPassive) operation"),
+    }
+
+    buffer.reset();
+
+    // Test BusOff status
+    buffer
+        .write_operation(LsBusCanOp::Status(LsBusCanStatusKind::BusOff))
+        .unwrap();
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Status(LsBusCanStatusKind::BusOff)) => {}
+        _ => panic!("Expected Status(BusOff) operation"),
+    }
+}
+
+#[test]
+fn test_can_wakeup_operation() {
+    let mut buffer = FmiLsBus::new(1024);
+
+    buffer.write_operation(LsBusCanOp::Wakeup).unwrap();
+
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Wakeup) => {
+            // Success
+        }
+        _ => panic!("Expected Wakeup operation"),
+    }
+}
+
+#[test]
+fn test_multiple_operations_in_sequence() {
+    let mut buffer = FmiLsBus::new(4096);
+    let data1 = b"first";
+    let data2 = b"second";
+
+    // Create multiple operations
+    buffer
+        .write_operation(LsBusCanOp::Transmit {
+            id: 0x100,
+            ide: 0,
+            rtr: 0,
+            data: Cow::Borrowed(data1),
+        })
+        .unwrap();
+    buffer.write_operation(LsBusCanOp::Confirm(0x100)).unwrap();
+    buffer
+        .write_operation(LsBusCanOp::Transmit {
+            id: 0x200,
+            ide: 1,
+            rtr: 1,
+            data: Cow::Borrowed(data2),
+        })
+        .unwrap();
+
+    // Read back operations in order
+    let op1 = buffer.read_next_operation().unwrap();
+    match op1 {
+        Some(LsBusCanOp::Transmit { id, data, .. }) => {
+            assert_eq!(id, 0x100);
+            assert_eq!(data.as_ref(), data1);
+        }
+        _ => panic!("Expected first Transmit operation"),
+    }
+
+    let op2 = buffer.read_next_operation().unwrap();
+    match op2 {
+        Some(LsBusCanOp::Confirm(id)) => {
+            assert_eq!(id, 0x100);
+        }
+        _ => panic!("Expected Confirm operation"),
+    }
+
+    let op3 = buffer.read_next_operation().unwrap();
+    match op3 {
+        Some(LsBusCanOp::Transmit { id, data, .. }) => {
+            assert_eq!(id, 0x200);
+            assert_eq!(data.as_ref(), data2);
+        }
+        _ => panic!("Expected second Transmit operation"),
+    }
+
+    // No more operations
+    let op4: Option<LsBusCanOp> = buffer.read_next_operation().unwrap();
+    assert!(op4.is_none());
+}
+
+#[test]
+fn test_buffer_serialization() {
+    let mut buf1 = FmiLsBus::new(1024);
+    let mut buf2 = FmiLsBus::new(1024);
+    let test_data = b"serialize_test";
+
+    // Create operation in first buffer
+    buf1.write_operation(LsBusCanOp::Transmit {
+        id: 0x999,
+        ide: 1,
+        rtr: 1,
+        data: Cow::Borrowed(test_data),
+    })
+    .unwrap();
+
+    // Serialize to second buffer
+    buf2.write(buf1.as_slice()).unwrap();
+
+    // Read from second buffer
+    let operation = buf2.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Transmit { id, ide, rtr, data }) => {
+            assert_eq!(id, 0x999);
+            assert_eq!(ide, 1);
+            assert_eq!(rtr, 1);
+            assert_eq!(data.as_ref(), test_data);
+        }
+        _ => panic!("Expected Transmit operation"),
+    }
+}
+
+#[test]
+fn test_data_borrowing_optimization() {
+    let mut buffer = FmiLsBus::new(2048);
+    let test_data = b"borrowed_data";
+
+    // Create operation with borrowed data
+    buffer
+        .write_operation(LsBusCanOp::Transmit {
+            id: 42,
+            ide: 0,
+            rtr: 0,
+            data: Cow::Borrowed(test_data),
+        })
+        .unwrap();
+
+    // Read back the operation - data should be borrowed from buffer
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Transmit { data, .. }) => {
+            assert_eq!(data.as_ref(), test_data);
+            assert!(matches!(data, Cow::Borrowed(_)));
+        }
+        _ => panic!("Expected Transmit operation"),
+    }
+}
+
+#[test]
+fn test_comprehensive_operation_sequence() {
+    let mut buffer = FmiLsBus::new(8192);
+    let test_data = b"comprehensive";
+
+    // Create one of each operation type
+    buffer
+        .write_operation(LsBusCanOp::Transmit {
+            id: 0x100,
+            ide: 0,
+            rtr: 0,
+            data: Cow::Borrowed(test_data),
+        })
+        .unwrap();
+
+    buffer
+        .write_operation(LsBusCanOp::FdTransmit {
+            id: 0x200,
+            ide: 1,
+            brs: 1,
+            esi: 0,
+            data: Cow::Borrowed(test_data),
+        })
+        .unwrap();
+
+    buffer
+        .write_operation(LsBusCanOp::XlTransmit {
+            id: 0x300,
+            ide: 0,
+            sec: 1,
+            sdt: 0,
+            vcid: 1,
+            af: 0x123,
+            data: Cow::Borrowed(test_data),
+        })
+        .unwrap();
+
+    buffer.write_operation(LsBusCanOp::Confirm(0x400)).unwrap();
+    buffer
+        .write_operation(LsBusCanOp::ConfigBaudrate(1000000))
+        .unwrap();
+    buffer
+        .write_operation(LsBusCanOp::ConfigArbitrationLost(
+            LsBusCanArbitrationLostBehavior::BufferAndRetransmit,
+        ))
+        .unwrap();
+    buffer
+        .write_operation(LsBusCanOp::ArbitrationLost { id: 0x500 })
+        .unwrap();
+    buffer
+        .write_operation(LsBusCanOp::BusError {
+            id: 0x600,
+            error_code: LsBusCanErrorCode::CrcError,
+            error_flags: LsBusCanErrorFlag::Secondary,
+            is_sender: false,
+        })
+        .unwrap();
+    buffer
+        .write_operation(LsBusCanOp::Status(LsBusCanStatusKind::ErrorActive))
+        .unwrap();
+    buffer.write_operation(LsBusCanOp::Wakeup).unwrap();
+
+    // Read all operations back and verify
+    let operations = [
+        "Transmit",
+        "FdTransmit",
+        "XlTransmit",
+        "Confirm",
+        "ConfigBaudrate",
+        "ConfigArbitrationLost",
+        "ArbitrationLost",
+        "BusError",
+        "Status",
+        "Wakeup",
+    ];
+
+    for expected_op in operations {
+        let operation = buffer.read_next_operation().unwrap();
+        match (&operation, expected_op) {
+            (
+                Some(LsBusCanOp::Transmit {
+                    id: 0x100, data, ..
+                }),
+                "Transmit",
+            ) => {
+                assert_eq!(data.as_ref(), test_data);
+            }
+            (
+                Some(LsBusCanOp::FdTransmit {
+                    id: 0x200, data, ..
+                }),
+                "FdTransmit",
+            ) => {
+                assert_eq!(data.as_ref(), test_data);
+            }
+            (
+                Some(LsBusCanOp::XlTransmit {
+                    id: 0x300, data, ..
+                }),
+                "XlTransmit",
+            ) => {
+                assert_eq!(data.as_ref(), test_data);
+            }
+            (Some(LsBusCanOp::Confirm(0x400)), "Confirm") => {}
+            (Some(LsBusCanOp::ConfigBaudrate(1000000)), "ConfigBaudrate") => {}
+            (Some(LsBusCanOp::ConfigArbitrationLost(_)), "ConfigArbitrationLost") => {}
+            (Some(LsBusCanOp::ArbitrationLost { id: 0x500 }), "ArbitrationLost") => {}
+            (Some(LsBusCanOp::BusError { id: 0x600, .. }), "BusError") => {}
+            (Some(LsBusCanOp::Status(_)), "Status") => {}
+            (Some(LsBusCanOp::Wakeup), "Wakeup") => {}
+            _ => panic!("Expected {} operation, got {:?}", expected_op, operation),
+        }
+    }
+
+    // Verify no more operations
+    assert!(
+        buffer
+            .read_next_operation::<LsBusCanOp>()
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn test_edge_cases() {
+    let mut buffer = FmiLsBus::new(1024);
+
+    // Test with empty data
+    buffer
+        .write_operation(LsBusCanOp::Transmit {
+            id: 0,
+            ide: 0,
+            rtr: 0,
+            data: Cow::Borrowed(&[]),
+        })
+        .unwrap();
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Transmit { data, .. }) => {
+            assert!(data.is_empty());
+        }
+        _ => panic!("Expected Transmit operation"),
+    }
+
+    buffer.reset();
+
+    // Test with maximum values
+    let max_data = vec![0xFF; 64]; // Reasonable max size for CAN data
+    buffer
+        .write_operation(LsBusCanOp::Transmit {
+            id: u32::MAX,
+            ide: u8::MAX,
+            rtr: u8::MAX,
+            data: Cow::Borrowed(&max_data),
+        })
+        .unwrap();
+    let operation = buffer.read_next_operation().unwrap();
+    match operation {
+        Some(LsBusCanOp::Transmit { id, ide, rtr, data }) => {
+            assert_eq!(id, u32::MAX);
+            assert_eq!(ide, u8::MAX);
+            assert_eq!(rtr, u8::MAX);
+            assert_eq!(data.as_ref(), &max_data);
+        }
+        _ => panic!("Expected Transmit operation"),
+    }
+}

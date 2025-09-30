@@ -17,8 +17,6 @@ pub struct FieldAttribute {
     pub initial: Option<Initial>,
     /// Indicate that this variable is the derivative of another variable
     pub derivative: Option<syn::Ident>,
-    /// Indicate that this variable is a state variable
-    pub state: Option<bool>,
     /// Indicate that this variable is an event indicator
     pub event_indicator: Option<bool>,
 }

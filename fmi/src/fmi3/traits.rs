@@ -10,11 +10,11 @@ use crate::{
 /// This structure encapsulates all the information about how one variable depends
 /// on another, including element indices for array variables and the type of dependency.
 #[derive(Debug, Clone, PartialEq)]
-pub struct VariableDependency<VR: Copy> {
+pub struct VariableDependency {
     /// Element index of the dependent variable (0 = all elements, 1+ = specific element)
     pub dependent_element_index: usize,
     /// Value reference of the independent variable this dependency relates to
-    pub independent: VR,
+    pub independent: binding::fmi3ValueReference,
     /// Element index of the independent variable (0 = all elements, 1+ = specific element)
     pub independent_element_index: usize,
     /// The kind/type of dependency relationship
@@ -27,13 +27,13 @@ macro_rules! default_getter_setter {
             /// Get the values of the specified variable references.
             ///
             /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
-            fn [<get_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &mut [$ty]) -> Result<Fmi3Res, Fmi3Error> {
+            fn [<get_ $name>](&mut self, _vrs: &[binding::fmi3ValueReference], _values: &mut [$ty]) -> Result<Fmi3Res, Fmi3Error> {
                 unimplemented!();
             }
             /// Set the values of the specified variable references.
             ///
             /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
-            fn [<set_ $name>](&mut self, _vrs: &[Self::ValueRef], _values: &[$ty]) -> Result<Fmi3Res, Fmi3Error> {
+            fn [<set_ $name>](&mut self, _vrs: &[binding::fmi3ValueReference], _values: &[$ty]) -> Result<Fmi3Res, Fmi3Error> {
                 unimplemented!();
             }
         }
@@ -42,8 +42,6 @@ macro_rules! default_getter_setter {
 
 /// FMI Getter / Setter interface
 pub trait GetSet {
-    type ValueRef: Copy + From<binding::fmi3ValueReference> + Into<binding::fmi3ValueReference>;
-
     default_getter_setter!(boolean, bool);
     default_getter_setter!(float32, f32);
     default_getter_setter!(float64, f64);
@@ -57,7 +55,7 @@ pub trait GetSet {
     default_getter_setter!(uint64, u64);
     fn get_string(
         &mut self,
-        _vrs: &[Self::ValueRef],
+        _vrs: &[binding::fmi3ValueReference],
         _values: &mut [std::ffi::CString],
     ) -> Result<(), Fmi3Error> {
         unimplemented!();
@@ -65,7 +63,7 @@ pub trait GetSet {
 
     fn set_string(
         &mut self,
-        _vrs: &[Self::ValueRef],
+        _vrs: &[binding::fmi3ValueReference],
         _values: &[std::ffi::CString],
     ) -> Result<(), Fmi3Error> {
         unimplemented!();
@@ -82,7 +80,7 @@ pub trait GetSet {
     /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
     fn get_binary(
         &mut self,
-        _vrs: &[Self::ValueRef],
+        _vrs: &[binding::fmi3ValueReference],
         _values: &mut [&mut [u8]],
     ) -> Result<Vec<usize>, Fmi3Error> {
         unimplemented!()
@@ -91,7 +89,11 @@ pub trait GetSet {
     /// Set binary values in the FMU.
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#get-and-set-variable-values>
-    fn set_binary(&mut self, _vrs: &[Self::ValueRef], _values: &[&[u8]]) -> Result<(), Fmi3Error> {
+    fn set_binary(
+        &mut self,
+        _vrs: &[binding::fmi3ValueReference],
+        _values: &[&[u8]],
+    ) -> Result<(), Fmi3Error> {
         unimplemented!()
     }
 
@@ -108,13 +110,13 @@ pub trait GetSet {
 
     fn get_clock(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &mut [binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error>;
 
     fn set_clock(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &[binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error>;
 }
@@ -213,7 +215,7 @@ pub trait Common: GetSet {
     /// This function returns the number of dependencies for a given variable.
     fn get_number_of_variable_dependencies(
         &mut self,
-        vr: Self::ValueRef,
+        vr: binding::fmi3ValueReference,
     ) -> Result<usize, Fmi3Error>;
 
     /// This function returns the dependency information for a single variable.
@@ -237,8 +239,8 @@ pub trait Common: GetSet {
     /// * `Err(Fmi3Error)` - If the operation fails
     fn get_variable_dependencies(
         &mut self,
-        dependent: Self::ValueRef,
-    ) -> Result<Vec<VariableDependency<Self::ValueRef>>, Fmi3Error>;
+        dependent: binding::fmi3ValueReference,
+    ) -> Result<Vec<VariableDependency>, Fmi3Error>;
 }
 
 /// Interface for Model Exchange instances
@@ -407,7 +409,7 @@ pub trait ScheduledExecution: Common {
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3ActivateModelPartition>
     fn activate_model_partition(
         &mut self,
-        clock_reference: Self::ValueRef,
+        clock_reference: binding::fmi3ValueReference,
         activation_time: f64,
     ) -> Result<Fmi3Res, Fmi3Error>;
 }

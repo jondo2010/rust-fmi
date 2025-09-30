@@ -126,7 +126,8 @@ impl<M: Model> ModelInstance<M> {
 
     /// Validate that a variable can be set in the current model state
     fn validate_variable_setting(&self, vr: binding::fmi3ValueReference) -> Result<(), Fmi3Error> {
-        match M::validate_variable_setting(vr, &self.state) {
+        let vr_enum = M::ValueRef::try_from(vr)?;
+        match M::validate_variable_setting(vr_enum, &self.state) {
             Ok(()) => Ok(()),
             Err(message) => {
                 self.context.log(

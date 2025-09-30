@@ -1,5 +1,8 @@
 //! Traits that implement safe wrappers around the C-typed APIs
-use crate::checked_deref;
+use crate::{
+    checked_deref,
+    fmi3::{ModelGetSetStates, traits::ModelGetSet},
+};
 
 use super::Model;
 
@@ -85,7 +88,7 @@ macro_rules! wrapper_getset_functions {
     };
 }
 
-pub trait Fmi3Common: Model<ValueRef = binding::fmi3ValueReference> + Sized {
+pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
     #[inline(always)]
     unsafe fn fmi3_get_version() -> *const ::std::os::raw::c_char {
         binding::fmi3Version.as_ptr() as *const _
@@ -163,9 +166,8 @@ pub trait Fmi3Common: Model<ValueRef = binding::fmi3ValueReference> + Sized {
                 &token,
             ) {
                 Ok(instance) => {
-                    let this: ::std::boxed::Box<
-                        dyn ::fmi::fmi3::Common<ValueRef = binding::fmi3ValueReference>,
-                    > = ::std::boxed::Box::new(instance);
+                    let this: ::std::boxed::Box<dyn ::fmi::fmi3::Common> =
+                        ::std::boxed::Box::new(instance);
                     ::std::boxed::Box::into_raw(this) as binding::fmi3Instance
                 }
                 Err(_) => {
@@ -184,15 +186,15 @@ pub trait Fmi3Common: Model<ValueRef = binding::fmi3ValueReference> + Sized {
         instance_name: binding::fmi3String,
         instantiation_token: binding::fmi3String,
         resource_path: binding::fmi3String,
-        visible: binding::fmi3Boolean,
-        logging_on: binding::fmi3Boolean,
-        event_mode_used: binding::fmi3Boolean,
-        early_return_allowed: binding::fmi3Boolean,
-        required_intermediate_variables: *const binding::fmi3ValueReference,
-        n_required_intermediate_variables: usize,
-        instance_environment: binding::fmi3InstanceEnvironment,
-        log_message: binding::fmi3LogMessageCallback,
-        intermediate_update: binding::fmi3IntermediateUpdateCallback,
+        _visible: binding::fmi3Boolean,
+        _logging_on: binding::fmi3Boolean,
+        _event_mode_used: binding::fmi3Boolean,
+        _early_return_allowed: binding::fmi3Boolean,
+        _required_intermediate_variables: *const binding::fmi3ValueReference,
+        _n_required_intermediate_variables: usize,
+        _instance_environment: binding::fmi3InstanceEnvironment,
+        _log_message: binding::fmi3LogMessageCallback,
+        _intermediate_update: binding::fmi3IntermediateUpdateCallback,
     ) -> binding::fmi3Instance {
         let name = unsafe { ::std::ffi::CStr::from_ptr(instance_name) }
             .to_string_lossy()
@@ -212,13 +214,13 @@ pub trait Fmi3Common: Model<ValueRef = binding::fmi3ValueReference> + Sized {
         instance_name: binding::fmi3String,
         instantiation_token: binding::fmi3String,
         resource_path: binding::fmi3String,
-        visible: binding::fmi3Boolean,
-        logging_on: binding::fmi3Boolean,
-        instance_environment: binding::fmi3InstanceEnvironment,
-        log_message: binding::fmi3LogMessageCallback,
-        clock_update: binding::fmi3ClockUpdateCallback,
-        lock_preemption: binding::fmi3LockPreemptionCallback,
-        unlock_preemption: binding::fmi3UnlockPreemptionCallback,
+        _visible: binding::fmi3Boolean,
+        _logging_on: binding::fmi3Boolean,
+        _instance_environment: binding::fmi3InstanceEnvironment,
+        _log_message: binding::fmi3LogMessageCallback,
+        _clock_update: binding::fmi3ClockUpdateCallback,
+        _lock_preemption: binding::fmi3LockPreemptionCallback,
+        _unlock_preemption: binding::fmi3UnlockPreemptionCallback,
     ) -> binding::fmi3Instance {
         let name = unsafe { ::std::ffi::CStr::from_ptr(instance_name) }
             .to_string_lossy()
@@ -919,7 +921,7 @@ pub trait Fmi3Common: Model<ValueRef = binding::fmi3ValueReference> + Sized {
 }
 
 // Model Exchange trait
-pub trait Fmi3ModelExchange: Fmi3Common {
+pub trait Fmi3ModelExchange: Fmi3Common + ModelGetSetStates {
     #[inline(always)]
     unsafe fn fmi3_enter_continuous_time_mode(
         instance: binding::fmi3Instance,
@@ -1144,6 +1146,6 @@ pub trait Fmi3CoSimulation: Fmi3Common {
 }
 
 // Automatic implementations for all models
-impl<T> Fmi3Common for T where T: Model<ValueRef = binding::fmi3ValueReference> {}
-impl<T> Fmi3ModelExchange for T where T: Model + Fmi3Common {}
+impl<T> Fmi3Common for T where T: Model + ModelGetSet<Self> {}
+impl<T> Fmi3ModelExchange for T where T: Model + Fmi3Common + ModelGetSetStates {}
 impl<T> Fmi3CoSimulation for T where T: Model + Fmi3Common {}

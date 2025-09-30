@@ -3,14 +3,15 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 
-use crate::model::Model;
-use crate::model_structure;
-use crate::model_variables;
+use crate::{model::Model, model_structure, model_variables};
 use fmi::fmi3::schema;
 
 mod model_impl;
 mod util;
 mod value_ref;
+
+mod model_get_set;
+mod model_get_set_states;
 
 /// Main code generation structure
 pub struct CodeGenerator {
@@ -43,9 +44,6 @@ impl ToTokens for CodeGenerator {
         // Generate value reference enum
         let value_ref_enum = value_ref::ValueRefEnum::new(&self.model, &self.model_variables);
 
-        // Generate logging category enum
-        //let logging_category_enum = logging_category::LoggingCategoryEnum::new(&self.model);
-
         // Generate Model implementation
         let model_impl = model_impl::ModelImpl::new(
             struct_name,
@@ -54,11 +52,22 @@ impl ToTokens for CodeGenerator {
             &self.model_structure,
         );
 
+        let model_get_set_impl = model_get_set::ModelGetSetImpl {
+            struct_name,
+            model: &self.model,
+        };
+
+        let model_get_set_states_impl = model_get_set_states::ModelGetSetStatesImpl::new(
+            struct_name,
+            &self.model,
+        );
+
         // Combine all implementations
         tokens.extend(quote! {
             #value_ref_enum
-            //#logging_category_enum
             #model_impl
+            #model_get_set_impl
+            #model_get_set_states_impl
         });
     }
 }
