@@ -21,8 +21,8 @@ use std::{fmt::Display, str::FromStr};
 // Re-exports
 pub use instance::{ModelContext, ModelInstance};
 pub use traits::{
-    Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Model, ModelGetSet, ModelLoggingCategory,
-    UserModel,
+    Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Model, ModelGetSet, ModelGetSetStates,
+    ModelLoggingCategory, UserModel,
 };
 
 /// Represents the current state of the model instance

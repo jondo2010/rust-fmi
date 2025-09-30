@@ -11,6 +11,7 @@ mod util;
 mod value_ref;
 
 mod model_get_set;
+mod model_get_set_states;
 
 /// Main code generation structure
 pub struct CodeGenerator {
@@ -56,11 +57,17 @@ impl ToTokens for CodeGenerator {
             model: &self.model,
         };
 
+        let model_get_set_states_impl = model_get_set_states::ModelGetSetStatesImpl::new(
+            struct_name,
+            &self.model,
+        );
+
         // Combine all implementations
         tokens.extend(quote! {
             #value_ref_enum
             #model_impl
             #model_get_set_impl
+            #model_get_set_states_impl
         });
     }
 }

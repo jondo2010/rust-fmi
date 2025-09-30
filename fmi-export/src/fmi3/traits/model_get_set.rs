@@ -153,3 +153,124 @@ impl_model_get_set_primitive!(uint8, u8, schema::DataType::Uint8);
 impl_model_get_set_primitive!(uint16, u16, schema::DataType::Uint16);
 impl_model_get_set_primitive!(uint32, u32, schema::DataType::Uint32);
 impl_model_get_set_primitive!(uint64, u64, schema::DataType::Uint64);
+
+impl<M: Model> ModelGetSet<M> for String {
+    const FIELD_COUNT: usize = 1;
+    fn get_string(
+        &self,
+        vr: binding::fmi3ValueReference,
+        values: &mut [std::ffi::CString],
+        _context: &ModelContext<M>,
+    ) -> Result<usize, Fmi3Error> {
+        if vr == 0 && !values.is_empty() {
+            values[0] = std::ffi::CString::new(self.as_str()).unwrap();
+            Ok(1)
+        } else {
+            Err(Fmi3Error::Error)
+        }
+    }
+    fn set_string(
+        &mut self,
+        vr: binding::fmi3ValueReference,
+        values: &[std::ffi::CString],
+        _context: &ModelContext<M>,
+    ) -> Result<usize, Fmi3Error> {
+        if vr == 0 && !values.is_empty() {
+            *self = values[0]
+                .to_str()
+                .map_err(|_| Fmi3Error::Error)?
+                .to_string();
+            Ok(1)
+        } else {
+            Err(Fmi3Error::Error)
+        }
+    }
+}
+
+pub trait ModelGetSetStates {
+    /// The number of continuous states in the model
+    const NUM_STATES: usize;
+
+    /// Get continuous states from the model
+    /// Returns the current values of all continuous state variables
+    fn get_continuous_states(&self, states: &mut [f64]) -> Result<(), Fmi3Error>;
+
+    /// Set continuous states in the model
+    /// Sets new values for all continuous state variables
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<(), Fmi3Error>;
+
+    /// Get derivatives of continuous states
+    /// Returns the first-order time derivatives of all continuous state variables
+    fn get_continuous_state_derivatives(
+        &mut self,
+        derivatives: &mut [f64],
+    ) -> Result<(), Fmi3Error>;
+}
+
+impl ModelGetSetStates for f64 {
+    const NUM_STATES: usize = 1;
+
+    fn get_continuous_states(&self, states: &mut [f64]) -> Result<(), Fmi3Error> {
+        if states.is_empty() {
+            Err(Fmi3Error::Error)
+        } else {
+            states[0] = *self;
+            Ok(())
+        }
+    }
+
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<(), Fmi3Error> {
+        if states.is_empty() {
+            Err(Fmi3Error::Error)
+        } else {
+            *self = states[0];
+            Ok(())
+        }
+    }
+
+    fn get_continuous_state_derivatives(
+        &mut self,
+        derivatives: &mut [f64],
+    ) -> Result<(), Fmi3Error> {
+        if derivatives.is_empty() {
+            Err(Fmi3Error::Error)
+        } else {
+            derivatives[0] = *self;
+            Ok(())
+        }
+    }
+}
+
+impl<const N: usize> ModelGetSetStates for [f64; N] {
+    const NUM_STATES: usize = N;
+
+    fn get_continuous_states(&self, states: &mut [f64]) -> Result<(), Fmi3Error> {
+        if states.len() < Self::NUM_STATES {
+            Err(Fmi3Error::Error)
+        } else {
+            states[0..N].copy_from_slice(self);
+            Ok(())
+        }
+    }
+
+    fn set_continuous_states(&mut self, states: &[f64]) -> Result<(), Fmi3Error> {
+        if states.len() < Self::NUM_STATES {
+            Err(Fmi3Error::Error)
+        } else {
+            self.copy_from_slice(&states[0..N]);
+            Ok(())
+        }
+    }
+
+    fn get_continuous_state_derivatives(
+        &mut self,
+        derivatives: &mut [f64],
+    ) -> Result<(), Fmi3Error> {
+        if derivatives.len() < Self::NUM_STATES {
+            Err(Fmi3Error::Error)
+        } else {
+            derivatives[0..N].copy_from_slice(self);
+            Ok(())
+        }
+    }
+}

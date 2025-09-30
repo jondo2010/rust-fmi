@@ -7,7 +7,6 @@ use crate::codegen::util;
 use crate::model::{FieldAttributeOuter, Model};
 use fmi::fmi3::schema;
 
-mod get_set_states;
 mod start_values;
 
 /// Generate the Model trait implementation
@@ -56,13 +55,9 @@ impl ToTokens for ModelImpl<'_> {
 
         // Generate function bodies
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
-        let get_continuous_states_body = get_set_states::GetContinuousStatesGen::new(&self.model);
-        let set_continuous_states_body = get_set_states::SetContinuousStatesGen::new(&self.model);
-        let get_derivatives_body = get_set_states::GetDerivativesGen::new(&self.model);
         let variable_validation_body =
             VariableValidationGen::new(&self.model, &self.value_ref_enum_name);
 
-        let number_of_continuous_states = count_continuous_states(&self.model);
         let number_of_event_indicators = count_event_indicators(&self.model);
 
         // Generate the ValueRef enum name
@@ -81,26 +76,6 @@ impl ToTokens for ModelImpl<'_> {
                     #set_start_values_body
                 }
 
-                fn get_continuous_states(&self, states: &mut [f64]) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    #get_continuous_states_body
-                }
-
-                fn set_continuous_states(&mut self, states: &[f64]) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    #set_continuous_states_body
-                }
-
-                fn get_continuous_state_derivatives(
-                    &mut self,
-                    derivatives: &mut [f64],
-                    context: &::fmi_export::fmi3::ModelContext<Self>
-                ) -> Result<fmi::fmi3::Fmi3Res, fmi::fmi3::Fmi3Error> {
-                    #get_derivatives_body
-                }
-
-                fn get_number_of_continuous_states() -> usize {
-                    #number_of_continuous_states
-                }
-
                 fn get_number_of_event_indicators() -> usize {
                     #number_of_event_indicators
                 }
@@ -114,25 +89,6 @@ impl ToTokens for ModelImpl<'_> {
             }
         });
     }
-}
-
-/// Count the number of continuous states in the model
-fn count_continuous_states(model: &Model) -> usize {
-    model
-        .fields
-        .iter()
-        .filter_map(|field| {
-            let is_state = field.attrs.iter().any(|attr| {
-                matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.state == Some(true))
-            });
-            if is_state {
-                // For arrays, count the number of elements; for scalars, count as 1
-                Some(field.field_type.total_elements())
-            } else {
-                None
-            }
-        })
-        .sum()
 }
 
 /// Count the number of event indicators in the model

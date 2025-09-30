@@ -3,7 +3,6 @@ use quote::{ToTokens, format_ident, quote};
 use syn::{Ident, parse_quote};
 
 use crate::model::Model;
-use fmi::fmi3::schema;
 
 pub struct ModelGetSetImpl<'a> {
     pub struct_name: &'a Ident,

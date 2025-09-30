@@ -18,7 +18,7 @@ use fmi_export::{
 #[model()]
 struct Dahlquist {
     /// The state variable
-    #[variable(causality = Output, variability = Continuous, state, start = 1.0, initial = Exact)]
+    #[variable(causality = Output, variability = Continuous, start = 1.0, initial = Exact)]
     x: f64,
 
     /// The derivative of x, calculated as der(x) = -k * x

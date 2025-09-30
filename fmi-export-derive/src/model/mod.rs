@@ -73,6 +73,68 @@ impl Field {
     }
 }
 
+impl Model {
+    /// Returns an iterator over all continuous state fields.
+    /// A field is considered a continuous state if another field has it as a derivative.
+    pub fn iter_continuous_states(&self) -> impl Iterator<Item = &Field> {
+        self.fields.iter().filter(move |field| {
+            let field_name = field.ident.to_string();
+            self.is_continuous_state(&field_name)
+        })
+    }
+
+    /// Checks if a field with the given name is a continuous state variable.
+    /// A field is a continuous state if another field has it as a derivative.
+    pub fn is_continuous_state(&self, field_name: &str) -> bool {
+        self.fields.iter().any(|other_field| {
+            other_field.attrs.iter().any(|attr| {
+                let derivative_ref = match attr {
+                    FieldAttributeOuter::Variable(var_attr) => &var_attr.derivative,
+                    FieldAttributeOuter::Alias(alias_attr) => &alias_attr.derivative,
+                    _ => return false,
+                };
+                
+                derivative_ref.as_ref().map(|d| d.to_string()) == Some(field_name.to_string())
+            })
+        })
+    }
+
+    /// Counts the total number of continuous state elements (including array elements).
+    pub fn count_continuous_states(&self) -> usize {
+        self.iter_continuous_states()
+            .map(|field| field.field_type.total_elements())
+            .sum()
+    }
+
+    /// Iterator over all fields that are derivatives.
+    /// A field is considered a derivative if it has a derivative attribute.
+    pub fn iter_derivatives(&self) -> impl Iterator<Item = &Field> {
+        self.fields.iter().filter(|field| {
+            self.is_derivative(field)
+        })
+    }
+
+    /// Checks if a field is a derivative variable.
+    /// A field is a derivative if it has a derivative attribute.
+    pub fn is_derivative(&self, field: &Field) -> bool {
+        field.attrs.iter().any(|attr| {
+            match attr {
+                FieldAttributeOuter::Variable(var_attr) => var_attr.derivative.is_some(),
+                FieldAttributeOuter::Alias(alias_attr) => alias_attr.derivative.is_some(),
+                _ => false,
+            }
+        })
+    }
+
+    /// Counts the total number of derivative elements (including array elements).
+    #[allow(dead_code)]
+    pub fn count_derivatives(&self) -> usize {
+        self.iter_derivatives()
+            .map(|field| field.field_type.total_elements())
+            .sum()
+    }
+}
+
 impl TryFrom<syn::Field> for Field {
     type Error = String;
     fn try_from(field: syn::Field) -> Result<Self, String> {

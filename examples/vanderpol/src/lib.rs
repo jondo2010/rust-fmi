@@ -26,7 +26,7 @@ use fmi_export::{
 /// - der(x1) = μ(1 - x0²)x1 - x0
 #[derive(FmuModel, Default, Debug)]
 struct VanDerPol {
-    #[variable(causality = Output, variability = Continuous, state, start = [2.0, 0.0], initial = Exact)]
+    #[variable(causality = Output, variability = Continuous, start = [2.0, 0.0], initial = Exact)]
     x: [f64; 2],
 
     #[variable(causality = Local, variability = Continuous, derivative = x, initial = Calculated)]

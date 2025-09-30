@@ -10,7 +10,7 @@ use crate::fmi3::{ModelState, instance::ModelContext};
 mod model_get_set;
 mod wrappers;
 
-pub use model_get_set::ModelGetSet;
+pub use model_get_set::{ModelGetSet, ModelGetSetStates};
 pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
 
 /// Model trait. This trait should be implementing by deriving `FmuModel` on the user model struct.
@@ -32,25 +32,6 @@ pub trait Model: Default + UserModel {
 
     /// Set start values
     fn set_start_values(&mut self);
-
-    /// Get continuous states from the model
-    /// Returns the current values of all continuous state variables
-    fn get_continuous_states(&self, states: &mut [f64]) -> Result<Fmi3Res, Fmi3Error>;
-
-    /// Set continuous states in the model
-    /// Sets new values for all continuous state variables
-    fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi3Res, Fmi3Error>;
-
-    /// Get derivatives of continuous states
-    /// Returns the first-order time derivatives of all continuous state variables
-    fn get_continuous_state_derivatives(
-        &mut self,
-        derivatives: &mut [f64],
-        context: &ModelContext<Self>,
-    ) -> Result<Fmi3Res, Fmi3Error>;
-
-    /// Get the number of continuous states
-    fn get_number_of_continuous_states() -> usize;
 
     /// Get the number of event indicators
     fn get_number_of_event_indicators() -> usize;
@@ -75,39 +56,6 @@ pub trait Model: Default + UserModel {
         // - Initialize event indicator values
         // For now, just return OK since our basic implementation doesn't need these
         Fmi3Res::OK.into()
-    }
-}
-
-impl<M: Model> ModelGetSet<M> for String {
-    const FIELD_COUNT: usize = 1;
-    fn get_string(
-        &self,
-        vr: binding::fmi3ValueReference,
-        values: &mut [std::ffi::CString],
-        _context: &ModelContext<M>,
-    ) -> Result<usize, Fmi3Error> {
-        if vr == 0 && !values.is_empty() {
-            values[0] = std::ffi::CString::new(self.as_str()).unwrap();
-            Ok(1)
-        } else {
-            Err(Fmi3Error::Error)
-        }
-    }
-    fn set_string(
-        &mut self,
-        vr: binding::fmi3ValueReference,
-        values: &[std::ffi::CString],
-        _context: &ModelContext<M>,
-    ) -> Result<usize, Fmi3Error> {
-        if vr == 0 && !values.is_empty() {
-            *self = values[0]
-                .to_str()
-                .map_err(|_| Fmi3Error::Error)?
-                .to_string();
-            Ok(1)
-        } else {
-            Err(Fmi3Error::Error)
-        }
     }
 }
 

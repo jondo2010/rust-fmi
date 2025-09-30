@@ -1,5 +1,8 @@
 //! Traits that implement safe wrappers around the C-typed APIs
-use crate::{checked_deref, fmi3::traits::ModelGetSet};
+use crate::{
+    checked_deref,
+    fmi3::{ModelGetSetStates, traits::ModelGetSet},
+};
 
 use super::Model;
 
@@ -918,7 +921,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
 }
 
 // Model Exchange trait
-pub trait Fmi3ModelExchange: Fmi3Common {
+pub trait Fmi3ModelExchange: Fmi3Common + ModelGetSetStates {
     #[inline(always)]
     unsafe fn fmi3_enter_continuous_time_mode(
         instance: binding::fmi3Instance,
@@ -1144,5 +1147,5 @@ pub trait Fmi3CoSimulation: Fmi3Common {
 
 // Automatic implementations for all models
 impl<T> Fmi3Common for T where T: Model + ModelGetSet<Self> {}
-impl<T> Fmi3ModelExchange for T where T: Model + Fmi3Common {}
+impl<T> Fmi3ModelExchange for T where T: Model + Fmi3Common + ModelGetSetStates {}
 impl<T> Fmi3CoSimulation for T where T: Model + Fmi3Common {}

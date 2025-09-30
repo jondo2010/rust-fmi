@@ -15,11 +15,11 @@ use fmi_export::{
 #[model()]
 struct BouncingBall {
     /// Position of the ball
-    #[variable(causality = Output, state, event_indicator, start = 1.0, initial = Exact)]
+    #[variable(causality = Output, event_indicator, start = 1.0, initial = Exact)]
     h: f64,
 
     /// Velocity of the ball
-    #[variable(causality = Output, state, start = 0.0, initial = Exact)]
+    #[variable(causality = Output, start = 0.0, initial = Exact)]
     #[alias(name="der(h)", causality = Local, derivative = h, initial = Calculated)]
     v: f64,
 
