@@ -25,6 +25,8 @@ pub use traits::{
     ModelLoggingCategory, UserModel,
 };
 
+pub use variable_builder::FmiVariableBuilder;
+
 /// Represents the current state of the model instance
 #[derive(Debug)]
 pub enum ModelState {
