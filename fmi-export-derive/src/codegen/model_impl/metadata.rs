@@ -76,16 +76,98 @@ impl ToTokens for BuildMetadataGen<'_> {
                             // Generate model structure entries for derivatives
                             if let Some(derivative_ref) = &var_attr.derivative {
                                 let derivative_name = derivative_ref.to_string();
-                                if let Some(&state_vr) = field_name_to_vr.get(&derivative_name) {
+                                if field_name_to_vr.get(&derivative_name).is_some() {
                                     let current_vr = field_name_to_vr[&field.ident.to_string()];
+
+                                    // Add this field (derivative) to continuous_state_derivative
                                     model_structure_tokens.push(quote! {
-                                        model_structure.outputs.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                        model_structure.continuous_state_derivative.push(::fmi::schema::fmi3::Fmi3Unknown {
                                             annotations: None,
                                             value_reference: current_vr_offset + #current_vr,
-                                            dependencies: Some(vec![current_vr_offset + #state_vr]),
-                                            dependencies_kind: Some(vec![::fmi::schema::fmi3::DependenciesKind::Dependent]),
+                                            dependencies: None,
+                                            dependencies_kind: None,
                                         });
                                     });
+
+                                    // Add this field to initial_unknown if it has initial = Calculated
+                                    if let Some(initial) = &var_attr.initial {
+                                        let initial_schema: ::fmi::fmi3::schema::Initial =
+                                            (*initial).into();
+                                        if matches!(
+                                            initial_schema,
+                                            ::fmi::fmi3::schema::Initial::Calculated
+                                        ) {
+                                            model_structure_tokens.push(quote! {
+                                                model_structure.initial_unknown.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                                    annotations: None,
+                                                    value_reference: current_vr_offset + #current_vr,
+                                                    dependencies: None,
+                                                    dependencies_kind: None,
+                                                });
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Generate outputs for fields with Output causality
+                            if let Some(causality) = &var_attr.causality {
+                                let causality_schema: ::fmi::fmi3::schema::Causality =
+                                    (*causality).into();
+                                if matches!(
+                                    causality_schema,
+                                    ::fmi::fmi3::schema::Causality::Output
+                                ) {
+                                    let current_vr = field_name_to_vr[&field.ident.to_string()];
+
+                                    // Find if any other field has this field as derivative
+                                    let mut derivative_vr = None;
+                                    for other_field in &self.model.fields {
+                                        for other_attr in &other_field.attrs {
+                                            if let FieldAttributeOuter::Variable(other_var_attr) =
+                                                other_attr
+                                            {
+                                                if let Some(other_derivative_ref) =
+                                                    &other_var_attr.derivative
+                                                {
+                                                    if other_derivative_ref.to_string()
+                                                        == field.ident.to_string()
+                                                    {
+                                                        if let Some(&other_vr) = field_name_to_vr
+                                                            .get(&other_field.ident.to_string())
+                                                        {
+                                                            derivative_vr = Some(other_vr);
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if derivative_vr.is_some() {
+                                            break;
+                                        }
+                                    }
+
+                                    if let Some(dep_vr) = derivative_vr {
+                                        model_structure_tokens.push(quote! {
+                                            model_structure.outputs.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                                annotations: None,
+                                                value_reference: current_vr_offset + #current_vr,
+                                                dependencies: Some(vec![current_vr_offset + #dep_vr]),
+                                                dependencies_kind: Some(vec![::fmi::schema::fmi3::DependenciesKind::Dependent]),
+                                            });
+                                        });
+                                    } else {
+                                        // Output without dependencies
+                                        model_structure_tokens.push(quote! {
+                                            model_structure.outputs.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                                annotations: None,
+                                                value_reference: current_vr_offset + #current_vr,
+                                                dependencies: None,
+                                                dependencies_kind: None,
+                                            });
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -105,6 +187,7 @@ impl ToTokens for BuildMetadataGen<'_> {
 
         tokens.extend(quote! {
             use ::fmi_export::fmi3::FmiVariableBuilder;
+            use ::fmi::schema::fmi3::AppendToModelVariables;
             #vr_offset_tracking
             #(#variable_tokens)*
             #(#model_structure_tokens)*

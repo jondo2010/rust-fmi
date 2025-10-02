@@ -50,11 +50,13 @@ impl attribute_derive::parsing::AttributeValue for Causality {
         let causality_id: syn::Ident = input.parse()?;
         let causality = match (&causality_id).to_string().as_str() {
             "Parameter" => schema::Causality::Parameter,
+            "CalculatedParameter" => schema::Causality::CalculatedParameter,
             "Input" => schema::Causality::Input,
             "Output" => schema::Causality::Output,
             "Local" => schema::Causality::Local,
             "Independent" => schema::Causality::Independent,
-            "CalculatedParameter" => schema::Causality::CalculatedParameter,
+            "Dependent" => schema::Causality::Dependent,
+            "StructuralParameter" => schema::Causality::StructuralParameter,
             _ => {
                 return Err(syn::Error::new(
                     causality_id.span(),

@@ -4,10 +4,7 @@
 //! This implements a simple first-order linear ODE: der(x) = -k * x
 //! where x is the state variable and k is a parameter.
 
-use fmi::{
-    fmi3::{Fmi3Error, Fmi3Res},
-    schema::fmi3::AppendToModelVariables,
-};
+use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
     fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
     FmuModel,

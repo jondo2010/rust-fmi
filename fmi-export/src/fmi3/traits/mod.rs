@@ -39,7 +39,7 @@ pub trait Model: Default + UserModel {
     ) {
         let mut variables = fmi::schema::fmi3::ModelVariables::default();
         let time = fmi::schema::fmi3::FmiFloat64::new_time(None);
-        time.append_to_variables(&mut variables);
+        AppendToModelVariables::append_to_variables(time, &mut variables);
         let mut structure = fmi::schema::fmi3::ModelStructure::default();
         let _num_vars = Self::build_metadata(&mut variables, &mut structure, 1);
         (variables, structure)

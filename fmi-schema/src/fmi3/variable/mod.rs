@@ -339,6 +339,8 @@ macro_rules! impl_integer_type {
 }
 
 /// Enumeration that defines the causality of the variable.
+///
+/// See <https://fmi-standard.org/docs/3.0.1/#causality>
 #[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Causality {
     /// A data value that is constant during the simulation
@@ -372,7 +374,7 @@ pub enum Causality {
 /// time instants when a variable may be changed by the importer or may change its value due to FMU
 /// internal computations, depending on their causality.
 ///
-/// See [https://fmi-standard.org/docs/3.0.1/#variability]
+/// See <https://fmi-standard.org/docs/3.0.1/#variability>
 #[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub enum Variability {
     /// The value of the variable never changes.
