@@ -12,6 +12,8 @@
 // are never covered. This is ok since they are just thin wrappers around the Rust functions.
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod export;
+
+mod clock;
 mod instance;
 mod traits;
 mod variable_builder;
@@ -19,13 +21,13 @@ mod variable_builder;
 use std::{fmt::Display, str::FromStr};
 
 // Re-exports
+pub use clock::Clock;
 pub use instance::{ModelContext, ModelInstance};
 pub use traits::{
     Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Model, ModelGetSet, ModelGetSetStates,
     ModelLoggingCategory, UserModel,
 };
-
-pub use variable_builder::FmiVariableBuilder;
+pub use variable_builder::{FmiVariableBuilder, VariableBuilder};
 
 /// Represents the current state of the model instance
 #[derive(Debug)]

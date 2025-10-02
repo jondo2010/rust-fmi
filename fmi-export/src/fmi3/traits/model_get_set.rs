@@ -1,6 +1,6 @@
 use fmi::fmi3::{Fmi3Error, binding};
 
-use crate::fmi3::instance::ModelContext;
+use crate::fmi3::{Clock, instance::ModelContext};
 
 use super::Model;
 
@@ -140,6 +140,26 @@ pub trait ModelGetSet<M: Model> {
     ) -> Result<usize, Fmi3Error> {
         Err(Fmi3Error::Error)
     }
+
+    /// Get clock values from the model
+    fn get_clock(
+        &self,
+        _vr: binding::fmi3ValueReference,
+        _value: &mut binding::fmi3Clock,
+        _context: &ModelContext<M>,
+    ) -> Result<(), Fmi3Error> {
+        Err(Fmi3Error::Error)
+    }
+
+    /// Set clock values in the model
+    fn set_clock(
+        &mut self,
+        _vr: binding::fmi3ValueReference,
+        _value: &binding::fmi3Clock,
+        _context: &ModelContext<M>,
+    ) -> Result<(), Fmi3Error> {
+        Err(Fmi3Error::Error)
+    }
 }
 
 impl_model_get_set_primitive!(boolean, bool, schema::DataType::Boolean);
@@ -181,6 +201,36 @@ impl<M: Model> ModelGetSet<M> for String {
                 .map_err(|_| Fmi3Error::Error)?
                 .to_string();
             Ok(1)
+        } else {
+            Err(Fmi3Error::Error)
+        }
+    }
+}
+
+impl<M: Model> ModelGetSet<M> for Clock {
+    const FIELD_COUNT: usize = 1;
+    fn get_clock(
+        &self,
+        vr: binding::fmi3ValueReference,
+        value: &mut binding::fmi3Clock,
+        _context: &ModelContext<M>,
+    ) -> Result<(), Fmi3Error> {
+        if vr == 0 {
+            *value = self.0;
+            Ok(())
+        } else {
+            Err(Fmi3Error::Error)
+        }
+    }
+    fn set_clock(
+        &mut self,
+        vr: binding::fmi3ValueReference,
+        value: &binding::fmi3Clock,
+        _context: &ModelContext<M>,
+    ) -> Result<(), Fmi3Error> {
+        if vr == 0 {
+            self.0 = *value;
+            Ok(())
         } else {
             Err(Fmi3Error::Error)
         }

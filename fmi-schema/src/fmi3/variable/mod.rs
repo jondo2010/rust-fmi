@@ -34,6 +34,7 @@ pub enum VariableType {
     FmiBoolean,
     FmiString,
     FmiBinary,
+    FmiClock,
 }
 
 #[cfg(feature = "arrow")]
@@ -53,6 +54,7 @@ impl From<VariableType> for arrow::datatypes::DataType {
             VariableType::FmiBoolean => arrow::datatypes::DataType::Boolean,
             VariableType::FmiString => arrow::datatypes::DataType::Utf8,
             VariableType::FmiBinary => arrow::datatypes::DataType::Binary,
+            VariableType::FmiClock => arrow::datatypes::DataType::Boolean,
         }
     }
 }
@@ -84,11 +86,14 @@ pub trait ArrayableVariableTrait: AbstractVariableTrait {
     fn previous(&self) -> Option<u32>;
 }
 
-pub trait TypedArrayableVariableTrait: ArrayableVariableTrait {
+pub trait TypedVariableTrait {
     fn declared_type(&self) -> Option<&str>;
 }
 
-pub trait InitializableVariableTrait<T>: TypedArrayableVariableTrait {
+pub trait TypedArrayableVariableTrait: ArrayableVariableTrait + TypedVariableTrait {}
+impl<T> TypedArrayableVariableTrait for T where T: ArrayableVariableTrait + TypedVariableTrait {}
+
+pub trait InitializableVariableTrait<T> {
     fn initial(&self) -> Option<Initial>;
 
     fn start(&self) -> Option<&[T]>;
@@ -183,9 +188,9 @@ macro_rules! impl_arrayable_variable {
     };
 }
 
-macro_rules! impl_typed_arrayable_variable {
+macro_rules! impl_typed_variable {
     ($name:ident) => {
-        impl TypedArrayableVariableTrait for $name {
+        impl TypedVariableTrait for $name {
             fn declared_type(&self) -> Option<&str> {
                 self.init_var.typed_arrayable_var.declared_type.as_deref()
             }
@@ -226,7 +231,7 @@ macro_rules! impl_float_type {
 
         impl_abstract_variable!($name, Variability::Continuous);
         impl_arrayable_variable!($name);
-        impl_typed_arrayable_variable!($name);
+        impl_typed_variable!($name);
         impl_initializable_variable!($name, $type);
 
         impl $name {
@@ -295,7 +300,7 @@ macro_rules! impl_integer_type {
 
         impl_abstract_variable!($name, Variability::Discrete);
         impl_arrayable_variable!($name);
-        impl_typed_arrayable_variable!($name);
+        impl_typed_variable!($name);
         impl_initializable_variable!($name, $type);
 
         impl $name {
@@ -505,7 +510,7 @@ pub struct FmiBoolean {
 
 impl_abstract_variable!(FmiBoolean, Variability::Discrete);
 impl_arrayable_variable!(FmiBoolean);
-impl_typed_arrayable_variable!(FmiBoolean);
+impl_typed_variable!(FmiBoolean);
 impl_initializable_variable!(FmiBoolean, bool);
 
 impl FmiBoolean {
@@ -598,7 +603,7 @@ impl FmiString {
 
 impl_abstract_variable!(FmiString, Variability::Discrete);
 impl_arrayable_variable!(FmiString);
-impl_typed_arrayable_variable!(FmiString);
+impl_typed_variable!(FmiString);
 impl_initializable_variable!(FmiString, StringStart);
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
@@ -688,7 +693,7 @@ impl FmiBinary {
 
 impl_abstract_variable!(FmiBinary, Variability::Discrete);
 impl_arrayable_variable!(FmiBinary);
-impl_typed_arrayable_variable!(FmiBinary);
+impl_typed_variable!(FmiBinary);
 impl_initializable_variable!(FmiBinary, BinaryStart);
 
 // #[derive(Debug, YaSerialize, YaDeserialize)]
@@ -705,3 +710,83 @@ impl_initializable_variable!(FmiBinary, BinaryStart);
 // Fmi3Variable::Float32(FmiFloat32::default())
 // }
 // }
+
+/// IntervalVariability declares the Clock type
+///
+/// See <https://fmi-standard.org/docs/3.0.1/#table-overview-clocks>
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize, Clone, Copy)]
+pub enum IntervalVariability {
+    Constant,
+    Fixed,
+    Tunable,
+    Changing,
+    Countdown,
+    /// IntervalVariability *must* be set to Triggered for Clocks with causality = Output
+    #[default]
+    Triggered,
+}
+
+/// Clock variable type
+#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+pub struct FmiClock {
+    #[yaserde(rename = "canBeDeactivated", attribute = true)]
+    pub can_be_deactivated: Option<bool>,
+    #[yaserde(attribute = true)]
+    pub priority: Option<i32>,
+    #[yaserde(rename = "intervalVariability", attribute = true)]
+    pub interval_variability: IntervalVariability,
+    #[yaserde(rename = "intervalDecimal", attribute = true)]
+    pub interval_decimal: Option<f64>,
+    #[yaserde(rename = "shiftDecimal", attribute = true)]
+    pub shift_decimal: Option<f64>,
+    #[yaserde(rename = "supportsFraction", attribute = true)]
+    pub supports_fraction: Option<bool>,
+    #[yaserde(attribute = true)]
+    pub resolution: Option<u64>,
+    #[yaserde(rename = "intervalCounter", attribute = true)]
+    pub interval_counter: Option<u64>,
+    #[yaserde(rename = "shiftCounter", attribute = true)]
+    pub shift_counter: Option<u64>,
+    #[yaserde(flatten = true)]
+    pub init_var: InitializableVariable,
+}
+
+impl_abstract_variable!(FmiClock, Variability::Discrete);
+
+impl FmiClock {
+    pub fn new(
+        name: String,
+        value_reference: u32,
+        description: Option<String>,
+        causality: Causality,
+        variability: Variability,
+    ) -> Self {
+        Self {
+            init_var: InitializableVariable {
+                typed_arrayable_var: TypedArrayableVariable {
+                    arrayable_var: ArrayableVariable {
+                        abstract_var: AbstractVariable {
+                            name,
+                            value_reference,
+                            description,
+                            causality,
+                            variability: Some(variability),
+                            can_handle_multiple_set_per_time_instant: None,
+                            annotations: None,
+                        },
+                        ..Default::default()
+                    },
+                    declared_type: None,
+                },
+                initial: None,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+impl TypedVariableTrait for FmiClock {
+    fn declared_type(&self) -> Option<&str> {
+        self.init_var.typed_arrayable_var.declared_type.as_deref()
+    }
+}

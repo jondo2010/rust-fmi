@@ -202,11 +202,17 @@ where
 
     fn get_clock(
         &mut self,
-        _vrs: &[binding::fmi3ValueReference],
-        _values: &mut [binding::fmi3Clock],
+        vrs: &[binding::fmi3ValueReference],
+        values: &mut [binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error> {
-        // Default implementation: clocks not supported
-        Err(Fmi3Error::Error)
+        for (vr, value) in vrs.iter().zip(values.iter_mut()) {
+            if *vr == 0 {
+                // 'time' VR is not valid here
+                return Err(Fmi3Error::Error);
+            }
+            self.model.get_clock(*vr - 1, value, &self.context)?;
+        }
+        Ok(Fmi3Res::OK)
     }
 
     fn set_clock(
@@ -214,7 +220,14 @@ where
         _vrs: &[binding::fmi3ValueReference],
         _values: &[binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error> {
-        // Default implementation: clocks not supported
-        Err(Fmi3Error::Error)
+        for (vr, value) in _vrs.iter().zip(_values.iter()) {
+            if *vr == 0 {
+                // 'time' VR is not settable
+                return Err(Fmi3Error::Error);
+            }
+            self.validate_variable_setting(*vr - 1)?;
+            self.model.set_clock(*vr - 1, value, &self.context)?;
+        }
+        Ok(Fmi3Res::OK)
     }
 }

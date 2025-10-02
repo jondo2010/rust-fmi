@@ -22,6 +22,13 @@ pub struct FieldAttribute {
     pub derivative: Option<syn::Ident>,
     /// Indicate that this variable is an event indicator
     pub event_indicator: Option<bool>,
+    #[attribute()]
+    pub interval_variability: Option<IntervalVariability>,
+    /// If present, this variable is clocked. The value of the attribute clocks is a non-empty list of value references
+    /// of Clocks this variable belongs to.
+    pub clocks: Option<Vec<syn::Ident>>,
+    pub max_size: Option<usize>,
+    pub mime_type: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -148,6 +155,45 @@ impl attribute_derive::parsing::AttributeValue for Initial {
         Ok(attribute_derive::parsing::SpannedValue::new(
             Initial(initial),
             initial_id.span(),
+        ))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct IntervalVariability(pub schema::IntervalVariability);
+
+impl From<schema::IntervalVariability> for IntervalVariability {
+    fn from(iv: schema::IntervalVariability) -> Self {
+        IntervalVariability(iv)
+    }
+}
+
+impl attribute_derive::parsing::AttributeBase for IntervalVariability {
+    type Partial = Self;
+}
+
+impl attribute_derive::parsing::AttributeValue for IntervalVariability {
+    fn parse_value(
+        input: syn::parse::ParseStream,
+    ) -> syn::Result<attribute_derive::parsing::SpannedValue<Self::Partial>> {
+        let variability_id: syn::Ident = input.parse()?;
+        let variability = match variability_id.to_string().as_str() {
+            "Constant" => schema::IntervalVariability::Constant,
+            "Fixed" => schema::IntervalVariability::Fixed,
+            "Tunable" => schema::IntervalVariability::Tunable,
+            "Changing" => schema::IntervalVariability::Changing,
+            "Countdown" => schema::IntervalVariability::Countdown,
+            "Triggered" => schema::IntervalVariability::Triggered,
+            _ => {
+                return Err(syn::Error::new(
+                    variability_id.span(),
+                    format!("Invalid interval variability '{}'", variability_id),
+                ));
+            }
+        };
+        Ok(attribute_derive::parsing::SpannedValue::new(
+            IntervalVariability(variability),
+            variability_id.span(),
         ))
     }
 }

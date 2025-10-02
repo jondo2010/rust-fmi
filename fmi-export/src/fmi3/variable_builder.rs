@@ -1,5 +1,7 @@
 use fmi::fmi3::{binding, schema};
 
+use crate::fmi3::clock::Clock;
+
 /// Wrapper for start values that can be either scalar or vector
 pub enum StartValue<T> {
     Scalar(T),
@@ -458,6 +460,24 @@ where
         };
 
         T::finish(element_builder)
+    }
+}
+
+impl FmiVariableBuilder for Clock {
+    type Var = schema::FmiClock;
+
+    type Start = ();
+
+    fn finish(builder: VariableBuilder<Self>) -> Self::Var {
+        let mut var = schema::FmiClock::new(
+            builder.name,
+            builder.value_reference,
+            builder.description,
+            builder.causality.unwrap_or(schema::Causality::Local),
+            builder.variability.unwrap_or_default(),
+        );
+
+        var
     }
 }
 

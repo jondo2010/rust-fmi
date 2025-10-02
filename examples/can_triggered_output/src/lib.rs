@@ -2,7 +2,7 @@
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
-    fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
+    fmi3::{Clock, DefaultLoggingCategory, ModelContext, UserModel},
     FmuModel,
 };
 
@@ -16,7 +16,7 @@ struct CanTriggeredOutput {
         max_size = 2048,
         clocks = [rx_clock],
         mime_type = "application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"",
-        start = ""
+        //start = ""
     )]
     rx_data: Vec<u8>,
 
@@ -32,10 +32,10 @@ struct CanTriggeredOutput {
     tx_data: Vec<u8>,
 
     #[variable(name="CanChannel.Rx_Clock", causality=Input, interval_variability=Triggered)]
-    rx_clock: bool,
+    rx_clock: Clock,
 
     #[variable(name="CanChannel.Tx_Clock", causality=Output, interval_variability=Triggered)]
-    tx_clock: bool,
+    tx_clock: Clock,
 
     #[variable(
         name = "org.fmi_standard.fmi_ls_bus.Can_BusNotifications",
@@ -57,3 +57,15 @@ impl UserModel for CanTriggeredOutput {
 
 // Export the FMU with full C API
 fmi_export::export_fmu!(CanTriggeredOutput);
+
+#[cfg(test)]
+mod tests {
+    use fmi_export::fmi3::Model;
+
+    use super::*;
+
+    #[test]
+    fn test_model_metadata() {
+        let (variables, structure) = CanTriggeredOutput::build_toplevel_metadata();
+    }
+}
