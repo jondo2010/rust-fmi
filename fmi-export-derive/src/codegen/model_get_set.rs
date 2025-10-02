@@ -90,6 +90,156 @@ fn build_getter_fn(
     }
 }
 
+fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
+    // Create scalar count variables:
+    let scalar_var_counts = model.fields.iter().map(|f| {
+        let count_name = format_ident!("{}_count", f.ident);
+        let field_type = &f.rust_type;
+        quote! {
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT as u32;
+        }
+    });
+
+    // Generate if-else conditions to route to the correct field
+    let mut conditions = Vec::new();
+
+    for (i, field) in model.fields.iter().enumerate() {
+        let field_name = &field.ident;
+        let field_type = &field.rust_type;
+        let count_name = format_ident!("{}_count", field.ident);
+
+        // Build cumulative sum for the condition
+        let cumulative_sum = if i == 0 {
+            quote! { #count_name }
+        } else {
+            let prev_sums: Vec<_> = model
+                .fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { #(#prev_sums)+* + #count_name }
+        };
+
+        // Build vr offset for the field call
+        let vr_offset = if i == 0 {
+            quote! { vr }
+        } else {
+            let prev_sums: Vec<_> = model
+                .fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { vr - (#(#prev_sums)+*) }
+        };
+
+        conditions.push(quote! {
+            if vr < #cumulative_sum {
+                <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::get_clock(&self.#field_name, #vr_offset, value, context)
+            }
+        });
+    }
+
+    // Chain all conditions together with else if
+    let chained_conditions = if conditions.is_empty() {
+        quote! { Err(::fmi::fmi3::Fmi3Error::Error) }
+    } else {
+        let mut result = quote! { { Err(::fmi::fmi3::Fmi3Error::Error) } };
+        for condition in conditions.into_iter().rev() {
+            result = quote! { #condition else #result };
+        }
+        result
+    };
+
+    quote! {
+        fn get_clock(
+            &self,
+            vr: ::fmi::fmi3::binding::fmi3ValueReference,
+            value: &mut ::fmi::fmi3::binding::fmi3Clock,
+            context: &::fmi_export::fmi3::ModelContext<Self>
+        ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
+            #(#scalar_var_counts)*
+            #chained_conditions
+        }
+    }
+}
+
+fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
+    // Create scalar count variables:
+    let scalar_var_counts = model.fields.iter().map(|f| {
+        let count_name = format_ident!("{}_count", f.ident);
+        let field_type = &f.rust_type;
+        quote! {
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT as u32;
+        }
+    });
+
+    // Generate if-else conditions to route to the correct field
+    let mut conditions = Vec::new();
+
+    for (i, field) in model.fields.iter().enumerate() {
+        let field_name = &field.ident;
+        let field_type = &field.rust_type;
+        let count_name = format_ident!("{}_count", field.ident);
+
+        // Build cumulative sum for the condition
+        let cumulative_sum = if i == 0 {
+            quote! { #count_name }
+        } else {
+            let prev_sums: Vec<_> = model
+                .fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { #(#prev_sums)+* + #count_name }
+        };
+
+        // Build vr offset for the field call
+        let vr_offset = if i == 0 {
+            quote! { vr }
+        } else {
+            let prev_sums: Vec<_> = model
+                .fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { vr - (#(#prev_sums)+*) }
+        };
+
+        conditions.push(quote! {
+            if vr < #cumulative_sum {
+                <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::set_clock(&mut self.#field_name, #vr_offset, value, context)
+            }
+        });
+    }
+
+    // Chain all conditions together with else if
+    let chained_conditions = if conditions.is_empty() {
+        quote! { Err(::fmi::fmi3::Fmi3Error::Error) }
+    } else {
+        let mut result = quote! { { Err(::fmi::fmi3::Fmi3Error::Error) } };
+        for condition in conditions.into_iter().rev() {
+            result = quote! { #condition else #result };
+        }
+        result
+    };
+
+    quote! {
+        fn set_clock(
+            &mut self,
+            vr: ::fmi::fmi3::binding::fmi3ValueReference,
+            value: &::fmi::fmi3::binding::fmi3Clock,
+            context: &::fmi_export::fmi3::ModelContext<Self>
+        ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
+            #(#scalar_var_counts)*
+            #chained_conditions
+        }
+    }
+}
+
 impl ToTokens for ModelGetSetImpl<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let struct_name = self.struct_name;
@@ -124,6 +274,10 @@ impl ToTokens for ModelGetSetImpl<'_> {
             self.model,
         );
 
+        // Generate Clock-specific methods
+        let clock_get_fn = build_clock_get_fn(self.model);
+        let clock_set_fn = build_clock_set_fn(self.model);
+
         tokens.extend(quote! {
             impl ::fmi_export::fmi3::ModelGetSet<Self> for #struct_name {
                 const FIELD_COUNT: usize = #(
@@ -142,6 +296,8 @@ impl ToTokens for ModelGetSetImpl<'_> {
                 #uint32_get_fn
                 #uint64_get_fn
                 #string_get_fn
+                #clock_get_fn
+                #clock_set_fn
             }
         });
     }

@@ -1,6 +1,6 @@
 use fmi::fmi3::{binding, schema};
 
-use crate::fmi3::clock::Clock;
+use crate::fmi3::types::{Binary, Clock};
 
 /// Wrapper for start values that can be either scalar or vector
 pub enum StartValue<T> {
@@ -26,6 +26,19 @@ impl<T: Clone> From<StartValue<T>> for Vec<T> {
             StartValue::Scalar(v) => vec![v],
             StartValue::Vector(v) => v,
         }
+    }
+}
+
+// Special implementation for byte arrays to support Binary start values
+impl<const N: usize> From<&[u8; N]> for StartValue<Vec<u8>> {
+    fn from(value: &[u8; N]) -> Self {
+        StartValue::Scalar(value.to_vec())
+    }
+}
+
+impl From<&[u8]> for StartValue<Vec<u8>> {
+    fn from(value: &[u8]) -> Self {
+        StartValue::Scalar(value.to_vec())
     }
 }
 
@@ -65,6 +78,13 @@ where
     // Integer attributes
     quantity: Option<String>,
 
+    // Binary attributes
+    max_size: Option<usize>,
+    mime_type: Option<String>,
+
+    // Clock attributes
+    clocks: Option<Vec<u32>>,
+
     // Dimensions for array variables
     dimensions: Vec<schema::Dimension>,
 
@@ -95,6 +115,9 @@ where
             max: None,
             nominal: None,
             quantity: None,
+            max_size: None,
+            mime_type: None,
+            clocks: None,
             dimensions: Vec::new(),
             _phantom: std::marker::PhantomData,
         }
@@ -201,6 +224,28 @@ where
     /// Add dimensions to the variable (for array types).
     pub fn with_dimensions(mut self, dimensions: Vec<schema::Dimension>) -> Self {
         self.dimensions = dimensions;
+        self
+    }
+
+    // Binary-specific attribute setters
+
+    /// Set the maximum size for binary variables.
+    pub fn with_max_size(mut self, max_size: usize) -> Self {
+        self.max_size = Some(max_size);
+        self
+    }
+
+    /// Set the MIME type for binary variables.
+    pub fn with_mime_type(mut self, mime_type: impl Into<String>) -> Self {
+        self.mime_type = Some(mime_type.into());
+        self
+    }
+
+    // Clock-related attribute setters
+
+    /// Set the clocks that this variable belongs to.
+    pub fn with_clocks(mut self, clocks: Vec<u32>) -> Self {
+        self.clocks = Some(clocks);
         self
     }
 
@@ -413,6 +458,9 @@ where
             max: builder.max,
             nominal: builder.nominal,
             quantity: builder.quantity,
+            max_size: builder.max_size,
+            mime_type: builder.mime_type,
+            clocks: builder.clocks,
             dimensions: builder.dimensions,
             _phantom: std::marker::PhantomData,
         };
@@ -455,6 +503,9 @@ where
             max: builder.max,
             nominal: builder.nominal,
             quantity: builder.quantity,
+            max_size: builder.max_size,
+            mime_type: builder.mime_type,
+            clocks: builder.clocks,
             dimensions: builder.dimensions,
             _phantom: std::marker::PhantomData,
         };
@@ -469,13 +520,64 @@ impl FmiVariableBuilder for Clock {
     type Start = ();
 
     fn finish(builder: VariableBuilder<Self>) -> Self::Var {
-        let mut var = schema::FmiClock::new(
+        let var = schema::FmiClock::new(
             builder.name,
             builder.value_reference,
             builder.description,
             builder.causality.unwrap_or(schema::Causality::Local),
             builder.variability.unwrap_or_default(),
         );
+
+        var
+    }
+}
+
+impl FmiVariableBuilder for Binary {
+    type Var = schema::FmiBinary;
+    type Start = StartValue<Vec<u8>>;
+
+    fn finish(builder: VariableBuilder<Self>) -> Self::Var {
+        let start_values = builder.start.map(|start| {
+            let vec_values: Vec<Vec<u8>> = start.into();
+            vec_values.into_iter()
+                .map(|bytes| {
+                    // Simple hex encoding since base64 is not available
+                    bytes.iter()
+                        .map(|b| format!("{:02x}", b))
+                        .collect::<String>()
+                })
+                .collect()
+        });
+
+        let mut var = schema::FmiBinary::new(
+            builder.name,
+            builder.value_reference,
+            builder.description,
+            builder.causality.unwrap_or(schema::Causality::Local),
+            builder.variability.unwrap_or(schema::Variability::Discrete),
+            start_values,
+            builder.initial,
+        );
+
+        // Set max_size if provided
+        if let Some(max_size) = builder.max_size {
+            var.max_size = Some(max_size as u32);
+        }
+
+        // Set mime_type if provided  
+        if let Some(mime_type) = builder.mime_type {
+            var.mime_type = mime_type;
+        }
+
+        // Set clocks if provided
+        if let Some(clocks) = builder.clocks {
+            var.abstract_var.clocks = Some(clocks);
+        }
+
+        // Apply dimensions if any
+        if !builder.dimensions.is_empty() {
+            var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
+        }
 
         var
     }

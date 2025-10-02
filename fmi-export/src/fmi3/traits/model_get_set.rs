@@ -1,6 +1,6 @@
 use fmi::fmi3::{Fmi3Error, binding};
 
-use crate::fmi3::{Clock, instance::ModelContext};
+use crate::fmi3::{Clock, instance::ModelContext, types::Binary};
 
 use super::Model;
 
@@ -231,6 +231,38 @@ impl<M: Model> ModelGetSet<M> for Clock {
         if vr == 0 {
             self.0 = *value;
             Ok(())
+        } else {
+            Err(Fmi3Error::Error)
+        }
+    }
+}
+
+impl<M: Model> ModelGetSet<M> for Binary {
+    const FIELD_COUNT: usize = 1;
+    fn get_binary(
+        &self,
+        vr: binding::fmi3ValueReference,
+        values: &mut [&mut [u8]],
+        _context: &ModelContext<M>,
+    ) -> Result<Vec<usize>, Fmi3Error> {
+        if vr == 0 && !values.is_empty() {
+            let len = std::cmp::min(self.0.len(), values[0].len());
+            values[0][..len].copy_from_slice(&self.0[..len]);
+            Ok(vec![len])
+        } else {
+            Err(Fmi3Error::Error)
+        }
+    }
+    fn set_binary(
+        &mut self,
+        vr: binding::fmi3ValueReference,
+        values: &[&[u8]],
+        _context: &ModelContext<M>,
+    ) -> Result<usize, Fmi3Error> {
+        if vr == 0 && !values.is_empty() {
+            self.0.clear();
+            self.0.extend_from_slice(values[0]);
+            Ok(1)
         } else {
             Err(Fmi3Error::Error)
         }

@@ -3,7 +3,7 @@ use yaserde_derive::{YaDeserialize, YaSerialize};
 use crate::fmi3::TypedArrayableVariableTrait;
 
 use super::{
-    AbstractVariableTrait, FmiBinary, FmiBoolean, FmiFloat32, FmiFloat64, FmiInt8, FmiInt16,
+    AbstractVariableTrait, FmiBinary, FmiBoolean, FmiClock, FmiFloat32, FmiFloat64, FmiInt8, FmiInt16,
     FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16, FmiUInt32, FmiUInt64,
 };
 
@@ -35,6 +35,8 @@ pub struct ModelVariables {
     pub string: Vec<FmiString>,
     #[yaserde(rename = "Binary")]
     pub binary: Vec<FmiBinary>,
+    #[yaserde(rename = "Clock")]
+    pub clock: Vec<FmiClock>,
 }
 
 impl ModelVariables {
@@ -63,6 +65,7 @@ impl ModelVariables {
             self.boolean.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.string.iter().map(|v| v as &dyn AbstractVariableTrait),
             self.binary.iter().map(|v| v as &dyn AbstractVariableTrait),
+            self.clock.iter().map(|v| v as &dyn AbstractVariableTrait),
         )
     }
 
@@ -158,5 +161,17 @@ impl AppendToModelVariables for FmiBoolean {
 impl AppendToModelVariables for FmiString {
     fn append_to_variables(self, variables: &mut ModelVariables) {
         variables.string.push(self);
+    }
+}
+
+impl AppendToModelVariables for FmiBinary {
+    fn append_to_variables(self, variables: &mut ModelVariables) {
+        variables.binary.push(self);
+    }
+}
+
+impl AppendToModelVariables for FmiClock {
+    fn append_to_variables(self, variables: &mut ModelVariables) {
+        variables.clock.push(self);
     }
 }

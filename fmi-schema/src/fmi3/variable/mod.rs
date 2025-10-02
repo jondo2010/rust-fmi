@@ -71,6 +71,7 @@ pub trait AbstractVariableTrait {
     fn causality(&self) -> Causality;
     fn variability(&self) -> Variability;
     fn can_handle_multiple_set_per_time_instant(&self) -> Option<bool>;
+    fn clocks(&self) -> Option<&[u32]>;
     fn data_type(&self) -> VariableType;
     fn annotations(&self) -> Option<&Annotations>;
 }
@@ -103,60 +104,33 @@ macro_rules! impl_abstract_variable {
     ($name:ident, $default_variability:expr) => {
         impl AbstractVariableTrait for $name {
             fn name(&self) -> &str {
-                &self
-                    .init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .name
+                &self.abstract_var.name
             }
             fn value_reference(&self) -> u32 {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .value_reference
+                self.abstract_var.value_reference
             }
             fn description(&self) -> Option<&str> {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .description
-                    .as_deref()
+                self.abstract_var.description.as_deref()
             }
             fn causality(&self) -> Causality {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .causality
+                self.abstract_var.causality
             }
             fn variability(&self) -> Variability {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
+                self.abstract_var
                     .variability
                     .unwrap_or($default_variability)
             }
             fn can_handle_multiple_set_per_time_instant(&self) -> Option<bool> {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .can_handle_multiple_set_per_time_instant
+                self.abstract_var.can_handle_multiple_set_per_time_instant
+            }
+            fn clocks(&self) -> Option<&[u32]> {
+                self.abstract_var.clocks.as_deref()
             }
             fn data_type(&self) -> VariableType {
                 VariableType::$name
             }
             fn annotations(&self) -> Option<&Annotations> {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .annotations
-                    .as_ref()
+                self.abstract_var.annotations.as_ref()
             }
         }
     };
@@ -218,6 +192,9 @@ macro_rules! impl_float_type {
         #[yaserde(rename = $root)]
         pub struct $name {
             #[yaserde(flatten = true)]
+            pub abstract_var: AbstractVariable,
+
+            #[yaserde(flatten = true)]
             pub base_attr: RealBaseAttributes,
             #[yaserde(flatten = true)]
             pub attr: $float_attr,
@@ -254,19 +231,21 @@ macro_rules! impl_float_type {
                 initial: Option<Initial>,
             ) -> Self {
                 Self {
+                    abstract_var: AbstractVariable {
+                        name,
+                        value_reference,
+                        description,
+                        causality,
+                        variability: Some(variability),
+                        can_handle_multiple_set_per_time_instant: None,
+                        clocks: None,
+                        annotations: None,
+                    },
+
                     start,
                     init_var: InitializableVariable {
                         typed_arrayable_var: TypedArrayableVariable {
                             arrayable_var: ArrayableVariable {
-                                abstract_var: AbstractVariable {
-                                    name,
-                                    value_reference,
-                                    description,
-                                    causality,
-                                    variability: Some(variability),
-                                    can_handle_multiple_set_per_time_instant: None,
-                                    annotations: None,
-                                },
                                 dimensions: vec![],
                                 intermediate_update: None,
                                 previous: None,
@@ -287,6 +266,9 @@ macro_rules! impl_integer_type {
         #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
         #[yaserde(rename = $root)]
         pub struct $name {
+            #[yaserde(flatten = true)]
+            pub abstract_var: AbstractVariable,
+
             #[yaserde(flatten = true)]
             pub base_attr: IntegerBaseAttributes,
             #[yaserde(flatten = true)]
@@ -315,19 +297,21 @@ macro_rules! impl_integer_type {
                 initial: Option<Initial>,
             ) -> Self {
                 Self {
+                    abstract_var: AbstractVariable {
+                        name,
+                        value_reference,
+                        description,
+                        causality,
+                        variability: Some(variability),
+                        can_handle_multiple_set_per_time_instant: None,
+                        clocks: None,
+                        annotations: None,
+                    },
+
                     start,
                     init_var: InitializableVariable {
                         typed_arrayable_var: TypedArrayableVariable {
                             arrayable_var: ArrayableVariable {
-                                abstract_var: AbstractVariable {
-                                    name,
-                                    value_reference,
-                                    description,
-                                    causality,
-                                    variability: Some(variability),
-                                    can_handle_multiple_set_per_time_instant: None,
-                                    annotations: None,
-                                },
                                 dimensions: vec![],
                                 intermediate_update: None,
                                 previous: None,
@@ -429,14 +413,15 @@ pub struct AbstractVariable {
     pub variability: Option<Variability>,
     #[yaserde(attribute = true, rename = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
+
+    pub clocks: Option<Vec<u32>>,
+
     #[yaserde(rename = "Annotations")]
     pub annotations: Option<Annotations>,
 }
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct ArrayableVariable {
-    #[yaserde(flatten = true)]
-    pub abstract_var: AbstractVariable,
     /// Each `Dimension` element specifies the size of one dimension of the array
     #[yaserde(rename = "Dimension")]
     pub dimensions: Vec<Dimension>,
@@ -502,6 +487,9 @@ impl_integer_type!(FmiUInt64, "UInt64", u64, UInt64Attributes);
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiBoolean {
+    #[yaserde(flatten = true)]
+    pub abstract_var: AbstractVariable,
+
     #[yaserde(attribute = true, flatten = true)]
     pub start: Option<Vec<bool>>,
     #[yaserde(flatten = true)]
@@ -525,19 +513,20 @@ impl FmiBoolean {
         initial: Option<Initial>,
     ) -> Self {
         Self {
+            abstract_var: AbstractVariable {
+                name,
+                value_reference,
+                description,
+                causality,
+                variability: Some(variability),
+                can_handle_multiple_set_per_time_instant: None,
+                clocks: None,
+                annotations: None,
+            },
             start,
             init_var: InitializableVariable {
                 typed_arrayable_var: TypedArrayableVariable {
                     arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name,
-                            value_reference,
-                            description,
-                            causality,
-                            variability: Some(variability),
-                            can_handle_multiple_set_per_time_instant: None,
-                            annotations: None,
-                        },
                         dimensions: vec![],
                         intermediate_update: None,
                         previous: None,
@@ -558,6 +547,9 @@ pub struct StringStart {
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiString {
+    #[yaserde(flatten = true)]
+    pub abstract_var: AbstractVariable,
+
     #[yaserde(rename = "Start")]
     pub start: Option<Vec<StringStart>>,
     #[yaserde(flatten = true)]
@@ -576,19 +568,21 @@ impl FmiString {
         initial: Option<Initial>,
     ) -> Self {
         Self {
+            abstract_var: AbstractVariable {
+                name,
+                value_reference,
+                description,
+                causality,
+                variability: Some(variability),
+                can_handle_multiple_set_per_time_instant: None,
+                clocks: None,
+                annotations: None,
+            },
+
             start: start.map(|s| s.into_iter().map(|value| StringStart { value }).collect()),
             init_var: InitializableVariable {
                 typed_arrayable_var: TypedArrayableVariable {
                     arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name,
-                            value_reference,
-                            description,
-                            causality,
-                            variability: Some(variability),
-                            can_handle_multiple_set_per_time_instant: None,
-                            annotations: None,
-                        },
                         dimensions: vec![],
                         intermediate_update: None,
                         previous: None,
@@ -638,6 +632,9 @@ impl BinaryStart {
 
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiBinary {
+    #[yaserde(flatten = true)]
+    pub abstract_var: AbstractVariable,
+
     #[yaserde(rename = "Start")]
     pub start: Option<Vec<BinaryStart>>,
     #[yaserde(attribute = true, rename = "mimeType", default = "default_mime_type")]
@@ -664,21 +661,23 @@ impl FmiBinary {
         initial: Option<Initial>,
     ) -> Self {
         Self {
+            abstract_var: AbstractVariable {
+                name,
+                value_reference,
+                description,
+                causality,
+                variability: Some(variability),
+                can_handle_multiple_set_per_time_instant: None,
+                clocks: None,
+                annotations: None,
+            },
+
             start: start.map(|s| s.into_iter().map(|value| BinaryStart { value }).collect()),
             mime_type: default_mime_type(),
             max_size: None,
             init_var: InitializableVariable {
                 typed_arrayable_var: TypedArrayableVariable {
                     arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name,
-                            value_reference,
-                            description,
-                            causality,
-                            variability: Some(variability),
-                            can_handle_multiple_set_per_time_instant: None,
-                            annotations: None,
-                        },
                         dimensions: vec![],
                         intermediate_update: None,
                         previous: None,
@@ -716,19 +715,30 @@ impl_initializable_variable!(FmiBinary, BinaryStart);
 /// See <https://fmi-standard.org/docs/3.0.1/#table-overview-clocks>
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize, Clone, Copy)]
 pub enum IntervalVariability {
+    #[yaserde(rename = "constant")]
     Constant,
+    #[yaserde(rename = "fixed")]
     Fixed,
+    #[yaserde(rename = "tunable")]
     Tunable,
+    #[yaserde(rename = "changing")]
     Changing,
+    #[yaserde(rename = "countdown")]
     Countdown,
     /// IntervalVariability *must* be set to Triggered for Clocks with causality = Output
     #[default]
+    #[yaserde(rename = "triggered")]
     Triggered,
 }
 
 /// Clock variable type
 #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
 pub struct FmiClock {
+    #[yaserde(flatten = true)]
+    pub abstract_var: AbstractVariable,
+    #[yaserde(attribute = true)]
+    pub declared_type: Option<String>,
+
     #[yaserde(rename = "canBeDeactivated", attribute = true)]
     pub can_be_deactivated: Option<bool>,
     #[yaserde(attribute = true)]
@@ -747,8 +757,6 @@ pub struct FmiClock {
     pub interval_counter: Option<u64>,
     #[yaserde(rename = "shiftCounter", attribute = true)]
     pub shift_counter: Option<u64>,
-    #[yaserde(flatten = true)]
-    pub init_var: InitializableVariable,
 }
 
 impl_abstract_variable!(FmiClock, Variability::Discrete);
@@ -762,31 +770,28 @@ impl FmiClock {
         variability: Variability,
     ) -> Self {
         Self {
-            init_var: InitializableVariable {
-                typed_arrayable_var: TypedArrayableVariable {
-                    arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name,
-                            value_reference,
-                            description,
-                            causality,
-                            variability: Some(variability),
-                            can_handle_multiple_set_per_time_instant: None,
-                            annotations: None,
-                        },
-                        ..Default::default()
-                    },
-                    declared_type: None,
-                },
-                initial: None,
+            abstract_var: AbstractVariable {
+                name,
+                value_reference,
+                description,
+                causality,
+                variability: Some(variability),
+                can_handle_multiple_set_per_time_instant: None,
+                clocks: None,
+                annotations: None,
             },
+            declared_type: None,
             ..Default::default()
         }
+    }
+
+    pub fn interval_variability(&self) -> IntervalVariability {
+        self.interval_variability
     }
 }
 
 impl TypedVariableTrait for FmiClock {
     fn declared_type(&self) -> Option<&str> {
-        self.init_var.typed_arrayable_var.declared_type.as_deref()
+        self.declared_type.as_deref()
     }
 }

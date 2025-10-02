@@ -23,9 +23,12 @@ impl ToTokens for SetStartValuesGen<'_> {
                     if let Some(start_expr) = &var_attr.start {
                         let field_name = &field.ident;
 
-                        assignments.push(quote! {
-                            self.#field_name = #start_expr;
-                        });
+                        // Use the trait-based approach - no type introspection needed
+                        let assignment_expr = quote! {
+                            ::fmi_export::fmi3::InitializeFromStart::set_from_start(&mut self.#field_name, #start_expr);
+                        };
+
+                        assignments.push(assignment_expr);
                     }
                 }
             }

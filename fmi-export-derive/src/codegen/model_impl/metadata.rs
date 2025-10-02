@@ -19,7 +19,7 @@ impl ToTokens for BuildMetadataGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         // Build a map of field names to their assigned value references
         let mut field_name_to_vr = HashMap::new();
-        let mut current_vr = 0u32;
+        let mut current_vr = 0u32; // Start at 0, will be added to vr_offset (1) to get actual VRs starting at 1
 
         // First pass: assign VRs to all fields with variable attributes (excluding skipped ones)
         for field in &self.model.fields {
@@ -224,6 +224,11 @@ impl BuildMetadataGen<'_> {
         let field_type = &field.rust_type;
         let current_vr = field_name_to_vr[var_name];
 
+        // Use the name attribute if specified, otherwise use the field name
+        let variable_name = var_attr.name.as_ref()
+            .map(|s| s.clone())
+            .unwrap_or_else(|| field.ident.to_string());
+
         // Build the variable definition
         let mut builder_calls = Vec::new();
 
@@ -274,6 +279,38 @@ impl BuildMetadataGen<'_> {
             }
         }
 
+        // Set max_size if specified (for Binary variables)
+        if let Some(max_size) = var_attr.max_size {
+            builder_calls.push(quote! {
+                .with_max_size(#max_size)
+            });
+        }
+
+        // Set mime_type if specified (for Binary variables)
+        if let Some(mime_type) = &var_attr.mime_type {
+            builder_calls.push(quote! {
+                .with_mime_type(#mime_type)
+            });
+        }
+
+        // Set clocks if specified
+        if let Some(clocks) = &var_attr.clocks {
+            // Convert Vec<syn::Ident> to Vec<u32> by looking up VRs and adding vr_offset
+            let clock_vrs: Vec<u32> = clocks
+                .iter()
+                .filter_map(|clock_ident| {
+                    let clock_name = clock_ident.to_string();
+                    field_name_to_vr.get(&clock_name).map(|&vr| vr + 1) // Add 1 for vr_offset
+                })
+                .collect();
+            
+            if !clock_vrs.is_empty() {
+                builder_calls.push(quote! {
+                    .with_clocks(vec![#(#clock_vrs),*])
+                });
+            }
+        }
+
         // Set description from field docstring or attribute
         let description = if let Some(attr_desc) = &var_attr.description {
             quote! { .with_description(#attr_desc) }
@@ -287,7 +324,7 @@ impl BuildMetadataGen<'_> {
         };
 
         quote! {
-            <#field_type as ::fmi_export::fmi3::FmiVariableBuilder>::variable(#var_name, current_vr_offset + #current_vr)
+            <#field_type as ::fmi_export::fmi3::FmiVariableBuilder>::variable(#variable_name, current_vr_offset + #current_vr)
                 #description
                 #(#builder_calls)*
                 .finish()
