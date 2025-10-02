@@ -468,6 +468,22 @@ pub struct InitializableVariable {
 
 impl_float_type!(FmiFloat32, "Float32", f32, Float32Attributes);
 impl_float_type!(FmiFloat64, "Float64", f64, Float64Attributes);
+
+impl FmiFloat64 {
+    /// Create a new FMI independent time variable with the given start value (if any).
+    pub fn new_time(start: Option<f64>) -> Self {
+        Self::new(
+            "time".into(),
+            0,
+            Some("Simulation time".into()),
+            Causality::Independent,
+            Variability::Continuous,
+            start.map(|s| vec![s]),
+            None,
+        )
+    }
+}
+
 impl_integer_type!(FmiInt8, "Int8", i8, Int8Attributes);
 impl_integer_type!(FmiUInt8, "UInt8", u8, UInt8Attributes);
 impl_integer_type!(FmiInt16, "Int16", i16, Int16Attributes);

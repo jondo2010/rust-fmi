@@ -85,7 +85,7 @@ impl ModelVariables {
 }
 
 /// Append a variable to the given `ModelVariables` struct
-pub trait AppendToModelVariables: AbstractVariableTrait {
+pub trait AppendToModelVariables {
     fn append_to_variables(self, variables: &mut ModelVariables);
 }
 

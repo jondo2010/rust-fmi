@@ -123,7 +123,7 @@ pub trait ModelGetSet<M: Model> {
     /// Returns the sizes of the binary data that were actually read
     fn get_binary(
         &self,
-        _vr: M::ValueRef,
+        _vr: binding::fmi3ValueReference,
         _values: &mut [&mut [u8]],
         _context: &ModelContext<M>,
     ) -> Result<Vec<usize>, Fmi3Error> {
@@ -134,7 +134,7 @@ pub trait ModelGetSet<M: Model> {
     /// Returns the number of binary elements that were actually written
     fn set_binary(
         &mut self,
-        _vr: M::ValueRef,
+        _vr: binding::fmi3ValueReference,
         _values: &[&[u8]],
         _context: &ModelContext<M>,
     ) -> Result<usize, Fmi3Error> {

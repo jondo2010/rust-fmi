@@ -5,6 +5,9 @@ use fmi::fmi3::schema;
 #[attribute(ident = variable, aliases = [alias])]
 #[attribute(error(missing_field = "`{field}` was not specified"))]
 pub struct FieldAttribute {
+    /// Skip this field from being included as a variable in the FMU
+    #[attribute(default = false)]
+    pub skip: bool,
     /// Optional custom name for the variable (defaults to field name)
     pub name: Option<String>,
     /// Optional description (overriding the field docstring)

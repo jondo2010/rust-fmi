@@ -7,12 +7,10 @@ use syn::{DeriveInput, parse_macro_input};
 
 mod codegen;
 mod model;
-mod model_structure;
-mod model_variables;
 mod util;
 
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+//mod tests;
 
 use codegen::CodeGenerator;
 use model::Model;

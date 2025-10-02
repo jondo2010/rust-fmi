@@ -29,7 +29,7 @@ pub enum Fmi3Res {
     Warning,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq)]
 pub enum Fmi3Error {
     /// The call was not successful and the FMU is in the same state as before the call. The output
     /// argument values are undefined, but the computation may continue. Function logMessage should

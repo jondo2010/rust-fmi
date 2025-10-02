@@ -1,0 +1,214 @@
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{ToTokens, format_ident, quote};
+use std::collections::HashMap;
+
+use crate::Model;
+use crate::model::{Field, FieldAttributeOuter};
+
+pub struct BuildMetadataGen<'a> {
+    model: &'a Model,
+}
+
+impl<'a> BuildMetadataGen<'a> {
+    pub fn new(model: &'a Model) -> Self {
+        Self { model }
+    }
+}
+
+impl ToTokens for BuildMetadataGen<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        // Build a map of field names to their assigned value references
+        let mut field_name_to_vr = HashMap::new();
+        let mut current_vr = 0u32;
+
+        // First pass: assign VRs to all fields with variable attributes (excluding skipped ones)
+        for field in &self.model.fields {
+            if self.has_skip_attribute(field) {
+                // Skip fields with skip=true
+                continue;
+            }
+
+            for attr in &field.attrs {
+                match attr {
+                    FieldAttributeOuter::Variable(_) => {
+                        field_name_to_vr.insert(field.ident.to_string(), current_vr);
+                        current_vr += 1;
+                    }
+                    FieldAttributeOuter::Alias(_) => {
+                        // Ignore Alias attributes for now
+                    }
+                    FieldAttributeOuter::Docstring(_) => {
+                        // Skip docstrings
+                    }
+                }
+            }
+        }
+
+        let mut variable_tokens = Vec::new();
+        let mut model_structure_tokens = Vec::new();
+        let vr_offset_tracking = quote! { let mut current_vr_offset = vr_offset; };
+
+        // Second pass: generate the actual variable definitions
+        for field in &self.model.fields {
+            if self.has_skip_attribute(field) {
+                // For fields with skip=true, don't generate anything
+                continue;
+            } else if self.has_no_variable_attributes(field) {
+                // For fields with no attributes, recursively call build_metadata
+                let field_type = &field.rust_type;
+                variable_tokens.push(quote! {
+                    let field_count = <#field_type as ::fmi_export::fmi3::Model>::build_metadata(variables, model_structure, current_vr_offset);
+                    current_vr_offset += field_count;
+                });
+            } else {
+                // Generate variables for this field
+                for attr in &field.attrs {
+                    match attr {
+                        FieldAttributeOuter::Variable(var_attr) => {
+                            let var_token = self.generate_variable_definition(
+                                field,
+                                var_attr,
+                                &field.ident.to_string(),
+                                &field_name_to_vr,
+                            );
+                            variable_tokens.push(var_token);
+
+                            // Generate model structure entries for derivatives
+                            if let Some(derivative_ref) = &var_attr.derivative {
+                                let derivative_name = derivative_ref.to_string();
+                                if let Some(&state_vr) = field_name_to_vr.get(&derivative_name) {
+                                    let current_vr = field_name_to_vr[&field.ident.to_string()];
+                                    model_structure_tokens.push(quote! {
+                                        model_structure.outputs.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                            annotations: None,
+                                            value_reference: current_vr_offset + #current_vr,
+                                            dependencies: Some(vec![current_vr_offset + #state_vr]),
+                                            dependencies_kind: Some(vec![::fmi::schema::fmi3::DependenciesKind::Dependent]),
+                                        });
+                                    });
+                                }
+                            }
+                        }
+                        FieldAttributeOuter::Alias(_) => {
+                            // Ignore Alias attributes for now
+                        }
+                        FieldAttributeOuter::Docstring(_) => {
+                            // Skip docstrings
+                        }
+                    }
+                }
+            }
+        }
+
+        // Count how many variables this model defines
+        let own_variable_count = field_name_to_vr.len() as u32;
+
+        tokens.extend(quote! {
+            use ::fmi_export::fmi3::FmiVariableBuilder;
+            #vr_offset_tracking
+            #(#variable_tokens)*
+            #(#model_structure_tokens)*
+            current_vr_offset - vr_offset + #own_variable_count
+        });
+    }
+}
+
+impl BuildMetadataGen<'_> {
+    /// Check if a field has the skip attribute set to true
+    fn has_skip_attribute(&self, field: &Field) -> bool {
+        field
+            .attrs
+            .iter()
+            .any(|attr| matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.skip))
+    }
+
+    /// Check if a field has no variable attributes (ignoring docstrings and aliases)
+    fn has_no_variable_attributes(&self, field: &Field) -> bool {
+        !field
+            .attrs
+            .iter()
+            .any(|attr| matches!(attr, FieldAttributeOuter::Variable(_)))
+    }
+
+    /// Generate a variable definition for a field
+    fn generate_variable_definition(
+        &self,
+        field: &Field,
+        var_attr: &crate::model::FieldAttribute,
+        var_name: &str,
+        field_name_to_vr: &HashMap<String, u32>,
+    ) -> TokenStream2 {
+        let field_type = &field.rust_type;
+        let current_vr = field_name_to_vr[var_name];
+
+        // Build the variable definition
+        let mut builder_calls = Vec::new();
+
+        // Set causality if specified
+        if let Some(causality) = &var_attr.causality {
+            let causality_schema: fmi::fmi3::schema::Causality = (*causality).into();
+            let causality_str = format!("{:?}", causality_schema);
+            let causality_variant = format_ident!("{}", causality_str);
+            builder_calls.push(quote! {
+                .with_causality(::fmi::fmi3::schema::Causality::#causality_variant)
+            });
+        }
+
+        // Set variability if specified
+        if let Some(variability) = &var_attr.variability {
+            let variability_schema: fmi::fmi3::schema::Variability = (*variability).into();
+            let variability_str = format!("{:?}", variability_schema);
+            let variability_variant = format_ident!("{}", variability_str);
+            builder_calls.push(quote! {
+                .with_variability(::fmi::fmi3::schema::Variability::#variability_variant)
+            });
+        }
+
+        // Set start value if specified
+        if let Some(start) = &var_attr.start {
+            builder_calls.push(quote! {
+                .with_start(#start)
+            });
+        }
+
+        // Set initial if specified
+        if let Some(initial) = &var_attr.initial {
+            let initial_schema: fmi::fmi3::schema::Initial = (*initial).into();
+            let initial_str = format!("{:?}", initial_schema);
+            let initial_variant = format_ident!("{}", initial_str);
+            builder_calls.push(quote! {
+                .with_initial(::fmi::fmi3::schema::Initial::#initial_variant)
+            });
+        }
+
+        // Set derivative if specified
+        if let Some(derivative_ref) = &var_attr.derivative {
+            let derivative_name = derivative_ref.to_string();
+            if let Some(&derivative_vr) = field_name_to_vr.get(&derivative_name) {
+                builder_calls.push(quote! {
+                    .with_derivative(#derivative_vr)
+                });
+            }
+        }
+
+        // Set description from field docstring or attribute
+        let description = if let Some(attr_desc) = &var_attr.description {
+            quote! { .with_description(#attr_desc) }
+        } else {
+            let field_desc = field.fold_description();
+            if !field_desc.is_empty() {
+                quote! { .with_description(#field_desc) }
+            } else {
+                quote! {}
+            }
+        };
+
+        quote! {
+            <#field_type as ::fmi_export::fmi3::FmiVariableBuilder>::variable(#var_name, current_vr_offset + #current_vr)
+                #description
+                #(#builder_calls)*
+                .finish()
+                .append_to_variables(variables);
+        }
+    }
+}

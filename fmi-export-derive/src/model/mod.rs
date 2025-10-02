@@ -1,8 +1,6 @@
 use attribute_derive::FromAttr;
 use proc_macro_error2::emit_error;
 
-use crate::model_variables::FieldType;
-
 mod field_attr;
 pub use field_attr::{FieldAttribute, FieldAttributeOuter};
 
@@ -45,7 +43,6 @@ pub enum StructAttrOuter {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Field {
     pub ident: syn::Ident,
-    pub field_type: FieldType,
     pub rust_type: syn::Type,
     pub attrs: Vec<FieldAttributeOuter>,
 }
@@ -93,7 +90,7 @@ impl Model {
                     FieldAttributeOuter::Alias(alias_attr) => &alias_attr.derivative,
                     _ => return false,
                 };
-                
+
                 derivative_ref.as_ref().map(|d| d.to_string()) == Some(field_name.to_string())
             })
         })
@@ -101,37 +98,35 @@ impl Model {
 
     /// Counts the total number of continuous state elements (including array elements).
     pub fn count_continuous_states(&self) -> usize {
-        self.iter_continuous_states()
-            .map(|field| field.field_type.total_elements())
-            .sum()
+        todo!()
+        //self.iter_continuous_states()
+        //    .map(|field| field.field_type.total_elements())
+        //    .sum()
     }
 
     /// Iterator over all fields that are derivatives.
     /// A field is considered a derivative if it has a derivative attribute.
     pub fn iter_derivatives(&self) -> impl Iterator<Item = &Field> {
-        self.fields.iter().filter(|field| {
-            self.is_derivative(field)
-        })
+        self.fields.iter().filter(|field| self.is_derivative(field))
     }
 
     /// Checks if a field is a derivative variable.
     /// A field is a derivative if it has a derivative attribute.
     pub fn is_derivative(&self, field: &Field) -> bool {
-        field.attrs.iter().any(|attr| {
-            match attr {
-                FieldAttributeOuter::Variable(var_attr) => var_attr.derivative.is_some(),
-                FieldAttributeOuter::Alias(alias_attr) => alias_attr.derivative.is_some(),
-                _ => false,
-            }
+        field.attrs.iter().any(|attr| match attr {
+            FieldAttributeOuter::Variable(var_attr) => var_attr.derivative.is_some(),
+            FieldAttributeOuter::Alias(alias_attr) => alias_attr.derivative.is_some(),
+            _ => false,
         })
     }
 
     /// Counts the total number of derivative elements (including array elements).
     #[allow(dead_code)]
     pub fn count_derivatives(&self) -> usize {
-        self.iter_derivatives()
-            .map(|field| field.field_type.total_elements())
-            .sum()
+        todo!()
+        //self.iter_derivatives()
+        //    .map(|field| field.field_type.total_elements())
+        //    .sum()
     }
 }
 
@@ -171,11 +166,8 @@ impl TryFrom<syn::Field> for Field {
             })
             .collect();
 
-        let ty = FieldType::try_from(field.ty.clone())?;
-
         Ok(Self {
             ident: field.ident.expect("Expected named field"),
-            field_type: ty,
             rust_type: field.ty,
             attrs,
         })

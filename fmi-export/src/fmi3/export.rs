@@ -75,15 +75,13 @@ macro_rules! generate_getset_functions {
 #[macro_export]
 macro_rules! export_fmu {
     ($ty:ty) => {
-        /// Export the model components as separate Rust str symbols
-        /// This allows extracting the individual XML components from the compiled dylib
-        #[unsafe(export_name = "FMI3_MODEL_VARIABLES")]
-        pub static FMI3_MODEL_VARIABLES: &'static str =
-            <$ty as ::fmi_export::fmi3::Model>::MODEL_VARIABLES_XML;
-
-        #[unsafe(export_name = "FMI3_MODEL_STRUCTURE")]
-        pub static FMI3_MODEL_STRUCTURE: &'static str =
-            <$ty as ::fmi_export::fmi3::Model>::MODEL_STRUCTURE_XML;
+        /// Export the model components
+        pub fn model_metadata() -> (
+            ::fmi::fmi3::schema::ModelVariables,
+            ::fmi::fmi3::schema::ModelStructure,
+        ) {
+            <$ty as ::fmi_export::fmi3::Model>::build_toplevel_metadata()
+        }
 
         #[unsafe(export_name = "FMI3_INSTANTIATION_TOKEN")]
         pub static FMI3_INSTANTIATION_TOKEN: &'static str =

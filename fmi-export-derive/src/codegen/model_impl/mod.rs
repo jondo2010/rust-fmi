@@ -7,32 +7,18 @@ use crate::codegen::util;
 use crate::model::{FieldAttributeOuter, Model};
 use fmi::fmi3::schema;
 
+mod metadata;
 mod start_values;
 
 /// Generate the Model trait implementation
 pub struct ModelImpl<'a> {
     struct_name: &'a Ident,
-    value_ref_enum_name: Ident,
     model: &'a Model,
-    model_variables: &'a schema::ModelVariables,
-    model_structure: &'a schema::ModelStructure,
 }
 
 impl<'a> ModelImpl<'a> {
-    pub fn new(
-        struct_name: &'a Ident,
-        model: &'a Model,
-        model_variables: &'a schema::ModelVariables,
-        model_structure: &'a schema::ModelStructure,
-    ) -> Self {
-        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
-        Self {
-            struct_name,
-            value_ref_enum_name,
-            model,
-            model_variables,
-            model_structure,
-        }
+    pub fn new(struct_name: &'a Ident, model: &'a Model) -> Self {
+        Self { struct_name, model }
     }
 }
 
@@ -47,30 +33,26 @@ impl ToTokens for ModelImpl<'_> {
         let instantiation_token =
             uuid::Uuid::new_v5(&crate::RUST_FMI_NAMESPACE, model_name.as_bytes()).to_string();
 
-        // Serialize the individual components as XML fragments
-        let model_variables_xml = fmi::schema::serialize(self.model_variables, true)
-            .expect("Failed to serialize model variables");
-        let model_structure_xml = fmi::schema::serialize(self.model_structure, true)
-            .expect("Failed to serialize model structure");
-
         // Generate function bodies
+        let build_metadata_body = metadata::BuildMetadataGen::new(&self.model);
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
-        let variable_validation_body =
-            VariableValidationGen::new(&self.model, &self.value_ref_enum_name);
+        let variable_validation_body = VariableValidationGen::new(&self.model);
 
         let number_of_event_indicators = count_event_indicators(&self.model);
 
-        // Generate the ValueRef enum name
-        let value_ref_enum_name = format_ident!("{}ValueRef", struct_name);
-
         tokens.extend(quote! {
+            #[automatically_derived]
             impl ::fmi_export::fmi3::Model for #struct_name {
-                type ValueRef = #value_ref_enum_name;
-
                 const MODEL_NAME: &'static str = #model_name;
-                const MODEL_VARIABLES_XML: &'static str = #model_variables_xml;
-                const MODEL_STRUCTURE_XML: &'static str = #model_structure_xml;
                 const INSTANTIATION_TOKEN: &'static str = #instantiation_token;
+
+                fn build_metadata(
+                    variables: &mut ::fmi::schema::fmi3::ModelVariables,
+                    model_structure: &mut ::fmi::schema::fmi3::ModelStructure,
+                    vr_offset: u32,
+                ) -> u32 {
+                    #build_metadata_body
+                }
 
                 fn set_start_values(&mut self) {
                     #set_start_values_body
@@ -81,10 +63,11 @@ impl ToTokens for ModelImpl<'_> {
                 }
 
                 fn validate_variable_setting(
-                    vr: Self::ValueRef,
-                    state: &fmi_export::fmi3::ModelState,
+                    vr: ::fmi::fmi3::binding::fmi3ValueReference,
+                    state: &::fmi_export::fmi3::ModelState,
                 ) -> Result<(), &'static str> {
-                    #variable_validation_body
+                    //#variable_validation_body
+                    Ok(())
                 }
             }
         });
@@ -105,103 +88,93 @@ fn count_event_indicators(model: &Model) -> usize {
 
 // Helper generators for specific function bodies
 
-struct VariableValidationGen<'a>(&'a Model, &'a Ident);
+struct VariableValidationGen<'a>(&'a Model);
 
 impl<'a> VariableValidationGen<'a> {
-    fn new(model: &'a Model, value_ref_enum_name: &'a Ident) -> Self {
-        Self(model, value_ref_enum_name)
+    fn new(model: &'a Model) -> Self {
+        Self(model)
     }
 }
 
+#[cfg(false)]
 impl ToTokens for VariableValidationGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let value_ref_enum_name = &self.1;
-
         let mut cases = Vec::new();
 
         for field in &self.0.fields {
-            let vtype = field.field_type.r#type;
             for attr in &field.attrs {
                 if let FieldAttributeOuter::Variable(var_attr) = attr {
-                    if matches!(
-                        vtype,
-                        schema::VariableType::FmiFloat32 | schema::VariableType::FmiFloat64
-                    ) {
-                        let variant_name =
-                            format_ident!("{}", util::to_pascal_case(&field.ident.to_string()));
-                        let var_name = &field.ident.to_string();
+                    let variant_name =
+                        format_ident!("{}", util::to_pascal_case(&field.ident.to_string()));
+                    let var_name = &field.ident.to_string();
 
-                        // Generate validation based on causality and variability
-                        let causality = var_attr.causality.as_ref().map(|c| &c.0);
-                        let variability = var_attr.variability.as_ref().map(|v| &v.0);
+                    // Generate validation based on causality and variability
+                    let causality = var_attr.causality.as_ref().map(|c| &c.0);
+                    let variability = var_attr.variability.as_ref().map(|v| &v.0);
 
-                        let validation = match (causality, variability) {
-                            (
-                                Some(schema::Causality::Parameter),
-                                Some(schema::Variability::Fixed),
-                            )
-                            | (Some(schema::Causality::Parameter), None) => {
-                                quote! {
-                                    #value_ref_enum_name::#variant_name => {
-                                        match state {
-                                            fmi_export::fmi3::ModelState::Instantiated
-                                            | fmi_export::fmi3::ModelState::InitializationMode => Ok(()),
-                                            _ => Err(concat!("Variable ", #var_name, " (fixed parameter) can only be set after instantiation or in initialization mode.")),
-                                        }
+                    let validation = match (causality, variability) {
+                        (Some(schema::Causality::Parameter), Some(schema::Variability::Fixed))
+                        | (Some(schema::Causality::Parameter), None) => {
+                            quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    match state {
+                                        fmi_export::fmi3::ModelState::Instantiated
+                                        | fmi_export::fmi3::ModelState::InitializationMode => Ok(()),
+                                        _ => Err(concat!("Variable ", #var_name, " (fixed parameter) can only be set after instantiation or in initialization mode.")),
                                     }
                                 }
                             }
-                            (
-                                Some(schema::Causality::Parameter),
-                                Some(schema::Variability::Tunable),
-                            ) => {
-                                quote! {
-                                    #value_ref_enum_name::#variant_name => {
-                                        match state {
-                                            fmi_export::fmi3::ModelState::Instantiated
-                                            | fmi_export::fmi3::ModelState::InitializationMode
-                                            | fmi_export::fmi3::ModelState::EventMode => Ok(()),
-                                            _ => Err(concat!("Variable ", #var_name, " (tunable parameter) can only be set after instantiation, in initialization mode or event mode.")),
-                                        }
+                        }
+                        (
+                            Some(schema::Causality::Parameter),
+                            Some(schema::Variability::Tunable),
+                        ) => {
+                            quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    match state {
+                                        fmi_export::fmi3::ModelState::Instantiated
+                                        | fmi_export::fmi3::ModelState::InitializationMode
+                                        | fmi_export::fmi3::ModelState::EventMode => Ok(()),
+                                        _ => Err(concat!("Variable ", #var_name, " (tunable parameter) can only be set after instantiation, in initialization mode or event mode.")),
                                     }
                                 }
                             }
-                            (Some(schema::Causality::Local), Some(schema::Variability::Fixed))
-                            | (Some(schema::Causality::Local), None) => {
-                                quote! {
-                                    #value_ref_enum_name::#variant_name => {
-                                        match state {
-                                            fmi_export::fmi3::ModelState::Instantiated
-                                            | fmi_export::fmi3::ModelState::InitializationMode => Ok(()),
-                                            _ => Err(concat!("Variable ", #var_name, " (fixed local) can only be set after instantiation or in initialization mode.")),
-                                        }
+                        }
+                        (Some(schema::Causality::Local), Some(schema::Variability::Fixed))
+                        | (Some(schema::Causality::Local), None) => {
+                            quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    match state {
+                                        fmi_export::fmi3::ModelState::Instantiated
+                                        | fmi_export::fmi3::ModelState::InitializationMode => Ok(()),
+                                        _ => Err(concat!("Variable ", #var_name, " (fixed local) can only be set after instantiation or in initialization mode.")),
                                     }
                                 }
                             }
-                            (Some(schema::Causality::Input), _) => {
-                                quote! {
-                                    #value_ref_enum_name::#variant_name => {
-                                        match state {
-                                            fmi_export::fmi3::ModelState::Terminated => Err(concat!("Variable ", #var_name, " (input) cannot be set in terminated state.")),
-                                            _ => Ok(()),
-                                        }
+                        }
+                        (Some(schema::Causality::Input), _) => {
+                            quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    match state {
+                                        fmi_export::fmi3::ModelState::Terminated => Err(concat!("Variable ", #var_name, " (input) cannot be set in terminated state.")),
+                                        _ => Ok(()),
                                     }
                                 }
                             }
-                            _ => {
-                                quote! {
-                                    #value_ref_enum_name::#variant_name => {
-                                        match state {
-                                            fmi_export::fmi3::ModelState::Terminated => Err(concat!("Variable ", #var_name, " cannot be set in terminated state.")),
-                                            _ => Ok(()),
-                                        }
+                        }
+                        _ => {
+                            quote! {
+                                #value_ref_enum_name::#variant_name => {
+                                    match state {
+                                        fmi_export::fmi3::ModelState::Terminated => Err(concat!("Variable ", #var_name, " cannot be set in terminated state.")),
+                                        _ => Ok(()),
                                     }
                                 }
                             }
-                        };
+                        }
+                    };
 
-                        cases.push(validation);
-                    }
+                    cases.push(validation);
                 }
             }
         }

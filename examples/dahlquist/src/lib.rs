@@ -4,7 +4,10 @@
 //! This implements a simple first-order linear ODE: der(x) = -k * x
 //! where x is the state variable and k is a parameter.
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res};
+use fmi::{
+    fmi3::{Fmi3Error, Fmi3Res},
+    schema::fmi3::AppendToModelVariables,
+};
 use fmi_export::{
     fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
     FmuModel,
@@ -43,32 +46,90 @@ impl UserModel for Dahlquist {
 // Export the FMU with full C API
 fmi_export::export_fmu!(Dahlquist);
 
-pub trait ModelVariablesBuilder {
-    fn iter_model_variables() -> impl Iterator<Item = ()>;
-}
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
 
-use fmi_export::fmi3::FmiVariableBuilder;
+    use super::*;
+    use fmi::fmi3::{GetSet, ModelExchange};
+    use fmi::schema::fmi3::{AbstractVariableTrait, DependenciesKind, Fmi3Unknown};
+    use fmi_export::fmi3::{Model, ModelInstance};
 
-impl ModelVariablesBuilder for Dahlquist {
-    fn iter_model_variables() -> impl Iterator<Item = ()> {
-        let x_var = <f64 as FmiVariableBuilder>::variable("x")
-            .with_causality(fmi::fmi3::schema::Causality::Output)
-            .with_variability(fmi::fmi3::schema::Variability::Continuous)
-            .with_start(1.0)
-            .with_initial(fmi::fmi3::schema::Initial::Exact)
-            .finish();
-        let der_x_var = <f64 as FmiVariableBuilder>::variable("der_x")
-            .with_causality(fmi::fmi3::schema::Causality::Local)
-            .with_variability(fmi::fmi3::schema::Variability::Continuous)
-            .with_derivative("x")
-            .with_initial(fmi::fmi3::schema::Initial::Calculated)
-            .finish();
-        let k_var = <f64 as ModelVariablesBuilder>::variable("k")
-            .with_causality(fmi::fmi3::schema::Causality::Parameter)
-            .with_variability(fmi::fmi3::schema::Variability::Fixed)
-            .with_start(1.0)
-            .with_initial(fmi::fmi3::schema::Initial::Exact)
-            .finish();
-        vec![x_var, der_x_var, k_var].into_iter()
+    #[test]
+    fn test_metadata() {
+        let (vars, structure) = Dahlquist::build_toplevel_metadata();
+
+        // Check the generated variables and their VRs
+        assert_eq!(vars.float64[0].name(), "time");
+        assert_eq!(vars.float64[0].value_reference(), 0);
+        assert_eq!(vars.float64[1].name(), "x");
+        assert_eq!(vars.float64[1].value_reference(), 1);
+        assert_eq!(vars.float64[2].name(), "der_x");
+        assert_eq!(vars.float64[2].value_reference(), 2);
+        assert_eq!(vars.float64[3].name(), "k");
+        assert_eq!(vars.float64[3].value_reference(), 3);
+
+        // Check the model structure
+
+        assert_eq!(
+            structure.outputs,
+            // 'x' is the only output, and depends on 'der_x'
+            vec![Fmi3Unknown {
+                value_reference: 1,
+                dependencies: Some(vec![2]),
+                dependencies_kind: Some(vec![DependenciesKind::Dependent]),
+                ..Default::default()
+            }]
+        );
+
+        assert_eq!(
+            structure.continuous_state_derivative,
+            // 'der_x' is the derivative of 'x'
+            vec![Fmi3Unknown {
+                value_reference: 2,
+                ..Default::default()
+            }]
+        );
+
+        assert_eq!(
+            structure.initial_unknown,
+            // 'x' is initial exact, 'der_x' is initial calculated
+            vec![Fmi3Unknown {
+                value_reference: 2,
+                ..Default::default()
+            }]
+        );
+
+        let xml = fmi::schema::serialize(&structure, true).unwrap();
+        println!("{xml}");
+    }
+
+    #[test]
+    fn test_model_get_set() {
+        let mut model = ModelInstance::<Dahlquist>::new(
+            "Dahlquist".to_string(),
+            PathBuf::new(),
+            true,
+            Box::new(|_, _, _| {}),
+            Dahlquist::INSTANTIATION_TOKEN,
+        )
+        .unwrap();
+
+        model.set_time(123.0).unwrap();
+
+        let mut f64_vals = [0.0; 4];
+        model.get_float64(&[0, 1, 2, 3], &mut f64_vals).unwrap();
+        assert_eq!(
+            f64_vals,
+            [
+                123.0, // time
+                1.0,   // x (start value)
+                -1.0,  // der_x (calculated later)
+                1.0    // k (parameter)
+            ]
+        );
+
+        // Test the time VR=0
+        assert_eq!(model.set_float64(&[0], &[0.0]), Err(Fmi3Error::Error));
     }
 }

@@ -1,4 +1,4 @@
-use fmi::fmi3::schema;
+use fmi::fmi3::{binding, schema};
 
 /// Wrapper for start values that can be either scalar or vector
 pub enum StartValue<T> {
@@ -28,7 +28,7 @@ impl<T: Clone> From<StartValue<T>> for Vec<T> {
 }
 
 /// A builder for creating FMI variables with a fluent interface.
-/// 
+///
 /// This builder holds all possible FMI variable attributes. The generic type `T`
 /// determines which concrete FMI variable type will be created by `finish()`.
 /// Type-specific `finish()` implementations will extract only the relevant fields.
@@ -38,7 +38,7 @@ where
 {
     // Common fields for all variable types
     name: String,
-    value_reference: Option<u32>,
+    value_reference: binding::fmi3ValueReference,
     description: Option<String>,
     causality: Option<schema::Causality>,
     variability: Option<schema::Variability>,
@@ -47,25 +47,25 @@ where
     previous: Option<u32>,
     declared_type: Option<String>,
     initial: Option<schema::Initial>,
-    
+
     // Type-specific start value
     start: Option<T::Start>,
-    
+
     // Float-specific fields (for continuous variables)
-    derivative: Option<u32>,  // Value reference of the state variable this is a derivative of
+    derivative: Option<u32>, // Value reference of the state variable this is a derivative of
     reinit: Option<bool>,
-    
+
     // Float attributes
     min: Option<f64>,
     max: Option<f64>,
     nominal: Option<f64>,
-    
-    // Integer attributes  
+
+    // Integer attributes
     quantity: Option<String>,
-    
+
     // Dimensions for array variables
     dimensions: Vec<schema::Dimension>,
-    
+
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -74,10 +74,10 @@ where
     T: FmiVariableBuilder,
 {
     /// Create a new variable builder with the given name.
-    pub fn new(name: impl Into<String>) -> Self {
+    pub fn new(name: impl Into<String>, value_reference: binding::fmi3ValueReference) -> Self {
         Self {
             name: name.into(),
-            value_reference: None,
+            value_reference,
             description: None,
             causality: None,
             variability: None,
@@ -99,12 +99,6 @@ where
     }
 
     // Common attribute setters
-
-    /// Set the value reference for the variable.
-    pub fn with_value_reference(mut self, value_reference: u32) -> Self {
-        self.value_reference = Some(value_reference);
-        self
-    }
 
     /// Set the description for the variable.
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
@@ -209,7 +203,7 @@ where
     }
 
     /// Build the final FMI variable.
-    /// 
+    ///
     /// This delegates to the type-specific `finish` implementation which will
     /// extract only the relevant fields for the concrete variable type.
     pub fn finish(self) -> T::Var {
@@ -218,7 +212,7 @@ where
 }
 
 /// Trait for types that can be used to build FMI variables.
-/// 
+///
 /// Implementors define:
 /// - `Var`: The concrete FMI variable type to create (e.g., `FmiFloat64`, `FmiBoolean`)
 /// - `Start`: The type for start values (typically `StartValue<T>`)
@@ -229,12 +223,12 @@ pub trait FmiVariableBuilder: Sized {
     type Start;
 
     /// Create a new variable builder with the given name.
-    fn variable(name: impl Into<String>) -> VariableBuilder<Self> {
-        VariableBuilder::new(name)
+    fn variable(name: impl Into<String>, value_reference: u32) -> VariableBuilder<Self> {
+        VariableBuilder::new(name, value_reference)
     }
 
     /// Type-specific finish method that creates the concrete variable type.
-    /// 
+    ///
     /// This method receives the complete builder and extracts only the fields
     /// relevant to the specific variable type being created.
     fn finish(builder: VariableBuilder<Self>) -> Self::Var;
@@ -246,11 +240,11 @@ macro_rules! impl_fmi_variable_builder_float {
         impl FmiVariableBuilder for $primitive_type {
             type Var = $fmi_type;
             type Start = StartValue<Self>;
-            
+
             fn finish(builder: VariableBuilder<Self>) -> Self::Var {
                 let mut var = <$fmi_type>::new(
                     builder.name,
-                    builder.value_reference.unwrap_or(0),
+                    builder.value_reference,
                     if builder.description.as_ref().map_or(true, |d| d.is_empty()) {
                         None
                     } else {
@@ -261,7 +255,7 @@ macro_rules! impl_fmi_variable_builder_float {
                     builder.start.map(Into::into),
                     builder.initial,
                 );
-                
+
                 // Set float-specific attributes if present
                 if let Some(derivative) = builder.derivative {
                     var.real_var_attr.derivative = Some(derivative);
@@ -269,12 +263,12 @@ macro_rules! impl_fmi_variable_builder_float {
                 if let Some(reinit) = builder.reinit {
                     var.real_var_attr.reinit = Some(reinit);
                 }
-                
+
                 // Apply dimensions if any
                 if !builder.dimensions.is_empty() {
                     var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
                 }
-                
+
                 var
             }
         }
@@ -287,11 +281,11 @@ macro_rules! impl_fmi_variable_builder_int {
         impl FmiVariableBuilder for $primitive_type {
             type Var = $fmi_type;
             type Start = StartValue<Self>;
-            
+
             fn finish(builder: VariableBuilder<Self>) -> Self::Var {
                 let mut var = <$fmi_type>::new(
                     builder.name,
-                    builder.value_reference.unwrap_or(0),
+                    builder.value_reference,
                     if builder.description.as_ref().map_or(true, |d| d.is_empty()) {
                         None
                     } else {
@@ -302,12 +296,12 @@ macro_rules! impl_fmi_variable_builder_int {
                     builder.start.map(Into::into),
                     builder.initial,
                 );
-                
+
                 // Apply dimensions if any
                 if !builder.dimensions.is_empty() {
                     var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
                 }
-                
+
                 var
             }
         }
@@ -328,11 +322,11 @@ impl_fmi_variable_builder_int!(u32, schema::FmiUInt32);
 impl FmiVariableBuilder for bool {
     type Var = schema::FmiBoolean;
     type Start = StartValue<Self>;
-    
+
     fn finish(builder: VariableBuilder<Self>) -> Self::Var {
         let mut var = schema::FmiBoolean::new(
             builder.name,
-            builder.value_reference.unwrap_or(0),
+            builder.value_reference,
             if builder.description.as_ref().map_or(true, |d| d.is_empty()) {
                 None
             } else {
@@ -343,12 +337,12 @@ impl FmiVariableBuilder for bool {
             builder.start.map(Into::into),
             builder.initial,
         );
-        
+
         // Apply dimensions if any
         if !builder.dimensions.is_empty() {
             var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
         }
-        
+
         var
     }
 }
@@ -357,11 +351,11 @@ impl FmiVariableBuilder for bool {
 impl FmiVariableBuilder for String {
     type Var = schema::FmiString;
     type Start = StartValue<Self>;
-    
+
     fn finish(builder: VariableBuilder<Self>) -> Self::Var {
         let mut var = schema::FmiString::new(
             builder.name,
-            builder.value_reference.unwrap_or(0),
+            builder.value_reference,
             if builder.description.as_ref().map_or(true, |d| d.is_empty()) {
                 None
             } else {
@@ -372,12 +366,12 @@ impl FmiVariableBuilder for String {
             builder.start.map(Into::into),
             builder.initial,
         );
-        
+
         // Apply dimensions if any
         if !builder.dimensions.is_empty() {
             var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
         }
-        
+
         var
     }
 }
@@ -391,11 +385,11 @@ where
 {
     type Var = T::Var;
     type Start = T::Start;
-    
+
     fn finish(mut builder: VariableBuilder<Self>) -> Self::Var {
         // Add the fixed dimension for this array
         builder.dimensions.push(schema::Dimension::Fixed(N as _));
-        
+
         // Delegate to the element type's finish implementation
         // We need to transmute the builder to the element type
         let element_builder = VariableBuilder::<T> {
@@ -404,7 +398,8 @@ where
             description: builder.description,
             causality: builder.causality,
             variability: builder.variability,
-            can_handle_multiple_set_per_time_instant: builder.can_handle_multiple_set_per_time_instant,
+            can_handle_multiple_set_per_time_instant: builder
+                .can_handle_multiple_set_per_time_instant,
             intermediate_update: builder.intermediate_update,
             previous: builder.previous,
             declared_type: builder.declared_type,
@@ -419,7 +414,7 @@ where
             dimensions: builder.dimensions,
             _phantom: std::marker::PhantomData,
         };
-        
+
         T::finish(element_builder)
     }
 }
@@ -433,11 +428,11 @@ where
 {
     type Var = T::Var;
     type Start = T::Start;
-    
+
     fn finish(mut builder: VariableBuilder<Self>) -> Self::Var {
         // Add a variable dimension
         builder.dimensions.push(schema::Dimension::Variable(0));
-        
+
         // Delegate to the element type's finish implementation
         let element_builder = VariableBuilder::<T> {
             name: builder.name,
@@ -445,7 +440,8 @@ where
             description: builder.description,
             causality: builder.causality,
             variability: builder.variability,
-            can_handle_multiple_set_per_time_instant: builder.can_handle_multiple_set_per_time_instant,
+            can_handle_multiple_set_per_time_instant: builder
+                .can_handle_multiple_set_per_time_instant,
             intermediate_update: builder.intermediate_update,
             previous: builder.previous,
             declared_type: builder.declared_type,
@@ -460,7 +456,7 @@ where
             dimensions: builder.dimensions,
             _phantom: std::marker::PhantomData,
         };
-        
+
         T::finish(element_builder)
     }
 }
@@ -473,8 +469,7 @@ mod tests {
 
     #[test]
     fn test_scalar() {
-        let var_f1 = <f64 as FmiVariableBuilder>::variable("f1")
-            .with_value_reference(0)
+        let var_f1 = <f64 as FmiVariableBuilder>::variable("f1", 0)
             .with_description("Description for f1")
             .with_causality(schema::Causality::Parameter)
             .with_variability(schema::Variability::Tunable)
@@ -485,8 +480,7 @@ mod tests {
 
     #[test]
     fn test_array1() {
-        let var_f2 = <[u16; 2] as FmiVariableBuilder>::variable("f2")
-            .with_value_reference(0)
+        let var_f2 = <[u16; 2] as FmiVariableBuilder>::variable("f2", 0)
             .with_description("Description for f2")
             .with_causality(schema::Causality::Parameter)
             .with_variability(schema::Variability::Tunable)
@@ -498,8 +492,7 @@ mod tests {
     #[test]
     fn test_builder_pattern() {
         // Test using the builder pattern with method chaining
-        let var = <f64 as FmiVariableBuilder>::variable("test_var")
-            .with_value_reference(42)
+        let var = <f64 as FmiVariableBuilder>::variable("test_var", 42)
             .with_description("A test variable")
             .with_causality(schema::Causality::Output)
             .with_variability(schema::Variability::Continuous)
@@ -517,7 +510,7 @@ mod tests {
     #[test]
     fn test_builder_with_defaults() {
         // Test that builder provides sensible defaults
-        let var = <f64 as FmiVariableBuilder>::variable("minimal")
+        let var = <f64 as FmiVariableBuilder>::variable("minimal", 0)
             .with_start(0.0)
             .finish();
 
@@ -530,8 +523,7 @@ mod tests {
     #[test]
     fn test_float_specific_attributes() {
         // Test float-specific attributes like derivative and reinit
-        let var = <f64 as FmiVariableBuilder>::variable("state_derivative")
-            .with_value_reference(10)
+        let var = <f64 as FmiVariableBuilder>::variable("state_derivative", 10)
             .with_causality(schema::Causality::Local)
             .with_variability(schema::Variability::Continuous)
             .with_derivative(5)  // Value reference of the state variable
@@ -552,8 +544,7 @@ mod tests {
     #[test]
     fn test_bool_type_creates_fmi_boolean() {
         // Test that bool type creates FmiBoolean
-        let var = <bool as FmiVariableBuilder>::variable("flag")
-            .with_value_reference(20)
+        let var = <bool as FmiVariableBuilder>::variable("flag", 20)
             .with_causality(schema::Causality::Output)
             .with_variability(schema::Variability::Discrete)
             .with_start(false)
@@ -568,8 +559,7 @@ mod tests {
     #[test]
     fn test_comprehensive_builder() {
         // Test builder with many optional fields
-        let var = <f64 as FmiVariableBuilder>::variable("comprehensive")
-            .with_value_reference(100)
+        let var = <f64 as FmiVariableBuilder>::variable("comprehensive", 100)
             .with_description("A comprehensive test variable")
             .with_causality(schema::Causality::Parameter)
             .with_variability(schema::Variability::Tunable)
