@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use fmi::{
     EventFlags,
-    fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding},
+    fmi3::{Fmi3Error, Fmi3Res, binding},
     schema::fmi3::AppendToModelVariables,
 };
 
@@ -63,15 +63,6 @@ pub trait Model: Default + UserModel {
         let _ = (vr, state);
         Ok(())
     }
-
-    fn configurate(&mut self) -> Fmi3Status {
-        // Basic configuration - in a full implementation, this would:
-        // - Allocate memory for event indicators if needed
-        // - Allocate memory for continuous states if needed
-        // - Initialize event indicator values
-        // For now, just return OK since our basic implementation doesn't need these
-        Fmi3Res::OK.into()
-    }
 }
 
 pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
@@ -91,6 +82,12 @@ pub trait UserModel: Sized {
     ///
     /// This is an enum that implements `ModelLoggingCategory`
     type LoggingCategory: ModelLoggingCategory + 'static;
+
+    /// Configure the model (allocate memory, initialize states, etc.)
+    /// This method is called upon exiting initialization mode
+    fn configurate(&mut self, _context: &ModelContext<Self>) -> Result<(), Fmi3Error> {
+        Ok(())
+    }
 
     /// Calculate values (derivatives, outputs, etc.)
     /// This method is called whenever the model needs to update its calculated values

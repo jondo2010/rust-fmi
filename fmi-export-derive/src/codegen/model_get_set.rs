@@ -108,6 +108,19 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let field_type = &field.rust_type;
         let count_name = format_ident!("{}_count", field.ident);
 
+        // Check if this field has Output causality for Clock variables
+        let has_output_causality = field.attrs.iter().any(|attr| {
+            if let crate::model::FieldAttributeOuter::Variable(var_attr) = attr {
+                if let Some(causality) = &var_attr.causality {
+                    matches!(causality.0, fmi::fmi3::schema::Causality::Output)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        });
+
         // Build cumulative sum for the condition
         let cumulative_sum = if i == 0 {
             quote! { #count_name }
@@ -134,11 +147,20 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             quote! { vr - (#(#prev_sums)+*) }
         };
 
-        conditions.push(quote! {
-            if vr < #cumulative_sum {
-                <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::get_clock(&self.#field_name, #vr_offset, value, context)
-            }
-        });
+        if has_output_causality {
+            conditions.push(quote! {
+                if vr < #cumulative_sum {
+                    <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::get_clock(&mut self.#field_name, #vr_offset, value, context)
+                }
+            });
+        } else {
+            // For non-Output clocks: return an error
+            conditions.push(quote! {
+                if vr < #cumulative_sum {
+                    Err(::fmi::fmi3::Fmi3Error::Error) // get_clock only valid for Output causality
+                }
+            });
+        }
     }
 
     // Chain all conditions together with else if
@@ -154,7 +176,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
 
     quote! {
         fn get_clock(
-            &self,
+            &mut self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             value: &mut ::fmi::fmi3::binding::fmi3Clock,
             context: &::fmi_export::fmi3::ModelContext<Self>
@@ -183,6 +205,19 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let field_type = &field.rust_type;
         let count_name = format_ident!("{}_count", field.ident);
 
+        // Check if this field has Input causality for Clock variables
+        let has_input_causality = field.attrs.iter().any(|attr| {
+            if let crate::model::FieldAttributeOuter::Variable(var_attr) = attr {
+                if let Some(causality) = &var_attr.causality {
+                    matches!(causality.0, fmi::fmi3::schema::Causality::Input)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        });
+
         // Build cumulative sum for the condition
         let cumulative_sum = if i == 0 {
             quote! { #count_name }
@@ -209,11 +244,21 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             quote! { vr - (#(#prev_sums)+*) }
         };
 
-        conditions.push(quote! {
-            if vr < #cumulative_sum {
-                <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::set_clock(&mut self.#field_name, #vr_offset, value, context)
-            }
-        });
+        if has_input_causality {
+            // For Input clocks: allow setting
+            conditions.push(quote! {
+                if vr < #cumulative_sum {
+                    <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::set_clock(&mut self.#field_name, #vr_offset, value, context)
+                }
+            });
+        } else {
+            // For non-Input clocks: return an error
+            conditions.push(quote! {
+                if vr < #cumulative_sum {
+                    Err(::fmi::fmi3::Fmi3Error::Error) // set_clock only valid for Input causality
+                }
+            });
+        }
     }
 
     // Chain all conditions together with else if

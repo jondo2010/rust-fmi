@@ -142,8 +142,9 @@ pub trait ModelGetSet<M: Model> {
     }
 
     /// Get clock values from the model
+    /// Note: For Output clocks, this method should reset the clock to false after reading
     fn get_clock(
-        &self,
+        &mut self,
         _vr: binding::fmi3ValueReference,
         _value: &mut binding::fmi3Clock,
         _context: &ModelContext<M>,
@@ -210,13 +211,15 @@ impl<M: Model> ModelGetSet<M> for String {
 impl<M: Model> ModelGetSet<M> for Clock {
     const FIELD_COUNT: usize = 1;
     fn get_clock(
-        &self,
+        &mut self,
         vr: binding::fmi3ValueReference,
         value: &mut binding::fmi3Clock,
         _context: &ModelContext<M>,
     ) -> Result<(), Fmi3Error> {
         if vr == 0 {
             *value = self.0;
+            // Reset clock since GetClock may only return true once per activation
+            self.0 = false;
             Ok(())
         } else {
             Err(Fmi3Error::Error)

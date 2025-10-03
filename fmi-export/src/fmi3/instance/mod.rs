@@ -10,6 +10,7 @@ use crate::fmi3::{
     traits::{Model, ModelLoggingCategory},
 };
 
+mod co_simulation;
 mod common;
 mod get_set;
 mod model_exchange;

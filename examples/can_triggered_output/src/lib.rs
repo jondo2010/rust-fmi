@@ -50,24 +50,11 @@ struct CanTriggeredOutput {
 impl UserModel for CanTriggeredOutput {
     type LoggingCategory = DefaultLoggingCategory;
 
+    fn configurate(&mut self, _context: &ModelContext<Self>) -> Result<(), Fmi3Error> {
+        todo!();
+    }
+
     fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
-        // Check if we received new data on the rx clock
-        if self.rx_clock.0 {
-            // Process the received CAN data
-            // For this example, we simply echo the received data to the output
-            // In a real implementation, this would contain actual CAN message processing logic
-            self.tx_data = self.rx_data.clone();
-
-            // Trigger the tx clock to indicate new output data is available
-            self.tx_clock.0 = true;
-
-            // Reset the rx clock after processing
-            self.rx_clock.0 = false;
-        } else {
-            // No new input data, reset tx clock
-            self.tx_clock.0 = false;
-        }
-
         Ok(Fmi3Res::OK)
     }
 }
@@ -126,7 +113,10 @@ mod tests {
         assert_eq!(vars.clock[1].value_reference(), 4); // tx_clock has VR 4
 
         assert_eq!(vars.boolean.len(), 1); // can_bus_notifications
-        assert_eq!(vars.boolean[0].name(), "org.fmi_standard.fmi_ls_bus.Can_BusNotifications");
+        assert_eq!(
+            vars.boolean[0].name(),
+            "org.fmi_standard.fmi_ls_bus.Can_BusNotifications"
+        );
         assert_eq!(vars.boolean[0].value_reference(), 5); // can_bus_notifications has VR 5
 
         // Check max_size for binary variables (currently not supported by derive macro)
@@ -154,10 +144,13 @@ mod tests {
         )
         .unwrap();
 
-        // Test clock operations
-        let mut clock_vals = [false; 2];
-        model.get_clock(&[3, 4], &mut clock_vals).unwrap(); // rx_clock VR=3, tx_clock VR=4
-        assert_eq!(clock_vals, [false, false]); // Initial clock states
+        let (rx_clock_vr, tx_clock_vr) = (3, 4); // VRs for rx_clock and tx_clock
+
+        // Test clock operations. It should only be possible to set rx_clock (input clock), and to get tx_clock (output clock)
+        let mut clock_val = [false; 1];
+        model.set_clock(&[rx_clock_vr], &[true]).unwrap(); // Set rx_clock (VR=3)
+        model.get_clock(&[tx_clock_vr], &mut clock_val).unwrap(); // Get tx_clock (VR=4)
+        assert_eq!(clock_val, [false]); // Initial clock states
 
         // Test setting rx_clock
         model.set_clock(&[3], &[true]).unwrap(); // Set rx_clock (VR=3)

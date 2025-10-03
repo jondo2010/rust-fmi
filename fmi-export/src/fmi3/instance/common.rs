@@ -81,6 +81,12 @@ where
             format_args!("exit_initialization_mode()"),
         );
 
+        // if values were set and no get call triggered update before, ensure calculated values are updated now
+        if self.is_dirty_values {
+            self.model.calculate_values(&self.context)?;
+            self.is_dirty_values = false;
+        }
+
         match self.interface_type() {
             InterfaceType::ModelExchange => {
                 self.state = ModelState::EventMode;
@@ -98,6 +104,8 @@ where
                 self.state = ModelState::ClockActivationMode;
             }
         }
+
+        self.model.configurate(&self.context)?;
 
         Ok(Fmi3Res::OK)
     }

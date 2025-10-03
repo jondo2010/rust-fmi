@@ -25,7 +25,7 @@ impl InitializeFromStart<&[u8]> for Binary {
     }
 }
 
-/// Special implementation for Binary to handle byte array literals 
+/// Special implementation for Binary to handle byte array literals
 impl<const N: usize> InitializeFromStart<&[u8; N]> for Binary {
     fn set_from_start(&mut self, value: &[u8; N]) {
         *self = Binary(value.to_vec());
