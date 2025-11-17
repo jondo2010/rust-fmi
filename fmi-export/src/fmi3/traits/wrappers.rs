@@ -1,12 +1,22 @@
 //! Traits that implement safe wrappers around the C-typed APIs
+//!
+//! # Notes:
+//!
+//! 1. Exported C-ABI functions delegate directly to these trait functions.
+//!   - the entire API must invariably be available through these traits.
+//! 2. The instantiation functions:
+//!  - must fail here if the model doesn't "support" the requested interface
 use crate::{
     checked_deref,
-    fmi3::{ModelGetSetStates, traits::ModelGetSet},
+    fmi3::{
+        ModelGetSetStates, ModelInstance, UserModel,
+        traits::{ModelGetSet, UserModelCSWrapper, UserModelME},
+    },
 };
 
-use super::Model;
+use super::{Context, Model};
 
-use fmi::fmi3::{Fmi3Res, binding};
+use fmi::fmi3::{Common, Fmi3Res, binding};
 
 /// Safely dereferences an FMI instance pointer and validates it.
 #[macro_export]
@@ -16,7 +26,7 @@ macro_rules! checked_deref {
             eprintln!("Invalid FMU instance");
             return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
         }
-        let instance = unsafe { &mut *($ptr as *mut $crate::fmi3::ModelInstance<$ty>) };
+        let instance = unsafe { &mut *($ptr as *mut ModelInstance<$ty>) };
         instance
     }};
 }
@@ -88,7 +98,7 @@ macro_rules! wrapper_getset_functions {
     };
 }
 
-pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
+pub trait Fmi3Common: Model + UserModel + ModelGetSet<Self> + Sized {
     #[inline(always)]
     unsafe fn fmi3_get_version() -> *const ::std::os::raw::c_char {
         binding::fmi3Version.as_ptr() as *const _
@@ -102,15 +112,12 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         categories: *const binding::fmi3String,
     ) -> binding::fmi3Status {
         let instance = checked_deref!(instance, Self);
+
         let categories = unsafe { std::slice::from_raw_parts(categories, n_categories) }
             .into_iter()
             .filter_map(|cat| unsafe { std::ffi::CStr::from_ptr(*cat) }.to_str().ok())
             .collect::<::std::vec::Vec<_>>();
-        match <crate::fmi3::ModelInstance<Self> as ::fmi::fmi3::Common>::set_debug_logging(
-            instance,
-            logging_on,
-            &categories,
-        ) {
+        match instance.set_debug_logging(logging_on, &categories) {
             Ok(res) => {
                 let status: ::fmi::fmi3::Fmi3Status = res.into();
                 status.into()
@@ -139,45 +146,45 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
                 .into_owned(),
         );
 
-        if let Some(log_message) = log_message {
-            // Wrap the C callback in a Rust closure
-            let log_message = Box::new(
-                move |status: ::fmi::fmi3::Fmi3Status,
-                      category: &str,
-                      args: std::fmt::Arguments<'_>| {
-                    let category_c = ::std::ffi::CString::new(category).unwrap_or_default();
-                    let message_c = ::std::ffi::CString::new(args.to_string()).unwrap_or_default();
-                    unsafe {
-                        log_message(
-                            std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
-                            status.into(),
-                            category_c.as_ptr(),
-                            message_c.as_ptr(),
-                        )
-                    };
-                },
-            );
-
-            match crate::fmi3::ModelInstance::<Self>::new(
-                name,
-                resource_path,
-                logging_on,
-                log_message,
-                &token,
-            ) {
-                Ok(instance) => {
-                    let this: ::std::boxed::Box<dyn ::fmi::fmi3::Common> =
-                        ::std::boxed::Box::new(instance);
-                    ::std::boxed::Box::into_raw(this) as binding::fmi3Instance
-                }
-                Err(_) => {
-                    eprintln!("Failed to instantiate FMU: invalid instantiation token");
-                    ::std::ptr::null_mut()
-                }
-            }
-        } else {
+        let Some(log_message) = log_message else {
             eprintln!("Error: No log message callback provided");
             return ::std::ptr::null_mut();
+        };
+
+        // Wrap the C callback in a Rust closure
+        let log_message = Box::new(
+            move |status: ::fmi::fmi3::Fmi3Status,
+                  category: &str,
+                  args: std::fmt::Arguments<'_>| {
+                let category_c = ::std::ffi::CString::new(category).unwrap_or_default();
+                let message_c = ::std::ffi::CString::new(args.to_string()).unwrap_or_default();
+                unsafe {
+                    log_message(
+                        std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
+                        status.into(),
+                        category_c.as_ptr(),
+                        message_c.as_ptr(),
+                    )
+                };
+            },
+        );
+
+        match crate::fmi3::ModelInstance::<Self>::new(
+            name,
+            resource_path,
+            logging_on,
+            log_message,
+            &token,
+        ) {
+            Ok(instance) => {
+                let this: ::std::boxed::Box<dyn ::fmi::fmi3::Common> =
+                    ::std::boxed::Box::new(instance);
+                ::std::boxed::Box::into_raw(this) as binding::fmi3Instance
+            }
+            Err(_) => {
+                eprintln!("Failed to instantiate FMU: invalid instantiation token");
+                ::std::ptr::null_mut()
+            }
         }
     }
 
@@ -205,6 +212,38 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
                 .to_string_lossy()
                 .into_owned(),
         );
+
+        let intermediate_update = _intermediate_update.map(|cb| {
+            Box::new(
+                move |time: f64,
+                      variable_set_requested: bool,
+                      variable_get_allowed: bool,
+                      step_finished: bool,
+                      can_return_early: bool|
+                      -> Option<f64> {
+                    let mut early_return_requested: binding::fmi3Boolean = false.into();
+                    let mut early_return_time: binding::fmi3Float64 = 0.0;
+                    unsafe {
+                        cb(
+                            std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
+                            time,
+                            variable_set_requested.into(),
+                            variable_get_allowed.into(),
+                            step_finished.into(),
+                            can_return_early.into(),
+                            &mut early_return_requested as *mut binding::fmi3Boolean,
+                            &mut early_return_time as *mut binding::fmi3Float64,
+                        )
+                    };
+
+                    if early_return_requested.into() {
+                        Some(early_return_time)
+                    } else {
+                        None
+                    }
+                },
+            )
+        });
 
         panic!("Co-Simulation not yet implemented");
     }
@@ -245,7 +284,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
             ::std::boxed::Box::from_raw(instance as *mut crate::fmi3::ModelInstance<Self>)
         };
         _this.context().log(
-            Fmi3Res::OK,
+            Fmi3Res::OK.into(),
             Default::default(),
             format_args!("{}: fmi3FreeInstance()", _this.instance_name()),
         );
@@ -395,7 +434,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _sensitivity: *mut binding::fmi3Float64,
         _n_sensitivity: usize,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Directional derivative not yet implemented");
     }
 
@@ -411,7 +450,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _sensitivity: *mut binding::fmi3Float64,
         _n_sensitivity: usize,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Adjoint derivative not yet implemented");
     }
 
@@ -455,7 +494,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _intervals: *mut binding::fmi3Float64,
         _qualifiers: *mut binding::fmi3IntervalQualifier,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -468,7 +507,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _resolutions: *mut binding::fmi3UInt64,
         _qualifiers: *mut binding::fmi3IntervalQualifier,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -479,7 +518,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _n_value_references: usize,
         _shifts: *mut binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -491,7 +530,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _counters: *mut binding::fmi3UInt64,
         _resolutions: *mut binding::fmi3UInt64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -502,7 +541,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _n_value_references: usize,
         _intervals: *const binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -514,7 +553,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _counters: *const binding::fmi3UInt64,
         _resolutions: *const binding::fmi3UInt64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -525,7 +564,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _n_value_references: usize,
         _shifts: *const binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -537,7 +576,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
         _counters: *const binding::fmi3UInt64,
         _resolutions: *const binding::fmi3UInt64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Clock interval not yet implemented");
     }
 
@@ -545,7 +584,7 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
     unsafe fn fmi3_evaluate_discrete_states(
         instance: binding::fmi3Instance,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
+        //let _instance = checked_deref!(instance, Self);
         todo!("Discrete states not yet implemented");
     }
 
@@ -921,7 +960,10 @@ pub trait Fmi3Common: Model + ModelGetSet<Self> + Sized {
 }
 
 // Model Exchange trait
-pub trait Fmi3ModelExchange: Fmi3Common + ModelGetSetStates {
+pub trait Fmi3ModelExchange: Fmi3Common + ModelGetSetStates + UserModelME
+where
+    ModelInstance<Self>: fmi::fmi3::ModelExchange,
+{
     #[inline(always)]
     unsafe fn fmi3_enter_continuous_time_mode(
         instance: binding::fmi3Instance,
@@ -1099,53 +1141,124 @@ pub trait Fmi3ModelExchange: Fmi3Common + ModelGetSetStates {
 }
 
 // Co-Simulation trait
-pub trait Fmi3CoSimulation: Fmi3Common {
+pub trait Fmi3CoSimulation: Fmi3Common + ModelGetSetStates + UserModelCSWrapper
+where
+    ModelInstance<Self>: fmi::fmi3::CoSimulation,
+{
     #[inline(always)]
     unsafe fn fmi3_enter_step_mode(instance: binding::fmi3Instance) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
-        todo!("Co-Simulation not yet implemented");
+        let instance = checked_deref!(instance, Self);
+        match <crate::fmi3::ModelInstance<Self> as ::fmi::fmi3::CoSimulation>::enter_step_mode(
+            instance,
+        ) {
+            Ok(res) => {
+                let status: ::fmi::fmi3::Fmi3Status = res.into();
+                status.into()
+            }
+            Err(_) => binding::fmi3Status_fmi3Error,
+        }
     }
 
     #[inline(always)]
     unsafe fn fmi3_get_output_derivatives(
         instance: binding::fmi3Instance,
-        _value_references: *const binding::fmi3ValueReference,
-        _n_value_references: usize,
-        _orders: *const binding::fmi3Int32,
-        _values: *mut binding::fmi3Float64,
-        _n_values: usize,
+        value_references: *const binding::fmi3ValueReference,
+        n_value_references: usize,
+        orders: *const binding::fmi3Int32,
+        values: *mut binding::fmi3Float64,
+        n_values: usize,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
-        todo!("Co-Simulation not yet implemented");
+        let instance = checked_deref!(instance, Self);
+        let value_refs =
+            unsafe { ::std::slice::from_raw_parts(value_references, n_value_references) };
+        let orders_slice = unsafe { ::std::slice::from_raw_parts(orders, n_value_references) };
+        let values_slice = unsafe { ::std::slice::from_raw_parts_mut(values, n_values) };
+        match <crate::fmi3::ModelInstance<Self> as ::fmi::fmi3::CoSimulation>::get_output_derivatives(
+            instance,
+            value_refs,
+            orders_slice,
+            values_slice,
+        ) {
+            Ok(res) => {
+                let status: ::fmi::fmi3::Fmi3Status = res.into();
+                status.into()
+            }
+            Err(_) => binding::fmi3Status_fmi3Error,
+        }
     }
 
     #[inline(always)]
     unsafe fn fmi3_do_step(
         instance: binding::fmi3Instance,
-        _current_communication_point: binding::fmi3Float64,
-        _communication_step_size: binding::fmi3Float64,
-        _no_set_fmu_state_prior_to_current_point: binding::fmi3Boolean,
-        _event_handling_needed: *mut binding::fmi3Boolean,
-        _terminate_simulation: *mut binding::fmi3Boolean,
-        _early_return: *mut binding::fmi3Boolean,
-        _last_successful_time: *mut binding::fmi3Float64,
+        current_communication_point: binding::fmi3Float64,
+        communication_step_size: binding::fmi3Float64,
+        no_set_fmu_state_prior_to_current_point: binding::fmi3Boolean,
+        event_handling_needed: *mut binding::fmi3Boolean,
+        terminate_simulation: *mut binding::fmi3Boolean,
+        early_return: *mut binding::fmi3Boolean,
+        last_successful_time: *mut binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
-        todo!("Co-Simulation not yet implemented");
+        let instance = checked_deref!(instance, Self);
+        match unsafe {
+            <crate::fmi3::ModelInstance<Self> as ::fmi::fmi3::CoSimulation>::do_step(
+                instance,
+                current_communication_point,
+                communication_step_size,
+                no_set_fmu_state_prior_to_current_point,
+                &mut *event_handling_needed,
+                &mut *terminate_simulation,
+                &mut *early_return,
+                &mut *last_successful_time,
+            )
+        } {
+            Ok(res) => {
+                let status: ::fmi::fmi3::Fmi3Status = res.into();
+                status.into()
+            }
+            Err(e) => fmi::fmi3::Fmi3Status::from(e).into(),
+        }
     }
+}
 
+pub trait Fmi3ScheduledExecution: Fmi3Common + ModelGetSetStates
+where
+    ModelInstance<Self>: fmi::fmi3::ScheduledExecution,
+{
     #[inline(always)]
     unsafe fn fmi3_activate_model_partition(
         instance: binding::fmi3Instance,
-        _clock_reference: binding::fmi3ValueReference,
-        _activation_time: binding::fmi3Float64,
+        clock_reference: binding::fmi3ValueReference,
+        activation_time: binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let _instance = checked_deref!(instance, Self);
-        todo!("Co-Simulation not yet implemented");
+        let instance = checked_deref!(instance, Self);
+        match <crate::fmi3::ModelInstance<Self> as ::fmi::fmi3::ScheduledExecution>::activate_model_partition(
+                instance,
+                clock_reference.into(),
+                activation_time,
+            )
+        {
+            Ok(res) => {
+                let status: ::fmi::fmi3::Fmi3Status = res.into();
+                status.into()
+            }
+            Err(e) => fmi::fmi3::Fmi3Status::from(e).into(),
+        }
     }
 }
 
 // Automatic implementations for all models
-impl<T> Fmi3Common for T where T: Model + ModelGetSet<Self> {}
-impl<T> Fmi3ModelExchange for T where T: Model + Fmi3Common + ModelGetSetStates {}
-impl<T> Fmi3CoSimulation for T where T: Model + Fmi3Common {}
+impl<T> Fmi3Common for T where T: Model + UserModel + ModelGetSet<Self> {}
+
+impl<T> Fmi3ModelExchange for T
+where
+    T: Model + UserModel + UserModelME + Fmi3Common + ModelGetSetStates,
+    ModelInstance<T>: fmi::fmi3::ModelExchange,
+{
+}
+
+impl<T> Fmi3CoSimulation for T
+where
+    T: Model + ModelGetSetStates + UserModel + UserModelCSWrapper + Fmi3Common,
+    ModelInstance<T>: fmi::fmi3::CoSimulation,
+{
+}

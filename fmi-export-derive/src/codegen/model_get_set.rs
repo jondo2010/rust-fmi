@@ -2,11 +2,27 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, format_ident, quote};
 use syn::{Ident, parse_quote};
 
-use crate::model::Model;
+use crate::model::{Field, FieldAttributeOuter, Model};
 
 pub struct ModelGetSetImpl<'a> {
     pub struct_name: &'a Ident,
     pub model: &'a Model,
+}
+
+/// Check if a field has the skip attribute set to true
+fn has_skip_attribute(field: &Field) -> bool {
+    field
+        .attrs
+        .iter()
+        .any(|attr| matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.skip))
+}
+
+/// Filter out fields that have the skip attribute
+fn filter_non_skipped_fields(fields: &[Field]) -> Vec<&Field> {
+    fields
+        .iter()
+        .filter(|field| !has_skip_attribute(field))
+        .collect()
 }
 
 fn build_getter_fn(
@@ -14,9 +30,12 @@ fn build_getter_fn(
     ty: syn::Type,
     model: &crate::model::Model,
 ) -> proc_macro2::TokenStream {
+    // Filter out skipped fields
+    let non_skipped_fields = filter_non_skipped_fields(&model.fields);
+
     // Create scalar count variables:
     // for each field, `let field_name_count = <FieldType as ModelGetSet<Self>>::FIELD_COUNT;`
-    let scalar_var_counts = model.fields.iter().map(|f| {
+    let scalar_var_counts = non_skipped_fields.iter().map(|f| {
         let count_name = format_ident!("{}_count", f.ident);
         let field_type = &f.rust_type;
         quote! {
@@ -28,7 +47,7 @@ fn build_getter_fn(
     // We need to compute cumulative sums like f0_count, f0_count + inner_count, etc.
     let mut conditions = Vec::new();
 
-    for (i, field) in model.fields.iter().enumerate() {
+    for (i, field) in non_skipped_fields.iter().enumerate() {
         let field_name = &field.ident;
         let field_type = &field.rust_type;
         let count_name = format_ident!("{}_count", field.ident);
@@ -37,8 +56,7 @@ fn build_getter_fn(
         let cumulative_sum = if i == 0 {
             quote! { #count_name }
         } else {
-            let prev_sums: Vec<_> = model
-                .fields
+            let prev_sums: Vec<_> = non_skipped_fields
                 .iter()
                 .take(i)
                 .map(|f| format_ident!("{}_count", f.ident))
@@ -50,8 +68,7 @@ fn build_getter_fn(
         let vr_offset = if i == 0 {
             quote! { vr }
         } else {
-            let prev_sums: Vec<_> = model
-                .fields
+            let prev_sums: Vec<_> = non_skipped_fields
                 .iter()
                 .take(i)
                 .map(|f| format_ident!("{}_count", f.ident))
@@ -82,7 +99,7 @@ fn build_getter_fn(
             &self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             values: &mut [#ty],
-            context: &::fmi_export::fmi3::ModelContext<Self>
+            context: &impl ::fmi_export::fmi3::Context<Self>
         ) -> Result<usize, ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -91,8 +108,11 @@ fn build_getter_fn(
 }
 
 fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
+    // Filter out skipped fields
+    let non_skipped_fields = filter_non_skipped_fields(&model.fields);
+
     // Create scalar count variables:
-    let scalar_var_counts = model.fields.iter().map(|f| {
+    let scalar_var_counts = non_skipped_fields.iter().map(|f| {
         let count_name = format_ident!("{}_count", f.ident);
         let field_type = &f.rust_type;
         quote! {
@@ -103,7 +123,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
     // Generate if-else conditions to route to the correct field
     let mut conditions = Vec::new();
 
-    for (i, field) in model.fields.iter().enumerate() {
+    for (i, field) in non_skipped_fields.iter().enumerate() {
         let field_name = &field.ident;
         let field_type = &field.rust_type;
         let count_name = format_ident!("{}_count", field.ident);
@@ -125,8 +145,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let cumulative_sum = if i == 0 {
             quote! { #count_name }
         } else {
-            let prev_sums: Vec<_> = model
-                .fields
+            let prev_sums: Vec<_> = non_skipped_fields
                 .iter()
                 .take(i)
                 .map(|f| format_ident!("{}_count", f.ident))
@@ -138,8 +157,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let vr_offset = if i == 0 {
             quote! { vr }
         } else {
-            let prev_sums: Vec<_> = model
-                .fields
+            let prev_sums: Vec<_> = non_skipped_fields
                 .iter()
                 .take(i)
                 .map(|f| format_ident!("{}_count", f.ident))
@@ -179,7 +197,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             &mut self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             value: &mut ::fmi::fmi3::binding::fmi3Clock,
-            context: &::fmi_export::fmi3::ModelContext<Self>
+            context: &impl ::fmi_export::fmi3::Context<Self>
         ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -188,8 +206,11 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
 }
 
 fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
+    // Filter out skipped fields
+    let non_skipped_fields = filter_non_skipped_fields(&model.fields);
+
     // Create scalar count variables:
-    let scalar_var_counts = model.fields.iter().map(|f| {
+    let scalar_var_counts = non_skipped_fields.iter().map(|f| {
         let count_name = format_ident!("{}_count", f.ident);
         let field_type = &f.rust_type;
         quote! {
@@ -200,7 +221,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
     // Generate if-else conditions to route to the correct field
     let mut conditions = Vec::new();
 
-    for (i, field) in model.fields.iter().enumerate() {
+    for (i, field) in non_skipped_fields.iter().enumerate() {
         let field_name = &field.ident;
         let field_type = &field.rust_type;
         let count_name = format_ident!("{}_count", field.ident);
@@ -222,8 +243,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let cumulative_sum = if i == 0 {
             quote! { #count_name }
         } else {
-            let prev_sums: Vec<_> = model
-                .fields
+            let prev_sums: Vec<_> = non_skipped_fields
                 .iter()
                 .take(i)
                 .map(|f| format_ident!("{}_count", f.ident))
@@ -235,8 +255,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let vr_offset = if i == 0 {
             quote! { vr }
         } else {
-            let prev_sums: Vec<_> = model
-                .fields
+            let prev_sums: Vec<_> = non_skipped_fields
                 .iter()
                 .take(i)
                 .map(|f| format_ident!("{}_count", f.ident))
@@ -277,7 +296,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             &mut self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             value: &::fmi::fmi3::binding::fmi3Clock,
-            context: &::fmi_export::fmi3::ModelContext<Self>
+            context: &impl ::fmi_export::fmi3::Context<Self>
         ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -289,7 +308,9 @@ impl ToTokens for ModelGetSetImpl<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let struct_name = self.struct_name;
 
-        let field_types = self.model.fields.iter().map(|f| &f.rust_type);
+        // Filter out skipped fields for the FIELD_COUNT calculation
+        let non_skipped_fields = filter_non_skipped_fields(&self.model.fields);
+        let field_types = non_skipped_fields.iter().map(|f| &f.rust_type);
 
         // Generate all getter/setter functions
         let boolean_get_fn =

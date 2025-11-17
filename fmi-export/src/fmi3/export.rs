@@ -12,7 +12,7 @@ macro_rules! generate_getset_functions {
                 values: *mut $fmi_type,
                 n_values: usize,
             ) -> ::fmi::fmi3::binding::fmi3Status {
-                <$ty as $crate::fmi3::Fmi3Common>::[<fmi3_get_ $type_name:snake>](
+                <$ty as $crate::fmi3::Fmi3Common<MC>>::[<fmi3_get_ $type_name:snake>](
                     instance,
                     value_references,
                     n_value_references,
@@ -886,7 +886,7 @@ macro_rules! export_fmu {
             clock_reference: ::fmi::fmi3::binding::fmi3ValueReference,
             activation_time: ::fmi::fmi3::binding::fmi3Float64,
         ) -> ::fmi::fmi3::binding::fmi3Status {
-            <$ty as $crate::fmi3::Fmi3CoSimulation>::fmi3_activate_model_partition(
+            <$ty as $crate::fmi3::Fmi3ScheduledExecution>::fmi3_activate_model_partition(
                 instance,
                 clock_reference,
                 activation_time,

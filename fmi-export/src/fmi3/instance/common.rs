@@ -1,6 +1,6 @@
 use super::ModelInstance;
 use crate::fmi3::{
-    Model, ModelState,
+    Model, ModelState, UserModel,
     traits::{ModelGetSet, ModelLoggingCategory},
 };
 use fmi::{
@@ -10,7 +10,7 @@ use fmi::{
 
 impl<M> Common for ModelInstance<M>
 where
-    M: Model + ModelGetSet<M>,
+    M: Model + UserModel + ModelGetSet<M>,
 {
     fn get_version(&self) -> &str {
         // Safety: binding::fmi3Version is a null-terminated byte array representing the version string
@@ -23,15 +23,11 @@ where
         categories: &[&str],
     ) -> Result<Fmi3Res, Fmi3Error> {
         for &cat in categories.iter() {
-            if let Some(cat) = cat
-                .parse::<M::LoggingCategory>()
-                .ok()
-                .and_then(|level| self.context.logging_on.get_mut(&level))
-            {
-                *cat = logging_on;
+            if let Some(cat) = cat.parse::<M::LoggingCategory>().ok() {
+                self.context.set_logging(cat, logging_on);
             } else {
                 self.context.log(
-                    Fmi3Error::Error,
+                    Fmi3Error::Error.into(),
                     M::LoggingCategory::default(),
                     format_args!("Unknown logging category {cat}"),
                 );
@@ -48,7 +44,7 @@ where
         stop_time: Option<f64>,
     ) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
-            Fmi3Res::OK,
+            Fmi3Res::OK.into(),
             Default::default(),
             format_args!(
                 "enter_initialization_mode(tolerance: {tolerance:?}, start_time: {start_time:?}, stop_time: {stop_time:?})",
@@ -57,12 +53,13 @@ where
 
         match self.state {
             ModelState::Instantiated => {
+                self.context.initialize(start_time, stop_time);
                 self.state = ModelState::InitializationMode;
                 Ok(Fmi3Res::OK)
             }
             _ => {
                 self.context.log(
-                    Fmi3Error::Error,
+                    Fmi3Error::Error.into(),
                     M::LoggingCategory::default(),
                     format_args!(
                         "enter_initialization_mode() called in invalid state {:?}",
@@ -76,18 +73,18 @@ where
 
     fn exit_initialization_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
-            Fmi3Res::OK,
+            Fmi3Res::OK.into(),
             Default::default(),
             format_args!("exit_initialization_mode()"),
         );
 
         // if values were set and no get call triggered update before, ensure calculated values are updated now
         if self.is_dirty_values {
-            self.model.calculate_values(&self.context)?;
+            self.model.calculate_values(self.context.as_ref())?;
             self.is_dirty_values = false;
         }
 
-        match self.interface_type() {
+        match self.instance_type {
             InterfaceType::ModelExchange => {
                 self.state = ModelState::EventMode;
             }
@@ -105,28 +102,31 @@ where
             }
         }
 
-        self.model.configurate(&self.context)?;
+        self.model.configurate(self.context.as_ref())?;
 
         Ok(Fmi3Res::OK)
     }
 
     fn terminate(&mut self) -> Result<Fmi3Res, Fmi3Error> {
-        self.context
-            .log(Fmi3Res::OK, Default::default(), format_args!("terminate()"));
+        self.context.log(
+            Fmi3Res::OK.into(),
+            Default::default(),
+            format_args!("terminate()"),
+        );
         self.state = ModelState::Terminated;
         Ok(Fmi3Res::OK)
     }
 
     fn reset(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.state = ModelState::Instantiated;
-        self.context.time = 0.0;
+        self.context.initialize(0.0, None);
         self.model.set_start_values();
         Ok(Fmi3Res::OK)
     }
 
     fn enter_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
-            Fmi3Res::OK,
+            Fmi3Res::OK.into(),
             M::LoggingCategory::trace_category(),
             format_args!("enter_configuration_mode()"),
         );
@@ -145,7 +145,7 @@ where
 
     fn exit_configuration_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
-            Fmi3Res::OK,
+            Fmi3Res::OK.into(),
             M::LoggingCategory::trace_category(),
             format_args!("exit_configuration_mode()"),
         );
@@ -156,7 +156,7 @@ where
             }
 
             ModelState::ReconfigurationMode => {
-                match self.interface_type() {
+                match self.instance_type {
                     InterfaceType::ModelExchange => {
                         self.state = ModelState::EventMode;
                     }
@@ -177,7 +177,7 @@ where
 
             _ => {
                 self.context.log(
-                    Fmi3Error::Error,
+                    Fmi3Error::Error.into(),
                     M::LoggingCategory::default(),
                     format_args!(
                         "exit_configuration_mode() called in invalid state {:?}",
@@ -193,7 +193,7 @@ where
 
     fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
-            Fmi3Res::OK,
+            Fmi3Res::OK.into(),
             M::LoggingCategory::trace_category(),
             format_args!("enter_event_mode()"),
         );
@@ -206,11 +206,12 @@ where
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
-            Fmi3Res::OK,
+            Fmi3Res::OK.into(),
             M::LoggingCategory::trace_category(),
             format_args!("update_discrete_states()"),
         );
-        self.model.event_update(&self.context, event_flags)
+        //UserModel::event_update(&mut self.model, &self.context, event_flags)
+        self.model.event_update(self.context.as_ref(), event_flags)
     }
 
     fn get_number_of_variable_dependencies(

@@ -1,8 +1,8 @@
 use fmi::fmi3::{Fmi3Error, binding};
 
-use crate::fmi3::{Clock, instance::ModelContext, types::Binary};
+use crate::fmi3::{Clock, types::Binary};
 
-use super::Model;
+use super::{Context, Model, UserModel};
 
 /// Macro to generate getter and setter method declarations for the ModelGetSet trait
 macro_rules! model_getter_setter {
@@ -14,7 +14,7 @@ macro_rules! model_getter_setter {
                 &self,
                 _vr: binding::fmi3ValueReference,
                 _values: &mut [$ty],
-                _context: &ModelContext<M>,
+                _context: &dyn Context<M>,
             ) -> Result<usize, Fmi3Error> {
                 Err(Fmi3Error::Error)
             }
@@ -25,7 +25,7 @@ macro_rules! model_getter_setter {
                 &mut self,
                 _vr: binding::fmi3ValueReference,
                 _values: &[$ty],
-                _context: &ModelContext<M>,
+                _context: &dyn Context<M>,
             ) -> Result<usize, Fmi3Error> {
                 Err(Fmi3Error::Error)
             }
@@ -37,13 +37,13 @@ macro_rules! model_getter_setter {
 macro_rules! impl_model_get_set_primitive {
     ($name:ident, $ty:ty, $data_type:expr) => {
         paste::paste! {
-            impl<M: Model> ModelGetSet<M> for $ty {
+            impl<M: Model + UserModel> ModelGetSet<M> for $ty {
                 const FIELD_COUNT: usize = 1;
                 fn [<get_ $name>](
                     &self,
                     vr: binding::fmi3ValueReference,
                     values: &mut [$ty],
-                    _context: &ModelContext<M>,
+                    _context: &dyn Context<M>,
                 ) -> Result<usize, Fmi3Error> {
                     if vr == 0 && !values.is_empty() {
                         values[0] = *self;
@@ -56,7 +56,7 @@ macro_rules! impl_model_get_set_primitive {
                     &mut self,
                     vr: binding::fmi3ValueReference,
                     values: &[$ty],
-                    _context: &ModelContext<M>,
+                    _context: &dyn Context<M>,
                 ) -> Result<usize, Fmi3Error> {
                     if vr == 0 && !values.is_empty() {
                         *self = values[0];
@@ -67,13 +67,13 @@ macro_rules! impl_model_get_set_primitive {
                 }
             }
 
-            impl<M: Model, const N: usize> ModelGetSet<M> for [$ty; N] {
+            impl<M: Model + UserModel, const N: usize> ModelGetSet<M> for [$ty; N] {
                 const FIELD_COUNT: usize = N;
                 fn [<get_ $name>](
                     &self,
                     vr: binding::fmi3ValueReference,
                     values: &mut [$ty],
-                    _context: &ModelContext<M>,
+                    _context: &dyn Context<M>,
                 ) -> Result<usize, Fmi3Error> {
                     if (vr as usize) < N && !values.is_empty() {
                         let len = std::cmp::min(N - (vr as usize), values.len());
@@ -87,7 +87,7 @@ macro_rules! impl_model_get_set_primitive {
                     &mut self,
                     vr: binding::fmi3ValueReference,
                     values: &[$ty],
-                    _context: &ModelContext<M>,
+                    _context: &dyn Context<M>,
                 ) -> Result<usize, Fmi3Error> {
                     if (vr as usize) < N && !values.is_empty() {
                         let len = std::cmp::min(N - (vr as usize), values.len());
@@ -102,7 +102,7 @@ macro_rules! impl_model_get_set_primitive {
     };
 }
 
-pub trait ModelGetSet<M: Model> {
+pub trait ModelGetSet<M: Model + UserModel> {
     /// The total number of primitive fields when flattened
     const FIELD_COUNT: usize;
 
@@ -125,7 +125,7 @@ pub trait ModelGetSet<M: Model> {
         &self,
         _vr: binding::fmi3ValueReference,
         _values: &mut [&mut [u8]],
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<Vec<usize>, Fmi3Error> {
         Err(Fmi3Error::Error)
     }
@@ -136,7 +136,7 @@ pub trait ModelGetSet<M: Model> {
         &mut self,
         _vr: binding::fmi3ValueReference,
         _values: &[&[u8]],
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<usize, Fmi3Error> {
         Err(Fmi3Error::Error)
     }
@@ -147,7 +147,7 @@ pub trait ModelGetSet<M: Model> {
         &mut self,
         _vr: binding::fmi3ValueReference,
         _value: &mut binding::fmi3Clock,
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<(), Fmi3Error> {
         Err(Fmi3Error::Error)
     }
@@ -157,7 +157,7 @@ pub trait ModelGetSet<M: Model> {
         &mut self,
         _vr: binding::fmi3ValueReference,
         _value: &binding::fmi3Clock,
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<(), Fmi3Error> {
         Err(Fmi3Error::Error)
     }
@@ -175,13 +175,13 @@ impl_model_get_set_primitive!(uint16, u16, schema::DataType::Uint16);
 impl_model_get_set_primitive!(uint32, u32, schema::DataType::Uint32);
 impl_model_get_set_primitive!(uint64, u64, schema::DataType::Uint64);
 
-impl<M: Model> ModelGetSet<M> for String {
+impl<M: Model + UserModel> ModelGetSet<M> for String {
     const FIELD_COUNT: usize = 1;
     fn get_string(
         &self,
         vr: binding::fmi3ValueReference,
         values: &mut [std::ffi::CString],
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<usize, Fmi3Error> {
         if vr == 0 && !values.is_empty() {
             values[0] = std::ffi::CString::new(self.as_str()).unwrap();
@@ -194,7 +194,7 @@ impl<M: Model> ModelGetSet<M> for String {
         &mut self,
         vr: binding::fmi3ValueReference,
         values: &[std::ffi::CString],
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<usize, Fmi3Error> {
         if vr == 0 && !values.is_empty() {
             *self = values[0]
@@ -208,13 +208,13 @@ impl<M: Model> ModelGetSet<M> for String {
     }
 }
 
-impl<M: Model> ModelGetSet<M> for Clock {
+impl<M: Model + UserModel> ModelGetSet<M> for Clock {
     const FIELD_COUNT: usize = 1;
     fn get_clock(
         &mut self,
         vr: binding::fmi3ValueReference,
         value: &mut binding::fmi3Clock,
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<(), Fmi3Error> {
         if vr == 0 {
             *value = self.0;
@@ -229,7 +229,7 @@ impl<M: Model> ModelGetSet<M> for Clock {
         &mut self,
         vr: binding::fmi3ValueReference,
         value: &binding::fmi3Clock,
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<(), Fmi3Error> {
         if vr == 0 {
             self.0 = *value;
@@ -240,13 +240,13 @@ impl<M: Model> ModelGetSet<M> for Clock {
     }
 }
 
-impl<M: Model> ModelGetSet<M> for Binary {
+impl<M: Model + UserModel> ModelGetSet<M> for Binary {
     const FIELD_COUNT: usize = 1;
     fn get_binary(
         &self,
         vr: binding::fmi3ValueReference,
         values: &mut [&mut [u8]],
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<Vec<usize>, Fmi3Error> {
         if vr == 0 && !values.is_empty() {
             let len = std::cmp::min(self.0.len(), values[0].len());
@@ -260,7 +260,7 @@ impl<M: Model> ModelGetSet<M> for Binary {
         &mut self,
         vr: binding::fmi3ValueReference,
         values: &[&[u8]],
-        _context: &ModelContext<M>,
+        _context: &dyn Context<M>,
     ) -> Result<usize, Fmi3Error> {
         if vr == 0 && !values.is_empty() {
             self.0.clear();

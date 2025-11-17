@@ -1,26 +1,28 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::path::PathBuf;
 
-use fmi::{
-    InterfaceType,
-    fmi3::{Fmi3Error, Fmi3Status, binding},
-};
+use fmi::fmi3::{Fmi3Error, Fmi3Status, binding};
 
 use crate::fmi3::{
-    ModelState, UserModel,
-    traits::{Model, ModelLoggingCategory},
+    ModelLoggingCategory, ModelState, UserModel,
+    traits::{Context, Model},
 };
 
-mod co_simulation;
 mod common;
+pub mod context;
 mod get_set;
-mod model_exchange;
+mod impl_cs_me_wrapper;
+mod impl_me;
+
+pub type LogMessageClosure = Box<dyn Fn(Fmi3Status, &str, std::fmt::Arguments<'_>) + Send + Sync>;
 
 /// An exportable FMU instance
-pub struct ModelInstance<M: Model> {
+pub struct ModelInstance<M> {
+    /// The instance type
+    instance_type: fmi::InterfaceType,
     /// The name of this instance
     instance_name: String,
     /// Context for the model instance
-    context: ModelContext<M>,
+    context: Box<dyn Context<M>>,
     /// Current state of the model instance
     state: ModelState,
     /// Do we need to re-evaluate the model equations?
@@ -29,55 +31,14 @@ pub struct ModelInstance<M: Model> {
     model: M,
 }
 
-type LogMessageClosure = Box<dyn Fn(Fmi3Status, &str, std::fmt::Arguments<'_>) + Send + Sync>;
-
-pub struct ModelContext<M: UserModel> {
-    /// Map of logging categories to their enabled state.
-    /// This is used to track which categories are enabled for logging.
-    logging_on: BTreeMap<M::LoggingCategory, bool>,
-    /// Callback for logging messages.
-    log_message: LogMessageClosure,
-    /// Path to the resources directory.
-    resource_path: PathBuf,
-    /// Current simulation time.
-    time: f64,
-}
-
-impl<M: UserModel> ModelContext<M> {
-    /// Log a message if the specified logging category is enabled.
-    pub fn log(
-        &self,
-        status: impl Into<Fmi3Status>,
-        category: M::LoggingCategory,
-        args: std::fmt::Arguments<'_>,
-    ) {
-        if matches!(self.logging_on.get(&category), Some(true)) {
-            // Call the logging callback
-            (self.log_message)(status.into(), &category.to_string(), args);
-        } else {
-            eprintln!("Logging disabled for category: {}", category);
-        }
-    }
-
-    /// Get the path to the resources directory.
-    pub fn resource_path(&self) -> &PathBuf {
-        &self.resource_path
-    }
-
-    /// Get the current simulation time.
-    pub fn time(&self) -> f64 {
-        self.time
-    }
-}
-
-impl<M: Model> ModelInstance<M> {
-    pub fn new(
-        name: String,
-        resource_path: PathBuf,
-        logging_on: bool,
-        log_message: LogMessageClosure,
-        instantiation_token: &str,
-    ) -> Result<Self, Fmi3Error> {
+impl<M> ModelInstance<M>
+where
+    M: Model + UserModel,
+{
+    pub fn new<C>(name: String, instantiation_token: &str, context: C) -> Result<Self, Fmi3Error>
+    where
+        C: Context<M> + 'static,
+    {
         // Validate the instantiation token using the compile-time constant
         if instantiation_token != M::INSTANTIATION_TOKEN {
             eprintln!(
@@ -88,20 +49,9 @@ impl<M: Model> ModelInstance<M> {
             return Err(Fmi3Error::Error);
         }
 
-        let logging_on = M::LoggingCategory::all_categories()
-            .map(|category| (category, logging_on))
-            .collect();
-
-        let context = ModelContext {
-            logging_on,
-            log_message,
-            resource_path,
-            time: 0.0,
-        };
-
         let mut instance = Self {
             instance_name: name,
-            context,
+            context: Box::new(context),
             state: ModelState::Instantiated,
             is_dirty_values: true,
             model: M::default(),
@@ -113,16 +63,28 @@ impl<M: Model> ModelInstance<M> {
         Ok(instance)
     }
 
-    pub fn interface_type(&self) -> InterfaceType {
-        fmi::InterfaceType::ModelExchange
-    }
-
     pub fn instance_name(&self) -> &str {
         &self.instance_name
     }
 
-    pub fn context(&self) -> &ModelContext<M> {
-        &self.context
+    pub fn context(&self) -> &dyn Context<M> {
+        self.context.as_ref()
+    }
+
+    #[inline]
+    pub fn assert_instance_type(&self, expected: fmi::InterfaceType) -> Result<(), Fmi3Error> {
+        if self.instance_type != expected {
+            self.context.log(
+                Fmi3Error::Error.into(),
+                M::LoggingCategory::default(),
+                format_args!(
+                    "Instance type mismatch. Expected: {:?}, got: {:?}",
+                    expected, self.instance_type
+                ),
+            );
+            return Err(Fmi3Error::Error);
+        }
+        Ok(())
     }
 
     /// Validate that a variable can be set in the current model state
@@ -131,7 +93,7 @@ impl<M: Model> ModelInstance<M> {
             Ok(()) => Ok(()),
             Err(message) => {
                 self.context.log(
-                    Fmi3Error::Error,
+                    Fmi3Error::Error.into(),
                     M::LoggingCategory::default(),
                     format_args!("Variable setting error for VR {vr}: {message}"),
                 );

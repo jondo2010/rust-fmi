@@ -41,6 +41,24 @@ impl UserModel for VanDerPol {
 
 ## Architecture Components
 
+### Wrapper Traits
+
+- The `export_fmu` macro expands to implementations of the full FMI3 interface functions (declared extern "C" functions).
+- Each exported function delegates to a wrapper method defined in the `Fmi3Common`, `Fmi3ModelExchange`, or `Fmi3CoSimulation` traits.
+- These trait methods are 'low-level'. Their arguments and return types match the FMI specification exactly.
+
+The default implementation of the wrapper trait methods:
+1. Dereferences the raw FMI instance pointer to get a reference to `ModelInstance<Self, MC>`, where `Self: Model` and `MC: ModelContext`.
+2. Corresponding higher-level trait methods are called on `fmi::fmi3::Common`, `fmi::fmi3::ModelExchange`, or `fmi::fmi3::CoSimulation` traits.
+3.
+
+## Cases
+1. Model is defined with ME functions, and CS functions are no-ops. (The ModelDescription will indicate ME only.)
+1. Model is defined with ME functions, and CS functions implemented with an embedded euler solver. (The ModelDescription will indicate both ME and CS.)
+1. Model is defined with CS functions
+
+
+
 ### 1. UserModel Trait
 Clean separation between user physics code and FMI protocol:
 

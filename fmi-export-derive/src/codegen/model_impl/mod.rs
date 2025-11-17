@@ -46,6 +46,8 @@ impl ToTokens for ModelImpl<'_> {
                 const MODEL_NAME: &'static str = #model_name;
                 const INSTANTIATION_TOKEN: &'static str = #instantiation_token;
 
+                const MAX_EVENT_INDICATORS: usize = #number_of_event_indicators;
+
                 fn build_metadata(
                     variables: &mut ::fmi::schema::fmi3::ModelVariables,
                     model_structure: &mut ::fmi::schema::fmi3::ModelStructure,
@@ -56,10 +58,6 @@ impl ToTokens for ModelImpl<'_> {
 
                 fn set_start_values(&mut self) {
                     #set_start_values_body
-                }
-
-                fn get_number_of_event_indicators() -> usize {
-                    #number_of_event_indicators
                 }
 
                 fn validate_variable_setting(

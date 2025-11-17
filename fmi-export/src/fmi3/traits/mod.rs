@@ -1,26 +1,57 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 use fmi::{
     EventFlags,
-    fmi3::{Fmi3Error, Fmi3Res, binding},
+    fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding},
     schema::fmi3::AppendToModelVariables,
 };
 
-use crate::fmi3::{ModelState, instance::ModelContext};
+use crate::fmi3::ModelState;
 
 mod model_get_set;
 mod wrappers;
 
 pub use model_get_set::{ModelGetSet, ModelGetSetStates};
-pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
+//pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
+
+/// Context trait for FMU instances
+pub trait Context<M: UserModel> {
+    /// Check if logging is enabled for the specified category.
+    fn logging_on(&self, category: M::LoggingCategory) -> bool;
+
+    /// Enable or disable logging for the specified category.
+    fn set_logging(&mut self, category: M::LoggingCategory, enabled: bool);
+
+    /// Log a message if the specified logging category is enabled.
+    fn log(&self, status: Fmi3Status, category: M::LoggingCategory, args: std::fmt::Arguments<'_>);
+
+    /// Get the path to the resources directory.
+    fn resource_path(&self) -> &PathBuf;
+
+    fn initialize(&mut self, start_time: f64, stop_time: Option<f64>);
+
+    /// Get the current simulation time.
+    fn time(&self) -> f64;
+
+    /// Set the current simulation time.
+    fn set_time(&mut self, time: f64);
+
+    /// Get the simulation stop time, if any.
+    fn stop_time(&self) -> Option<f64>;
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+}
 
 /// Model trait. This trait should be implementing by deriving `FmuModel` on the user model struct.
 ///
 /// It provides the necessary back-end functionality for the FMI 3.0 API, delegating user-specific
 /// behavior to the `UserModel` trait.
-pub trait Model: Default + UserModel {
+pub trait Model: Default {
     const MODEL_NAME: &'static str;
     const INSTANTIATION_TOKEN: &'static str;
+
+    /// Number of event indicators
+    const MAX_EVENT_INDICATORS: usize;
 
     /// Recursively build the model variables and structure by appending to the provided
     /// `ModelVariables` and `ModelStructure` instances.
@@ -47,9 +78,6 @@ pub trait Model: Default + UserModel {
 
     /// Set start values
     fn set_start_values(&mut self);
-
-    /// Get the number of event indicators
-    fn get_number_of_event_indicators() -> usize;
 
     /// Validate that a variable can be set in the current model state
     /// This method should be implemented by the generated code to check
@@ -85,17 +113,16 @@ pub trait UserModel: Sized {
 
     /// Configure the model (allocate memory, initialize states, etc.)
     /// This method is called upon exiting initialization mode
-    fn configurate(&mut self, _context: &ModelContext<Self>) -> Result<(), Fmi3Error> {
+    fn configurate(&mut self, _context: &dyn Context<Self>) -> Result<(), Fmi3Error> {
         Ok(())
     }
 
     /// Calculate values (derivatives, outputs, etc.)
     /// This method is called whenever the model needs to update its calculated values
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &dyn Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         Ok(Fmi3Res::OK)
     }
 
-    /// Event update function for Model Exchange
     /// Called to update discrete states and check for events
     ///
     /// This method should:
@@ -106,13 +133,15 @@ pub trait UserModel: Sized {
     /// Returns Ok with the appropriate Fmi3Res status, or Err if an error occurs
     fn event_update(
         &mut self,
-        _context: &ModelContext<Self>,
+        _context: &dyn Context<Self>,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         event_flags.reset();
         Ok(Fmi3Res::OK)
     }
+}
 
+pub trait UserModelME: UserModel {
     /// Get event indicators for zero-crossing detection
     ///
     /// # Returns
@@ -123,7 +152,7 @@ pub trait UserModel: Sized {
     /// - `Err(Fmi3Error)` for other error conditions
     fn get_event_indicators(
         &mut self,
-        _context: &ModelContext<Self>,
+        _context: &dyn Context<Self>,
         indicators: &mut [f64],
     ) -> Result<bool, Fmi3Error> {
         // Default implementation: no event indicators
@@ -132,4 +161,14 @@ pub trait UserModel: Sized {
         }
         Ok(true)
     }
+}
+
+/// Implement this trait on your model for Co-Simulation support.
+pub trait UserModelCS: UserModel {}
+
+/// Implement this trait on your model to enable an FMU wrapper for Co-Simulation.
+///
+/// A fixed-step solver will be used to advance the simulation time.
+pub trait UserModelCSWrapper: UserModel {
+    const FIXED_SOLVER_STEP: f64 = 0.1;
 }
