@@ -59,9 +59,9 @@ macro_rules! impl_sim_apply_start_values {
 }
 
 #[cfg(feature = "me")]
-impl_sim_apply_start_values!(fmi::fmi3::instance::InstanceME<'_>);
+impl_sim_apply_start_values!(fmi::fmi3::instance::InstanceME);
 #[cfg(feature = "cs")]
-impl_sim_apply_start_values!(fmi::fmi3::instance::InstanceCS<'_>);
+impl_sim_apply_start_values!(fmi::fmi3::instance::InstanceCS);
 
 impl FmiSim for Fmi3Import {
     #[cfg(feature = "me")]

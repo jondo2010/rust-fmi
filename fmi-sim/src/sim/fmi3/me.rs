@@ -8,12 +8,12 @@ use crate::{
     sim::{InputState, RecorderState, SimState, SimStateTrait, params::SimParams},
 };
 
-impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi3Import> for SimState<InstanceME<'a>> {
+impl SimStateTrait< InstanceME, Fmi3Import> for SimState<InstanceME> {
     fn new(
-        import: &'a Fmi3Import,
+        import: &Fmi3Import,
         sim_params: SimParams,
-        input_state: InputState<InstanceME<'a>>,
-        recorder_state: RecorderState<InstanceME<'a>>,
+        input_state: InputState<InstanceME>,
+        recorder_state: RecorderState<InstanceME>,
     ) -> Result<Self, Error> {
         let inst = import.instantiate_me("inst1", true, true)?;
         Ok(Self {

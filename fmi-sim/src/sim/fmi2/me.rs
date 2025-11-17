@@ -14,12 +14,12 @@ use crate::{
     },
 };
 
-impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi2Import> for SimState<InstanceME<'a>> {
+impl SimStateTrait<InstanceME, Fmi2Import> for SimState<InstanceME> {
     fn new(
-        import: &'a Fmi2Import,
+        import: &Fmi2Import,
         sim_params: SimParams,
-        input_state: InputState<InstanceME<'a>>,
-        recorder_state: RecorderState<InstanceME<'a>>,
+        input_state: InputState<InstanceME>,
+        recorder_state: RecorderState<InstanceME>,
     ) -> Result<Self, Error> {
         log::trace!("Instantiating ME Simulation: {sim_params:#?}");
         let inst = import.instantiate_me("inst1", true, true)?;
@@ -33,7 +33,7 @@ impl<'a> SimStateTrait<'a, InstanceME<'a>, Fmi2Import> for SimState<InstanceME<'
     }
 }
 
-impl SimApplyStartValues<InstanceME<'_>> for SimState<InstanceME<'_>> {
+impl SimApplyStartValues<InstanceME> for SimState<InstanceME> {
     fn apply_start_values(
         &mut self,
         start_values: &StartValues<<InstanceME as FmiInstance>::ValueRef>,
