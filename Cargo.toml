@@ -4,6 +4,7 @@ members = [
     "fmi",
     "fmi-export",
     "fmi-export-derive",
+    "fmi-ls-bus",
     "fmi-schema",
     "fmi-sim",
     "fmi-sys",
@@ -51,6 +52,7 @@ zip = "4.0"
 fmi = { path = "fmi", version = "0.5.0", default-features = false }
 fmi-export = { path = "fmi-export", version = "0.5.0" }
 fmi-export-derive = { path = "fmi-export-derive", version = "0.5.0" }
+fmi-ls-bus = { path = "fmi-ls-bus", version = "0.5.0" }
 fmi-schema = { path = "fmi-schema", version = "0.5.0", default-features = false }
 fmi-sim = { path = "fmi-sim", version = "0.5.0" }
 fmi-sys = { path = "fmi-sys", version = "0.5.0" }

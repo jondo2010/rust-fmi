@@ -31,7 +31,7 @@ impl<'a> Instance<'a, ME> {
             model_exchange.model_identifier()
         );
 
-        let binding = import.binding(&model_exchange.model_identifier())?;
+        let binding: binding::Fmi3Binding = import.binding(&model_exchange.model_identifier())?;
 
         let instance_name = CString::new(instance_name).expect("Invalid instance name");
         let instantiation_token = CString::new(schema.instantiation_token.as_bytes())

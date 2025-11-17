@@ -151,6 +151,25 @@ impl CoSimulation for Instance<'_, CS> {
         })
         .ok()
     }
+
+    fn get_output_derivatives(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        orders: &[i32],
+        values: &mut [f64],
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        Fmi3Status::from(unsafe {
+            self.binding.fmi3GetOutputDerivatives(
+                self.ptr,
+                vrs.as_ptr(),
+                vrs.len() as _,
+                orders.as_ptr(),
+                values.as_mut_ptr(),
+                values.len() as _,
+            )
+        })
+        .ok()
+    }
 }
 
 impl FmiEventHandler for Instance<'_, CS> {

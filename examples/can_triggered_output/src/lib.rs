@@ -1,10 +1,11 @@
 #![deny(clippy::all)]
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res};
+use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status};
 use fmi_export::{
-    fmi3::{Binary, Clock, DefaultLoggingCategory, ModelContext, UserModel},
+    fmi3::{Binary, Clock, DefaultLoggingCategory, Context, UserModel},
     FmuModel,
 };
+use fmi_ls_bus::can::{LsBusCanArbitrationLostBehavior, LsBusCanOp};
 
 #[derive(FmuModel, Default, Debug)]
 struct CanTriggeredOutput {
@@ -37,6 +38,12 @@ struct CanTriggeredOutput {
     #[variable(name="CanChannel.Tx_Clock", causality=Output, interval_variability=Triggered)]
     tx_clock: Clock,
 
+    #[variable(skip)]
+    rx_bus: fmi_ls_bus::FmiLsBus,
+
+    #[variable(skip)]
+    tx_bus: fmi_ls_bus::FmiLsBus,
+
     #[variable(
         name = "org.fmi_standard.fmi_ls_bus.Can_BusNotifications",
         causality = StructuralParameter,
@@ -50,17 +57,93 @@ struct CanTriggeredOutput {
 impl UserModel for CanTriggeredOutput {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn configurate(&mut self, _context: &ModelContext<Self>) -> Result<(), Fmi3Error> {
-        todo!();
+    fn configurate(&mut self, _context: &impl Context<Self>) -> Result<(), Fmi3Error> {
+        self.rx_data.0.resize(2048, 0);
+        self.tx_data.0.resize(2048, 0);
+
+        // Create bus configuration operations
+        self.tx_bus
+            .write_operation(LsBusCanOp::ConfigBaudrate(100_000), &mut self.tx_data)
+            .map_err(|_| Fmi3Error::Error)?;
+
+        self.tx_bus
+            .write_operation(
+                LsBusCanOp::ConfigArbitrationLost(
+                    LsBusCanArbitrationLostBehavior::BufferAndRetransmit,
+                ),
+                &mut self.tx_data,
+            )
+            .map_err(|_| Fmi3Error::Error)?;
+
+        *self.tx_clock = true;
+        Ok(())
     }
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(
+        &mut self,
+        _context: &impl Context<Self>,
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        Ok(Fmi3Res::OK)
+    }
+
+    fn event_update(
+        &mut self,
+        context: &impl Context<Self>,
+        event_flags: &mut fmi::EventFlags,
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        // We only process bus operations when the RX clock is set
+        if *self.rx_clock {
+            // read all bus operations from rx_bus
+            while let Some(op) = self
+                .rx_bus
+                .read_next_operation(&mut self.rx_data)
+                .map_err(|_| Fmi3Error::Error)?
+            {
+                match op {
+                    LsBusCanOp::Transmit { id, data, .. } => {
+                        context.log(
+                            Fmi3Res::OK,
+                            Self::LoggingCategory::default(),
+                            format_args!(
+                                "Received CAN frame with ID {id} and length {}",
+                                data.len()
+                            ),
+                        );
+                    }
+                    LsBusCanOp::ConfigBaudrate(_)
+                    | LsBusCanOp::Status(_)
+                    | LsBusCanOp::Confirm(_)
+                    | LsBusCanOp::BusError { .. }
+                    | LsBusCanOp::ArbitrationLost { .. } => {
+                        // ignore for now
+                    }
+                    _ => {
+                        context.log(
+                            Fmi3Res::Warning,
+                            Self::LoggingCategory::default(),
+                            format_args!("Received unexpected CAN operation: {:?}", op),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Deactivate RX clock and clear RX buffer since all operations should have been processed
+        *self.rx_clock = false;
+        self.rx_bus.reset();
+
+        // Deactivate TX clock and clear TX buffer since both should have been retrieved by this time
+        *self.tx_clock = false;
+        self.tx_bus.reset();
+
+        event_flags.reset();
+
         Ok(Fmi3Res::OK)
     }
 }
 
 // Export the FMU with full C API
-fmi_export::export_fmu!(CanTriggeredOutput);
+//fmi_export::export_fmu!(CanTriggeredOutput);
 
 #[cfg(test)]
 mod tests {

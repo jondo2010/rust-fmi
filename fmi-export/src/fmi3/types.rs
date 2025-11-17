@@ -2,9 +2,37 @@
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Clock(pub bool);
 
+impl std::ops::Deref for Clock {
+    type Target = bool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Clock {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 /// A runtime binary type for FMU variables
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Binary(pub Vec<u8>);
+
+impl std::ops::Deref for Binary {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Binary {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 /// Trait for initializing fields from start value expressions
 pub trait InitializeFromStart<T> {

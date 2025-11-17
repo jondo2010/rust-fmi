@@ -532,6 +532,7 @@ version = "0.1.0"
 dependencies = [
  "fmi",
  "fmi-export",
+ "fmi-ls-bus",
 ]
 
 [[package]]
@@ -1110,6 +1111,15 @@ dependencies = [
  "syn 2.0.106",
  "trybuild",
  "uuid",
+]
+
+[[package]]
+name = "fmi-ls-bus"
+version = "0.5.0"
+dependencies = [
+ "fmi",
+ "fmi-sys",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

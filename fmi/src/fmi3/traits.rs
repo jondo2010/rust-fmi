@@ -378,7 +378,34 @@ pub trait CoSimulation: Common {
     /// This function must be called to change from Event Mode into Step Mode in Co-Simulation.
     fn enter_step_mode(&mut self) -> Result<Fmi3Res, Fmi3Error>;
 
+    /// The returned values correspond to the derivatives at the current time of the FMU. For example, after a
+    /// successful call to [`CoSimulation::do_step`], the returned values are related to the end of the communication
+    /// step.
+    ///
+    /// Arguments:
+    /// * `vrs`: the variables whose derivatives shall be retrieved. If multiple derivatives of a variable shall be
+    /// retrieved, list the value reference multiple times.
+    /// * `orders`: the orders of the respective derivative (1 means the first derivative, 2 means the second
+    /// derivative, …​, 0 is not allowed). If multiple derivatives of a variable shall be retrieved, its value reference
+    /// must occur multiple times in valueReferences aligned with the corresponding orders array.
+    /// * `values`: the values of the derivatives are returned in this array. The order of the values corresponds to the
+    /// order of the value references. Array elements are laid out contiguously.
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3GetOutputDerivatives>
+    fn get_output_derivatives(
+        &mut self,
+        vrs: &[binding::fmi3ValueReference],
+        orders: &[i32],
+        values: &mut [f64],
+    ) -> Result<Fmi3Res, Fmi3Error>;
+
     /// The importer requests the computation of the next time step.
+    ///
+    /// Arguments:
+    /// * `current_communication_point`: the current communication point of the importer (`t_i`). At the first call of
+    /// `do_step`, must be equal to the argument `start_time` of `enter_initialization_mode`.
+    /// * `communication_step_size`: the communication step size (`h_i`). Must be >0.0. The FMU is expected to compute until
+    /// time `t_i+1 = t_i + h_i`.
     ///
     /// See: <https://fmi-standard.org/docs/3.0.1/#fmi3DoStep>
     #[allow(clippy::too_many_arguments)]
@@ -400,11 +427,14 @@ pub trait CoSimulation: Common {
 ///
 /// See <https://fmi-standard.org/docs/3.0.1/#fmi-for-scheduled-execution>
 pub trait ScheduledExecution: Common {
-    /// Each `activate_model_partition` call relates to one input Clock which triggers the computation of its associated model partition.
+    /// Each `activate_model_partition` call relates to one input Clock which triggers the computation of its associated
+    /// model partition.
     ///
     /// Arguments:
-    /// * `clock_reference`: `ValueReference` of the input Clock associated with the model partition which shall be activated.
-    /// * `activation_time`: value of the independent variable of the assigned Clock tick time 𝑡𝑖 [typically: simulation (i.e. virtual) time] (which is known to the simulation algorithm).
+    /// * `clock_reference`: `ValueReference` of the input Clock associated with the model partition which shall be
+    /// activated.
+    /// * `activation_time`: value of the independent variable of the assigned Clock tick time ti [typically: simulation
+    /// (i.e. virtual) time] (which is known to the simulation algorithm).
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3ActivateModelPartition>
     fn activate_model_partition(

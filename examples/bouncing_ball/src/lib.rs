@@ -7,7 +7,7 @@ use fmi::{
 };
 use fmi_export::{
     FmuModel,
-    fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
+    fmi3::{Context, DefaultLoggingCategory, UserModel, UserModelME},
 };
 
 /// BouncingBall FMU model that can be exported as a complete FMU
@@ -40,14 +40,14 @@ struct BouncingBall {
 impl UserModel for BouncingBall {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &impl Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // nothing to do
         Ok(Fmi3Res::OK)
     }
 
     fn event_update(
         &mut self,
-        context: &ModelContext<Self>,
+        context: &impl Context<Self>,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         // Handle ball bouncing off the ground
@@ -79,10 +79,12 @@ impl UserModel for BouncingBall {
 
         Ok(Fmi3Res::OK)
     }
+}
 
+impl UserModelME for BouncingBall {
     fn get_event_indicators(
         &mut self,
-        _context: &ModelContext<Self>,
+        _context: &impl Context<Self>,
         indicators: &mut [f64],
     ) -> Result<bool, Fmi3Error> {
         assert!(!indicators.is_empty());
@@ -97,4 +99,4 @@ impl UserModel for BouncingBall {
 }
 
 // Export the FMU with full C API
-fmi_export::export_fmu!(BouncingBall);
+//fmi_export::export_fmu!(BouncingBall);

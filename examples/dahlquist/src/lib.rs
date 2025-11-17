@@ -6,7 +6,7 @@
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
-    fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
+    fmi3::{Context, DefaultLoggingCategory, UserModel, UserModelCSWrapper, UserModelME},
     FmuModel,
 };
 
@@ -33,22 +33,28 @@ struct Dahlquist {
 impl UserModel for Dahlquist {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &impl Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // Calculate the derivative: der(x) = -k * x
         self.der_x = -self.k * self.x;
         Ok(Fmi3Res::OK)
     }
 }
 
+impl UserModelME for Dahlquist {}
+
+impl UserModelCSWrapper for Dahlquist {
+    const FIXED_SOLVER_STEP: f64 = 0.1;
+}
+
 // Export the FMU with full C API
-fmi_export::export_fmu!(Dahlquist);
+//fmi_export::export_fmu!(Dahlquist);
 
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
 
     use super::*;
-    use fmi::fmi3::{GetSet, ModelExchange};
+    use fmi::fmi3::{CoSimulation, GetSet, ModelExchange};
     use fmi::schema::fmi3::{AbstractVariableTrait, DependenciesKind, Fmi3Unknown};
     use fmi_export::fmi3::{Model, ModelInstance};
 
@@ -103,19 +109,17 @@ mod tests {
 
     #[test]
     fn test_model_get_set() {
-        let mut model = ModelInstance::<Dahlquist>::new(
+        let mut inst = ModelInstance::<Dahlquist>::new(
             "Dahlquist".to_string(),
-            PathBuf::new(),
-            true,
-            Box::new(|_, _, _| {}),
             Dahlquist::INSTANTIATION_TOKEN,
+            BasicContext::new(true, Box::new(|_, _, _| {}), PathBuf::new()),
         )
         .unwrap();
 
-        model.set_time(123.0).unwrap();
+        inst.set_time(123.0).unwrap();
 
         let mut f64_vals = [0.0; 4];
-        model.get_float64(&[0, 1, 2, 3], &mut f64_vals).unwrap();
+        inst.get_float64(&[0, 1, 2, 3], &mut f64_vals).unwrap();
         assert_eq!(
             f64_vals,
             [
@@ -127,6 +131,18 @@ mod tests {
         );
 
         // Test the time VR=0
-        assert_eq!(model.set_float64(&[0], &[0.0]), Err(Fmi3Error::Error));
+        assert_eq!(inst.set_float64(&[0], &[0.0]), Err(Fmi3Error::Error));
+    }
+
+    #[test]
+    fn test_model_cs_wrapper() {
+        let mut inst = ModelInstance::<Dahlquist>::new(
+            "Dahlquist".to_string(),
+            Dahlquist::INSTANTIATION_TOKEN,
+            MEWrapperContext::new(true, Box::new(|_, _, _| {}), PathBuf::new(), false),
+        )
+        .unwrap();
+
+        //inst.do_step(0.0, 0.1, true).unwrap();
     }
 }
