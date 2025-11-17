@@ -413,7 +413,7 @@ pub trait ScheduledExecution: Common {
 }
 
 /// Fmi3Model trait for types that support instantiating instances.
-pub trait Fmi3Model<'a> {
+pub trait Fmi3Model {
     type InstanceME: ModelExchange;
     type InstanceCS: CoSimulation;
     type InstanceSE: ScheduledExecution;
@@ -422,7 +422,7 @@ pub trait Fmi3Model<'a> {
     ///
     /// See [`crate::fmi3::instance::InstanceME::new`] for more information.
     fn instantiate_me(
-        &'a self,
+        &self,
         _instance_name: &str,
         _visible: bool,
         _logging_on: bool,
@@ -436,7 +436,7 @@ pub trait Fmi3Model<'a> {
     ///
     /// See [`crate::fmi3::instance::InstanceCS::new`] for more information.
     fn instantiate_cs(
-        &'a self,
+        &self,
         _instance_name: &str,
         _visible: bool,
         _logging_on: bool,
@@ -453,7 +453,7 @@ pub trait Fmi3Model<'a> {
     ///
     /// See [`crate::fmi3::instance::InstanceSE::new`] for more information.
     fn instantiate_se(
-        &'a self,
+        &self,
         _instance_name: &str,
         _visible: bool,
         _logging_on: bool,

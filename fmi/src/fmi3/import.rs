@@ -76,10 +76,10 @@ impl FmiImport for Fmi3Import {
     }
 }
 
-impl<'a> Fmi3Model<'a> for Fmi3Import {
-    type InstanceCS = instance::InstanceCS<'a>;
-    type InstanceME = instance::InstanceME<'a>;
-    type InstanceSE = instance::InstanceSE<'a>;
+impl Fmi3Model for Fmi3Import {
+    type InstanceCS = instance::InstanceCS;
+    type InstanceME = instance::InstanceME;
+    type InstanceSE = instance::InstanceSE;
 
     /// Build a derived model description from the raw-schema model description
     #[cfg(false)]
@@ -91,7 +91,7 @@ impl<'a> Fmi3Model<'a> for Fmi3Import {
     ///
     /// See [`instance::InstanceME::new`] for more information.
     fn instantiate_me(
-        &'a self,
+        &self,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -103,7 +103,7 @@ impl<'a> Fmi3Model<'a> for Fmi3Import {
     ///
     /// See [`instance::InstanceCS::new`] for more information.
     fn instantiate_cs(
-        &'a self,
+        &self,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -126,7 +126,7 @@ impl<'a> Fmi3Model<'a> for Fmi3Import {
     ///
     /// See [`instance::InstanceSE::new`] for more information.
     fn instantiate_se(
-        &'a self,
+        &self,
         instance_name: &str,
         visible: bool,
         logging_on: bool,

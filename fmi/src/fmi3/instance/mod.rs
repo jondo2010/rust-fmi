@@ -16,26 +16,22 @@ mod common;
 mod model_exchange;
 mod scheduled_execution;
 
-use itertools::Itertools;
-
-pub type InstanceME<'a> = Instance<'a, ME>;
-pub type InstanceCS<'a> = Instance<'a, CS>;
-pub type InstanceSE<'a> = Instance<'a, SE>;
+pub type InstanceME = Instance<ME>;
+pub type InstanceCS = Instance<CS>;
+pub type InstanceSE = Instance<SE>;
 
 /// An imported FMI 3.0 instance
-pub struct Instance<'a, Tag> {
+pub struct Instance<Tag> {
     /// Raw FMI 3.0 bindings
     binding: binding::Fmi3Binding,
     /// Pointer to the raw FMI 3.0 instance
     ptr: binding::fmi3Instance,
-    /// Model description
-    model_description: &'a schema::Fmi3ModelDescription,
     /// Instance name
     name: String,
-    _tag: std::marker::PhantomData<&'a Tag>,
+    _tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, Tag> Drop for Instance<'a, Tag> {
+impl<Tag> Drop for Instance<Tag> {
     fn drop(&mut self) {
         unsafe {
             log::trace!("Freeing instance {:?}", self.ptr);
@@ -44,14 +40,22 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
     }
 }
 
-impl<'a, Tag> Instance<'a, Tag>
+impl<Tag> Instance<Tag>
 where
     Self: Common,
 {
     /// Get the sum of the product of the dimensions of the variables with the given value references.
-    pub fn get_variable_dimensions(&mut self, var_refs: &[u32]) -> usize {
+    ///
+    /// # Arguments
+    /// * `model_description` - The model description to look up variable information
+    /// * `var_refs` - Value references of the variables to get dimensions for
+    pub fn get_variable_dimensions(
+        &mut self,
+        model_description: &schema::Fmi3ModelDescription,
+        var_refs: &[u32],
+    ) -> usize {
         let var_dims = var_refs.iter().map(|vr| {
-            self.model_description
+            model_description
                 .model_variables
                 .iter_floating()
                 .find(|fv| fv.value_reference() == *vr)
@@ -76,7 +80,7 @@ where
     }
 }
 
-impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
+impl<Tag: InstanceTag> FmiInstance for Instance<Tag> {
     type ModelDescription = schema::Fmi3ModelDescription;
     type ValueRef = <Fmi3Import as FmiImport>::ValueRef;
     type Status = Fmi3Status;
@@ -93,10 +97,6 @@ impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
         Tag::TYPE
     }
 
-    fn model_description(&self) -> &Self::ModelDescription {
-        self.model_description
-    }
-
     fn set_debug_logging(
         &mut self,
         logging_on: bool,
@@ -106,25 +106,15 @@ impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
     }
 
     fn get_number_of_continuous_state_values(&mut self) -> usize {
-        let md = self.model_description();
-        let cts_vars = md
-            .model_structure
-            .continuous_state_derivative
-            .iter()
-            .map(|csd| csd.value_reference)
-            .collect_vec();
-        self.get_variable_dimensions(&cts_vars)
+        // For FMI3, we return 0 as a default. 
+        // ME instances should call get_number_of_continuous_states() directly via the ModelExchange trait.
+        0
     }
 
     fn get_number_of_event_indicators(&mut self) -> usize {
-        let md = self.model_description();
-        let event_vars = md
-            .model_structure
-            .event_indicator
-            .iter()
-            .map(|ei| ei.value_reference)
-            .collect_vec();
-        self.get_variable_dimensions(&event_vars)
+        // For FMI3, we return 0 as a default.
+        // ME instances should call get_number_of_event_indicators() directly via the ModelExchange trait.
+        0
     }
 
     fn enter_initialization_mode(
@@ -149,13 +139,13 @@ impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
     }
 }
 
-pub struct Fmu3State<'a, Tag> {
-    instance: Instance<'a, Tag>,
+pub struct Fmu3State<Tag> {
+    instance: Instance<Tag>,
     /// Pointer to the raw FMI 3.0 state
     state: binding::fmi3FMUState,
 }
 
-impl<'a, Tag> Drop for Fmu3State<'a, Tag> {
+impl<Tag> Drop for Fmu3State<Tag> {
     fn drop(&mut self) {
         unsafe {
             log::trace!("Freeing state {:?}", self.state);

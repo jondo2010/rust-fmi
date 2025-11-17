@@ -10,9 +10,9 @@ use crate::{
 
 use super::{Instance, ME};
 
-impl<'a> Instance<'a, ME> {
+impl Instance<ME> {
     pub fn new(
-        import: &'a import::Fmi3Import,
+        import: &import::Fmi3Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -58,14 +58,13 @@ impl<'a> Instance<'a, ME> {
         Ok(Self {
             binding,
             ptr: instance,
-            model_description: schema,
             name,
             _tag: std::marker::PhantomData,
         })
     }
 }
 
-impl ModelExchange for Instance<'_, ME> {
+impl ModelExchange for Instance<ME> {
     /// This function must be called to change from Event Mode into Continuous-Time Mode in Model
     /// Exchange.
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
@@ -185,7 +184,7 @@ impl ModelExchange for Instance<'_, ME> {
     }
 }
 
-impl FmiModelExchange for Instance<'_, ME> {
+impl FmiModelExchange for Instance<ME> {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         ModelExchange::enter_continuous_time_mode(self)
     }
@@ -256,7 +255,7 @@ impl FmiModelExchange for Instance<'_, ME> {
     }
 }
 
-impl FmiEventHandler for Instance<'_, ME> {
+impl FmiEventHandler for Instance<ME> {
     #[inline]
     fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         Common::enter_event_mode(self)

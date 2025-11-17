@@ -82,9 +82,6 @@ pub trait FmiInstance {
     /// Get the instance type of the FMU
     fn interface_type(&self) -> InterfaceType;
 
-    /// Get the model description of the FMU
-    fn model_description(&self) -> &Self::ModelDescription;
-
     /// The function controls the debug logging that is output by the FMU
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging>
