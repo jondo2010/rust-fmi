@@ -6,7 +6,7 @@ use crate::{
         Fmi3Error, Fmi3Res,
         traits::{Common, GetSet},
     },
-    traits::{FmiImport, FmiInstance, InstanceTag},
+    traits::{FmiImport, FmiInstance, FmiStatus, InstanceTag},
 };
 
 use super::{Fmi3Status, binding, import::Fmi3Import, schema};
@@ -49,6 +49,10 @@ where
     /// # Arguments
     /// * `model_description` - The model description to look up variable information
     /// * `var_refs` - Value references of the variables to get dimensions for
+    ///
+    /// # TODO
+    /// This method now has nothing to do with the instance. Move this to the Import.
+    /// See: https://github.com/jondo2010/rust-fmi/issues/XXX
     pub fn get_variable_dimensions(
         &mut self,
         model_description: &schema::Fmi3ModelDescription,
@@ -106,15 +110,33 @@ impl<Tag: InstanceTag> FmiInstance for Instance<Tag> {
     }
 
     fn get_number_of_continuous_state_values(&mut self) -> usize {
-        // For FMI3, we return 0 as a default. 
-        // ME instances should call get_number_of_continuous_states() directly via the ModelExchange trait.
-        0
+        // Try to get the number from the FMI API (works for ME instances)
+        // For CS/SE instances, this will fail and we return 0
+        let mut number_of_continuous_states = 0usize;
+        let status = unsafe {
+            self.binding
+                .fmi3GetNumberOfContinuousStates(self.ptr, &mut number_of_continuous_states)
+        };
+        if Fmi3Status::from(status).is_error() {
+            0
+        } else {
+            number_of_continuous_states
+        }
     }
 
     fn get_number_of_event_indicators(&mut self) -> usize {
-        // For FMI3, we return 0 as a default.
-        // ME instances should call get_number_of_event_indicators() directly via the ModelExchange trait.
-        0
+        // Try to get the number from the FMI API (works for ME instances)
+        // For CS/SE instances, this will fail and we return 0
+        let mut number_of_event_indicators = 0usize;
+        let status = unsafe {
+            self.binding
+                .fmi3GetNumberOfEventIndicators(self.ptr, &mut number_of_event_indicators)
+        };
+        if Fmi3Status::from(status).is_error() {
+            0
+        } else {
+            number_of_event_indicators
+        }
     }
 
     fn enter_initialization_mode(

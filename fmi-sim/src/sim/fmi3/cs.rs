@@ -40,7 +40,7 @@ impl SimStateTrait< InstanceCS, Fmi3Import> for SimState<InstanceCS> {
     }
 }
 
-impl<'a> SimState<InstanceCS> {
+impl SimState<InstanceCS> {
     /// Main loop of the co-simulation
     pub fn main_loop(&mut self) -> Result<SimStats, Error> {
         let mut stats = SimStats::default();
