@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-impl SimStateTrait< InstanceCS, Fmi3Import> for SimState<InstanceCS> {
+impl SimStateTrait<InstanceCS, Fmi3Import> for SimState<InstanceCS> {
     fn new(
         import: &Fmi3Import,
         sim_params: SimParams,

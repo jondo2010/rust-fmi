@@ -8,7 +8,7 @@ use crate::{
     sim::{InputState, RecorderState, SimState, SimStateTrait, params::SimParams},
 };
 
-impl SimStateTrait< InstanceME, Fmi3Import> for SimState<InstanceME> {
+impl SimStateTrait<InstanceME, Fmi3Import> for SimState<InstanceME> {
     fn new(
         import: &Fmi3Import,
         sim_params: SimParams,
