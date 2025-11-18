@@ -71,7 +71,7 @@ impl FmiSim for Fmi3Import {
         input_data: Option<RecordBatch>,
     ) -> Result<(RecordBatch, SimStats), Error> {
         use crate::sim::{solver, traits::SimMe};
-        use fmi::fmi3::instance::InstanceME;
+        use fmi::fmi3::{ModelExchange, instance::InstanceME};
 
         let sim_params =
             SimParams::new_from_options(&options.common, self.model_description(), true, false);
@@ -80,10 +80,25 @@ impl FmiSim for Fmi3Import {
         let input_state = InputState::new(self, input_data)?;
         let recorder_state = RecorderState::new(self, &sim_params);
 
+        let start_time = sim_params.start_time;
+        let tol = sim_params.tolerance.unwrap_or_default();
+
         let mut sim_state =
             SimState::<InstanceME>::new(self, sim_params, input_state, recorder_state)?;
+
+        let nx = sim_state
+            .inst
+            .get_number_of_continuous_states()
+            .map_err(|e| Error::from(fmi::Error::from(e)))?;
+        let nz = sim_state
+            .inst
+            .get_number_of_event_indicators()
+            .map_err(|e| Error::from(fmi::Error::from(e)))?;
+
+        let solver: solver::Euler = solver::Solver::<InstanceME>::new(start_time, tol, nx, nz, ());
+
         sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
-        let stats = sim_state.main_loop::<solver::Euler>(())?;
+        let stats = sim_state.main_loop(solver)?;
 
         Ok((sim_state.recorder_state.finish(), stats))
     }

@@ -25,7 +25,6 @@ impl Instance<ME> {
         let binding = import.binding(&model_exchange.model_identifier)?;
 
         let callbacks = Box::<CallbackFunctions>::default();
-        // check_consistency(&import, &me.common)?;
 
         let name = instance_name.to_owned();
 
@@ -51,22 +50,12 @@ impl Instance<ME> {
         }
         log::trace!("Created FMI2.0 ME component {component:?}");
 
-        // Cache values from model description
-        let num_states = schema.num_states();
-        let num_event_indicators = schema.num_event_indicators();
-        let fmi_version = schema.fmi_version.clone();
-        let model_name = schema.model_name.clone();
-
         Ok(Self {
             binding,
             component,
             callbacks,
             name,
             saved_states: Vec::new(),
-            num_states,
-            num_event_indicators,
-            fmi_version,
-            model_name,
             _tag: std::marker::PhantomData,
         })
     }
@@ -251,12 +240,6 @@ impl FmiModelExchange for Instance<ME> {
         event_indicators: &mut [f64],
     ) -> Result<bool, <Self::Status as crate::traits::FmiStatus>::Err> {
         ModelExchange::get_event_indicators(self, event_indicators)
-    }
-
-    fn get_number_of_event_indicators(
-        &mut self,
-    ) -> Result<usize, <Self::Status as crate::traits::FmiStatus>::Err> {
-        Ok(self.num_event_indicators)
     }
 }
 

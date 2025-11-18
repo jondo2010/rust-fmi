@@ -249,10 +249,6 @@ impl FmiModelExchange for Instance<ME> {
     ) -> Result<bool, <Self::Status as crate::traits::FmiStatus>::Err> {
         ModelExchange::get_event_indicators(self, event_indicators)
     }
-
-    fn get_number_of_event_indicators(&mut self) -> Result<usize, Fmi3Error> {
-        ModelExchange::get_number_of_event_indicators(self)
-    }
 }
 
 impl FmiEventHandler for Instance<ME> {

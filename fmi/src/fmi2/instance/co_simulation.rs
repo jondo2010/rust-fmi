@@ -26,7 +26,6 @@ impl Instance<CS> {
         let binding = import.binding(&co_simulation.model_identifier)?;
 
         let callbacks = Box::<CallbackFunctions>::default();
-        //.check_consistency(&import, &cs.common)?;
 
         let name = instance_name.to_owned();
 
@@ -52,22 +51,12 @@ impl Instance<CS> {
         }
         log::trace!("Created FMI2.0 CS component {component:?}");
 
-        // Cache values from model description
-        let num_states = schema.num_states();
-        let num_event_indicators = schema.num_event_indicators();
-        let fmi_version = schema.fmi_version.clone();
-        let model_name = schema.model_name.clone();
-
         Ok(Self {
             binding,
             component,
             callbacks,
             name,
             saved_states: Vec::new(),
-            num_states,
-            num_event_indicators,
-            fmi_version,
-            model_name,
             _tag: std::marker::PhantomData,
         })
     }

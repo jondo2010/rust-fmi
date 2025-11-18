@@ -1,7 +1,7 @@
 //! FMI 2.0 instance interface
 
 use crate::{
-    CS, Error, ME,
+    CS, ME,
     fmi2::Fmi2Res,
     traits::{FmiImport, FmiInstance, FmiStatus, InstanceTag},
 };
@@ -32,14 +32,6 @@ pub struct Instance<Tag> {
     callbacks: Box<CallbackFunctions>,
     /// Allocated FMU states
     saved_states: Vec<binding::fmi2FMUstate>,
-    /// Cached number of continuous states
-    num_states: usize,
-    /// Cached number of event indicators
-    num_event_indicators: usize,
-    /// Cached FMI version string
-    fmi_version: String,
-    /// Cached model name
-    model_name: String,
     _tag: std::marker::PhantomData<Tag>,
 }
 
@@ -79,14 +71,6 @@ impl<Tag: InstanceTag> FmiInstance for Instance<Tag> {
         categories: &[&str],
     ) -> Result<Fmi2Res, Fmi2Error> {
         Common::set_debug_logging(self, logging_on, categories)
-    }
-
-    fn get_number_of_continuous_state_values(&mut self) -> usize {
-        self.num_states
-    }
-
-    fn get_number_of_event_indicators(&mut self) -> usize {
-        self.num_event_indicators
     }
 
     fn enter_initialization_mode(
@@ -191,33 +175,10 @@ impl<Tag: InstanceTag> Instance<Tag> {
             Ok(FmuState(self.saved_states.len() - 1))
         }
     }
-
-    /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
-    /// from the library and the Model Description XML
-    pub fn check_consistency(&self) -> Result<(), Error> {
-        let types_platform = self.get_types_platform();
-        if types_platform != "default" {
-            return Err(Fmi2Error::TypesPlatformMismatch(types_platform.to_owned()).into());
-        }
-
-        let fmi_version = Common::get_version(self);
-        if fmi_version != self.fmi_version {
-            return Err(Error::FmiVersionMismatch {
-                found: fmi_version.to_owned(),
-                expected: self.fmi_version.to_owned(),
-            });
-        }
-
-        Ok(())
-    }
 }
 
 impl<A> std::fmt::Debug for Instance<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "Instance {} {{Import {}, {:?}}}",
-            self.name, self.model_name, self.component,
-        )
+        write!(f, "Instance {} {{{:?}}}", self.name, self.component,)
     }
 }
