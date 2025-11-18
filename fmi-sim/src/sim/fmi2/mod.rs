@@ -35,12 +35,25 @@ impl FmiSim for Fmi2Import {
 
         let start_values = self.parse_start_values(&options.common.initial_values)?;
         let input_state = InputState::new(self, input_data)?;
-        let output_state = RecorderState::new(self, &sim_params);
+        let recorder_state: RecorderState<fmi::fmi2::instance::Instance<fmi::ME>> =
+            RecorderState::new(self, &sim_params);
+
+        let nx = self.model_description().num_states();
+        let nz = self.model_description().num_event_indicators();
+
+        let solver: solver::Euler = solver::Solver::<InstanceME>::new(
+            sim_params.start_time,
+            sim_params.tolerance.unwrap_or_default(),
+            nx,
+            nz,
+            (),
+        );
 
         let mut sim_state =
-            SimState::<InstanceME>::new(self, sim_params, input_state, output_state)?;
+            SimState::<InstanceME>::new(self, sim_params, input_state, recorder_state)?;
         sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
-        let stats = sim_state.main_loop::<solver::Euler>(())?;
+
+        let stats = sim_state.main_loop(solver)?;
 
         Ok((sim_state.recorder_state.finish(), stats))
     }

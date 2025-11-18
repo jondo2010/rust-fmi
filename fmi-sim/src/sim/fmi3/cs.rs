@@ -15,12 +15,12 @@ use crate::{
     },
 };
 
-impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi3Import> for SimState<InstanceCS<'a>> {
+impl SimStateTrait<InstanceCS, Fmi3Import> for SimState<InstanceCS> {
     fn new(
-        import: &'a Fmi3Import,
+        import: &Fmi3Import,
         sim_params: SimParams,
-        input_state: InputState<InstanceCS<'a>>,
-        output_state: RecorderState<InstanceCS<'a>>,
+        input_state: InputState<InstanceCS>,
+        output_state: RecorderState<InstanceCS>,
     ) -> Result<Self, Error> {
         let inst = import.instantiate_cs(
             "inst1",
@@ -40,7 +40,7 @@ impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi3Import> for SimState<InstanceCS<'
     }
 }
 
-impl<'a> SimState<InstanceCS<'a>> {
+impl SimState<InstanceCS> {
     /// Main loop of the co-simulation
     pub fn main_loop(&mut self) -> Result<SimStats, Error> {
         let mut stats = SimStats::default();

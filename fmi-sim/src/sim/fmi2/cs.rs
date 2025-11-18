@@ -19,12 +19,12 @@ use crate::{
     },
 };
 
-impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi2Import> for SimState<InstanceCS<'a>> {
+impl SimStateTrait<InstanceCS, Fmi2Import> for SimState<InstanceCS> {
     fn new(
-        import: &'a Fmi2Import,
+        import: &Fmi2Import,
         sim_params: SimParams,
-        input_state: InputState<InstanceCS<'a>>,
-        recorder_state: RecorderState<InstanceCS<'a>>,
+        input_state: InputState<InstanceCS>,
+        recorder_state: RecorderState<InstanceCS>,
     ) -> Result<Self, Error> {
         log::trace!("Instantiating CS Simulation: {sim_params:#?}");
         let inst = import.instantiate_cs("inst1", true, true)?;
@@ -38,7 +38,7 @@ impl<'a> SimStateTrait<'a, InstanceCS<'a>, Fmi2Import> for SimState<InstanceCS<'
     }
 }
 
-impl SimApplyStartValues<InstanceCS<'_>> for SimState<InstanceCS<'_>> {
+impl SimApplyStartValues<InstanceCS> for SimState<InstanceCS> {
     fn apply_start_values(
         &mut self,
         start_values: &StartValues<<InstanceCS as FmiInstance>::ValueRef>,
@@ -50,7 +50,7 @@ impl SimApplyStartValues<InstanceCS<'_>> for SimState<InstanceCS<'_>> {
     }
 }
 
-impl<'a> SimState<InstanceCS<'a>> {
+impl SimState<InstanceCS> {
     /// Main loop of the co-simulation
     pub fn main_loop(&mut self) -> Result<SimStats, Fmi2Error> {
         let mut stats = SimStats::default();

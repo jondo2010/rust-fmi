@@ -75,7 +75,7 @@ pub trait SimHandleEvents {
 
 pub trait SimMe<Inst> {
     /// Main loop of the model-exchange simulation
-    fn main_loop<S>(&mut self, solver_params: S::Params) -> Result<SimStats, Error>
+    fn main_loop<S>(&mut self, solver: S) -> Result<SimStats, Error>
     where
         S: Solver<Inst>;
 }

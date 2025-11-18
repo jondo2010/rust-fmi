@@ -1,7 +1,7 @@
 //! FMI 2.0 instance interface
 
 use crate::{
-    CS, Error, ME,
+    CS, ME,
     fmi2::Fmi2Res,
     traits::{FmiImport, FmiInstance, FmiStatus, InstanceTag},
 };
@@ -15,20 +15,18 @@ mod traits;
 
 pub use traits::{CoSimulation, Common, ModelExchange};
 
-pub type InstanceME<'a> = Instance<'a, ME>;
-pub type InstanceCS<'a> = Instance<'a, CS>;
+pub type InstanceME = Instance<ME>;
+pub type InstanceCS = Instance<CS>;
 
 pub struct FmuState(usize);
 
-pub struct Instance<'a, Tag> {
+pub struct Instance<Tag> {
     /// Copy of the instance name
     name: String,
     /// Raw FMI 2.0 bindings
     binding: binding::Fmi2Binding,
     /// Pointer to the raw FMI 2.0 instance
     component: binding::fmi2Component,
-    /// Model description
-    model_description: &'a schema::Fmi2ModelDescription,
     /// Callbacks struct
     #[allow(dead_code)]
     callbacks: Box<CallbackFunctions>,
@@ -37,7 +35,7 @@ pub struct Instance<'a, Tag> {
     _tag: std::marker::PhantomData<Tag>,
 }
 
-impl<'a, Tag> Drop for Instance<'a, Tag> {
+impl<Tag> Drop for Instance<Tag> {
     fn drop(&mut self) {
         log::trace!("Freeing component {:?}", self.component);
         unsafe {
@@ -49,7 +47,7 @@ impl<'a, Tag> Drop for Instance<'a, Tag> {
     }
 }
 
-impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
+impl<Tag: InstanceTag> FmiInstance for Instance<Tag> {
     type ModelDescription = schema::Fmi2ModelDescription;
     type ValueRef = <Fmi2Import as FmiImport>::ValueRef;
     type Status = Fmi2Status;
@@ -67,24 +65,12 @@ impl<'a, Tag: InstanceTag> FmiInstance for Instance<'a, Tag> {
         Tag::TYPE
     }
 
-    fn model_description(&self) -> &Self::ModelDescription {
-        self.model_description
-    }
-
     fn set_debug_logging(
         &mut self,
         logging_on: bool,
         categories: &[&str],
     ) -> Result<Fmi2Res, Fmi2Error> {
         Common::set_debug_logging(self, logging_on, categories)
-    }
-
-    fn get_number_of_continuous_state_values(&mut self) -> usize {
-        self.model_description.num_states()
-    }
-
-    fn get_number_of_event_indicators(&mut self) -> usize {
-        self.model_description.num_event_indicators()
     }
 
     fn enter_initialization_mode(
@@ -122,7 +108,7 @@ impl Default for CallbackFunctions {
     }
 }
 
-impl<'a, Tag: InstanceTag> Instance<'a, Tag> {
+impl<Tag: InstanceTag> Instance<Tag> {
     pub fn get_fmu_state(&mut self) -> Result<FmuState, Fmi2Error> {
         let mut state = std::ptr::null_mut();
         Fmi2Status(unsafe { self.binding.fmi2GetFMUstate(self.component, &mut state) }).ok()?;
@@ -189,33 +175,10 @@ impl<'a, Tag: InstanceTag> Instance<'a, Tag> {
             Ok(FmuState(self.saved_states.len() - 1))
         }
     }
-
-    /// Check the internal consistency of the FMU by comparing the TypesPlatform and FMI versions
-    /// from the library and the Model Description XML
-    pub fn check_consistency(&self) -> Result<(), Error> {
-        let types_platform = self.get_types_platform();
-        if types_platform != "default" {
-            return Err(Fmi2Error::TypesPlatformMismatch(types_platform.to_owned()).into());
-        }
-
-        let fmi_version = Common::get_version(self);
-        if fmi_version != self.model_description.fmi_version {
-            return Err(Error::FmiVersionMismatch {
-                found: fmi_version.to_owned(),
-                expected: self.model_description.fmi_version.to_owned(),
-            });
-        }
-
-        Ok(())
-    }
 }
 
-impl<'a, A> std::fmt::Debug for Instance<'a, A> {
+impl<A> std::fmt::Debug for Instance<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "Instance {} {{Import {}, {:?}}}",
-            self.name, self.model_description.model_name, self.component,
-        )
+        write!(f, "Instance {} {{{:?}}}", self.name, self.component,)
     }
 }

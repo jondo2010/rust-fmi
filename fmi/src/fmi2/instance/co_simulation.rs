@@ -8,10 +8,10 @@ use crate::{
 
 use super::{CS, Instance, binding, traits};
 
-impl<'a> Instance<'a, CS> {
+impl Instance<CS> {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &'a import::Fmi2Import,
+        import: &import::Fmi2Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -26,7 +26,6 @@ impl<'a> Instance<'a, CS> {
         let binding = import.binding(&co_simulation.model_identifier)?;
 
         let callbacks = Box::<CallbackFunctions>::default();
-        //.check_consistency(&import, &cs.common)?;
 
         let name = instance_name.to_owned();
 
@@ -55,7 +54,6 @@ impl<'a> Instance<'a, CS> {
         Ok(Self {
             binding,
             component,
-            model_description: schema,
             callbacks,
             name,
             saved_states: Vec::new(),
@@ -64,7 +62,7 @@ impl<'a> Instance<'a, CS> {
     }
 }
 
-impl<'a> traits::CoSimulation for Instance<'a, CS> {
+impl traits::CoSimulation for Instance<CS> {
     fn do_step(
         &self,
         current_communication_point: f64,

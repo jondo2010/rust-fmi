@@ -15,24 +15,12 @@ impl<Inst> SimMe<Inst> for SimState<Inst>
 where
     Inst: FmiInstance + FmiModelExchange + InstSetValues + InstRecordValues + FmiEventHandler,
 {
-    fn main_loop<S>(&mut self, solver_params: S::Params) -> Result<SimStats, Error>
+    fn main_loop<S>(&mut self, mut solver: S) -> Result<SimStats, Error>
     where
         S: Solver<Inst>,
     {
         let mut stats = SimStats::default();
         self.inst.enter_continuous_time_mode().map_err(Into::into)?;
-
-        let nx = self.inst.get_number_of_continuous_state_values();
-        let nz =
-            FmiModelExchange::get_number_of_event_indicators(&mut self.inst).map_err(Into::into)?;
-
-        let mut solver = <S as Solver<Inst>>::new(
-            self.sim_params.start_time,
-            self.sim_params.tolerance.unwrap_or_default(),
-            nx,
-            nz,
-            solver_params,
-        );
 
         let mut time = self.sim_params.start_time;
 

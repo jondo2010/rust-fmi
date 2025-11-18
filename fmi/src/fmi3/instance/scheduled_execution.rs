@@ -20,9 +20,9 @@ unsafe extern "C" fn unlock_preemption() {
     todo!();
 }
 
-impl<'a> Instance<'a, SE> {
+impl Instance<SE> {
     pub fn new(
-        import: &'a import::Fmi3Import,
+        import: &import::Fmi3Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -71,14 +71,13 @@ impl<'a> Instance<'a, SE> {
         Ok(Self {
             binding,
             ptr: instance,
-            model_description: schema,
             name,
             _tag: std::marker::PhantomData,
         })
     }
 }
 
-impl<'a> ScheduledExecution for Instance<'a, SE> {
+impl ScheduledExecution for Instance<SE> {
     fn activate_model_partition(
         &mut self,
         clock_reference: Self::ValueRef,

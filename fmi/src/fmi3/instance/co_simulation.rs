@@ -10,7 +10,7 @@ use crate::{
 
 use super::{CS, Instance};
 
-impl<'a> Instance<'a, CS> {
+impl Instance<CS> {
     /// Returns a new CoSimulation instance.
     ///
     /// An FMU can be instantiated many times (provided capability flag
@@ -56,7 +56,7 @@ impl<'a> Instance<'a, CS> {
     ///
     /// See: <https://fmi-standard.org/docs/3.0.1/#fmi3InstantiateCoSimulation>
     pub fn new(
-        import: &'a import::Fmi3Import,
+        import: &import::Fmi3Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -115,14 +115,13 @@ impl<'a> Instance<'a, CS> {
         Ok(Self {
             binding,
             ptr: instance,
-            model_description,
             name,
             _tag: std::marker::PhantomData,
         })
     }
 }
 
-impl CoSimulation for Instance<'_, CS> {
+impl CoSimulation for Instance<CS> {
     fn enter_step_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         Fmi3Status::from(unsafe { self.binding.fmi3EnterStepMode(self.ptr) }).ok()
     }
@@ -153,7 +152,7 @@ impl CoSimulation for Instance<'_, CS> {
     }
 }
 
-impl FmiEventHandler for Instance<'_, CS> {
+impl FmiEventHandler for Instance<CS> {
     #[inline]
     fn enter_event_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         Common::enter_event_mode(self)
