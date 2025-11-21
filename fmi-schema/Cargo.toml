@@ -14,7 +14,10 @@ publish = true
 repository.workspace = true
 
 [features]
-default = ["fmi2", "fmi3"]
+default = [
+    #"fmi2", #TODO re-enable when hard_xml porting is done
+    "fmi3",
+]
 ## Enable support for FMI 2.0
 fmi2 = []
 ## Enable support for FMI 3.0
@@ -28,10 +31,12 @@ serde = ["dep:serde"]
 arrow = { workspace = true, optional = true }
 chrono = { version = "0.4" }
 document-features = { workspace = true }
+hard-xml = { version = "1.41", features = ["log"] }
 itertools = "0.14"
 lenient_semver = "0.4"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = { workspace = true }
-yaserde = "0.12"
-yaserde_derive = "0.12"
+
+[dev-dependencies]
+env_logger = "0.8"

@@ -1,40 +1,55 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
-
-use crate::fmi3::TypedArrayableVariableTrait;
-
 use super::{
     AbstractVariableTrait, FmiBinary, FmiBoolean, FmiFloat32, FmiFloat64, FmiInt8, FmiInt16,
     FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16, FmiUInt32, FmiUInt64,
+    TypedArrayableVariableTrait,
 };
 
-#[derive(Default, Debug, PartialEq, YaDeserialize, YaSerialize)]
+#[derive(hard_xml::XmlRead, hard_xml::XmlWrite, Debug, PartialEq)]
+pub enum Variable {
+    #[xml(tag = "Int8")]
+    Int8(FmiInt8),
+    #[xml(tag = "UInt8")]
+    UInt8(FmiUInt8),
+    #[xml(tag = "Int16")]
+    Int16(FmiInt16),
+    #[xml(tag = "UInt16")]
+    UInt16(FmiUInt16),
+    #[xml(tag = "Int32")]
+    Int32(FmiInt32),
+    #[xml(tag = "UInt32")]
+    UInt32(FmiUInt32),
+    #[xml(tag = "Int64")]
+    Int64(FmiInt64),
+    #[xml(tag = "UInt64")]
+    UInt64(FmiUInt64),
+    #[xml(tag = "Float32")]
+    Float32(FmiFloat32),
+    #[xml(tag = "Float64")]
+    Float64(FmiFloat64),
+    #[xml(tag = "Boolean")]
+    Boolean(FmiBoolean),
+    #[xml(tag = "String")]
+    String(FmiString),
+    #[xml(tag = "Binary")]
+    Binary(FmiBinary),
+}
+
+#[derive(Debug, PartialEq, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "ModelVariables")]
 pub struct ModelVariables {
-    #[yaserde(rename = "Float32")]
-    pub float32: Vec<FmiFloat32>,
-    #[yaserde(rename = "Float64")]
-    pub float64: Vec<FmiFloat64>,
-    #[yaserde(rename = "Int8")]
-    pub int8: Vec<FmiInt8>,
-    #[yaserde(rename = "UInt8")]
-    pub uint8: Vec<FmiUInt8>,
-    #[yaserde(rename = "Int16")]
-    pub int16: Vec<FmiInt16>,
-    #[yaserde(rename = "UInt16")]
-    pub uint16: Vec<FmiUInt16>,
-    #[yaserde(rename = "Int32")]
-    pub int32: Vec<FmiInt32>,
-    #[yaserde(rename = "UInt32")]
-    pub uint32: Vec<FmiUInt32>,
-    #[yaserde(rename = "Int64")]
-    pub int64: Vec<FmiInt64>,
-    #[yaserde(rename = "UInt64")]
-    pub uint64: Vec<FmiUInt64>,
-    #[yaserde(rename = "Boolean")]
-    pub boolean: Vec<FmiBoolean>,
-    #[yaserde(rename = "String")]
-    pub string: Vec<FmiString>,
-    #[yaserde(rename = "Binary")]
-    pub binary: Vec<FmiBinary>,
+    #[xml(
+        child = "Int8",
+        child = "UInt8",
+        child = "Int16",
+        child = "UInt16",
+        child = "Int32",
+        child = "UInt32",
+        child = "Int64",
+        child = "UInt64",
+        child = "Float32",
+        child = "Float64"
+    )]
+    pub variables: Vec<Variable>,
 }
 
 impl ModelVariables {
@@ -49,33 +64,30 @@ impl ModelVariables {
 
     /// Returns an iterator over all the AbstractVariables in the model description
     pub fn iter_abstract(&self) -> impl Iterator<Item = &dyn AbstractVariableTrait> {
-        itertools::chain!(
-            self.float32.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.float64.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int8.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint8.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int16.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint16.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int32.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint32.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.int64.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.uint64.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.boolean.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.string.iter().map(|v| v as &dyn AbstractVariableTrait),
-            self.binary.iter().map(|v| v as &dyn AbstractVariableTrait),
-        )
+        self.variables.iter().map(|v| match v {
+            Variable::Int8(var) => var as &dyn AbstractVariableTrait,
+            Variable::UInt8(var) => var as &dyn AbstractVariableTrait,
+            Variable::Int16(var) => var as &dyn AbstractVariableTrait,
+            Variable::UInt16(var) => var as &dyn AbstractVariableTrait,
+            Variable::Int32(var) => var as &dyn AbstractVariableTrait,
+            Variable::UInt32(var) => var as &dyn AbstractVariableTrait,
+            Variable::Int64(var) => var as &dyn AbstractVariableTrait,
+            Variable::UInt64(var) => var as &dyn AbstractVariableTrait,
+            Variable::Float32(var) => var as &dyn AbstractVariableTrait,
+            Variable::Float64(var) => var as &dyn AbstractVariableTrait,
+            Variable::Boolean(var) => var as &dyn AbstractVariableTrait,
+            Variable::String(var) => var as &dyn AbstractVariableTrait,
+            Variable::Binary(var) => var as &dyn AbstractVariableTrait,
+        })
     }
 
     /// Returns an iterator over all the float32 and float64 variables in the model description
     pub fn iter_floating(&self) -> impl Iterator<Item = &dyn TypedArrayableVariableTrait> {
-        itertools::chain!(
-            self.float32
-                .iter()
-                .map(|v| v as &dyn TypedArrayableVariableTrait),
-            self.float64
-                .iter()
-                .map(|v| v as &dyn TypedArrayableVariableTrait),
-        )
+        self.variables.iter().filter_map(|v| match v {
+            Variable::Float32(var) => Some(var as &dyn TypedArrayableVariableTrait),
+            Variable::Float64(var) => Some(var as &dyn TypedArrayableVariableTrait),
+            _ => None,
+        })
     }
 
     /// Finds a variable by its name.
@@ -91,72 +103,72 @@ pub trait AppendToModelVariables: AbstractVariableTrait {
 
 impl AppendToModelVariables for FmiFloat32 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.float32.push(self);
+        variables.variables.push(Variable::Float32(self));
     }
 }
 
 impl AppendToModelVariables for FmiFloat64 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.float64.push(self);
+        variables.variables.push(Variable::Float64(self));
     }
 }
 
 impl AppendToModelVariables for FmiInt8 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.int8.push(self);
+        variables.variables.push(Variable::Int8(self));
     }
 }
 
 impl AppendToModelVariables for FmiInt16 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.int16.push(self);
+        variables.variables.push(Variable::Int16(self));
     }
 }
 
 impl AppendToModelVariables for FmiInt32 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.int32.push(self);
+        variables.variables.push(Variable::Int32(self));
     }
 }
 
 impl AppendToModelVariables for FmiInt64 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.int64.push(self);
+        variables.variables.push(Variable::Int64(self));
     }
 }
 
 impl AppendToModelVariables for FmiUInt8 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.uint8.push(self);
+        variables.variables.push(Variable::UInt8(self));
     }
 }
 
 impl AppendToModelVariables for FmiUInt16 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.uint16.push(self);
+        variables.variables.push(Variable::UInt16(self));
     }
 }
 
 impl AppendToModelVariables for FmiUInt32 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.uint32.push(self);
+        variables.variables.push(Variable::UInt32(self));
     }
 }
 
 impl AppendToModelVariables for FmiUInt64 {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.uint64.push(self);
+        variables.variables.push(Variable::UInt64(self));
     }
 }
 
 impl AppendToModelVariables for FmiBoolean {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.boolean.push(self);
+        variables.variables.push(Variable::Boolean(self));
     }
 }
 
 impl AppendToModelVariables for FmiString {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.string.push(self);
+        variables.variables.push(Variable::String(self));
     }
 }

@@ -1,14 +1,12 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
+use super::Annotations;
 
-use super::{
-    Annotations, Float32Attributes, Float64Attributes, Int8Attributes, Int16Attributes,
-    Int32Attributes, Int64Attributes, IntegerBaseAttributes, RealBaseAttributes,
-    RealVariableAttributes, UInt8Attributes, UInt16Attributes, UInt32Attributes, UInt64Attributes,
+use crate::utils::AttrList;
+
+use std::{
+    fmt::{Debug, Display},
+    ops::Deref,
+    str::FromStr,
 };
-
-use crate::{Error, default_wrapper};
-
-use std::fmt::Debug;
 
 mod dimension;
 mod model_variables;
@@ -16,7 +14,7 @@ mod model_variables;
 mod tests;
 
 pub use dimension::Dimension;
-pub use model_variables::{AppendToModelVariables, ModelVariables};
+pub use model_variables::{AppendToModelVariables, ModelVariables, Variable};
 
 /// An enumeration that defines the type of a variable.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -94,110 +92,71 @@ pub trait InitializableVariableTrait<T>: TypedArrayableVariableTrait {
     fn start(&self) -> Option<&[T]>;
 }
 
-macro_rules! impl_abstract_variable {
-    ($name:ident, $default_variability:expr) => {
+macro_rules! impl_abstract_variable_ {
+    ($name: ident, $default_variability: expr) => {
         impl AbstractVariableTrait for $name {
             fn name(&self) -> &str {
-                &self
-                    .init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .name
+                &self.name
             }
             fn value_reference(&self) -> u32 {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .value_reference
+                self.value_reference
             }
             fn description(&self) -> Option<&str> {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .description
-                    .as_deref()
+                self.description.as_deref()
             }
             fn causality(&self) -> Causality {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .causality
+                self.causality
             }
             fn variability(&self) -> Variability {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .variability
-                    .unwrap_or($default_variability)
+                self.variability.unwrap_or($default_variability)
             }
             fn can_handle_multiple_set_per_time_instant(&self) -> Option<bool> {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .can_handle_multiple_set_per_time_instant
+                self.can_handle_multiple_set_per_time_instant
             }
             fn data_type(&self) -> VariableType {
-                VariableType::$name
+                todo!()
             }
             fn annotations(&self) -> Option<&Annotations> {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .abstract_var
-                    .annotations
-                    .as_ref()
+                self.annotations.as_ref()
             }
         }
     };
 }
 
-macro_rules! impl_arrayable_variable {
+macro_rules! impl_arrayable_variable_ {
     ($name:ident) => {
         impl ArrayableVariableTrait for $name {
             fn dimensions(&self) -> &[Dimension] {
-                &self.init_var.typed_arrayable_var.arrayable_var.dimensions
+                &self.dimensions
             }
             fn add_dimensions(&mut self, dims: &[Dimension]) {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .dimensions
-                    .extend_from_slice(dims);
+                self.dimensions.extend_from_slice(dims);
             }
             fn intermediate_update(&self) -> Option<bool> {
-                self.init_var
-                    .typed_arrayable_var
-                    .arrayable_var
-                    .intermediate_update
+                self.intermediate_update
             }
             fn previous(&self) -> Option<u32> {
-                self.init_var.typed_arrayable_var.arrayable_var.previous
+                self.previous
             }
         }
     };
 }
 
-macro_rules! impl_typed_arrayable_variable {
+macro_rules! impl_typed_arrayable_variable_ {
     ($name:ident) => {
         impl TypedArrayableVariableTrait for $name {
             fn declared_type(&self) -> Option<&str> {
-                self.init_var.typed_arrayable_var.declared_type.as_deref()
+                self.declared_type.as_deref()
             }
         }
     };
 }
 
-macro_rules! impl_initializable_variable {
-    ($name:ident, $type:ty) => {
+macro_rules! impl_initializable_variable_ {
+    ($name: ident, $type: ty) => {
         impl InitializableVariableTrait<$type> for $name {
             fn initial(&self) -> Option<Initial> {
-                self.init_var.initial
+                self.initial
             }
 
             fn start(&self) -> Option<&[$type]> {
@@ -208,37 +167,58 @@ macro_rules! impl_initializable_variable {
 }
 
 macro_rules! impl_float_type {
-    ($name:ident, $root:literal, $type:ty, $float_attr:ident) => {
-        #[derive(Default, PartialEq, Debug, YaDeserialize, YaSerialize)]
-        #[yaserde(rename = $root)]
+    // Implementation for float types using hard_xml derives
+    ($name:ident, $tag:expr, $type:ty) => {
+        #[derive(PartialEq, Debug, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
+        #[xml(tag = $tag, strict(unknown_attribute, unknown_element))]
         pub struct $name {
-            #[yaserde(flatten = true)]
-            pub base_attr: RealBaseAttributes,
-            #[yaserde(flatten = true)]
-            pub attr: $float_attr,
-            #[yaserde(flatten = true)]
-            pub init_var: InitializableVariable,
-            #[yaserde(attribute = true, rename = "start")]
-            pub start: Option<Vec<$type>>,
-            #[yaserde(flatten = true)]
-            pub real_var_attr: RealVariableAttributes,
+            #[xml(attr = "name")]
+            pub name: String,
+            #[xml(attr = "valueReference")]
+            pub value_reference: u32,
+            #[xml(attr = "description")]
+            pub description: Option<String>,
+            #[xml(attr = "causality")]
+            pub causality: Causality,
+            #[xml(attr = "variability")]
+            pub variability: Option<Variability>,
+            #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
+            pub can_handle_multiple_set_per_time_instant: Option<bool>,
+            #[xml(attr = "declaredType")]
+            pub declared_type: Option<String>,
+            #[xml(child = "Dimension")]
+            pub dimensions: Vec<Dimension>,
+            #[xml(attr = "intermediateUpdate")]
+            pub intermediate_update: Option<bool>,
+            #[xml(attr = "previous")]
+            pub previous: Option<u32>,
+            /// Initial or guess value of the variable. During instantiation, the FMU initializes its variables with their start values.
+            #[xml(attr = "start")]
+            pub start: Option<AttrList<$type>>,
+            #[xml(attr = "initial")]
+            pub initial: Option<Initial>,
+            #[xml(attr = "derivative")]
+            pub derivative: Option<u32>,
+            #[xml(attr = "reinit")]
+            pub reinit: Option<bool>,
+            #[xml(child = "Annotations")]
+            pub annotations: Option<Annotations>,
         }
 
-        impl_abstract_variable!($name, Variability::Continuous);
-        impl_arrayable_variable!($name);
-        impl_typed_arrayable_variable!($name);
-        impl_initializable_variable!($name, $type);
+        impl_abstract_variable_!($name, Variability::Continuous);
+        impl_arrayable_variable_!($name);
+        impl_typed_arrayable_variable_!($name);
+        impl_initializable_variable_!($name, $type);
 
         impl $name {
             pub fn derivative(&self) -> Option<u32> {
-                self.real_var_attr.derivative
+                self.derivative
             }
 
             pub fn reinit(&self) -> Option<bool> {
-                self.real_var_attr.reinit
+                self.reinit
             }
 
-            /// Create a new FMI variable with the given parameters
             pub fn new(
                 name: String,
                 value_reference: u32,
@@ -249,57 +229,68 @@ macro_rules! impl_float_type {
                 initial: Option<Initial>,
             ) -> Self {
                 Self {
-                    start,
-                    init_var: InitializableVariable {
-                        typed_arrayable_var: TypedArrayableVariable {
-                            arrayable_var: ArrayableVariable {
-                                abstract_var: AbstractVariable {
-                                    name,
-                                    value_reference,
-                                    description,
-                                    causality,
-                                    variability: Some(variability),
-                                    can_handle_multiple_set_per_time_instant: None,
-                                    annotations: None,
-                                },
-                                dimensions: vec![],
-                                intermediate_update: None,
-                                previous: None,
-                            },
-                            declared_type: None,
-                        },
-                        initial,
-                    },
-                    ..Default::default()
+                    name,
+                    value_reference,
+                    description,
+                    causality,
+                    variability: Some(variability),
+                    can_handle_multiple_set_per_time_instant: None,
+                    declared_type: None,
+                    dimensions: vec![],
+                    intermediate_update: None,
+                    previous: None,
+                    start: start.map(AttrList),
+                    initial,
+                    derivative: None,
+                    reinit: None,
+                    annotations: None,
                 }
             }
         }
     };
 }
 
-macro_rules! impl_integer_type {
-    ($name:ident, $root:literal, $type:ty, $int_attr:ident) => {
-        #[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-        #[yaserde(rename = $root)]
+macro_rules! impl_integer_type_ {
+    // Implementation for integer types using hard_xml derives
+    ($name:ident, $tag:expr, $type:ty) => {
+        #[derive(PartialEq, Debug, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
+        #[xml(tag = $tag, strict(unknown_attribute, unknown_element))]
         pub struct $name {
-            #[yaserde(flatten = true)]
-            pub base_attr: IntegerBaseAttributes,
-            #[yaserde(flatten = true)]
-            pub int_attr: $int_attr,
+            #[xml(attr = "name")]
+            pub name: String,
+            #[xml(attr = "valueReference")]
+            pub value_reference: u32,
+            #[xml(attr = "description")]
+            pub description: Option<String>,
+            #[xml(attr = "causality")]
+            pub causality: Causality,
+            #[xml(attr = "variability")]
+            pub variability: Option<Variability>,
+            #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
+            pub can_handle_multiple_set_per_time_instant: Option<bool>,
+            #[xml(attr = "declaredType")]
+            pub declared_type: Option<String>,
+            #[xml(child = "Dimension")]
+            pub dimensions: Vec<Dimension>,
+            #[xml(attr = "intermediateUpdate")]
+            pub intermediate_update: Option<bool>,
+            #[xml(attr = "previous")]
+            pub previous: Option<u32>,
             /// Initial or guess value of the variable. During instantiation, the FMU initializes its variables with their start values.
-            #[yaserde(attribute = true, flatten = true)]
-            pub start: Option<Vec<$type>>,
-            #[yaserde(flatten = true)]
-            pub init_var: InitializableVariable,
+            #[xml(attr = "start")]
+            pub start: Option<AttrList<$type>>,
+            #[xml(attr = "initial")]
+            pub initial: Option<Initial>,
+            #[xml(child = "Annotations")]
+            pub annotations: Option<Annotations>,
         }
 
-        impl_abstract_variable!($name, Variability::Discrete);
-        impl_arrayable_variable!($name);
-        impl_typed_arrayable_variable!($name);
-        impl_initializable_variable!($name, $type);
+        impl_abstract_variable_!($name, Variability::Discrete);
+        impl_arrayable_variable_!($name);
+        impl_typed_arrayable_variable_!($name);
+        impl_initializable_variable_!($name, $type);
 
         impl $name {
-            /// Create a new FMI integer variable with the given parameters
             pub fn new(
                 name: String,
                 value_reference: u32,
@@ -310,28 +301,19 @@ macro_rules! impl_integer_type {
                 initial: Option<Initial>,
             ) -> Self {
                 Self {
-                    start,
-                    init_var: InitializableVariable {
-                        typed_arrayable_var: TypedArrayableVariable {
-                            arrayable_var: ArrayableVariable {
-                                abstract_var: AbstractVariable {
-                                    name,
-                                    value_reference,
-                                    description,
-                                    causality,
-                                    variability: Some(variability),
-                                    can_handle_multiple_set_per_time_instant: None,
-                                    annotations: None,
-                                },
-                                dimensions: vec![],
-                                intermediate_update: None,
-                                previous: None,
-                            },
-                            declared_type: None,
-                        },
-                        initial,
-                    },
-                    ..Default::default()
+                    name,
+                    value_reference,
+                    description,
+                    causality,
+                    variability: Some(variability),
+                    can_handle_multiple_set_per_time_instant: None,
+                    declared_type: None,
+                    dimensions: vec![],
+                    intermediate_update: None,
+                    previous: None,
+                    start: start.map(AttrList),
+                    initial,
+                    annotations: None,
                 }
             }
         }
@@ -339,33 +321,58 @@ macro_rules! impl_integer_type {
 }
 
 /// Enumeration that defines the causality of the variable.
-#[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub enum Causality {
     /// A data value that is constant during the simulation
-    #[yaserde(rename = "parameter")]
     Parameter,
     /// A data value that is constant during the simulation and is computed during initialization
     /// or when tunable parameters change.
-    #[yaserde(rename = "calculatedParameter")]
     CalculatedParameter,
     /// The variable value can be provided by the importer.
-    #[yaserde(rename = "input")]
     Input,
     /// The values of these variables are computed in the FMU and they are designed to be used outside the FMU.
-    #[yaserde(rename = "output")]
     Output,
     /// Local variables of the FMU that must not be used for FMU connections
-    #[yaserde(rename = "local")]
     #[default]
     Local,
     /// The independent variable (usually time [but could also be, for example, angle]).
-    #[yaserde(rename = "independent")]
     Independent,
-    #[yaserde(rename = "dependent")]
     Dependent,
     /// The variable value can only be changed in Configuration Mode or Reconfiguration Mode.
-    #[yaserde(rename = "structuralParameter")]
     StructuralParameter,
+}
+
+impl FromStr for Causality {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "parameter" => Ok(Causality::Parameter),
+            "calculatedParameter" => Ok(Causality::CalculatedParameter),
+            "input" => Ok(Causality::Input),
+            "output" => Ok(Causality::Output),
+            "local" => Ok(Causality::Local),
+            "independent" => Ok(Causality::Independent),
+            "dependent" => Ok(Causality::Dependent),
+            "structuralParameter" => Ok(Causality::StructuralParameter),
+            _ => Err(format!("Invalid Causality: {}", s)),
+        }
+    }
+}
+
+impl Display for Causality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Causality::Parameter => write!(f, "parameter"),
+            Causality::CalculatedParameter => write!(f, "calculatedParameter"),
+            Causality::Input => write!(f, "input"),
+            Causality::Output => write!(f, "output"),
+            Causality::Local => write!(f, "local"),
+            Causality::Independent => write!(f, "independent"),
+            Causality::Dependent => write!(f, "dependent"),
+            Causality::StructuralParameter => write!(f, "structuralParameter"),
+        }
+    }
 }
 
 /// Enumeration that defines the time dependency of the variable, in other words, it defines the
@@ -373,22 +380,19 @@ pub enum Causality {
 /// internal computations, depending on their causality.
 ///
 /// See [https://fmi-standard.org/docs/3.0.1/#variability]
-#[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub enum Variability {
     /// The value of the variable never changes.
-    #[yaserde(rename = "constant")]
     Constant,
     /// The value of the variable is fixed in super state Initialized, in other words, after
     /// [`exit_initialization_mode()`] was called the variable value does not change anymore. The
     /// default for variables of causality [`Causality::Parameter`],
     /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is `Fixed`.
-    #[yaserde(rename = "fixed")]
     Fixed,
     /// The value of the variable is constant between events (ME and CS if Event Mode is supported)
     /// and between communication points (CS and SE). A parameter with variability = tunable
     /// may be changed only in Event Mode or, if Event Mode is not supported, at communication
     /// points (CS and SE).
-    #[yaserde(rename = "tunable")]
     Tunable,
     /// * Model Exchange: The value of the variable may change only in Event Mode.
     /// * Co-Simulation: If Event Mode is used (see `event_mode_used`), the value of the variable
@@ -396,7 +400,6 @@ pub enum Variability {
     ///   communication points and the FMU must detect and handle such events internally. During
     ///   Intermediate Update Mode, discrete variables are not allowed to change.
     /// * Scheduled Execution: The value may change only at communication points.
-    #[yaserde(rename = "discrete")]
     #[default]
     Discrete,
     /// Only variables of type [`FmiFloat32`]or [`FmiFloat64`] may be continuous. The default for
@@ -404,91 +407,113 @@ pub enum Variability {
     /// [`Causality::Parameter`], [`Causality::StructuredParameter`] or
     /// [`Causality::CalculatedParameter`] is continuous. Variables with variability continuous
     /// may change in Initialization Mode and in super state Initialized.
-    #[yaserde(rename = "continuous")]
     Continuous,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct AbstractVariable {
-    #[yaserde(attribute = true)]
-    pub name: String,
-    #[yaserde(attribute = true, rename = "valueReference")]
-    pub value_reference: u32,
-    #[yaserde(attribute = true)]
-    pub description: Option<String>,
-    #[yaserde(attribute = true, default = "default_wrapper")]
-    pub causality: Causality,
-    #[yaserde(attribute = true)]
-    pub variability: Option<Variability>,
-    #[yaserde(attribute = true, rename = "canHandleMultipleSetPerTimeInstant")]
-    pub can_handle_multiple_set_per_time_instant: Option<bool>,
-    #[yaserde(rename = "Annotations")]
-    pub annotations: Option<Annotations>,
+impl FromStr for Variability {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "constant" => Ok(Variability::Constant),
+            "fixed" => Ok(Variability::Fixed),
+            "tunable" => Ok(Variability::Tunable),
+            "discrete" => Ok(Variability::Discrete),
+            "continuous" => Ok(Variability::Continuous),
+            _ => Err(format!("Invalid Variability: {}", s)),
+        }
+    }
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct ArrayableVariable {
-    #[yaserde(flatten = true)]
-    pub abstract_var: AbstractVariable,
-    /// Each `Dimension` element specifies the size of one dimension of the array
-    #[yaserde(rename = "Dimension")]
-    pub dimensions: Vec<Dimension>,
-    #[yaserde(attribute = true, rename = "intermediateUpdate")]
-    pub intermediate_update: Option<bool>,
-    #[yaserde(attribute = true, rename = "previous")]
-    pub previous: Option<u32>,
+impl Display for Variability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Variability::Constant => write!(f, "constant"),
+            Variability::Fixed => write!(f, "fixed"),
+            Variability::Tunable => write!(f, "tunable"),
+            Variability::Discrete => write!(f, "discrete"),
+            Variability::Continuous => write!(f, "continuous"),
+        }
+    }
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct TypedArrayableVariable {
-    #[yaserde(flatten = true)]
-    pub arrayable_var: ArrayableVariable,
-    #[yaserde(attribute = true, rename = "declaredType")]
-    pub declared_type: Option<String>,
-}
-
-#[derive(Clone, Copy, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub enum Initial {
-    #[yaserde(rename = "exact")]
     #[default]
     Exact,
-    #[yaserde(rename = "approx")]
     Approx,
-    #[yaserde(rename = "calculated")]
     Calculated,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct InitializableVariable {
-    #[yaserde(flatten = true)]
-    pub typed_arrayable_var: TypedArrayableVariable,
-    #[yaserde(attribute = true)]
-    pub initial: Option<Initial>,
+impl FromStr for Initial {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "exact" => Ok(Initial::Exact),
+            "approx" => Ok(Initial::Approx),
+            "calculated" => Ok(Initial::Calculated),
+            _ => Err(format!("Invalid Initial: {}", s)),
+        }
+    }
 }
 
-impl_float_type!(FmiFloat32, "Float32", f32, Float32Attributes);
-impl_float_type!(FmiFloat64, "Float64", f64, Float64Attributes);
-impl_integer_type!(FmiInt8, "Int8", i8, Int8Attributes);
-impl_integer_type!(FmiUInt8, "UInt8", u8, UInt8Attributes);
-impl_integer_type!(FmiInt16, "Int16", i16, Int16Attributes);
-impl_integer_type!(FmiUInt16, "UInt16", u16, UInt16Attributes);
-impl_integer_type!(FmiInt32, "Int32", i32, Int32Attributes);
-impl_integer_type!(FmiUInt32, "UInt32", u32, UInt32Attributes);
-impl_integer_type!(FmiInt64, "Int64", i64, Int64Attributes);
-impl_integer_type!(FmiUInt64, "UInt64", u64, UInt64Attributes);
+impl Display for Initial {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Initial::Exact => write!(f, "exact"),
+            Initial::Approx => write!(f, "approx"),
+            Initial::Calculated => write!(f, "calculated"),
+        }
+    }
+}
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+impl_float_type!(FmiFloat32, "Float32", f32);
+impl_float_type!(FmiFloat64, "Float64", f64);
+impl_integer_type_!(FmiInt8, "Int8", i8);
+impl_integer_type_!(FmiUInt8, "UInt8", u8);
+impl_integer_type_!(FmiInt16, "Int16", i16);
+impl_integer_type_!(FmiUInt16, "UInt16", u16);
+impl_integer_type_!(FmiInt32, "Int32", i32);
+impl_integer_type_!(FmiUInt32, "UInt32", u32);
+impl_integer_type_!(FmiInt64, "Int64", i64);
+impl_integer_type_!(FmiUInt64, "UInt64", u64);
+
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Boolean", strict(unknown_attribute, unknown_element))]
 pub struct FmiBoolean {
-    #[yaserde(attribute = true, flatten = true)]
-    pub start: Option<Vec<bool>>,
-    #[yaserde(flatten = true)]
-    pub init_var: InitializableVariable,
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "valueReference")]
+    pub value_reference: u32,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(attr = "causality")]
+    pub causality: Causality,
+    #[xml(attr = "variability")]
+    pub variability: Option<Variability>,
+    #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
+    pub can_handle_multiple_set_per_time_instant: Option<bool>,
+    #[xml(attr = "declaredType")]
+    pub declared_type: Option<String>,
+    #[xml(child = "Dimension")]
+    pub dimensions: Vec<Dimension>,
+    #[xml(attr = "intermediateUpdate")]
+    pub intermediate_update: Option<bool>,
+    #[xml(attr = "previous")]
+    pub previous: Option<u32>,
+    #[xml(attr = "initial")]
+    pub initial: Option<Initial>,
+    #[xml(attr = "start")]
+    pub start: Option<AttrList<bool>>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Annotations>,
 }
 
-impl_abstract_variable!(FmiBoolean, Variability::Discrete);
-impl_arrayable_variable!(FmiBoolean);
-impl_typed_arrayable_variable!(FmiBoolean);
-impl_initializable_variable!(FmiBoolean, bool);
+impl_abstract_variable_!(FmiBoolean, Variability::Discrete);
+impl_arrayable_variable_!(FmiBoolean);
+impl_typed_arrayable_variable_!(FmiBoolean);
+impl_initializable_variable_!(FmiBoolean, bool);
 
 impl FmiBoolean {
     /// Create a new FMI boolean variable with the given parameters
@@ -502,43 +527,54 @@ impl FmiBoolean {
         initial: Option<Initial>,
     ) -> Self {
         Self {
-            start,
-            init_var: InitializableVariable {
-                typed_arrayable_var: TypedArrayableVariable {
-                    arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name,
-                            value_reference,
-                            description,
-                            causality,
-                            variability: Some(variability),
-                            can_handle_multiple_set_per_time_instant: None,
-                            annotations: None,
-                        },
-                        dimensions: vec![],
-                        intermediate_update: None,
-                        previous: None,
-                    },
-                    declared_type: None,
-                },
-                initial,
-            },
+            start: start.map(AttrList),
+            name,
+            value_reference,
+            description,
+            causality,
+            variability: Some(variability),
+            can_handle_multiple_set_per_time_instant: None,
+            annotations: None,
+            dimensions: vec![],
+            intermediate_update: None,
+            previous: None,
+            declared_type: None,
+            initial,
+            ..Self::default()
         }
     }
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct StringStart {
-    #[yaserde(attribute = true, rename = "value")]
-    pub value: String,
-}
-
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "String", strict(unknown_attribute, unknown_element))]
 pub struct FmiString {
-    #[yaserde(rename = "Start")]
-    pub start: Option<Vec<StringStart>>,
-    #[yaserde(flatten = true)]
-    pub init_var: InitializableVariable,
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "valueReference")]
+    pub value_reference: u32,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(attr = "causality")]
+    pub causality: Causality,
+    #[xml(attr = "variability")]
+    pub variability: Option<Variability>,
+    #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
+    pub can_handle_multiple_set_per_time_instant: Option<bool>,
+    #[xml(attr = "declaredType")]
+    pub declared_type: Option<String>,
+    #[xml(child = "Dimension")]
+    pub dimensions: Vec<Dimension>,
+    #[xml(attr = "intermediateUpdate")]
+    pub intermediate_update: Option<bool>,
+    #[xml(attr = "previous")]
+    pub previous: Option<u32>,
+    /// Initial or guess value of the variable. During instantiation, the FMU initializes its variables with their start values.
+    #[xml(attr = "start")]
+    pub start: Option<AttrList<String>>,
+    #[xml(attr = "initial")]
+    pub initial: Option<Initial>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Annotations>,
 }
 
 impl FmiString {
@@ -553,76 +589,117 @@ impl FmiString {
         initial: Option<Initial>,
     ) -> Self {
         Self {
-            start: start.map(|s| s.into_iter().map(|value| StringStart { value }).collect()),
-            init_var: InitializableVariable {
-                typed_arrayable_var: TypedArrayableVariable {
-                    arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name,
-                            value_reference,
-                            description,
-                            causality,
-                            variability: Some(variability),
-                            can_handle_multiple_set_per_time_instant: None,
-                            annotations: None,
-                        },
-                        dimensions: vec![],
-                        intermediate_update: None,
-                        previous: None,
-                    },
-                    declared_type: None,
-                },
-                initial,
-            },
+            start: start.map(AttrList),
+            name,
+            value_reference,
+            description,
+            causality,
+            variability: Some(variability),
+            can_handle_multiple_set_per_time_instant: None,
+            annotations: None,
+            dimensions: vec![],
+            intermediate_update: None,
+            previous: None,
+            declared_type: None,
+            initial,
+            ..Self::default()
         }
     }
 }
 
-impl_abstract_variable!(FmiString, Variability::Discrete);
-impl_arrayable_variable!(FmiString);
-impl_typed_arrayable_variable!(FmiString);
-impl_initializable_variable!(FmiString, StringStart);
+impl_abstract_variable_!(FmiString, Variability::Discrete);
+impl_arrayable_variable_!(FmiString);
+impl_typed_arrayable_variable_!(FmiString);
+impl_initializable_variable_!(FmiString, String);
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct BinaryStart {
-    #[yaserde(attribute = true, rename = "value")]
-    pub value: String,
-}
+#[derive(PartialEq, Debug)]
+struct BinaryStartValue(Vec<u8>);
 
-impl BinaryStart {
-    /// Parse the hex string into a byte vector.
-    pub fn as_bytes(&self) -> Result<Vec<u8>, Error> {
-        let raw: &str = self.value.as_ref();
-        let s = raw
-            .strip_prefix("0x")
-            .or_else(|| raw.strip_prefix("0X"))
-            .unwrap_or(raw);
-        let s: String = s
-            .chars()
-            .filter(|c| !c.is_ascii_whitespace() && *c != '_')
-            .collect();
-        assert!(
-            s.len() % 2 == 0,
-            "hex string must have an even number of digits"
-        );
-        (0..s.len())
+impl FromStr for BinaryStartValue {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Remove any whitespace and 0x prefix
+        let cleaned = s.replace(|c: char| c.is_whitespace(), "");
+        let hex_str = cleaned.strip_prefix("0x").unwrap_or(&cleaned);
+        
+        // Parse pairs of hex digits
+        let bytes = (0..hex_str.len())
             .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect::<Result<Vec<u8>, _>>()
-            .map_err(|e| Error::Model(format!("failed to parse hex string: {}", e)))
+            .map(|i| {
+                let byte_str = &hex_str[i..std::cmp::min(i + 2, hex_str.len())];
+                u8::from_str_radix(byte_str, 16)
+            })
+            .collect::<Result<Vec<u8>, std::num::ParseIntError>>()?;
+        Ok(BinaryStartValue(bytes))
     }
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+impl Display for BinaryStartValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for byte in &self.0 {
+            write!(f, "{:02X} ", byte)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Start")]
+struct BinaryStart {
+    #[xml(attr = "value")]
+    value: BinaryStartValue,
+}
+
+impl Deref for BinaryStart {
+    type Target = BinaryStartValue;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl Deref for BinaryStartValue {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Binary")]
 pub struct FmiBinary {
-    #[yaserde(rename = "Start")]
-    pub start: Option<Vec<BinaryStart>>,
-    #[yaserde(attribute = true, rename = "mimeType", default = "default_mime_type")]
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "valueReference")]
+    pub value_reference: u32,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(attr = "causality")]
+    pub causality: Causality,
+    #[xml(attr = "variability")]
+    pub variability: Option<Variability>,
+    #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
+    pub can_handle_multiple_set_per_time_instant: Option<bool>,
+    #[xml(attr = "declaredType")]
+    pub declared_type: Option<String>,
+    #[xml(child = "Dimension")]
+    pub dimensions: Vec<Dimension>,
+    #[xml(attr = "intermediateUpdate")]
+    pub intermediate_update: Option<bool>,
+    #[xml(attr = "previous")]
+    pub previous: Option<u32>,
+    #[xml(child = "Start")]
+    pub start: Option<BinaryStart>,
+    #[xml(attr = "mimeType", default = "default_mime_type")]
     pub mime_type: String,
-    #[yaserde(attribute = true, rename = "maxSize")]
+    #[xml(attr = "maxSize")]
     pub max_size: Option<u32>,
-    #[yaserde(flatten = true)]
-    pub init_var: InitializableVariable,
+    #[xml(attr = "initial")]
+    pub initial: Option<Initial>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Annotations>,
 }
 
 fn default_mime_type() -> String {
@@ -641,49 +718,45 @@ impl FmiBinary {
         initial: Option<Initial>,
     ) -> Self {
         Self {
-            start: start.map(|s| s.into_iter().map(|value| BinaryStart { value }).collect()),
+            start: start.map(|s_vec| {
+                let byte_vec: Vec<u8> = s_vec
+                    .into_iter()
+                    .filter_map(|s| u8::from_str_radix(&s, 16).ok())
+                    .collect();
+                BinaryStart {
+                    value: BinaryStartValue(byte_vec),
+                }
+            }),
             mime_type: default_mime_type(),
             max_size: None,
-            init_var: InitializableVariable {
-                typed_arrayable_var: TypedArrayableVariable {
-                    arrayable_var: ArrayableVariable {
-                        abstract_var: AbstractVariable {
-                            name,
-                            value_reference,
-                            description,
-                            causality,
-                            variability: Some(variability),
-                            can_handle_multiple_set_per_time_instant: None,
-                            annotations: None,
-                        },
-                        dimensions: vec![],
-                        intermediate_update: None,
-                        previous: None,
-                    },
-                    declared_type: None,
-                },
-                initial,
-            },
+            name,
+            value_reference,
+            description,
+            causality,
+            variability: Some(variability),
+            can_handle_multiple_set_per_time_instant: None,
+            annotations: None,
+            dimensions: vec![],
+            intermediate_update: None,
+            previous: None,
+            declared_type: None,
+            initial,
         }
     }
 }
 
-impl_abstract_variable!(FmiBinary, Variability::Discrete);
-impl_arrayable_variable!(FmiBinary);
-impl_typed_arrayable_variable!(FmiBinary);
-impl_initializable_variable!(FmiBinary, BinaryStart);
+impl_abstract_variable_!(FmiBinary, Variability::Discrete);
+impl_arrayable_variable_!(FmiBinary);
+impl_typed_arrayable_variable_!(FmiBinary);
 
-// #[derive(Debug, YaSerialize, YaDeserialize)]
-// #[yaserde(root = "ModelVariables")]
-// pub enum Fmi3Variable {
-// #[yaserde(flatten, rename = "Float32")]
-// Float32(FmiFloat32),
-// #[yaserde(flatten, rename = "Float64")]
-// Float64(FmiFloat64),
-// }
-//
-// impl Default for Fmi3Variable {
-// fn default() -> Self {
-// Fmi3Variable::Float32(FmiFloat32::default())
-// }
-// }
+impl InitializableVariableTrait<BinaryStart> for FmiBinary {
+    fn initial(&self) -> Option<Initial> {
+        self.initial
+    }
+
+    fn start(&self) -> Option<&[BinaryStart]> {
+        // FmiBinary only has a single start value, not a list
+        // We need to return a slice, so we use std::slice::from_ref
+        self.start.as_ref().map(|s| std::slice::from_ref(s))
+    }
+}

@@ -1,18 +1,17 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
-
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(rename = "Annotations")]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[xml(tag = "Annotations", strict(unknown_attribute, unknown_element))]
 pub struct Fmi3Annotations {
-    #[yaserde(rename = "Annotation")]
+    #[xml(child = "Annotation")]
     pub annotations: Vec<Annotation>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[xml(tag = "Annotation", strict(unknown_attribute, unknown_element))]
 pub struct Annotation {
-    #[yaserde(attribute = true, rename = "type")]
+    #[xml(attr = "type")]
     pub r#type: String,
-    #[yaserde(text = true)]
+    #[xml(text)]
     pub content: String,
 }

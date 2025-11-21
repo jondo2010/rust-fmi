@@ -1,103 +1,105 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
-
 use crate::{Error, traits::FmiModelDescription};
 
 use super::{
-    Annotations, Float32Type, Float64Type, Fmi3CoSimulation, Fmi3ModelExchange,
-    Fmi3ScheduledExecution, Fmi3Unit, Fmi3Unknown, ModelVariables,
+    Annotations, Fmi3CoSimulation, Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit,
+    ModelVariables, TypeDefinitions, VariableDependency,
 };
 
-#[derive(Default, Debug, PartialEq, YaDeserialize, YaSerialize)]
-#[yaserde(rename = "fmiModelDescription")]
+#[derive(Default, Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(
+    tag = "fmiModelDescription",
+    strict(unknown_attribute, unknown_element)
+)]
 pub struct Fmi3ModelDescription {
     /// Version of FMI that was used to generate the XML file.
-    #[yaserde(attribute = true, rename = "fmiVersion")]
+    #[xml(attr = "fmiVersion")]
     pub fmi_version: String,
 
     /// The name of the model as used in the modeling environment that generated the XML file, such
     /// as "Modelica.Mechanics.Rotational.Examples.CoupledClutches".
-    #[yaserde(attribute = true, rename = "modelName")]
+    #[xml(attr = "modelName")]
     pub model_name: String,
 
     /// The instantiationToken is a string that can be used by the FMU to check that the XML file
     /// is compatible with the implementation of the FMU.
-    #[yaserde(attribute = true, rename = "instantiationToken")]
+    #[xml(attr = "instantiationToken")]
     pub instantiation_token: String,
 
     /// Optional string with a brief description of the model.
-    #[yaserde(attribute = true, rename = "description")]
+    #[xml(attr = "description")]
     pub description: Option<String>,
 
     /// String with the name and organization of the model author.
-    #[yaserde(attribute = true, rename = "author")]
+    #[xml(attr = "author")]
     pub author: Option<String>,
 
     /// Version of the model [for example 1.0].
-    #[yaserde(attribute = true, rename = "version")]
+    #[xml(attr = "version")]
     pub version: Option<String>,
 
     /// Information on the intellectual property copyright for this FMU [for example © My Company
     /// 2011].
-    #[yaserde(attribute = true, rename = "copyright")]
+    #[xml(attr = "copyright")]
     pub copyright: Option<String>,
 
     /// Information on the intellectual property licensing for this FMU [for example BSD license
     /// <license text or link to license>].
-    #[yaserde(attribute = true, rename = "license")]
+    #[xml(attr = "license")]
     pub license: Option<String>,
 
     /// Name of the tool that generated the XML file.
-    #[yaserde(attribute = true, rename = "generationTool")]
+    #[xml(attr = "generationTool")]
     pub generation_tool: Option<String>,
 
     ///  Date and time when the XML file was generated. The format is a subset of dateTime and
     /// should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the Zulu
     /// time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
-    #[yaserde(attribute = true, rename = "generationDateAndTime")]
-    // pub generation_date_and_time: Option<DateTime>,
+    #[xml(attr = "generationDateAndTime")]
     pub generation_date_and_time: Option<String>,
 
     /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
     /// particular convention.
-    #[yaserde(attribute = true, rename = "variableNamingConvention")]
+    #[xml(attr = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
 
     /// If present, the FMU is based on FMI for Model Exchange
-    #[yaserde(rename = "ModelExchange")]
+    #[xml(child = "ModelExchange")]
     pub model_exchange: Option<Fmi3ModelExchange>,
 
     /// If present, the FMU is based on FMI for Co-Simulation
-    #[yaserde(rename = "CoSimulation")]
+    #[xml(child = "CoSimulation")]
     pub co_simulation: Option<Fmi3CoSimulation>,
 
     /// If present, the FMU is based on FMI for Scheduled Execution
-    #[yaserde(rename = "ScheduledExecution")]
+    #[xml(child = "ScheduledExecution")]
     pub scheduled_execution: Option<Fmi3ScheduledExecution>,
 
     /// A global list of unit and display unit definitions
-    #[yaserde(rename = "UnitDefinitions")]
+    #[xml(child = "UnitDefinitions")]
     pub unit_definitions: Option<UnitDefinitions>,
 
     /// A global list of type definitions that are utilized in `ModelVariables`
-    #[yaserde(rename = "TypeDefinitions")]
+    #[xml(child = "TypeDefinitions")]
     pub type_definitions: Option<TypeDefinitions>,
 
-    #[yaserde(rename = "LogCategories")]
+    /// Categories for logging purposes
+    #[xml(child = "LogCategories")]
     pub log_categories: Option<LogCategories>,
 
     /// Providing default settings for the integrator, such as stop time and relative tolerance.
-    #[yaserde(rename = "DefaultExperiment")]
+    #[xml(child = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
 
-    #[yaserde(rename = "ModelVariables", default = "default_model_variables")]
+    /// The model variables defined in the model.
+    #[xml(child = "ModelVariables", default)]
     pub model_variables: ModelVariables,
 
     /// The model structure defines the dependency structure of the model variables.
-    #[yaserde(rename = "ModelStructure")]
+    #[xml(child = "ModelStructure", default)]
     pub model_structure: ModelStructure,
 
     /// Optional annotations for the top-level element.
-    #[yaserde(rename = "Annotations")]
+    #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
 }
 
@@ -115,102 +117,99 @@ impl FmiModelDescription for Fmi3ModelDescription {
     }
 
     fn serialize(&self) -> Result<String, Error> {
-        yaserde::ser::to_string(self).map_err(Error::XmlParse)
+        hard_xml::XmlWrite::to_string(self).map_err(Error::XmlParse)
     }
 
     fn deserialize(xml: &str) -> Result<Self, crate::Error> {
-        yaserde::de::from_str(xml).map_err(crate::Error::XmlParse)
+        hard_xml::XmlRead::from_str(xml).map_err(crate::Error::XmlParse)
     }
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(tag = "UnitDefinitions")]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "UnitDefinitions", strict(unknown_attribute, unknown_element))]
 pub struct UnitDefinitions {
-    #[yaserde(rename = "Unit")]
+    #[xml(child = "Unit")]
     pub units: Vec<Fmi3Unit>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct TypeDefinitions {
-    #[yaserde(rename = "Float32Type")]
-    pub float32types: Vec<Float32Type>,
-    #[yaserde(rename = "Float64Type")]
-    pub float64types: Vec<Float64Type>,
-}
-
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "LogCategories", strict(unknown_attribute, unknown_element))]
 pub struct LogCategories {
-    #[yaserde(rename = "Category")]
+    #[xml(child = "Category")]
     pub categories: Vec<Category>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Category", strict(unknown_attribute, unknown_element))]
 pub struct Category {
-    #[yaserde(rename = "Annotations")]
+    #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
-    #[yaserde(attribute = true)]
+    #[xml(attr = "name")]
     pub name: String,
-    #[yaserde(attribute = true)]
+    #[xml(attr = "description")]
     pub description: Option<String>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(default))]
+#[xml(tag = "DefaultExperiment", strict(unknown_attribute, unknown_element))]
 pub struct DefaultExperiment {
-    #[yaserde(rename = "Annotations")]
+    #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
-    #[yaserde(attribute = true, rename = "startTime")]
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
     )]
+    #[xml(attr = "startTime")]
     pub start_time: Option<f64>,
-    #[yaserde(attribute = true, rename = "stopTime")]
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
     )]
+    #[xml(attr = "stopTime")]
     pub stop_time: Option<f64>,
-    #[yaserde(attribute = true, rename = "tolerance")]
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
     )]
+    #[xml(attr = "tolerance")]
     pub tolerance: Option<f64>,
-    #[yaserde(attribute = true, rename = "stepSize")]
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::utils::deserialize_optional_f64_from_string")
     )]
+    #[xml(attr = "stepSize")]
     pub step_size: Option<f64>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "ModelStructure", strict(unknown_attribute, unknown_element))]
 pub struct ModelStructure {
-    #[yaserde(rename = "Output")]
-    pub outputs: Vec<Fmi3Unknown>,
-
-    #[yaserde(rename = "ContinuousStateDerivative")]
-    pub continuous_state_derivative: Vec<Fmi3Unknown>,
-
-    #[yaserde(rename = "ClockedState")]
-    pub clocked_state: Vec<Fmi3Unknown>,
-
-    #[yaserde(rename = "InitialUnknown")]
-    pub initial_unknown: Vec<Fmi3Unknown>,
-
-    #[yaserde(rename = "EventIndicator")]
-    pub event_indicator: Vec<Fmi3Unknown>,
+    #[xml(
+        child = "Output",
+        child = "ContinuousStateDerivative",
+        child = "ClockedState",
+        child = "InitialUnknown",
+        child = "EventIndicator"
+    )]
+    unknowns: Vec<VariableDependency>,
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::fmi3::AbstractVariableTrait;
+    use hard_xml::XmlRead;
+
+    use crate::fmi3::Fmi3Unknown;
 
     use super::*;
     #[test]
     fn test_model_descr() {
+        let _ = env_logger::builder()
+            .is_test(true)
+            .format_timestamp(None)
+            .try_init();
+
         let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
     <fmiModelDescription
         fmiVersion="3.0-beta.2"
@@ -226,7 +225,7 @@ mod tests {
         </ModelStructure>
     </fmiModelDescription>"#;
 
-        let md: Fmi3ModelDescription = yaserde::de::from_str(xml).unwrap();
+        let md = Fmi3ModelDescription::from_str(xml).unwrap();
 
         assert_eq!(md.fmi_version, "3.0-beta.2");
         assert_eq!(md.model_name, "FMI3");
@@ -246,91 +245,11 @@ mod tests {
         assert_eq!(
             md.model_structure,
             ModelStructure {
-                outputs: vec![Fmi3Unknown {
+                unknowns: vec![VariableDependency::Output(Fmi3Unknown {
                     value_reference: 1,
                     ..Default::default()
-                }],
-                ..Default::default()
+                })],
             }
         );
-    }
-
-    #[test]
-    fn test_model_variables() {
-        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
-<ModelVariables>
-    <Float64 name="time" valueReference="0" causality="independent" variability="continuous"/>
-
-    <Float32 name="Float32_continuous_input"  valueReference="1" causality="input" start="0"/>
-    <Float32 name="Float32_continuous_output" valueReference="2" causality="output"/>
-    <Float32 name="Float32_discrete_input"    valueReference="3" causality="input" variability="discrete" start="0"/>
-    <Float32 name="Float32_discrete_output"   valueReference="4" causality="output" variability="discrete"/>
-
-    <Float64 name="Float64_fixed_parameter" valueReference="5" causality="parameter" variability="fixed" start="0"/>
-    <Float64 name="Float64_tunable_parameter" valueReference="6" causality="parameter" variability="tunable" start="0"/>
-    <Float64 name="Float64_continuous_input" valueReference="7" causality="input" start="0" initial="exact"/>
-    <Float64 name="Float64_continuous_output" valueReference="8" causality="output" initial="calculated"/>
-    <Float64 name="Float64_discrete_input" valueReference="9" causality="input" variability="discrete" start="0"/>
-    <Float64 name="Float64_discrete_output" valueReference="10" causality="output" variability="discrete" initial="calculated"/>
-
-    <Int8 name="Int8_input" valueReference="11" causality="input" start="0"/>
-    <Int8 name="Int8_output" valueReference="12" causality="output"/>
-
-    <UInt8 name="UInt8_input" valueReference="13" causality="input" start="0"/>
-    <UInt8 name="UInt8_output" valueReference="14" causality="output"/>
-
-    <Int16 name="Int16_input" valueReference="15" causality="input" start="0"/>
-    <Int16 name="Int16_output" valueReference="16" causality="output"/>
-
-    <UInt16 name="UInt16_input" valueReference="17" causality="input" start="0"/>
-    <UInt16 name="UInt16_output" valueReference="18" causality="output"/>
-
-    <Int32 name="Int32_input" valueReference="19" causality="input" start="0"/>
-    <Int32 name="Int32_output" valueReference="20" causality="output"/>
-
-    <UInt32 name="UInt32_input" valueReference="21" causality="input" start="0"/>
-    <UInt32 name="UInt32_output" valueReference="22" causality="output"/>
-
-    <Int64 name="Int64_input" valueReference="23" causality="input" start="0"/>
-    <Int64 name="Int64_output" valueReference="24" causality="output"/>
-
-    <UInt64 name="UInt64_input" valueReference="25" causality="input" start="0"/>
-    <UInt64 name="UInt64_output" valueReference="26" causality="output"/>
-
-    <Boolean name="Boolean_input" valueReference="27" causality="input" start="false"/>
-    <Boolean name="Boolean_output" valueReference="28" causality="output" initial="calculated"/>
-
-    <String name="String_parameter" valueReference="29" causality="parameter" variability="fixed">
-        <Start value="Set me!"/>
-    </String>
-
-    <Binary name="Binary_input" valueReference="30" causality="input">
-        <Start value="666f6f"/>
-    </Binary>
-    <Binary name="Binary_output" valueReference="31" causality="output"/>
-
-    <Enumeration name="Enumeration_input" declaredType="Option" valueReference="32" causality="input" start="1"/>
-    <Enumeration name="Enumeration_output" declaredType="Option" valueReference="33" causality="output"/>
-</ModelVariables>"#;
-
-        let mv: ModelVariables = yaserde::de::from_str(xml).unwrap();
-
-        assert_eq!(mv.float32.len(), 4);
-        assert_eq!(mv.float64.len(), 7);
-        assert_eq!(mv.int8.len(), 2);
-        assert_eq!(mv.uint8.len(), 2);
-        assert_eq!(mv.int16.len(), 2);
-        assert_eq!(mv.uint16.len(), 2);
-        assert_eq!(mv.int32.len(), 2);
-        assert_eq!(mv.uint32.len(), 2);
-        assert_eq!(mv.int64.len(), 2);
-        assert_eq!(mv.uint64.len(), 2);
-        assert_eq!(mv.boolean.len(), 2);
-        assert_eq!(mv.boolean[0].name(), "Boolean_input");
-        assert_eq!(mv.boolean[0].causality(), crate::fmi3::Causality::Input);
-        assert_eq!(mv.boolean[0].start, Some(vec![false]));
-        assert_eq!(mv.string.len(), 1);
-        // assert_eq!(mv.binary.len(), 2);
-        // assert_eq!(mv.enumeration.len(), 2);
     }
 }

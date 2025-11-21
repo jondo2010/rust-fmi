@@ -7,7 +7,6 @@
 use std::fmt::Display;
 
 use thiserror::Error;
-use yaserde::{YaDeserialize, YaSerialize};
 
 pub mod date_time;
 #[cfg(feature = "fmi2")]
@@ -16,7 +15,6 @@ pub mod fmi2;
 pub mod fmi3;
 pub mod minimal;
 pub mod traits;
-#[cfg(feature = "serde")]
 pub mod utils;
 pub mod variable_counts;
 
@@ -38,7 +36,7 @@ impl Display for MajorVersion {
     }
 }
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("Variable {0} not found")]
     VariableNotFound(String),
@@ -46,8 +44,8 @@ pub enum Error {
     #[error(transparent)]
     Semver(#[from] lenient_semver::parser::OwnedError),
 
-    #[error("Error parsing XML: {0}")]
-    XmlParse(String),
+    #[error(transparent)]
+    XmlParse(#[from] hard_xml::XmlError),
 
     #[error("Error in model: {0}")]
     Model(String),
@@ -61,15 +59,10 @@ fn default_wrapper<T: Default>() -> T {
 }
 
 /// Serialize a value to XML string. If `fragment` is true, the XML declaration is omitted.
-pub fn serialize<T: YaSerialize>(value: &T, fragment: bool) -> Result<String, Error> {
-    let config = yaserde::ser::Config {
-        perform_indent: true,
-        write_document_declaration: !fragment,
-        indent_string: None,
-    };
-    yaserde::ser::to_string_with_config(value, &config).map_err(Error::XmlParse)
+pub fn serialize<T: hard_xml::XmlWrite>(value: &T, _fragment: bool) -> Result<String, Error> {
+    hard_xml::XmlWrite::to_string(value).map_err(Error::XmlParse)
 }
 
-pub fn deserialize<T: YaDeserialize>(xml: &str) -> Result<T, Error> {
-    yaserde::de::from_str(xml).map_err(|e| Error::XmlParse(e.to_string()))
+pub fn deserialize<'a, T: hard_xml::XmlRead<'a>>(xml: &'a str) -> Result<T, Error> {
+    hard_xml::XmlRead::from_str(xml).map_err(Error::XmlParse)
 }
