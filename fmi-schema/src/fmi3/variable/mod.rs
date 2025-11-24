@@ -4,7 +4,6 @@ use crate::utils::AttrList;
 
 use std::{
     fmt::{Debug, Display},
-    ops::Deref,
     str::FromStr,
 };
 
@@ -86,13 +85,14 @@ pub trait TypedArrayableVariableTrait: ArrayableVariableTrait {
     fn declared_type(&self) -> Option<&str>;
 }
 
-pub trait InitializableVariableTrait<T>: TypedArrayableVariableTrait {
+pub trait InitializableVariableTrait: TypedArrayableVariableTrait {
+    type StartType;
     fn initial(&self) -> Option<Initial>;
 
-    fn start(&self) -> Option<&[T]>;
+    fn start(&self) -> Option<&[Self::StartType]>;
 }
 
-macro_rules! impl_abstract_variable_ {
+macro_rules! impl_abstract_variable {
     ($name: ident, $default_variability: expr, $variable_type: expr) => {
         impl AbstractVariableTrait for $name {
             fn name(&self) -> &str {
@@ -123,7 +123,7 @@ macro_rules! impl_abstract_variable_ {
     };
 }
 
-macro_rules! impl_arrayable_variable_ {
+macro_rules! impl_arrayable_variable {
     ($name:ident) => {
         impl ArrayableVariableTrait for $name {
             fn dimensions(&self) -> &[Dimension] {
@@ -142,7 +142,7 @@ macro_rules! impl_arrayable_variable_ {
     };
 }
 
-macro_rules! impl_typed_arrayable_variable_ {
+macro_rules! impl_typed_arrayable_variable {
     ($name:ident) => {
         impl TypedArrayableVariableTrait for $name {
             fn declared_type(&self) -> Option<&str> {
@@ -152,15 +152,17 @@ macro_rules! impl_typed_arrayable_variable_ {
     };
 }
 
-macro_rules! impl_initializable_variable_ {
+macro_rules! impl_initializable_variable {
     ($name: ident, $type: ty) => {
-        impl InitializableVariableTrait<$type> for $name {
+        impl InitializableVariableTrait for $name {
+            type StartType = $type;
+
             fn initial(&self) -> Option<Initial> {
                 self.initial
             }
 
-            fn start(&self) -> Option<&[$type]> {
-                self.start.as_deref()
+            fn start(&self) -> Option<&[Self::StartType]> {
+                self.start.as_ref().map(|s| s.0.as_slice())
             }
         }
     };
@@ -209,10 +211,10 @@ macro_rules! impl_float_type {
             pub annotations: Option<Annotations>,
         }
 
-        impl_abstract_variable_!($name, Variability::Continuous, $variable_type);
-        impl_arrayable_variable_!($name);
-        impl_typed_arrayable_variable_!($name);
-        impl_initializable_variable_!($name, $type);
+        impl_abstract_variable!($name, Variability::Continuous, $variable_type);
+        impl_arrayable_variable!($name);
+        impl_typed_arrayable_variable!($name);
+        impl_initializable_variable!($name, $type);
 
         impl $name {
             pub fn derivative(&self) -> Option<u32> {
@@ -282,10 +284,10 @@ macro_rules! impl_integer_type {
             pub annotations: Option<Annotations>,
         }
 
-        impl_abstract_variable_!($name, Variability::Discrete, $variable_type);
-        impl_arrayable_variable_!($name);
-        impl_typed_arrayable_variable_!($name);
-        impl_initializable_variable_!($name, $type);
+        impl_abstract_variable!($name, Variability::Discrete, $variable_type);
+        impl_arrayable_variable!($name);
+        impl_typed_arrayable_variable!($name);
+        impl_initializable_variable!($name, $type);
 
         impl $name {
             pub fn new(
@@ -502,10 +504,10 @@ pub struct FmiBoolean {
     pub annotations: Option<Annotations>,
 }
 
-impl_abstract_variable_!(FmiBoolean, Variability::Discrete, VariableType::FmiBoolean);
-impl_arrayable_variable_!(FmiBoolean);
-impl_typed_arrayable_variable_!(FmiBoolean);
-impl_initializable_variable_!(FmiBoolean, bool);
+impl_abstract_variable!(FmiBoolean, Variability::Discrete, VariableType::FmiBoolean);
+impl_arrayable_variable!(FmiBoolean);
+impl_typed_arrayable_variable!(FmiBoolean);
+impl_initializable_variable!(FmiBoolean, bool);
 
 impl FmiBoolean {
     /// Create a new FMI boolean variable with the given parameters
@@ -537,6 +539,14 @@ impl FmiBoolean {
     }
 }
 
+/// A String start value element
+#[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Start")]
+pub struct StringStart {
+    #[xml(attr = "value")]
+    pub value: String,
+}
+
 #[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 #[xml(tag = "String", strict(unknown_attribute, unknown_element))]
 pub struct FmiString {
@@ -561,8 +571,8 @@ pub struct FmiString {
     #[xml(attr = "previous")]
     pub previous: Option<u32>,
     /// Initial or guess value of the variable. During instantiation, the FMU initializes its variables with their start values.
-    #[xml(attr = "start")]
-    pub start: Option<AttrList<String>>,
+    #[xml(child = "Start")]
+    pub start: Vec<StringStart>,
     #[xml(attr = "initial")]
     pub initial: Option<Initial>,
     #[xml(child = "Annotations")]
@@ -581,7 +591,11 @@ impl FmiString {
         initial: Option<Initial>,
     ) -> Self {
         Self {
-            start: start.map(AttrList),
+            start: start
+                .unwrap_or_default()
+                .into_iter()
+                .map(|value| StringStart { value })
+                .collect(),
             name,
             value_reference,
             description,
@@ -599,40 +613,22 @@ impl FmiString {
     }
 }
 
-impl_abstract_variable_!(FmiString, Variability::Discrete, VariableType::FmiString);
-impl_arrayable_variable_!(FmiString);
-impl_typed_arrayable_variable_!(FmiString);
-impl_initializable_variable_!(FmiString, String);
+impl_abstract_variable!(FmiString, Variability::Discrete, VariableType::FmiString);
+impl_arrayable_variable!(FmiString);
+impl_typed_arrayable_variable!(FmiString);
+impl InitializableVariableTrait for FmiString {
+    type StartType = StringStart;
 
-#[derive(PartialEq, Debug)]
-pub struct BinaryStartValue(Vec<u8>);
-
-impl FromStr for BinaryStartValue {
-    type Err = std::num::ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Remove any whitespace and 0x prefix
-        let cleaned = s.replace(|c: char| c.is_whitespace(), "");
-        let hex_str = cleaned.strip_prefix("0x").unwrap_or(&cleaned);
-
-        // Parse pairs of hex digits
-        let bytes = (0..hex_str.len())
-            .step_by(2)
-            .map(|i| {
-                let byte_str = &hex_str[i..std::cmp::min(i + 2, hex_str.len())];
-                u8::from_str_radix(byte_str, 16)
-            })
-            .collect::<Result<Vec<u8>, std::num::ParseIntError>>()?;
-        Ok(BinaryStartValue(bytes))
+    fn initial(&self) -> Option<Initial> {
+        self.initial
     }
-}
 
-impl Display for BinaryStartValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for byte in &self.0 {
-            write!(f, "{:02X} ", byte)?;
+    fn start(&self) -> Option<&[Self::StartType]> {
+        if self.start.is_empty() {
+            None
+        } else {
+            Some(&self.start)
         }
-        Ok(())
     }
 }
 
@@ -640,23 +636,7 @@ impl Display for BinaryStartValue {
 #[xml(tag = "Start")]
 pub struct BinaryStart {
     #[xml(attr = "value")]
-    value: BinaryStartValue,
-}
-
-impl Deref for BinaryStart {
-    type Target = BinaryStartValue;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl Deref for BinaryStartValue {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+    pub value: String,
 }
 
 #[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
@@ -683,7 +663,7 @@ pub struct FmiBinary {
     #[xml(attr = "previous")]
     pub previous: Option<u32>,
     #[xml(child = "Start")]
-    pub start: Option<BinaryStart>,
+    pub start: Vec<BinaryStart>,
     #[xml(attr = "mimeType", default = "default_mime_type")]
     pub mime_type: String,
     #[xml(attr = "maxSize")]
@@ -710,15 +690,11 @@ impl FmiBinary {
         initial: Option<Initial>,
     ) -> Self {
         Self {
-            start: start.map(|s_vec| {
-                let byte_vec: Vec<u8> = s_vec
-                    .into_iter()
-                    .filter_map(|s| u8::from_str_radix(&s, 16).ok())
-                    .collect();
-                BinaryStart {
-                    value: BinaryStartValue(byte_vec),
-                }
-            }),
+            start: start
+                .unwrap_or_default()
+                .into_iter()
+                .map(|value| BinaryStart { value })
+                .collect(),
             mime_type: default_mime_type(),
             max_size: None,
             name,
@@ -735,20 +711,41 @@ impl FmiBinary {
             initial,
         }
     }
+
+    /// Decode a single hex-encoded start value string into bytes.
+    /// Handles optional "0x" prefix and whitespace in the hex string.
+    pub fn decode_start_value(hex_string: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
+        // Remove any whitespace and 0x prefix
+        let cleaned = hex_string.replace(|c: char| c.is_whitespace(), "");
+        let hex_str = cleaned.strip_prefix("0x").unwrap_or(&cleaned);
+
+        // Parse pairs of hex digits
+        (0..hex_str.len())
+            .step_by(2)
+            .map(|i| {
+                let byte_str = &hex_str[i..std::cmp::min(i + 2, hex_str.len())];
+                u8::from_str_radix(byte_str, 16)
+            })
+            .collect()
+    }
 }
 
-impl_abstract_variable_!(FmiBinary, Variability::Discrete, VariableType::FmiBinary);
-impl_arrayable_variable_!(FmiBinary);
-impl_typed_arrayable_variable_!(FmiBinary);
+impl_abstract_variable!(FmiBinary, Variability::Discrete, VariableType::FmiBinary);
+impl_arrayable_variable!(FmiBinary);
+impl_typed_arrayable_variable!(FmiBinary);
 
-impl InitializableVariableTrait<BinaryStart> for FmiBinary {
+impl InitializableVariableTrait for FmiBinary {
+    type StartType = BinaryStart;
+
     fn initial(&self) -> Option<Initial> {
         self.initial
     }
 
-    fn start(&self) -> Option<&[BinaryStart]> {
-        // FmiBinary only has a single start value, not a list
-        // We need to return a slice, so we use std::slice::from_ref
-        self.start.as_ref().map(|s| std::slice::from_ref(s))
+    fn start(&self) -> Option<&[Self::StartType]> {
+        if self.start.is_empty() {
+            None
+        } else {
+            Some(&self.start)
+        }
     }
 }

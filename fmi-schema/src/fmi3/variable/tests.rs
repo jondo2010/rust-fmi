@@ -85,7 +85,8 @@ fn test_string() {
     assert_eq!(var.value_reference(), 29);
     assert_eq!(var.variability(), Variability::Fixed);
     assert_eq!(var.causality(), Causality::Parameter);
-    assert_eq!(var.start, Some(AttrList(vec!["Set me!".to_string()])));
+    assert_eq!(var.start.len(), 1);
+    assert_eq!(var.start[0].value, "Set me!");
 }
 
 #[test]
@@ -99,8 +100,9 @@ fn test_binary() {
     assert_eq!(var.name(), "Binary_input");
     assert_eq!(var.value_reference(), 31);
     assert_eq!(var.causality(), Causality::Input);
-    let start = var.start.as_ref().unwrap();
-    assert_eq!(&*start.value, &[0x66, 0x6f, 0x6f]);
+    assert_eq!(var.start.len(), 1);
+    let decoded = FmiBinary::decode_start_value(&var.start[0].value).unwrap();
+    assert_eq!(decoded, vec![0x66, 0x6f, 0x6f]);
 }
 
 #[test]
@@ -244,7 +246,7 @@ fn test_variable_with_all_attributes() {
     assert_eq!(var.previous(), Some(99));
     assert_eq!(var.initial(), Some(Initial::Calculated));
     assert_eq!(var.declared_type(), Some("CustomType"));
-    assert_eq!(var.start, Some(AttrList(vec![1.0, 2.0])));
+    assert_eq!(var.start(), Some([1.0, 2.0].as_slice()));
     assert_eq!(var.derivative(), Some(101));
     assert_eq!(var.reinit(), Some(true));
     assert_eq!(var.dimensions().len(), 1);
@@ -282,11 +284,10 @@ fn test_string_multiple_starts() {
 
     let var: FmiString = FmiString::from_str(xml).unwrap();
     assert_eq!(var.name(), "multi_string");
-    let start_values: Vec<&str> = var.start().unwrap().iter().map(|s| s.as_str()).collect();
-    assert_eq!(
-        start_values,
-        vec!["First string", "Second string", "Third string"]
-    );
+    assert_eq!(var.start.len(), 3);
+    assert_eq!(var.start[0].value, "First string");
+    assert_eq!(var.start[1].value, "Second string");
+    assert_eq!(var.start[2].value, "Third string");
 }
 
 #[test]
@@ -307,10 +308,10 @@ fn test_binary_multiple_starts_and_attributes() {
     assert_eq!(var.mime_type, "application/custom");
     assert_eq!(var.max_size, Some(1024));
 
-    let start_values: Vec<&BinaryStart> = var.start().unwrap().iter().collect();
-    assert_eq!(start_values.len(), 2);
-    assert_eq!(start_values[0].value.0, vec![0x48, 0x65, 0x6c, 0x6c, 0x6f]); // "Hello"
-    assert_eq!(start_values[1].value.0, vec![0x57, 0x6f, 0x72, 0x6c, 0x64]); // "World"
+    // Parser captures all Start elements
+    assert_eq!(var.start.len(), 2);
+    let decoded = FmiBinary::decode_start_value(&var.start[1].value).unwrap();
+    assert_eq!(decoded, vec![0x57, 0x6f, 0x72, 0x6c, 0x64]); // "World"
 }
 
 #[test]
@@ -320,41 +321,38 @@ fn test_binary_hex_parsing_with_prefix() {
         </Binary>"#;
 
     let var: FmiBinary = FmiBinary::from_str(xml).unwrap();
-    let start = var.start.as_ref().unwrap();
-    assert_eq!(&*start.value, &[0x48, 0x65, 0x6C, 0x6C, 0x6F]); // "HeLLO"
+    assert_eq!(var.start.len(), 1);
+    let decoded = FmiBinary::decode_start_value(&var.start[0].value).unwrap();
+    assert_eq!(decoded, vec![0x48, 0x65, 0x6C, 0x6C, 0x6F]); // "HeLLO"
 }
 
 #[test]
 fn test_binary_hex_parsing_with_whitespace() {
-    let xml = r#"<Binary name="spaced_binary" valueReference="600" causality="input">
+    let xml = r#"<Binary name="spaced_binary" valueReference="600" causality="input" mimeType="application/octet-stream">
             <Start value="48 65 6c 6c 6f 20 57 6f 72 6c 64"/>
         </Binary>"#;
 
     let var: FmiBinary = FmiBinary::from_str(xml).unwrap();
-    let start = var.start.as_ref().unwrap();
+    assert_eq!(var.start.len(), 1);
+    let decoded = FmiBinary::decode_start_value(&var.start[0].value).unwrap();
     assert_eq!(
-        &*start.value,
-        &[
-            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64
-        ]
+        decoded,
+        vec![0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64]
     ); // "Hello World"
 }
 
 #[test]
 fn test_initial_values() {
-    let xml_exact =
-        r#"<Float64 name="exact_var" valueReference="700" initial="exact" start="1.0"/>"#;
+    let xml_exact = r#"<Float64 name="exact_var" valueReference="700" causality="output" initial="exact" start="1.0"/>"#;
 
     let var_exact: FmiFloat64 = FmiFloat64::from_str(xml_exact).unwrap();
     assert_eq!(var_exact.initial(), Some(Initial::Exact));
 
-    let xml_approx =
-        r#"<Float64 name="approx_var" valueReference="701" initial="approx" start="1.0"/>"#;
+    let xml_approx = r#"<Float64 name="approx_var" valueReference="701" causality="output" initial="approx" start="1.0"/>"#;
     let var_approx: FmiFloat64 = FmiFloat64::from_str(xml_approx).unwrap();
     assert_eq!(var_approx.initial(), Some(Initial::Approx));
 
-    let xml_calculated =
-        r#"<Float64 name="calc_var" valueReference="702" initial="calculated" start="1.0"/>"#;
+    let xml_calculated = r#"<Float64 name="calc_var" valueReference="702" causality="output" initial="calculated" start="1.0"/>"#;
     let var_calculated: FmiFloat64 = FmiFloat64::from_str(xml_calculated).unwrap();
     assert_eq!(var_calculated.initial(), Some(Initial::Calculated));
 }

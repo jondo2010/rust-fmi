@@ -26,7 +26,7 @@
 //!     </BuildConfiguration>
 //! </fmiBuildDescription>"#;
 //!
-//! let build_desc = Fmi3BuildDescription::from_str(xml).unwrap();
+//! let build_desc: Fmi3BuildDescription = fmi_schema::deserialize(xml).unwrap();
 //! assert_eq!(build_desc.fmi_version, "3.0");
 //! assert_eq!(build_desc.build_configurations.len(), 1);
 //! ```
