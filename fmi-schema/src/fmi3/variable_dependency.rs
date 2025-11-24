@@ -42,25 +42,18 @@ impl Display for DependenciesKind {
     }
 }
 
-#[derive(Default, PartialEq, Debug, /*hard_xml::XmlRead*/ hard_xml::XmlWrite)]
-#[xml(tag = "Fmi3Unknown", strict(unknown_attribute, unknown_element))]
+#[derive(Default, PartialEq, Debug)]
 pub struct Fmi3Unknown {
-    #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
-    #[xml(attr = "valueReference")]
     pub value_reference: u32,
-    #[xml(attr = "dependencies")]
     pub dependencies: Option<AttrList<u32>>,
-    #[xml(attr = "dependenciesKind")]
     pub dependencies_kind: Option<AttrList<DependenciesKind>>,
 }
 
 impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi3Unknown {
-    fn from_reader(
-        mut reader: &mut ::hard_xml::XmlReader<'__input>,
-    ) -> ::hard_xml::XmlResult<Self> {
+    fn from_reader(reader: &mut ::hard_xml::XmlReader<'__input>) -> ::hard_xml::XmlResult<Self> {
         use ::hard_xml::XmlError;
-        use ::hard_xml::xmlparser::{ElementEnd, Token, Tokenizer};
+        use ::hard_xml::xmlparser::{ElementEnd, Token};
         ::hard_xml::log_start_reading!(Fmi3Unknown_);
         let mut __self_annotations = None;
         let mut __self_value_reference = None;
@@ -185,7 +178,52 @@ impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi3Unknown {
     }
 }
 
-#[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+impl Fmi3Unknown {
+    /// Custom implementation of to_writer allowing to specify tag name
+    fn to_writer_with_tag<W: std::io::Write>(
+        &self,
+        mut writer: &mut ::hard_xml::XmlWriter<W>,
+        tag: &str,
+    ) -> ::hard_xml::XmlResult<()> {
+        let Fmi3Unknown {
+            annotations: __self_annotations,
+            value_reference: __self_value_reference,
+            dependencies: __self_dependencies,
+            dependencies_kind: __self_dependencies_kind,
+        } = self;
+        ::hard_xml::log_start_writing!(Fmi3Unknown);
+        writer.write_element_start(tag)?;
+        ::hard_xml::log_start_writing_field!(Fmi3Unknown, __self_value_reference);
+        let __value = __self_value_reference;
+        writer.write_attribute("valueReference", &format!("{}", __value))?;
+        ::hard_xml::log_finish_writing_field!(Fmi3Unknown, __self_value_reference);
+        ::hard_xml::log_start_writing_field!(Fmi3Unknown, __self_dependencies);
+        if let Some(__value) = __self_dependencies {
+            writer.write_attribute("dependencies", &format!("{}", __value))?;
+        }
+        ::hard_xml::log_finish_writing_field!(Fmi3Unknown, __self_dependencies);
+        ::hard_xml::log_start_writing_field!(Fmi3Unknown, __self_dependencies_kind);
+        if let Some(__value) = __self_dependencies_kind {
+            writer.write_attribute("dependenciesKind", &format!("{}", __value))?;
+        }
+        ::hard_xml::log_finish_writing_field!(Fmi3Unknown, __self_dependencies_kind);
+        if true && __self_annotations.is_none() {
+            writer.write_element_end_empty()?;
+        } else {
+            writer.write_element_end_open()?;
+            ::hard_xml::log_start_writing_field!(Fmi3Unknown, __self_annotations);
+            if let Some(ele) = __self_annotations {
+                hard_xml::XmlWrite::to_writer(ele, &mut writer)?;
+            }
+            ::hard_xml::log_finish_writing_field!(Fmi3Unknown, __self_annotations);
+            writer.write_element_end_close(tag)?;
+        }
+        ::hard_xml::log_finish_writing!(Fmi3Unknown);
+        Ok(())
+    }
+}
+
+#[derive(PartialEq, Debug, hard_xml::XmlRead)]
 pub enum VariableDependency {
     #[xml(tag = "Output")]
     Output(Fmi3Unknown),
@@ -197,6 +235,42 @@ pub enum VariableDependency {
     InitialUnknown(Fmi3Unknown),
     #[xml(tag = "EventIndicator")]
     EventIndicator(Fmi3Unknown),
+}
+
+impl hard_xml::XmlWrite for VariableDependency {
+    fn to_writer<W: std::io::Write>(
+        &self,
+        writer: &mut hard_xml::XmlWriter<W>,
+    ) -> hard_xml::XmlResult<()> {
+        match self {
+            VariableDependency::Output(__inner) => {
+                ::hard_xml::log_start_writing!(VariableDependency::Output);
+                __inner.to_writer_with_tag(writer, "Output")?;
+                ::hard_xml::log_finish_writing!(VariableDependency::Output);
+            }
+            VariableDependency::ContinuousStateDerivative(__inner) => {
+                ::hard_xml::log_start_writing!(VariableDependency::ContinuousStateDerivative);
+                __inner.to_writer_with_tag(writer, "ContinuousStateDerivative")?;
+                ::hard_xml::log_finish_writing!(VariableDependency::ContinuousStateDerivative);
+            }
+            VariableDependency::ClockedState(__inner) => {
+                ::hard_xml::log_start_writing!(VariableDependency::ClockedState);
+                __inner.to_writer_with_tag(writer, "ClockedState")?;
+                ::hard_xml::log_finish_writing!(VariableDependency::ClockedState);
+            }
+            VariableDependency::InitialUnknown(__inner) => {
+                ::hard_xml::log_start_writing!(VariableDependency::InitialUnknown);
+                __inner.to_writer_with_tag(writer, "InitialUnknown")?;
+                ::hard_xml::log_finish_writing!(VariableDependency::InitialUnknown);
+            }
+            VariableDependency::EventIndicator(__inner) => {
+                ::hard_xml::log_start_writing!(VariableDependency::EventIndicator);
+                __inner.to_writer_with_tag(writer, "EventIndicator")?;
+                ::hard_xml::log_finish_writing!(VariableDependency::EventIndicator);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[test]

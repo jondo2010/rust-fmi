@@ -93,7 +93,7 @@ pub trait InitializableVariableTrait<T>: TypedArrayableVariableTrait {
 }
 
 macro_rules! impl_abstract_variable_ {
-    ($name: ident, $default_variability: expr) => {
+    ($name: ident, $default_variability: expr, $variable_type: expr) => {
         impl AbstractVariableTrait for $name {
             fn name(&self) -> &str {
                 &self.name
@@ -114,7 +114,7 @@ macro_rules! impl_abstract_variable_ {
                 self.can_handle_multiple_set_per_time_instant
             }
             fn data_type(&self) -> VariableType {
-                todo!()
+                $variable_type
             }
             fn annotations(&self) -> Option<&Annotations> {
                 self.annotations.as_ref()
@@ -168,7 +168,7 @@ macro_rules! impl_initializable_variable_ {
 
 macro_rules! impl_float_type {
     // Implementation for float types using hard_xml derives
-    ($name:ident, $tag:expr, $type:ty) => {
+    ($name:ident, $tag:expr, $type:ty, $variable_type:expr) => {
         #[derive(PartialEq, Debug, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
         #[xml(tag = $tag, strict(unknown_attribute, unknown_element))]
         pub struct $name {
@@ -197,6 +197,10 @@ macro_rules! impl_float_type {
             pub start: Option<AttrList<$type>>,
             #[xml(attr = "initial")]
             pub initial: Option<Initial>,
+            #[xml(attr = "min")]
+            pub min: Option<$type>,
+            #[xml(attr = "max")]
+            pub max: Option<$type>,
             #[xml(attr = "derivative")]
             pub derivative: Option<u32>,
             #[xml(attr = "reinit")]
@@ -205,7 +209,7 @@ macro_rules! impl_float_type {
             pub annotations: Option<Annotations>,
         }
 
-        impl_abstract_variable_!($name, Variability::Continuous);
+        impl_abstract_variable_!($name, Variability::Continuous, $variable_type);
         impl_arrayable_variable_!($name);
         impl_typed_arrayable_variable_!($name);
         impl_initializable_variable_!($name, $type);
@@ -234,25 +238,18 @@ macro_rules! impl_float_type {
                     description,
                     causality,
                     variability: Some(variability),
-                    can_handle_multiple_set_per_time_instant: None,
-                    declared_type: None,
-                    dimensions: vec![],
-                    intermediate_update: None,
-                    previous: None,
                     start: start.map(AttrList),
                     initial,
-                    derivative: None,
-                    reinit: None,
-                    annotations: None,
+                    ..Default::default()
                 }
             }
         }
     };
 }
 
-macro_rules! impl_integer_type_ {
+macro_rules! impl_integer_type {
     // Implementation for integer types using hard_xml derives
-    ($name:ident, $tag:expr, $type:ty) => {
+    ($name:ident, $tag:expr, $type:ty, $variable_type:expr) => {
         #[derive(PartialEq, Debug, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
         #[xml(tag = $tag, strict(unknown_attribute, unknown_element))]
         pub struct $name {
@@ -285,7 +282,7 @@ macro_rules! impl_integer_type_ {
             pub annotations: Option<Annotations>,
         }
 
-        impl_abstract_variable_!($name, Variability::Discrete);
+        impl_abstract_variable_!($name, Variability::Discrete, $variable_type);
         impl_arrayable_variable_!($name);
         impl_typed_arrayable_variable_!($name);
         impl_initializable_variable_!($name, $type);
@@ -306,14 +303,9 @@ macro_rules! impl_integer_type_ {
                     description,
                     causality,
                     variability: Some(variability),
-                    can_handle_multiple_set_per_time_instant: None,
-                    declared_type: None,
-                    dimensions: vec![],
-                    intermediate_update: None,
-                    previous: None,
                     start: start.map(AttrList),
                     initial,
-                    annotations: None,
+                    ..Default::default()
                 }
             }
         }
@@ -468,16 +460,16 @@ impl Display for Initial {
     }
 }
 
-impl_float_type!(FmiFloat32, "Float32", f32);
-impl_float_type!(FmiFloat64, "Float64", f64);
-impl_integer_type_!(FmiInt8, "Int8", i8);
-impl_integer_type_!(FmiUInt8, "UInt8", u8);
-impl_integer_type_!(FmiInt16, "Int16", i16);
-impl_integer_type_!(FmiUInt16, "UInt16", u16);
-impl_integer_type_!(FmiInt32, "Int32", i32);
-impl_integer_type_!(FmiUInt32, "UInt32", u32);
-impl_integer_type_!(FmiInt64, "Int64", i64);
-impl_integer_type_!(FmiUInt64, "UInt64", u64);
+impl_float_type!(FmiFloat32, "Float32", f32, VariableType::FmiFloat32);
+impl_float_type!(FmiFloat64, "Float64", f64, VariableType::FmiFloat64);
+impl_integer_type!(FmiInt8, "Int8", i8, VariableType::FmiInt8);
+impl_integer_type!(FmiUInt8, "UInt8", u8, VariableType::FmiUInt8);
+impl_integer_type!(FmiInt16, "Int16", i16, VariableType::FmiInt16);
+impl_integer_type!(FmiUInt16, "UInt16", u16, VariableType::FmiUInt16);
+impl_integer_type!(FmiInt32, "Int32", i32, VariableType::FmiInt32);
+impl_integer_type!(FmiUInt32, "UInt32", u32, VariableType::FmiUInt32);
+impl_integer_type!(FmiInt64, "Int64", i64, VariableType::FmiInt64);
+impl_integer_type!(FmiUInt64, "UInt64", u64, VariableType::FmiUInt64);
 
 #[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 #[xml(tag = "Boolean", strict(unknown_attribute, unknown_element))]
@@ -510,7 +502,7 @@ pub struct FmiBoolean {
     pub annotations: Option<Annotations>,
 }
 
-impl_abstract_variable_!(FmiBoolean, Variability::Discrete);
+impl_abstract_variable_!(FmiBoolean, Variability::Discrete, VariableType::FmiBoolean);
 impl_arrayable_variable_!(FmiBoolean);
 impl_typed_arrayable_variable_!(FmiBoolean);
 impl_initializable_variable_!(FmiBoolean, bool);
@@ -607,13 +599,13 @@ impl FmiString {
     }
 }
 
-impl_abstract_variable_!(FmiString, Variability::Discrete);
+impl_abstract_variable_!(FmiString, Variability::Discrete, VariableType::FmiString);
 impl_arrayable_variable_!(FmiString);
 impl_typed_arrayable_variable_!(FmiString);
 impl_initializable_variable_!(FmiString, String);
 
 #[derive(PartialEq, Debug)]
-struct BinaryStartValue(Vec<u8>);
+pub struct BinaryStartValue(Vec<u8>);
 
 impl FromStr for BinaryStartValue {
     type Err = std::num::ParseIntError;
@@ -622,7 +614,7 @@ impl FromStr for BinaryStartValue {
         // Remove any whitespace and 0x prefix
         let cleaned = s.replace(|c: char| c.is_whitespace(), "");
         let hex_str = cleaned.strip_prefix("0x").unwrap_or(&cleaned);
-        
+
         // Parse pairs of hex digits
         let bytes = (0..hex_str.len())
             .step_by(2)
@@ -646,7 +638,7 @@ impl Display for BinaryStartValue {
 
 #[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 #[xml(tag = "Start")]
-struct BinaryStart {
+pub struct BinaryStart {
     #[xml(attr = "value")]
     value: BinaryStartValue,
 }
@@ -745,7 +737,7 @@ impl FmiBinary {
     }
 }
 
-impl_abstract_variable_!(FmiBinary, Variability::Discrete);
+impl_abstract_variable_!(FmiBinary, Variability::Discrete, VariableType::FmiBinary);
 impl_arrayable_variable_!(FmiBinary);
 impl_typed_arrayable_variable_!(FmiBinary);
 

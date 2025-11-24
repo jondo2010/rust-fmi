@@ -1,11 +1,12 @@
 //! Test FMI 2.0 schema by parsing the FMI2.xml file.
 
-use fmi_schema::fmi2::{BaseUnit, Fmi2ModelDescription, SimpleTypeElement};
-
 #[test]
 #[cfg(feature = "fmi2")]
 fn test_fmi2() {
-    use fmi_schema::traits::FmiInterfaceType;
+    use fmi_schema::{
+        fmi2::{BaseUnit, Fmi2ModelDescription, SimpleTypeElement},
+        traits::FmiInterfaceType,
+    };
 
     let test_file = std::env::current_dir()
         .map(|path| path.join("tests/FMI2.xml"))

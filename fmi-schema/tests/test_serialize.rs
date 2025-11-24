@@ -116,25 +116,23 @@ fn test_deserialize_invalid_xml() {
     #[cfg(feature = "fmi2")]
     {
         let result: Result<Fmi2ModelDescription, _> = deserialize(invalid_xml);
-        assert!(result.is_err());
-
-        if let Err(fmi_schema::Error::XmlParse(msg)) = result {
-            assert!(!msg.is_empty());
-        } else {
-            panic!("Expected XmlParse error");
-        }
+        assert!(matches!(
+            result,
+            Err(fmi_schema::Error::XmlParse(
+                hard_xml::XmlError::UnexpectedEof
+            ))
+        ));
     }
 
     #[cfg(feature = "fmi3")]
     {
         let result: Result<Fmi3ModelDescription, _> = deserialize(invalid_xml);
-        assert!(result.is_err());
-
-        if let Err(fmi_schema::Error::XmlParse(msg)) = result {
-            assert!(!msg.is_empty());
-        } else {
-            panic!("Expected XmlParse error");
-        }
+        assert!(matches!(
+            result,
+            Err(fmi_schema::Error::XmlParse(
+                hard_xml::XmlError::UnexpectedEof
+            ))
+        ));
     }
 }
 

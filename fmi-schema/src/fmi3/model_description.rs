@@ -1,4 +1,4 @@
-use crate::{Error, traits::FmiModelDescription};
+use crate::{Error, fmi3::Fmi3Unknown, traits::FmiModelDescription};
 
 use super::{
     Annotations, Fmi3CoSimulation, Fmi3ModelExchange, Fmi3ScheduledExecution, Fmi3Unit,
@@ -193,7 +193,40 @@ pub struct ModelStructure {
         child = "InitialUnknown",
         child = "EventIndicator"
     )]
-    unknowns: Vec<VariableDependency>,
+    pub unknowns: Vec<VariableDependency>,
+}
+
+impl ModelStructure {
+    pub fn outputs(&self) -> impl Iterator<Item = &Fmi3Unknown> {
+        self.unknowns.iter().filter_map(|dep| match dep {
+            VariableDependency::Output(unknown) => Some(unknown),
+            _ => None,
+        })
+    }
+    pub fn continuous_state_derivatives(&self) -> impl Iterator<Item = &Fmi3Unknown> {
+        self.unknowns.iter().filter_map(|dep| match dep {
+            VariableDependency::ContinuousStateDerivative(unknown) => Some(unknown),
+            _ => None,
+        })
+    }
+    pub fn clocked_states(&self) -> impl Iterator<Item = &Fmi3Unknown> {
+        self.unknowns.iter().filter_map(|dep| match dep {
+            VariableDependency::ClockedState(unknown) => Some(unknown),
+            _ => None,
+        })
+    }
+    pub fn initial_unknowns(&self) -> impl Iterator<Item = &Fmi3Unknown> {
+        self.unknowns.iter().filter_map(|dep| match dep {
+            VariableDependency::InitialUnknown(unknown) => Some(unknown),
+            _ => None,
+        })
+    }
+    pub fn event_indicators(&self) -> impl Iterator<Item = &Fmi3Unknown> {
+        self.unknowns.iter().filter_map(|dep| match dep {
+            VariableDependency::EventIndicator(unknown) => Some(unknown),
+            _ => None,
+        })
+    }
 }
 
 #[cfg(test)]

@@ -8,9 +8,8 @@ fn test_fmi3_build_description() {
     let test_file = std::env::current_dir()
         .map(|path| path.join("tests/FMI3BuildDescription.xml"))
         .unwrap();
-    let file = std::fs::File::open(test_file).unwrap();
-    let buf_reader = std::io::BufReader::new(file);
-    let build_desc: Fmi3BuildDescription = yaserde::de::from_reader(buf_reader).unwrap();
+    let xml_content = std::fs::read_to_string(test_file).unwrap();
+    let build_desc: Fmi3BuildDescription = fmi_schema::deserialize(&xml_content).unwrap();
 
     // Verify basic structure
     assert_eq!(build_desc.fmi_version, "3.0");
@@ -134,7 +133,7 @@ fn test_fmi3_build_description_serialization() {
     };
 
     // Test serialization to XML
-    let xml = yaserde::ser::to_string(&build_desc).unwrap();
+    let xml = fmi_schema::serialize(&build_desc, false).unwrap();
     assert!(xml.contains(r#"fmiVersion="3.0""#));
     assert!(xml.contains(r#"modelIdentifier="TestModel""#));
     assert!(xml.contains(r#"platform="linux64""#));
@@ -142,7 +141,7 @@ fn test_fmi3_build_description_serialization() {
     assert!(xml.contains(r#"name="test.c""#));
 
     // Test round-trip: serialize then deserialize
-    let deserialized: Fmi3BuildDescription = yaserde::de::from_str(&xml).unwrap();
+    let deserialized: Fmi3BuildDescription = fmi_schema::deserialize(&xml).unwrap();
     assert_eq!(deserialized.fmi_version, build_desc.fmi_version);
     assert_eq!(
         deserialized.build_configurations.len(),
