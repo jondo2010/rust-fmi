@@ -202,8 +202,8 @@ fn test_fmi2_model_description_traits() {
     // Test DefaultExperiment trait
     assert!(md.start_time().is_some());
     assert!(md.stop_time().is_some());
-    assert!(md.tolerance().is_some());
-    assert_eq!(md.step_size(), None); // FMI2 doesn't have step_size in DefaultExperiment
+    assert!(md.tolerance().is_none());
+    assert_eq!(md.step_size(), Some(1e-3)); // FMI2 doesn't have step_size in DefaultExperiment
 
     // Test round-trip serialization through trait
     let serialized = md.serialize().unwrap();
