@@ -92,9 +92,10 @@ fn test_serialize_fragment() {
 #[cfg(feature = "fmi2")]
 fn test_serialize_deserialize_default_experiment() {
     let default_experiment = DefaultExperiment {
-        start_time: 0.0,
-        stop_time: 10.0,
-        tolerance: 1e-7,
+        start_time: Some(0.0),
+        stop_time: Some(10.0),
+        tolerance: Some(1e-7),
+        step_size: None,
     };
 
     // Serialize to XML
@@ -116,25 +117,23 @@ fn test_deserialize_invalid_xml() {
     #[cfg(feature = "fmi2")]
     {
         let result: Result<Fmi2ModelDescription, _> = deserialize(invalid_xml);
-        assert!(result.is_err());
-
-        if let Err(fmi_schema::Error::XmlParse(msg)) = result {
-            assert!(!msg.is_empty());
-        } else {
-            panic!("Expected XmlParse error");
-        }
+        assert!(matches!(
+            result,
+            Err(fmi_schema::Error::XmlParse(
+                hard_xml::XmlError::UnexpectedEof
+            ))
+        ));
     }
 
     #[cfg(feature = "fmi3")]
     {
         let result: Result<Fmi3ModelDescription, _> = deserialize(invalid_xml);
-        assert!(result.is_err());
-
-        if let Err(fmi_schema::Error::XmlParse(msg)) = result {
-            assert!(!msg.is_empty());
-        } else {
-            panic!("Expected XmlParse error");
-        }
+        assert!(matches!(
+            result,
+            Err(fmi_schema::Error::XmlParse(
+                hard_xml::XmlError::UnexpectedEof
+            ))
+        ));
     }
 }
 
@@ -203,8 +202,8 @@ fn test_fmi2_model_description_traits() {
     // Test DefaultExperiment trait
     assert!(md.start_time().is_some());
     assert!(md.stop_time().is_some());
-    assert!(md.tolerance().is_some());
-    assert_eq!(md.step_size(), None); // FMI2 doesn't have step_size in DefaultExperiment
+    assert!(md.tolerance().is_none());
+    assert_eq!(md.step_size(), Some(1e-3)); // FMI2 doesn't have step_size in DefaultExperiment
 
     // Test round-trip serialization through trait
     let serialized = md.serialize().unwrap();

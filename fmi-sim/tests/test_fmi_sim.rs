@@ -265,34 +265,37 @@ fn compare_f64_column_by_name(
 }
 
 #[cfg(false)]
-#[test_log::test]
+#[test]
 fn test_bouncing_ball() {
     let mut ref_fmus = fmi_test_data::ReferenceFmus::new().unwrap();
-    let model = ref_fmus.extract_reference_fmu("BouncingBall", 3).unwrap();
+    let model = ref_fmus
+        .extract_reference_fmu("BouncingBall", MajorVersion::FMI3)
+        .unwrap();
 
     for (iface, options, expected) in [
         (
             "CS",
             FmiSimOptions {
                 interface: Interface::CoSimulation(CoSimulationOptions::default()),
-                model: model.clone(),
+                model: model.path().to_path_buf(),
                 ..Default::default()
             },
-            fmi_sim::sim::util::read_csv("tests/data/bouncing_ball_cs_expected.csv")
+            fmi_sim::sim::util::read_csv_file("tests/data/bouncing_ball_cs_expected.csv")
                 .expect("Error reading expected output"),
         ),
         (
             "ME",
             FmiSimOptions {
                 interface: Interface::ModelExchange(ModelExchangeOptions::default()),
-                model: model.clone(),
+                model: model.path().to_path_buf(),
                 ..Default::default()
             },
-            fmi_sim::sim::util::read_csv("tests/data/bouncing_ball_me_expected.csv")
+            fmi_sim::sim::util::read_csv_file("tests/data/bouncing_ball_me_expected.csv")
                 .expect("Error reading expected output"),
         ),
     ] {
-        let output = fmi_sim::simulate(&options).expect("Error simulating FMU");
+        let (output, stats) = fmi_sim::simulate(&options).expect("Error simulating FMU");
+        dbg!(stats);
 
         // Compare the schema
         assert_eq!(output.schema().fields(), expected.schema().fields());

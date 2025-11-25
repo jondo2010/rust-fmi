@@ -35,19 +35,19 @@ impl VariableMappings {
         }
 
         // Collect all variable types that have initial attributes
-        collect_vars!(&model_variables.float32);
-        collect_vars!(&model_variables.float64);
-        collect_vars!(&model_variables.int8);
-        collect_vars!(&model_variables.uint8);
-        collect_vars!(&model_variables.int16);
-        collect_vars!(&model_variables.uint16);
-        collect_vars!(&model_variables.int32);
-        collect_vars!(&model_variables.uint32);
-        collect_vars!(&model_variables.int64);
-        collect_vars!(&model_variables.uint64);
-        collect_vars!(&model_variables.boolean);
-        collect_vars!(&model_variables.string);
-        collect_vars!(&model_variables.binary);
+        collect_vars!(&model_variables.float32());
+        collect_vars!(&model_variables.float64());
+        collect_vars!(&model_variables.int8());
+        collect_vars!(&model_variables.uint8());
+        collect_vars!(&model_variables.int16());
+        collect_vars!(&model_variables.uint16());
+        collect_vars!(&model_variables.int32());
+        collect_vars!(&model_variables.uint32());
+        collect_vars!(&model_variables.int64());
+        collect_vars!(&model_variables.uint64());
+        collect_vars!(&model_variables.boolean());
+        collect_vars!(&model_variables.string());
+        collect_vars!(&model_variables.binary());
 
         Self {
             name_to_value_ref,
@@ -99,13 +99,32 @@ pub fn build_model_structure(
     let (outputs, continuous_state_derivatives, initial_unknowns) =
         collect_outputs_and_unknowns(fields, &mappings, &event_indicator_value_refs)?;
 
-    Ok(schema::ModelStructure {
-        outputs,
-        continuous_state_derivative: continuous_state_derivatives,
-        initial_unknown: initial_unknowns,
-        event_indicator: event_indicators,
-        ..Default::default()
-    })
+    // Combine all unknowns into a single vector using the VariableDependency enum
+    let mut unknowns = Vec::new();
+
+    // Add outputs
+    for output in outputs {
+        unknowns.push(schema::VariableDependency::Output(output));
+    }
+
+    // Add continuous state derivatives
+    for derivative in continuous_state_derivatives {
+        unknowns.push(schema::VariableDependency::ContinuousStateDerivative(
+            derivative,
+        ));
+    }
+
+    // Add initial unknowns
+    for initial_unknown in initial_unknowns {
+        unknowns.push(schema::VariableDependency::InitialUnknown(initial_unknown));
+    }
+
+    // Add event indicators
+    for event_indicator in event_indicators {
+        unknowns.push(schema::VariableDependency::EventIndicator(event_indicator));
+    }
+
+    Ok(schema::ModelStructure { unknowns })
 }
 
 /// Collect event indicators from fields and populate the value reference set
@@ -367,17 +386,17 @@ mod tests {
         let model_structure = build_model_structure(&fields, &model_variables).unwrap();
 
         // Test outputs: h and v should be outputs
-        assert_eq!(model_structure.outputs.len(), 2);
+        assert_eq!(model_structure.outputs().count(), 2);
 
         // Find value references for h and v
         let h_value_ref = model_variables
-            .float64
+            .float64()
             .iter()
             .find(|var| var.name() == "h")
             .map(|var| var.value_reference())
             .unwrap();
         let v_value_ref = model_variables
-            .float64
+            .float64()
             .iter()
             .find(|var| var.name() == "v")
             .map(|var| var.value_reference())
@@ -385,29 +404,27 @@ mod tests {
 
         assert!(
             model_structure
-                .outputs
-                .iter()
+                .outputs()
                 .any(|out| out.value_reference == h_value_ref)
         );
         assert!(
             model_structure
-                .outputs
-                .iter()
+                .outputs()
                 .any(|out| out.value_reference == v_value_ref)
         );
 
         // Test continuous state derivatives: der(h) and der(v)
-        assert_eq!(model_structure.continuous_state_derivative.len(), 2);
+        assert_eq!(model_structure.continuous_state_derivatives().count(), 2);
 
         // Find value references for der(h) and der(v)
         let der_h_value_ref = model_variables
-            .float64
+            .float64()
             .iter()
             .find(|var| var.name() == "der(h)")
             .map(|var| var.value_reference())
             .unwrap();
         let der_v_value_ref = model_variables
-            .float64
+            .float64()
             .iter()
             .find(|var| var.name() == "der(v)")
             .map(|var| var.value_reference())
@@ -415,14 +432,12 @@ mod tests {
 
         assert!(
             model_structure
-                .continuous_state_derivative
-                .iter()
+                .continuous_state_derivatives()
                 .any(|der| der.value_reference == der_h_value_ref)
         );
         assert!(
             model_structure
-                .continuous_state_derivative
-                .iter()
+                .continuous_state_derivatives()
                 .any(|der| der.value_reference == der_v_value_ref)
         );
 
@@ -431,11 +446,11 @@ mod tests {
         // Variables with initial="exact" (default) are NOT InitialUnknowns since they have known values.
         // Event indicators are also excluded from InitialUnknowns.
         // In this test, kinetic_energy has initial="calculated", so it should be an InitialUnknown.
-        assert_eq!(model_structure.initial_unknown.len(), 1);
+        assert_eq!(model_structure.initial_unknowns().count(), 1);
 
         // Find value reference for kinetic_energy
         let kinetic_energy_value_ref = model_variables
-            .float64
+            .float64()
             .iter()
             .find(|var| var.name() == "kinetic_energy")
             .map(|var| var.value_reference())
@@ -443,17 +458,16 @@ mod tests {
 
         assert!(
             model_structure
-                .initial_unknown
-                .iter()
+                .initial_unknowns()
                 .any(|unknown| unknown.value_reference == kinetic_energy_value_ref)
         );
 
         // Test event indicators: ground_contact should be an event indicator
-        assert_eq!(model_structure.event_indicator.len(), 1);
+        assert_eq!(model_structure.event_indicators().count(), 1);
 
         // Find value reference for ground_contact
         let ground_contact_value_ref = model_variables
-            .float64
+            .float64()
             .iter()
             .find(|var| var.name() == "ground_contact")
             .map(|var| var.value_reference())
@@ -461,8 +475,7 @@ mod tests {
 
         assert!(
             model_structure
-                .event_indicator
-                .iter()
+                .event_indicators()
                 .any(|indicator| indicator.value_reference == ground_contact_value_ref)
         );
     }
