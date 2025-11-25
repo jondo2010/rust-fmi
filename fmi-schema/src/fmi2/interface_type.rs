@@ -1,106 +1,106 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
-
 use crate::traits::FmiInterfaceType;
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(tag = "File")]
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "File", strict(unknown_attribute, unknown_element))]
 pub struct File {
     /// Name of the file including the path relative to the sources directory, using the forward
     /// slash as separator (for example: name = "myFMU.c"; name = "modelExchange/solve.c")
-    #[yaserde(attribute = true)]
+    #[xml(attr = "name")]
     pub name: String,
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(tag = "SourceFiles")]
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "SourceFiles", strict(unknown_attribute, unknown_element))]
 pub struct SourceFiles {
-    #[yaserde(rename = "File")]
+    #[xml(child = "File")]
     pub files: Vec<File>,
 }
 
 /// The FMU includes a model or the communication to a tool that provides a model. The environment
 /// provides the simulation engine for the model.
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "ModelExchange", strict(unknown_attribute, unknown_element))]
 pub struct ModelExchange {
     /// Short class name according to C-syntax
-    #[yaserde(attribute = true, rename = "modelIdentifier")]
+    #[xml(attr = "modelIdentifier")]
     pub model_identifier: String,
 
     /// If true, a tool is needed to execute the model and the FMU just contains the communication
     /// to this tool.
-    #[yaserde(attribute = true, rename = "needsExecutionTool")]
+    #[xml(attr = "needsExecutionTool")]
     pub needs_execution_tool: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "completedIntegratorStepNotNeeded")]
+    #[xml(attr = "completedIntegratorStepNotNeeded")]
     pub completed_integrator_step_not_needed: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canBeInstantiatedOnlyOncePerProcess")]
+    #[xml(attr = "canBeInstantiatedOnlyOncePerProcess")]
     pub can_be_instantiated_only_once_per_process: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canNotUseMemoryManagementFunctions")]
+    #[xml(attr = "canNotUseMemoryManagementFunctions")]
     pub can_not_use_memory_management_functions: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canGetAndSetFMUstate")]
+    #[xml(attr = "canGetAndSetFMUstate")]
     pub can_get_and_set_fmu_state: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canSerializeFMUstate")]
+    #[xml(attr = "canSerializeFMUstate")]
     pub can_serialize_fmu_state: Option<bool>,
 
     /// If true, the directional derivative of the equations can be computed with
     /// fmi2GetDirectionalDerivative
-    #[yaserde(attribute = true, rename = "providesDirectionalDerivative")]
+    #[xml(attr = "providesDirectionalDerivative")]
     pub provides_directional_derivative: Option<bool>,
 
     /// List of source file names that are present in the "sources" directory of the FMU and need
     /// to be compiled in order to generate the binary of the FMU (only meaningful for source
     /// code FMUs).
-    #[yaserde(rename = "SourceFiles")]
+    #[xml(child = "SourceFiles")]
     pub source_files: Option<SourceFiles>,
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "CoSimulation", strict(unknown_attribute, unknown_element))]
 pub struct CoSimulation {
     /// Short class name according to C-syntax
-    #[yaserde(attribute = true, rename = "modelIdentifier")]
+    #[xml(attr = "modelIdentifier")]
     pub model_identifier: String,
 
     /// If true, a tool is needed to execute the model and the FMU just contains the communication
     /// to this tool.
-    #[yaserde(attribute = true, rename = "needsExecutionTool")]
+    #[xml(attr = "needsExecutionTool")]
     pub needs_execution_tool: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canHandleVariableCommunicationStepSize")]
+    #[xml(attr = "canHandleVariableCommunicationStepSize")]
     pub can_handle_variable_communication_step_size: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canInterpolateInputs")]
+    #[xml(attr = "canInterpolateInputs")]
     pub can_interpolate_inputs: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "maxOutputDerivativeOrder")]
+    #[xml(attr = "maxOutputDerivativeOrder")]
     pub max_output_derivative_order: Option<u32>,
 
-    #[yaserde(attribute = true, rename = "canRunAsynchronuously")]
+    #[xml(attr = "canRunAsynchronuously")]
     pub can_run_asynchronuously: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canBeInstantiatedOnlyOncePerProcess")]
+    #[xml(attr = "canBeInstantiatedOnlyOncePerProcess")]
     pub can_be_instantiated_only_once_per_process: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canNotUseMemoryManagementFunctions")]
+    #[xml(attr = "canNotUseMemoryManagementFunctions")]
     pub can_not_use_memory_management_functions: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canGetAndSetFMUstate")]
+    #[xml(attr = "canGetAndSetFMUstate")]
     pub can_get_and_set_fmu_state: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "canSerializeFMUstate")]
+    #[xml(attr = "canSerializeFMUstate")]
     pub can_serialize_fmu_state: Option<bool>,
 
     /// Directional derivatives at communication points
-    #[yaserde(attribute = true, rename = "providesDirectionalDerivative")]
+    #[xml(attr = "providesDirectionalDerivative")]
     pub provides_directional_derivative: Option<bool>,
 
     /// List of source file names that are present in the "sources" directory of the FMU and need
     /// to be compiled in order to generate the binary of the FMU (only meaningful for source
     /// code FMUs).
-    #[yaserde(rename = "SourceFiles")]
+    #[xml(child = "SourceFiles")]
     pub source_files: Option<SourceFiles>,
 }
 
@@ -160,12 +160,14 @@ impl FmiInterfaceType for CoSimulation {
 
 #[cfg(test)]
 mod tests {
+    use hard_xml::XmlRead;
+
     use crate::fmi2::ModelExchange;
 
     #[test]
     fn test_model_exchange() {
         let s = r##"<ModelExchange modelIdentifier="MyLibrary_SpringMassDamper"/>"##;
-        let me: ModelExchange = yaserde::de::from_str(s).unwrap();
+        let me = ModelExchange::from_str(s).unwrap();
         assert!(me.model_identifier == "MyLibrary_SpringMassDamper");
     }
 }

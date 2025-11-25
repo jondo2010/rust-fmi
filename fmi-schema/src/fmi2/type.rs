@@ -1,18 +1,16 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
-
 use super::attribute_groups::{IntegerAttributes, RealAttributes};
 
-#[derive(Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
 pub enum SimpleTypeElement {
-    #[yaserde(flatten = true)]
+    #[xml(tag = "Real")]
     Real(RealAttributes),
-    #[yaserde(flatten = true)]
+    #[xml(tag = "Integer")]
     Integer(IntegerAttributes),
-    #[yaserde()]
+    #[xml(tag = "Boolean")]
     Boolean,
-    #[yaserde()]
+    #[xml(tag = "String")]
     String,
-    #[yaserde()]
+    #[xml(tag = "Enumeration")]
     Enumeration,
 }
 
@@ -22,26 +20,34 @@ impl Default for SimpleTypeElement {
     }
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
-#[yaserde()]
+#[derive(Default, Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "SimpleType", strict(unknown_attribute, unknown_element))]
 /// Type attributes of a scalar variable
 pub struct SimpleType {
-    #[yaserde(flatten = true)]
-    pub elem: SimpleTypeElement,
-
-    #[yaserde(attribute = true)]
     /// Name of SimpleType element. "name" must be unique with respect to all other elements of the
     /// TypeDefinitions list. Furthermore, "name" of a SimpleType must be different to all
     /// "name"s of ScalarVariable.
+    #[xml(attr = "name")]
     pub name: String,
 
-    #[yaserde(attribute = true)]
     /// Description of the SimpleType
+    #[xml(attr = "description")]
     pub description: Option<String>,
+
+    #[xml(
+        child = "Real",
+        child = "Integer",
+        child = "Boolean",
+        child = "String",
+        child = "Enumeration"
+    )]
+    pub elem: SimpleTypeElement,
 }
 
 #[cfg(test)]
 mod tests {
+    use hard_xml::XmlRead;
+
     use crate::fmi2::{RealAttributes, SimpleTypeElement};
 
     use super::SimpleType;
@@ -53,7 +59,7 @@ mod tests {
             <Real quantity="Acceleration" unit="m/s2"/>
         </SimpleType>"#;
 
-        let simple_type: SimpleType = yaserde::de::from_str(xml).unwrap();
+        let simple_type = SimpleType::from_str(xml).unwrap();
         assert_eq!(simple_type.name, "Acceleration");
         assert_eq!(simple_type.description, None);
         assert_eq!(

@@ -32,25 +32,27 @@ impl FromStr for Fmi2ModelDescription {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        yaserde::de::from_str(s).map_err(Error::XmlParse)
+        hard_xml::XmlRead::from_str(s).map_err(Error::XmlParse)
     }
 }
 
 impl crate::traits::DefaultExperiment for Fmi2ModelDescription {
     fn start_time(&self) -> Option<f64> {
-        self.default_experiment.as_ref().map(|de| de.start_time)
+        self.default_experiment
+            .as_ref()
+            .and_then(|de| de.start_time)
     }
 
     fn stop_time(&self) -> Option<f64> {
-        self.default_experiment.as_ref().map(|de| de.stop_time)
+        self.default_experiment.as_ref().and_then(|de| de.stop_time)
     }
 
     fn tolerance(&self) -> Option<f64> {
-        self.default_experiment.as_ref().map(|de| de.tolerance)
+        self.default_experiment.as_ref().and_then(|de| de.tolerance)
     }
 
     fn step_size(&self) -> Option<f64> {
-        None
+        self.default_experiment.as_ref().and_then(|de| de.step_size)
     }
 }
 
@@ -59,7 +61,7 @@ impl VariableCounts for ModelVariables {
         self.variables
             .iter()
             .fold(Counts::default(), |mut cts, sv| {
-                match sv.variability {
+                match sv.variability.unwrap_or_default() {
                     Variability::Constant => {
                         cts.num_constants += 1;
                     }
@@ -115,21 +117,23 @@ impl VariableCounts for ModelVariables {
 
 #[cfg(test)]
 mod tests {
+    use hard_xml::XmlRead;
+
     use super::*;
 
     #[test]
     fn test_default_experiment() {
         let s = r##"<DefaultExperiment stopTime="3.0" tolerance="0.0001"/>"##;
-        let x: DefaultExperiment = yaserde::de::from_str(s).unwrap();
-        assert_eq!(x.start_time, 0.0);
-        assert_eq!(x.stop_time, 3.0);
-        assert_eq!(x.tolerance, 0.0001);
+        let x = DefaultExperiment::from_str(s).unwrap();
+        assert_eq!(x.start_time, None);
+        assert_eq!(x.stop_time, Some(3.0));
+        assert_eq!(x.tolerance, Some(0.0001));
 
-        let s = r#"<DefaultExperiment startTime = "0.20000000000000000e+00" stopTime = "1.50000000000000000e+00" tolerance = "0.0001"/>"#;
-        let x: DefaultExperiment = yaserde::de::from_str(s).unwrap();
-        assert_eq!(x.start_time, 0.2);
-        assert_eq!(x.stop_time, 1.5);
-        assert_eq!(x.tolerance, 0.0001);
+        let s = r#"<DefaultExperiment startTime="0.20000000000000000e+00" stopTime="1.50000000000000000e+00" tolerance="0.0001"/>"#;
+        let x = DefaultExperiment::from_str(s).unwrap();
+        assert_eq!(x.start_time, Some(0.2));
+        assert_eq!(x.stop_time, Some(1.5));
+        assert_eq!(x.tolerance, Some(0.0001));
     }
 
     #[test]
@@ -142,7 +146,7 @@ mod tests {
                 <ScalarVariable name="der(x[2])" valueReference="3"> <Real derivative="6"/> </ScalarVariable> <!-- index="8" -->
             </ModelVariables>
         "##;
-        let x: ModelVariables = yaserde::de::from_str(s).unwrap();
+        let x = ModelVariables::from_str(s).unwrap();
         assert_eq!(x.variables.len(), 4);
         assert!(
             x.variables
@@ -173,7 +177,7 @@ mod tests {
                 </InitialUnknowns>
             </ModelStructure>
         "##;
-        let ms: ModelStructure = yaserde::de::from_str(s).unwrap();
+        let ms = ModelStructure::from_str(s).unwrap();
         assert_eq!(ms.outputs.unknowns.len(), 2);
         assert_eq!(ms.outputs.unknowns[0].index, 3);
         assert_eq!(ms.outputs.unknowns[1].index, 4);

@@ -87,8 +87,8 @@ impl Fmi2Import {
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> Result<Instance<'_, ME>, Error> {
-        Instance::<'_, ME>::new(self, instance_name, visible, logging_on)
+    ) -> Result<Instance<ME>, Error> {
+        Instance::<ME>::new(self, instance_name, visible, logging_on)
     }
 
     /// Create a new instance of the FMU for Co-Simulation
@@ -97,7 +97,7 @@ impl Fmi2Import {
         instance_name: &str,
         visible: bool,
         logging_on: bool,
-    ) -> Result<Instance<'_, CS>, Error> {
-        Instance::<'_, CS>::new(self, instance_name, visible, logging_on)
+    ) -> Result<Instance<CS>, Error> {
+        Instance::<CS>::new(self, instance_name, visible, logging_on)
     }
 }

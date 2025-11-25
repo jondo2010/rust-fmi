@@ -49,7 +49,10 @@ where
             .model_variables
             .variables
             .iter()
-            .filter(|v| v.causality == Causality::Input && v.variability == Variability::Continuous)
+            .filter(|v| {
+                v.causality == Causality::Input
+                    && v.variability.unwrap_or_default() == Variability::Continuous
+            })
             .map(|v| {
                 (
                     Field::new(&v.name, v.elem.data_type(), false),
@@ -65,8 +68,8 @@ where
             .iter()
             .filter(|v| {
                 v.causality == Causality::Input
-                    && (v.variability == Variability::Discrete
-                        || v.variability == Variability::Tunable)
+                    && (v.variability == Some(Variability::Discrete)
+                        || v.variability == Some(Variability::Tunable))
             })
             .map(|v| {
                 (

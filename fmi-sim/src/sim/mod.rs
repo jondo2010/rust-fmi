@@ -46,9 +46,9 @@ impl<Inst: FmiInstance> SimState<Inst> {
     }
 }
 
-pub trait SimStateTrait<'a, Inst: FmiInstance, Import: FmiImport> {
+pub trait SimStateTrait<Inst: FmiInstance, Import: FmiImport> {
     fn new(
-        import: &'a Import,
+        import: &Import,
         sim_params: SimParams,
         input_state: InputState<Inst>,
         output_state: RecorderState<Inst>,
@@ -151,9 +151,9 @@ macro_rules! impl_sim_default_initialize {
 }
 
 #[cfg(feature = "me")]
-impl_sim_default_initialize!(fmi::fmi2::instance::InstanceME<'_>);
+impl_sim_default_initialize!(fmi::fmi2::instance::InstanceME);
 #[cfg(feature = "cs")]
-impl SimDefaultInitialize for SimState<fmi::fmi2::instance::InstanceCS<'_>> {
+impl SimDefaultInitialize for SimState<fmi::fmi2::instance::InstanceCS> {
     fn default_initialize(&mut self) -> Result<(), Error> {
         self.inst
             .enter_initialization_mode(
@@ -171,9 +171,9 @@ impl SimDefaultInitialize for SimState<fmi::fmi2::instance::InstanceCS<'_>> {
 }
 
 #[cfg(feature = "me")]
-impl_sim_default_initialize!(fmi::fmi3::instance::InstanceME<'_>);
+impl_sim_default_initialize!(fmi::fmi3::instance::InstanceME);
 #[cfg(feature = "cs")]
-impl_sim_default_initialize!(fmi::fmi3::instance::InstanceCS<'_>);
+impl_sim_default_initialize!(fmi::fmi3::instance::InstanceCS);
 
 macro_rules! impl_sim_initialize {
     ($inst:ty) => {
@@ -211,10 +211,10 @@ macro_rules! impl_sim_initialize {
 }
 
 #[cfg(feature = "me")]
-impl_sim_initialize!(fmi::fmi2::instance::InstanceME<'_>);
+impl_sim_initialize!(fmi::fmi2::instance::InstanceME);
 #[cfg(feature = "me")]
-impl_sim_initialize!(fmi::fmi3::instance::InstanceME<'_>);
+impl_sim_initialize!(fmi::fmi3::instance::InstanceME);
 #[cfg(feature = "cs")]
-impl_sim_initialize!(fmi::fmi2::instance::InstanceCS<'_>);
+impl_sim_initialize!(fmi::fmi2::instance::InstanceCS);
 #[cfg(feature = "cs")]
-impl_sim_initialize!(fmi::fmi3::instance::InstanceCS<'_>);
+impl_sim_initialize!(fmi::fmi3::instance::InstanceCS);

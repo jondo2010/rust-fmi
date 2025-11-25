@@ -7,10 +7,10 @@ use crate::{
     traits::{FmiEventHandler, FmiImport, FmiModelExchange, FmiStatus},
 };
 
-impl<'a> Instance<'a, ME> {
+impl Instance<ME> {
     /// Initialize a new Instance from an Import
     pub fn new(
-        import: &'a import::Fmi2Import,
+        import: &import::Fmi2Import,
         instance_name: &str,
         visible: bool,
         logging_on: bool,
@@ -25,7 +25,6 @@ impl<'a> Instance<'a, ME> {
         let binding = import.binding(&model_exchange.model_identifier)?;
 
         let callbacks = Box::<CallbackFunctions>::default();
-        // check_consistency(&import, &me.common)?;
 
         let name = instance_name.to_owned();
 
@@ -54,7 +53,6 @@ impl<'a> Instance<'a, ME> {
         Ok(Self {
             binding,
             component,
-            model_description: schema,
             callbacks,
             name,
             saved_states: Vec::new(),
@@ -63,7 +61,7 @@ impl<'a> Instance<'a, ME> {
     }
 }
 
-impl ModelExchange for Instance<'_, ME> {
+impl ModelExchange for Instance<ME> {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         Fmi2Status::from(unsafe { self.binding.fmi2EnterContinuousTimeMode(self.component) }).ok()
     }
@@ -178,7 +176,7 @@ impl ModelExchange for Instance<'_, ME> {
     }
 }
 
-impl FmiModelExchange for Instance<'_, ME> {
+impl FmiModelExchange for Instance<ME> {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::enter_continuous_time_mode(self)
     }
@@ -243,15 +241,9 @@ impl FmiModelExchange for Instance<'_, ME> {
     ) -> Result<bool, <Self::Status as crate::traits::FmiStatus>::Err> {
         ModelExchange::get_event_indicators(self, event_indicators)
     }
-
-    fn get_number_of_event_indicators(
-        &mut self,
-    ) -> Result<usize, <Self::Status as crate::traits::FmiStatus>::Err> {
-        Ok(self.model_description.num_event_indicators())
-    }
 }
 
-impl FmiEventHandler for Instance<'_, ME> {
+impl FmiEventHandler for Instance<ME> {
     fn enter_event_mode(&mut self) -> Result<Fmi2Res, Fmi2Error> {
         ModelExchange::enter_event_mode(self)
     }

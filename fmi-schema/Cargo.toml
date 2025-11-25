@@ -28,10 +28,13 @@ serde = ["dep:serde"]
 arrow = { workspace = true, optional = true }
 chrono = { version = "0.4" }
 document-features = { workspace = true }
+hard-xml = { version = "1.41" }
 itertools = "0.14"
 lenient_semver = "0.4"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = { workspace = true }
-yaserde = "0.12"
-yaserde_derive = "0.12"
+
+[dev-dependencies]
+env_logger = "0.8"
+hard-xml = { version = "*", features = ["log"] }

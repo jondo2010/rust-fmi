@@ -5,7 +5,7 @@ use crate::traits::{FmiStatus, InstanceTag};
 
 use super::{Common, Instance};
 
-impl<'a, Tag: InstanceTag> Common for Instance<'a, Tag> {
+impl<Tag: InstanceTag> Common for Instance<Tag> {
     fn get_version(&self) -> &str {
         // Safety: The FMI API guarantees that the pointer is valid within the lifetime of the FMU
         unsafe { CStr::from_ptr(self.binding.fmi2GetVersion()) }

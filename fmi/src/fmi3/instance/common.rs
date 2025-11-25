@@ -48,7 +48,7 @@ macro_rules! impl_getter_setter {
     };
 }
 
-impl<'a, Tag> GetSet for Instance<'a, Tag> {
+impl<Tag> GetSet for Instance<Tag> {
     impl_getter_setter!(
         bool,
         get_boolean,
@@ -337,7 +337,7 @@ impl<'a, Tag> GetSet for Instance<'a, Tag> {
     }
 }
 
-impl<'a, Tag> Common for Instance<'a, Tag> {
+impl<Tag> Common for Instance<Tag> {
     fn get_version(&self) -> &str {
         unsafe { std::ffi::CStr::from_ptr(self.binding.fmi3GetVersion()) }
             .to_str()

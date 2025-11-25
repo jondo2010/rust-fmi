@@ -82,9 +82,6 @@ pub trait FmiInstance {
     /// Get the instance type of the FMU
     fn interface_type(&self) -> InterfaceType;
 
-    /// Get the model description of the FMU
-    fn model_description(&self) -> &Self::ModelDescription;
-
     /// The function controls the debug logging that is output by the FMU
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3SetDebugLogging>
@@ -110,14 +107,6 @@ pub trait FmiInstance {
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3Reset>
     fn reset(&mut self) -> InstanceResult<Self>;
-
-    /// Get the number of values required to store the continuous states. Array dimensions are expanded.
-    fn get_number_of_continuous_state_values(&mut self) -> usize;
-
-    /// Get the number of values required to store the event indicators. Array dimensions are expanded.
-    ///
-    /// TODO: Determine if this is necessary in this trait. The impls are pulling from modelDescription which is maybe not as authoritative as the API calls?
-    fn get_number_of_event_indicators(&mut self) -> usize;
 }
 
 /// Generic FMI ModelExchange trait
@@ -150,10 +139,6 @@ pub trait FmiModelExchange: FmiInstance {
     fn get_nominals_of_continuous_states(&mut self, nominals: &mut [f64]) -> InstanceResult<Self>;
 
     fn get_event_indicators(&mut self, event_indicators: &mut [f64]) -> InstanceResult<Self, bool>;
-    /// Return the number of event indicators.
-    ///
-    /// Note: for FMI3 this is implemented as an API call, while on FMI2 it is a modelDescription property
-    fn get_number_of_event_indicators(&mut self) -> InstanceResult<Self, usize>;
 }
 
 /// Event handling interface for ME in FMI2.0 and both ME and CS interfaces in FMI3.0

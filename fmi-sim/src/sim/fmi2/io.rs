@@ -148,11 +148,11 @@ macro_rules! impl_set_values {
 }
 
 #[cfg(feature = "cs")]
-impl_set_values!(fmi::fmi2::instance::InstanceCS<'_>);
+impl_set_values!(fmi::fmi2::instance::InstanceCS);
 #[cfg(feature = "cs")]
-impl_record_values!(fmi::fmi2::instance::InstanceCS<'_>);
+impl_record_values!(fmi::fmi2::instance::InstanceCS);
 
 #[cfg(feature = "me")]
-impl_set_values!(fmi::fmi2::instance::InstanceME<'_>);
+impl_set_values!(fmi::fmi2::instance::InstanceME);
 #[cfg(feature = "me")]
-impl_record_values!(fmi::fmi2::instance::InstanceME<'_>);
+impl_record_values!(fmi::fmi2::instance::InstanceME);
