@@ -80,42 +80,45 @@ fn test_comprehensive_datatype_support() {
     let model_variables = build_model_variables(&model.fields);
 
     // Test variable counts - each alias creates an additional variable (plus automatic time variable)
-    assert_eq!(model_variables.float32.len(), 1);
-    assert_eq!(model_variables.float64.len(), 4); // velocity_f64 + velocity_alias + vel_alias + time variable
-    assert_eq!(model_variables.int8.len(), 1);
-    assert_eq!(model_variables.int16.len(), 1);
-    assert_eq!(model_variables.int32.len(), 3); // count_i32 + counter_alias + count_alias
-    assert_eq!(model_variables.int64.len(), 1);
-    assert_eq!(model_variables.uint8.len(), 1);
-    assert_eq!(model_variables.uint16.len(), 1);
-    assert_eq!(model_variables.uint32.len(), 1);
-    assert_eq!(model_variables.uint64.len(), 1);
-    assert_eq!(model_variables.boolean.len(), 1);
-    assert_eq!(model_variables.string.len(), 1);
+    assert_eq!(model_variables.float32().len(), 1);
+    assert_eq!(model_variables.float64().len(), 4); // velocity_f64 + velocity_alias + vel_alias + time variable
+    assert_eq!(model_variables.int8().len(), 1);
+    assert_eq!(model_variables.int16().len(), 1);
+    assert_eq!(model_variables.int32().len(), 3); // count_i32 + counter_alias + count_alias
+    assert_eq!(model_variables.int64().len(), 1);
+    assert_eq!(model_variables.uint8().len(), 1);
+    assert_eq!(model_variables.uint16().len(), 1);
+    assert_eq!(model_variables.uint32().len(), 1);
+    assert_eq!(model_variables.uint64().len(), 1);
+    assert_eq!(model_variables.boolean().len(), 1);
+    assert_eq!(model_variables.string().len(), 1);
 
     // Total should be 17 variables (12 base + 2 aliases + 2 additional variables with aliases + 1 time variable = 17)
     assert_eq!(model_variables.len(), 17);
 
     // Test specific variable properties
     // Float types use Vec<T> for start values (skip time variable at index 0)
-    assert_eq!(model_variables.float32[0].start, Some(vec![1.5]));
-    assert_eq!(model_variables.float64[1].start, Some(vec![2.7])); // First user float64 variable at index 1
+    assert_eq!(model_variables.float32()[0].start().unwrap(), &[1.5]);
+    assert_eq!(model_variables.float64()[1].start().unwrap(), &[2.7]); // First user float64 variable at index 1
 
     // Integer types use Option<T> for start values
-    assert_eq!(model_variables.int8[0].start, Some(vec![10]));
-    assert_eq!(model_variables.int16[0].start, Some(vec![1000]));
-    assert_eq!(model_variables.int32[0].start, Some(vec![50000]));
-    assert_eq!(model_variables.int64[0].start, Some(vec![9000000000]));
-    assert_eq!(model_variables.uint8[0].start, Some(vec![255]));
-    assert_eq!(model_variables.uint16[0].start, Some(vec![8080]));
-    assert_eq!(model_variables.uint32[0].start, Some(vec![1024]));
-    assert_eq!(model_variables.uint64[0].start, Some(vec![1234567890123]));
+    assert_eq!(model_variables.int8()[0].start().unwrap(), &[10]);
+    assert_eq!(model_variables.int16()[0].start().unwrap(), &[1000]);
+    assert_eq!(model_variables.int32()[0].start().unwrap(), &[50000]);
+    assert_eq!(model_variables.int64()[0].start().unwrap(), &[9000000000]);
+    assert_eq!(model_variables.uint8()[0].start().unwrap(), &[255]);
+    assert_eq!(model_variables.uint16()[0].start().unwrap(), &[8080]);
+    assert_eq!(model_variables.uint32()[0].start().unwrap(), &[1024]);
+    assert_eq!(
+        model_variables.uint64()[0].start().unwrap(),
+        &[1234567890123]
+    );
 
     // Boolean uses Vec<bool>
-    assert_eq!(model_variables.boolean[0].start, Some(vec![true]));
+    assert_eq!(model_variables.boolean()[0].start().unwrap(), &[true]);
 
     // String uses Vec<StringStart>
-    let string_values: Vec<&str> = model_variables.string[0]
+    let string_values: Vec<&str> = model_variables.string()[0]
         .start()
         .unwrap()
         .iter()
@@ -125,33 +128,33 @@ fn test_comprehensive_datatype_support() {
 
     // Test causalities are preserved
     assert_eq!(
-        model_variables.float32[0].causality(),
+        model_variables.float32()[0].causality(),
         schema::Causality::Output
     );
     assert_eq!(
-        model_variables.int32[0].causality(),
+        model_variables.int32()[0].causality(),
         schema::Causality::Parameter
     );
     assert_eq!(
-        model_variables.uint8[0].causality(),
+        model_variables.uint8()[0].causality(),
         schema::Causality::Input
     );
     assert_eq!(
-        model_variables.boolean[0].causality(),
+        model_variables.boolean()[0].causality(),
         schema::Causality::Input
     );
 
     // Test variability assignments
     assert_eq!(
-        model_variables.float32[0].variability(),
+        model_variables.float32()[0].variability(),
         schema::Variability::Continuous
     );
     assert_eq!(
-        model_variables.int32[0].variability(),
+        model_variables.int32()[0].variability(),
         schema::Variability::Discrete
     );
     assert_eq!(
-        model_variables.boolean[0].variability(),
+        model_variables.boolean()[0].variability(),
         schema::Variability::Discrete
     );
 }

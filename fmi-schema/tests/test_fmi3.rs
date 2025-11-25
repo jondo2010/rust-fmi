@@ -92,7 +92,7 @@ fn test_fmi3() {
         Variable::Float64(FmiFloat64 {
             name: "der(v)".to_owned(),
             description: Some("Derivative of v".to_owned()),
-            causality: Causality::Local,
+            causality: Some(Causality::Local),
             value_reference: 4,
             variability: Some(Variability::Continuous),
             declared_type: Some("Acceleration".to_owned()),
@@ -106,7 +106,7 @@ fn test_fmi3() {
         Variable::Float64(FmiFloat64 {
             name: "e".to_owned(),
             value_reference: 6,
-            causality: Causality::Parameter,
+            causality: Some(Causality::Parameter),
             variability: Some(Variability::Tunable),
             initial: Some(Initial::Exact),
             description: Some("Coefficient of restitution".to_owned()),

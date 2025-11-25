@@ -295,7 +295,7 @@ mod tests {
 
         assert_eq!(model_variables.string()[0].name(), "name");
         assert_eq!(
-            &model_variables.string()[0].start.as_ref().unwrap().0[0].value,
+            &model_variables.string()[0].start[0].value,
             "test"
         );
     }
@@ -378,15 +378,15 @@ mod tests {
         let vars = build_model_variables(&model.fields);
 
         // Skip the automatic time variable at index 0
-        assert_eq!(vars.uint16[0].start(), Some([0u16, 1, 2, 3].as_slice()));
-        assert_eq!(vars.uint16[0].dimensions(), &[Dimension::Fixed(4)]);
+        assert_eq!(vars.uint16()[0].start(), Some([0u16, 1, 2, 3].as_slice()));
+        assert_eq!(vars.uint16()[0].dimensions(), &[Dimension::Fixed(4)]);
 
         assert_eq!(
-            vars.float64[1].start(), // User variable is at index 1 (time variable is at index 0)
+            vars.float64()[1].start(), // User variable is at index 1 (time variable is at index 0)
             Some([0.0, 0.1, 1.0, 1.1, 2.0, 2.1].as_slice())
         );
         assert_eq!(
-            vars.float64[1].dimensions(),
+            vars.float64()[1].dimensions(),
             &[Dimension::Fixed(2), Dimension::Fixed(2)]
         );
     }
