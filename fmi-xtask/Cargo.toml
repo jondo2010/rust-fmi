@@ -12,7 +12,7 @@ include.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-cargo_metadata = "0.22"
+cargo_metadata = "0.23"
 chrono = "0.4"
 clap = { workspace = true }
 flexi_logger = { workspace = true }
