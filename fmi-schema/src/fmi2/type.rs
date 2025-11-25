@@ -34,7 +34,13 @@ pub struct SimpleType {
     #[xml(attr = "description")]
     pub description: Option<String>,
 
-    #[xml(child = "Real", child = "Integer", child = "Boolean", child = "String", child = "Enumeration")]
+    #[xml(
+        child = "Real",
+        child = "Integer",
+        child = "Boolean",
+        child = "String",
+        child = "Enumeration"
+    )]
     pub elem: SimpleTypeElement,
 }
 

@@ -5,7 +5,10 @@ use super::{
 };
 
 #[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "fmiModelDescription", strict(unknown_attribute, unknown_element))]
+#[xml(
+    tag = "fmiModelDescription",
+    strict(unknown_attribute, unknown_element)
+)]
 pub struct Fmi2ModelDescription {
     /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
     /// as "2.0").
@@ -289,8 +292,8 @@ const fn default_tolerance() -> f64 {
 
 impl<'__input> ::hard_xml::XmlRead<'__input> for DefaultExperiment {
     fn from_reader(reader: &mut ::hard_xml::XmlReader<'__input>) -> ::hard_xml::XmlResult<Self> {
-        use ::hard_xml::xmlparser::{ElementEnd, Token};
         use ::hard_xml::XmlError;
+        use ::hard_xml::xmlparser::{ElementEnd, Token};
 
         let mut __self_start_time = None;
         let mut __self_stop_time = None;

@@ -101,30 +101,30 @@ pub fn build_model_structure(
 
     // Combine all unknowns into a single vector using the VariableDependency enum
     let mut unknowns = Vec::new();
-    
+
     // Add outputs
     for output in outputs {
         unknowns.push(schema::VariableDependency::Output(output));
     }
-    
+
     // Add continuous state derivatives
     for derivative in continuous_state_derivatives {
-        unknowns.push(schema::VariableDependency::ContinuousStateDerivative(derivative));
+        unknowns.push(schema::VariableDependency::ContinuousStateDerivative(
+            derivative,
+        ));
     }
-    
+
     // Add initial unknowns
     for initial_unknown in initial_unknowns {
         unknowns.push(schema::VariableDependency::InitialUnknown(initial_unknown));
     }
-    
+
     // Add event indicators
     for event_indicator in event_indicators {
         unknowns.push(schema::VariableDependency::EventIndicator(event_indicator));
     }
 
-    Ok(schema::ModelStructure {
-        unknowns,
-    })
+    Ok(schema::ModelStructure { unknowns })
 }
 
 /// Collect event indicators from fields and populate the value reference set

@@ -3,11 +3,11 @@
 #[test]
 #[cfg(feature = "fmi2")]
 fn test_fmi2() {
-    use std::str::FromStr;
     use fmi_schema::{
         fmi2::{BaseUnit, Fmi2ModelDescription, SimpleTypeElement},
         traits::FmiInterfaceType,
     };
+    use std::str::FromStr;
 
     let test_file = std::env::current_dir()
         .map(|path| path.join("tests/FMI2.xml"))

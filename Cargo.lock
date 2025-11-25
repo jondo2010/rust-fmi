@@ -3640,8 +3640,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "yaserde_derive"
-version = "0.12.0"
-source = "git+https://github.com/jondo2010/yaserde.git?branch=serialize_vec_as_attribute#61733045abd36bfe4df0093ee7b6af1c50d6ccb3"

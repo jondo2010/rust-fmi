@@ -75,13 +75,8 @@ fn test_instance_feedthrough_string() {
         .unwrap();
     assert_eq!(inst1.get_version(), "3.0");
 
-    let string_vars = import
-        .model_description()
-        .model_variables
-        .string();
-    let string_var = string_vars
-        .first()
-        .expect("No string variables found");
+    let string_vars = import.model_description().model_variables.string();
+    let string_var = string_vars.first().expect("No string variables found");
 
     // Check the starting value of the string variable
     let mut my_strings = vec![std::ffi::CString::default()];
@@ -125,9 +120,9 @@ fn test_instance_feedthrough_binary() {
         .get_binary(&[binary_var.value_reference()], &mut [&mut my_binary])
         .unwrap();
 
-    let binary_start = fmi::schema::fmi3::FmiBinary::decode_start_value(
-        &binary_var.start().unwrap()[0].value
-    ).expect("Binary variable start value invalid");
+    let binary_start =
+        fmi::schema::fmi3::FmiBinary::decode_start_value(&binary_var.start().unwrap()[0].value)
+            .expect("Binary variable start value invalid");
 
     // compare binary_start to my_binary, but only the length of binary_start
     assert_eq!(binary_start.len(), value_sizes[0]);

@@ -285,19 +285,34 @@ mod tests {
 
         // Test specific variables
         assert_eq!(model_variables.float32()[0].name(), "position");
-        assert_eq!(model_variables.float32()[0].start.as_ref().map(|s| s.0.as_slice()), Some([1.5].as_slice()));
+        assert_eq!(
+            model_variables.float32()[0]
+                .start
+                .as_ref()
+                .map(|s| s.0.as_slice()),
+            Some([1.5].as_slice())
+        );
 
         assert_eq!(model_variables.int32()[0].name(), "count");
-        assert_eq!(model_variables.int32()[0].start.as_ref().map(|s| s.0.as_slice()), Some([42].as_slice()));
+        assert_eq!(
+            model_variables.int32()[0]
+                .start
+                .as_ref()
+                .map(|s| s.0.as_slice()),
+            Some([42].as_slice())
+        );
 
         assert_eq!(model_variables.boolean()[0].name(), "enabled");
-        assert_eq!(model_variables.boolean()[0].start.as_ref().map(|s| s.0.as_slice()), Some([true].as_slice()));
+        assert_eq!(
+            model_variables.boolean()[0]
+                .start
+                .as_ref()
+                .map(|s| s.0.as_slice()),
+            Some([true].as_slice())
+        );
 
         assert_eq!(model_variables.string()[0].name(), "name");
-        assert_eq!(
-            &model_variables.string()[0].start[0].value,
-            "test"
-        );
+        assert_eq!(&model_variables.string()[0].start[0].value, "test");
     }
 
     #[test]

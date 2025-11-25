@@ -524,8 +524,8 @@ pub struct FmiBoolean {
     pub variability: Option<Variability>,
     #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
-            #[xml(attr = "clocks")]
-            pub clocks: Option<AttrList<u32>>,
+    #[xml(attr = "clocks")]
+    pub clocks: Option<AttrList<u32>>,
     #[xml(attr = "declaredType")]
     pub declared_type: Option<String>,
     #[xml(child = "Dimension")]
@@ -603,8 +603,8 @@ pub struct FmiString {
     pub variability: Option<Variability>,
     #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
-            #[xml(attr = "clocks")]
-            pub clocks: Option<AttrList<u32>>,
+    #[xml(attr = "clocks")]
+    pub clocks: Option<AttrList<u32>>,
     #[xml(attr = "declaredType")]
     pub declared_type: Option<String>,
     #[xml(child = "Dimension")]
@@ -700,8 +700,8 @@ pub struct FmiBinary {
     pub variability: Option<Variability>,
     #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
-            #[xml(attr = "clocks")]
-            pub clocks: Option<AttrList<u32>>,
+    #[xml(attr = "clocks")]
+    pub clocks: Option<AttrList<u32>>,
     #[xml(attr = "declaredType")]
     pub declared_type: Option<String>,
     #[xml(child = "Dimension")]
