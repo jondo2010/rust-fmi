@@ -1,47 +1,48 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
-
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Real")]
 pub struct RealAttributes {
-    #[yaserde(attribute = true)]
+    #[xml(attr = "quantity")]
     pub quantity: Option<String>,
 
-    #[yaserde(attribute = true)]
+    #[xml(attr = "unit")]
     pub unit: Option<String>,
 
     /// Default display unit, provided the conversion of values in "unit" to values in
     /// "displayUnit" is defined in UnitDefinitions / Unit / DisplayUnit.
-    #[yaserde(attribute = true, rename = "displayUnit")]
+    #[xml(attr = "displayUnit")]
     pub display_unit: Option<String>,
 
     /// If relativeQuantity=true, offset for displayUnit must be ignored.
-    #[yaserde(attribute = true, rename = "relativeQuantity")]
+    #[xml(attr = "relativeQuantity")]
     pub relative_quantity: Option<bool>,
 
-    #[yaserde(attribute = true, rename = "min")]
+    #[xml(attr = "min")]
     pub min: Option<f64>,
 
     /// max >= min required
-    #[yaserde(attribute = true, rename = "max")]
+    #[xml(attr = "max")]
     pub max: Option<f64>,
 
     /// nominal >= min and <= max required
-    #[yaserde(attribute = true, rename = "nominal")]
+    #[xml(attr = "nominal")]
     pub nominal: Option<f64>,
 
     /// Set to true, e.g., for crank angle. If true and variable is a state, relative tolerance
     /// should be zero on this variable.
-    #[yaserde(attribute = true, rename = "unbounded")]
+    #[xml(attr = "unbounded")]
     pub unbounded: Option<bool>,
 }
 
-#[derive(Default, Debug, PartialEq, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Integer")]
 pub struct IntegerAttributes {
+    #[xml(attr = "quantity")]
     pub quantity: Option<String>,
 
-    #[yaserde(attribute = true, rename = "min")]
+    #[xml(attr = "min")]
     pub min: Option<f64>,
 
     /// max >= min required
-    #[yaserde(attribute = true, rename = "max")]
+    #[xml(attr = "max")]
     pub max: Option<f64>,
 }

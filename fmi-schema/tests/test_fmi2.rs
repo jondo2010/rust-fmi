@@ -3,6 +3,7 @@
 #[test]
 #[cfg(feature = "fmi2")]
 fn test_fmi2() {
+    use std::str::FromStr;
     use fmi_schema::{
         fmi2::{BaseUnit, Fmi2ModelDescription, SimpleTypeElement},
         traits::FmiInterfaceType,
@@ -11,9 +12,8 @@ fn test_fmi2() {
     let test_file = std::env::current_dir()
         .map(|path| path.join("tests/FMI2.xml"))
         .unwrap();
-    let file = std::fs::File::open(test_file).unwrap();
-    let buf_reader = std::io::BufReader::new(file);
-    let md: Fmi2ModelDescription = yaserde::de::from_reader(buf_reader).unwrap();
+    let contents = std::fs::read_to_string(test_file).unwrap();
+    let md = Fmi2ModelDescription::from_str(&contents).unwrap();
 
     assert_eq!(md.fmi_version, "2.0");
     assert_eq!(md.model_name, "BouncingBall");

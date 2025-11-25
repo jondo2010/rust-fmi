@@ -73,39 +73,152 @@ macro_rules! declare_int_type {
     };
 }
 
-declare_float_type!(Float32Type_, "Float32Type", f32);
-declare_float_type!(Float64Type_, "Float64Type", f64);
-declare_int_type!(Int8Type_, "Int8Type", i8);
-declare_int_type!(UInt8Type_, "UInt8Type", u8);
-declare_int_type!(Int16Type_, "Int16Type", i16);
-declare_int_type!(UInt16Type_, "UInt16Type", u16);
-declare_int_type!(Int32Type_, "Int32Type", i32);
-declare_int_type!(UInt32Type_, "UInt32Type", u32);
-declare_int_type!(Int64Type_, "Int64Type", i64);
-declare_int_type!(UInt64Type_, "UInt64Type", u64);
+declare_float_type!(Float32Type, "Float32Type", f32);
+declare_float_type!(Float64Type, "Float64Type", f64);
+declare_int_type!(Int8Type, "Int8Type", i8);
+declare_int_type!(UInt8Type, "UInt8Type", u8);
+declare_int_type!(Int16Type, "Int16Type", i16);
+declare_int_type!(UInt16Type, "UInt16Type", u16);
+declare_int_type!(Int32Type, "Int32Type", i32);
+declare_int_type!(UInt32Type, "UInt32Type", u32);
+declare_int_type!(Int64Type, "Int64Type", i64);
+declare_int_type!(UInt64Type, "UInt64Type", u64);
+
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "BooleanType", strict(unknown_attribute, unknown_element))]
+pub struct BooleanType {
+    // TypeDefinitionBase
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Fmi3Annotations>,
+}
+
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "StringType", strict(unknown_attribute, unknown_element))]
+pub struct StringType {
+    // TypeDefinitionBase
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Fmi3Annotations>,
+}
+
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "BinaryType", strict(unknown_attribute, unknown_element))]
+pub struct BinaryType {
+    // TypeDefinitionBase
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Fmi3Annotations>,
+    // BinaryType specific attributes
+    #[xml(attr = "mimeType")]
+    pub mime_type: Option<String>,
+    #[xml(attr = "maxSize")]
+    pub max_size: Option<u64>,
+}
+
+#[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Item", strict(unknown_attribute, unknown_element))]
+pub struct EnumerationItem {
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "value")]
+    pub value: i64,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Fmi3Annotations>,
+}
+
+#[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "EnumerationType", strict(unknown_attribute, unknown_element))]
+pub struct EnumerationType {
+    // TypeDefinitionBase
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Fmi3Annotations>,
+    // IntegerBaseAttributes
+    #[xml(attr = "quantity")]
+    pub quantity: Option<String>,
+    // Items
+    #[xml(child = "Item")]
+    pub items: Vec<EnumerationItem>,
+}
+
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "ClockType", strict(unknown_attribute, unknown_element))]
+pub struct ClockType {
+    // TypeDefinitionBase
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Fmi3Annotations>,
+    // ClockAttributes
+    #[xml(attr = "canBeDeactivated")]
+    pub can_be_deactivated: Option<bool>,
+    #[xml(attr = "priority")]
+    pub priority: Option<u32>,
+    #[xml(attr = "intervalVariability")]
+    pub interval_variability: Option<String>,
+    #[xml(attr = "intervalDecimal")]
+    pub interval_decimal: Option<f64>,
+    #[xml(attr = "shiftDecimal")]
+    pub shift_decimal: Option<f64>,
+    #[xml(attr = "supportsFraction")]
+    pub supports_fraction: Option<bool>,
+    #[xml(attr = "resolution")]
+    pub resolution: Option<u64>,
+    #[xml(attr = "intervalCounter")]
+    pub interval_counter: Option<u64>,
+    #[xml(attr = "shiftCounter")]
+    pub shift_counter: Option<u64>,
+}
 
 #[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 pub enum TypeDefinition {
     #[xml(tag = "Float32Type")]
-    Float32(Float32Type_),
+    Float32(Float32Type),
     #[xml(tag = "Float64Type")]
-    Float64(Float64Type_),
+    Float64(Float64Type),
     #[xml(tag = "Int8Type")]
-    Int8(Int8Type_),
+    Int8(Int8Type),
     #[xml(tag = "UInt8Type")]
-    UInt8(UInt8Type_),
+    UInt8(UInt8Type),
     #[xml(tag = "Int16Type")]
-    Int16(Int16Type_),
+    Int16(Int16Type),
     #[xml(tag = "UInt16Type")]
-    UInt16(UInt16Type_),
+    UInt16(UInt16Type),
     #[xml(tag = "Int32Type")]
-    Int32(Int32Type_),
+    Int32(Int32Type),
     #[xml(tag = "UInt32Type")]
-    UInt32(UInt32Type_),
+    UInt32(UInt32Type),
     #[xml(tag = "Int64Type")]
-    Int64(Int64Type_),
+    Int64(Int64Type),
     #[xml(tag = "UInt64Type")]
-    UInt64(UInt64Type_),
+    UInt64(UInt64Type),
+    #[xml(tag = "BooleanType")]
+    Boolean(BooleanType),
+    #[xml(tag = "StringType")]
+    String(StringType),
+    #[xml(tag = "BinaryType")]
+    Binary(BinaryType),
+    #[xml(tag = "EnumerationType")]
+    Enumeration(EnumerationType),
+    #[xml(tag = "ClockType")]
+    Clock(ClockType),
 }
 
 #[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
@@ -121,7 +234,12 @@ pub struct TypeDefinitions {
         child = "Int32Type",
         child = "UInt32Type",
         child = "Int64Type",
-        child = "UInt64Type"
+        child = "UInt64Type",
+        child = "BooleanType",
+        child = "StringType",
+        child = "BinaryType",
+        child = "EnumerationType",
+        child = "ClockType"
     )]
     pub type_definitions: Vec<TypeDefinition>,
 }

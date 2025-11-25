@@ -5,7 +5,7 @@
 fn test_fmi3() {
     use fmi_schema::{
         fmi3::{
-            BaseUnit, Causality, DependenciesKind, Float64Type_, Fmi3ModelDescription, FmiFloat64,
+            BaseUnit, Causality, DependenciesKind, Float64Type, Fmi3ModelDescription, FmiFloat64,
             Initial, TypeDefinition, Variability, Variable,
         },
         traits::FmiInterfaceType,
@@ -51,19 +51,19 @@ fn test_fmi3() {
     assert_eq!(
         type_defs.type_definitions,
         vec![
-            TypeDefinition::Float64(Float64Type_ {
+            TypeDefinition::Float64(Float64Type {
                 name: "Position".to_string(),
                 quantity: Some("Position".to_string()),
                 unit: Some("m".to_string()),
                 ..Default::default()
             }),
-            TypeDefinition::Float64(Float64Type_ {
+            TypeDefinition::Float64(Float64Type {
                 name: "Velocity".to_string(),
                 quantity: Some("Velocity".to_string()),
                 unit: Some("m/s".to_string()),
                 ..Default::default()
             }),
-            TypeDefinition::Float64(Float64Type_ {
+            TypeDefinition::Float64(Float64Type {
                 name: "Acceleration".to_string(),
                 quantity: Some("Acceleration".to_string()),
                 unit: Some("m/s2".to_string()),

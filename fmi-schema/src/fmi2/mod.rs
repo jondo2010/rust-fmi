@@ -32,7 +32,7 @@ impl FromStr for Fmi2ModelDescription {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        yaserde::de::from_str(s).map_err(Error::XmlParse)
+        hard_xml::XmlRead::from_str(s).map_err(Error::XmlParse)
     }
 }
 
@@ -59,7 +59,7 @@ impl VariableCounts for ModelVariables {
         self.variables
             .iter()
             .fold(Counts::default(), |mut cts, sv| {
-                match sv.variability {
+                match sv.variability.unwrap_or_default() {
                     Variability::Constant => {
                         cts.num_constants += 1;
                     }
@@ -115,18 +115,20 @@ impl VariableCounts for ModelVariables {
 
 #[cfg(test)]
 mod tests {
+    use hard_xml::XmlRead;
+
     use super::*;
 
     #[test]
     fn test_default_experiment() {
         let s = r##"<DefaultExperiment stopTime="3.0" tolerance="0.0001"/>"##;
-        let x: DefaultExperiment = yaserde::de::from_str(s).unwrap();
+        let x = DefaultExperiment::from_str(s).unwrap();
         assert_eq!(x.start_time, 0.0);
         assert_eq!(x.stop_time, 3.0);
         assert_eq!(x.tolerance, 0.0001);
 
-        let s = r#"<DefaultExperiment startTime = "0.20000000000000000e+00" stopTime = "1.50000000000000000e+00" tolerance = "0.0001"/>"#;
-        let x: DefaultExperiment = yaserde::de::from_str(s).unwrap();
+        let s = r#"<DefaultExperiment startTime="0.20000000000000000e+00" stopTime="1.50000000000000000e+00" tolerance="0.0001"/>"#;
+        let x = DefaultExperiment::from_str(s).unwrap();
         assert_eq!(x.start_time, 0.2);
         assert_eq!(x.stop_time, 1.5);
         assert_eq!(x.tolerance, 0.0001);
@@ -142,7 +144,7 @@ mod tests {
                 <ScalarVariable name="der(x[2])" valueReference="3"> <Real derivative="6"/> </ScalarVariable> <!-- index="8" -->
             </ModelVariables>
         "##;
-        let x: ModelVariables = yaserde::de::from_str(s).unwrap();
+        let x = ModelVariables::from_str(s).unwrap();
         assert_eq!(x.variables.len(), 4);
         assert!(
             x.variables
@@ -173,7 +175,7 @@ mod tests {
                 </InitialUnknowns>
             </ModelStructure>
         "##;
-        let ms: ModelStructure = yaserde::de::from_str(s).unwrap();
+        let ms = ModelStructure::from_str(s).unwrap();
         assert_eq!(ms.outputs.unknowns.len(), 2);
         assert_eq!(ms.outputs.unknowns[0].index, 3);
         assert_eq!(ms.outputs.unknowns[1].index, 4);

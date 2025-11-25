@@ -305,7 +305,7 @@ fn test_binary_multiple_starts_and_attributes() {
 
     let var: FmiBinary = FmiBinary::from_str(xml).unwrap();
     assert_eq!(var.name(), "multi_binary");
-    assert_eq!(var.mime_type, "application/custom");
+    assert_eq!(var.mime_type, Some("application/custom".to_string()));
     assert_eq!(var.max_size, Some(1024));
 
     // Parser captures all Start elements
@@ -488,14 +488,14 @@ fn test_model_variables() {
             Variable::Float32(FmiFloat32 {
                 name: "Float32_continuous_input".to_string(),
                 value_reference: 1,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0.0])),
                 ..Default::default()
             }),
             Variable::Float32(FmiFloat32 {
                 name: "Float32_discrete_input".to_string(),
                 value_reference: 3,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 variability: Some(Variability::Discrete),
                 start: Some(AttrList(vec![0.0])),
                 ..Default::default()
@@ -503,7 +503,7 @@ fn test_model_variables() {
             Variable::Float64(FmiFloat64 {
                 name: "Float64_fixed_parameter".to_string(),
                 value_reference: 5,
-                causality: Causality::Parameter,
+                causality: Some(Causality::Parameter),
                 variability: Some(Variability::Fixed),
                 start: Some(AttrList(vec![0.0])),
                 ..Default::default()
@@ -511,7 +511,7 @@ fn test_model_variables() {
             Variable::Float64(FmiFloat64 {
                 name: "Float64_continuous_input".to_string(),
                 value_reference: 7,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0.0])),
                 initial: Some(Initial::Exact),
                 ..Default::default()
@@ -519,7 +519,7 @@ fn test_model_variables() {
             Variable::Float64(FmiFloat64 {
                 name: "Float64_discrete_input".to_string(),
                 value_reference: 9,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 variability: Some(Variability::Discrete),
                 start: Some(AttrList(vec![0.0])),
                 ..Default::default()
@@ -527,58 +527,122 @@ fn test_model_variables() {
             Variable::Int8(FmiInt8 {
                 name: "Int8_input".to_string(),
                 value_reference: 11,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
             }),
             Variable::UInt8(FmiUInt8 {
                 name: "UInt8_input".to_string(),
                 value_reference: 13,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
             }),
             Variable::Int16(FmiInt16 {
                 name: "Int16_input".to_string(),
                 value_reference: 15,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
             }),
             Variable::UInt16(FmiUInt16 {
                 name: "UInt16_input".to_string(),
                 value_reference: 17,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
             }),
             Variable::Int32(FmiInt32 {
                 name: "Int32_input".to_string(),
                 value_reference: 19,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
             }),
             Variable::UInt32(FmiUInt32 {
                 name: "UInt32_input".to_string(),
                 value_reference: 21,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
             }),
             Variable::Int64(FmiInt64 {
                 name: "Int64_input".to_string(),
                 value_reference: 23,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
             }),
             Variable::UInt64(FmiUInt64 {
                 name: "UInt64_input".to_string(),
                 value_reference: 25,
-                causality: Causality::Input,
+                causality: Some(Causality::Input),
                 start: Some(AttrList(vec![0])),
                 ..Default::default()
+            }),
+            Variable::Boolean(FmiBoolean {
+                name: "Boolean_input".to_string(),
+                value_reference: 27,
+                causality: Some(Causality::Input),
+                start: Some(AttrList(vec![false])),
+                ..Default::default()
+            }),
+            Variable::Boolean(FmiBoolean {
+                name: "Boolean_output".to_string(),
+                value_reference: 28,
+                causality: Some(Causality::Output),
+                initial: Some(Initial::Calculated),
+                ..Default::default()
+            }),
+            Variable::String(FmiString {
+                name: "String_parameter".to_string(),
+                value_reference: 29,
+                causality: Some(Causality::Parameter),
+                variability: Some(Variability::Fixed),
+                start: vec![StringStart {
+                    value: "Set me!".to_string(),
+                }],
+                ..Default::default()
+            }),
+            Variable::Binary(FmiBinary {
+                name: "Binary_input".to_string(),
+                value_reference: 30,
+                description: None,
+                causality: Some(Causality::Input),
+                variability: None,
+                can_handle_multiple_set_per_time_instant: None,
+                clocks: None,
+                declared_type: None,
+                dimensions: vec![],
+                intermediate_update: None,
+                previous: None,
+                start: vec![BinaryStart {
+                    value: "666f6f".to_string(),
+                }],
+                mime_type: None,
+                max_size: None,
+                initial: None,
+                annotations: None,
+                aliases: vec![],
+            }),
+            Variable::Binary(FmiBinary {
+                name: "Binary_output".to_string(),
+                value_reference: 31,
+                description: None,
+                causality: Some(Causality::Output),
+                variability: None,
+                can_handle_multiple_set_per_time_instant: None,
+                clocks: None,
+                declared_type: None,
+                dimensions: vec![],
+                intermediate_update: None,
+                previous: None,
+                start: vec![],
+                mime_type: None,
+                max_size: None,
+                initial: None,
+                annotations: None,
+                aliases: vec![],
             }),
         ]
     );

@@ -138,12 +138,9 @@ pub fn create_model_description(
         default_experiment,
         // For now we only support model-exchange
         model_exchange: Some(schema::Fmi3ModelExchange {
-            common: schema::Fmi3InterfaceType {
-                model_identifier: model_identifier.to_string(),
-                can_get_and_set_fmu_state: Some(false),
-                can_serialize_fmu_state: Some(false),
-                ..Default::default()
-            },
+            model_identifier: model_identifier.to_string(),
+            can_get_and_set_fmu_state: Some(false),
+            can_serialize_fmu_state: Some(false),
             ..Default::default()
         }),
         ..Default::default()

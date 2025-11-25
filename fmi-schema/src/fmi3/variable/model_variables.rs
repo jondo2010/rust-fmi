@@ -47,7 +47,10 @@ pub struct ModelVariables {
         child = "Int64",
         child = "UInt64",
         child = "Float32",
-        child = "Float64"
+        child = "Float64",
+        child = "Boolean",
+        child = "String",
+        child = "Binary"
     )]
     pub variables: Vec<Variable>,
 }
@@ -93,6 +96,149 @@ impl ModelVariables {
     /// Finds a variable by its name.
     pub fn find_by_name(&self, name: &str) -> Option<&dyn AbstractVariableTrait> {
         self.iter_abstract().find(|v| v.name() == name)
+    }
+
+    /// Returns a vector of all Float32 variables
+    pub fn float32(&self) -> Vec<&FmiFloat32> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Float32(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all Float64 variables
+    pub fn float64(&self) -> Vec<&FmiFloat64> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Float64(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all Int8 variables
+    pub fn int8(&self) -> Vec<&FmiInt8> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Int8(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all UInt8 variables
+    pub fn uint8(&self) -> Vec<&FmiUInt8> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::UInt8(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all Int16 variables
+    pub fn int16(&self) -> Vec<&FmiInt16> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Int16(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all UInt16 variables
+    pub fn uint16(&self) -> Vec<&FmiUInt16> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::UInt16(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all Int32 variables
+    pub fn int32(&self) -> Vec<&FmiInt32> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Int32(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all UInt32 variables
+    pub fn uint32(&self) -> Vec<&FmiUInt32> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::UInt32(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all Int64 variables
+    pub fn int64(&self) -> Vec<&FmiInt64> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Int64(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all UInt64 variables
+    pub fn uint64(&self) -> Vec<&FmiUInt64> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::UInt64(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all Boolean variables
+    pub fn boolean(&self) -> Vec<&FmiBoolean> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Boolean(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all String variables
+    pub fn string(&self) -> Vec<&FmiString> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::String(var) => Some(var),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of all Binary variables
+    pub fn binary(&self) -> Vec<&FmiBinary> {
+        self.variables
+            .iter()
+            .filter_map(|v| match v {
+                Variable::Binary(var) => Some(var),
+                _ => None,
+            })
+            .collect()
     }
 }
 
@@ -170,5 +316,11 @@ impl AppendToModelVariables for FmiBoolean {
 impl AppendToModelVariables for FmiString {
     fn append_to_variables(self, variables: &mut ModelVariables) {
         variables.variables.push(Variable::String(self));
+    }
+}
+
+impl AppendToModelVariables for FmiBinary {
+    fn append_to_variables(self, variables: &mut ModelVariables) {
+        variables.variables.push(Variable::Binary(self));
     }
 }

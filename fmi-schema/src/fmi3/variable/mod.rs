@@ -15,6 +15,28 @@ mod tests;
 pub use dimension::Dimension;
 pub use model_variables::{AppendToModelVariables, ModelVariables, Variable};
 
+/// Base type for variable aliases
+#[derive(PartialEq, Debug, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Alias")]
+pub struct VariableAlias {
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+}
+
+/// Alias for float variables (Float32 and Float64) with additional displayUnit attribute
+#[derive(PartialEq, Debug, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Alias")]
+pub struct FloatVariableAlias {
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(attr = "displayUnit")]
+    pub display_unit: Option<String>,
+}
+
 /// An enumeration that defines the type of a variable.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum VariableType {
@@ -105,7 +127,7 @@ macro_rules! impl_abstract_variable {
                 self.description.as_deref()
             }
             fn causality(&self) -> Causality {
-                self.causality
+                self.causality.unwrap_or_default()
             }
             fn variability(&self) -> Variability {
                 self.variability.unwrap_or($default_variability)
@@ -181,11 +203,13 @@ macro_rules! impl_float_type {
             #[xml(attr = "description")]
             pub description: Option<String>,
             #[xml(attr = "causality")]
-            pub causality: Causality,
+            pub causality: Option<Causality>,
             #[xml(attr = "variability")]
             pub variability: Option<Variability>,
             #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
             pub can_handle_multiple_set_per_time_instant: Option<bool>,
+            #[xml(attr = "clocks")]
+            pub clocks: Option<AttrList<u32>>,
             #[xml(attr = "declaredType")]
             pub declared_type: Option<String>,
             #[xml(child = "Dimension")]
@@ -209,6 +233,8 @@ macro_rules! impl_float_type {
             pub reinit: Option<bool>,
             #[xml(child = "Annotations")]
             pub annotations: Option<Annotations>,
+            #[xml(child = "Alias")]
+            pub aliases: Vec<FloatVariableAlias>,
         }
 
         impl_abstract_variable!($name, Variability::Continuous, $variable_type);
@@ -238,7 +264,7 @@ macro_rules! impl_float_type {
                     name,
                     value_reference,
                     description,
-                    causality,
+                    causality: Some(causality),
                     variability: Some(variability),
                     start: start.map(AttrList),
                     initial,
@@ -262,11 +288,13 @@ macro_rules! impl_integer_type {
             #[xml(attr = "description")]
             pub description: Option<String>,
             #[xml(attr = "causality")]
-            pub causality: Causality,
+            pub causality: Option<Causality>,
             #[xml(attr = "variability")]
             pub variability: Option<Variability>,
             #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
             pub can_handle_multiple_set_per_time_instant: Option<bool>,
+            #[xml(attr = "clocks")]
+            pub clocks: Option<AttrList<u32>>,
             #[xml(attr = "declaredType")]
             pub declared_type: Option<String>,
             #[xml(child = "Dimension")]
@@ -280,8 +308,16 @@ macro_rules! impl_integer_type {
             pub start: Option<AttrList<$type>>,
             #[xml(attr = "initial")]
             pub initial: Option<Initial>,
+            #[xml(attr = "min")]
+            pub min: Option<$type>,
+            #[xml(attr = "max")]
+            pub max: Option<$type>,
+            #[xml(attr = "quantity")]
+            pub quantity: Option<String>,
             #[xml(child = "Annotations")]
             pub annotations: Option<Annotations>,
+            #[xml(child = "Alias")]
+            pub aliases: Vec<VariableAlias>,
         }
 
         impl_abstract_variable!($name, Variability::Discrete, $variable_type);
@@ -303,7 +339,7 @@ macro_rules! impl_integer_type {
                     name,
                     value_reference,
                     description,
-                    causality,
+                    causality: Some(causality),
                     variability: Some(variability),
                     start: start.map(AttrList),
                     initial,
@@ -483,11 +519,13 @@ pub struct FmiBoolean {
     #[xml(attr = "description")]
     pub description: Option<String>,
     #[xml(attr = "causality")]
-    pub causality: Causality,
+    pub causality: Option<Causality>,
     #[xml(attr = "variability")]
     pub variability: Option<Variability>,
     #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
+            #[xml(attr = "clocks")]
+            pub clocks: Option<AttrList<u32>>,
     #[xml(attr = "declaredType")]
     pub declared_type: Option<String>,
     #[xml(child = "Dimension")]
@@ -502,6 +540,8 @@ pub struct FmiBoolean {
     pub start: Option<AttrList<bool>>,
     #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
+    #[xml(child = "Alias")]
+    pub aliases: Vec<VariableAlias>,
 }
 
 impl_abstract_variable!(FmiBoolean, Variability::Discrete, VariableType::FmiBoolean);
@@ -525,16 +565,17 @@ impl FmiBoolean {
             name,
             value_reference,
             description,
-            causality,
+            causality: Some(causality),
             variability: Some(variability),
             can_handle_multiple_set_per_time_instant: None,
+            clocks: None,
             annotations: None,
             dimensions: vec![],
             intermediate_update: None,
             previous: None,
             declared_type: None,
             initial,
-            ..Self::default()
+            aliases: vec![],
         }
     }
 }
@@ -557,11 +598,13 @@ pub struct FmiString {
     #[xml(attr = "description")]
     pub description: Option<String>,
     #[xml(attr = "causality")]
-    pub causality: Causality,
+    pub causality: Option<Causality>,
     #[xml(attr = "variability")]
     pub variability: Option<Variability>,
     #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
+            #[xml(attr = "clocks")]
+            pub clocks: Option<AttrList<u32>>,
     #[xml(attr = "declaredType")]
     pub declared_type: Option<String>,
     #[xml(child = "Dimension")]
@@ -577,6 +620,8 @@ pub struct FmiString {
     pub initial: Option<Initial>,
     #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
+    #[xml(child = "Alias")]
+    pub aliases: Vec<VariableAlias>,
 }
 
 impl FmiString {
@@ -599,16 +644,17 @@ impl FmiString {
             name,
             value_reference,
             description,
-            causality,
+            causality: Some(causality),
             variability: Some(variability),
             can_handle_multiple_set_per_time_instant: None,
+            clocks: None,
             annotations: None,
             dimensions: vec![],
             intermediate_update: None,
             previous: None,
             declared_type: None,
             initial,
-            ..Self::default()
+            aliases: vec![],
         }
     }
 }
@@ -649,11 +695,13 @@ pub struct FmiBinary {
     #[xml(attr = "description")]
     pub description: Option<String>,
     #[xml(attr = "causality")]
-    pub causality: Causality,
+    pub causality: Option<Causality>,
     #[xml(attr = "variability")]
     pub variability: Option<Variability>,
     #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
     pub can_handle_multiple_set_per_time_instant: Option<bool>,
+            #[xml(attr = "clocks")]
+            pub clocks: Option<AttrList<u32>>,
     #[xml(attr = "declaredType")]
     pub declared_type: Option<String>,
     #[xml(child = "Dimension")]
@@ -664,14 +712,16 @@ pub struct FmiBinary {
     pub previous: Option<u32>,
     #[xml(child = "Start")]
     pub start: Vec<BinaryStart>,
-    #[xml(attr = "mimeType", default = "default_mime_type")]
-    pub mime_type: String,
+    #[xml(attr = "mimeType")]
+    pub mime_type: Option<String>,
     #[xml(attr = "maxSize")]
     pub max_size: Option<u32>,
     #[xml(attr = "initial")]
     pub initial: Option<Initial>,
     #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
+    #[xml(child = "Alias")]
+    pub aliases: Vec<VariableAlias>,
 }
 
 fn default_mime_type() -> String {
@@ -695,20 +745,22 @@ impl FmiBinary {
                 .into_iter()
                 .map(|value| BinaryStart { value })
                 .collect(),
-            mime_type: default_mime_type(),
+            mime_type: Some(default_mime_type()),
             max_size: None,
             name,
             value_reference,
             description,
-            causality,
+            causality: Some(causality),
             variability: Some(variability),
             can_handle_multiple_set_per_time_instant: None,
+            clocks: None,
             annotations: None,
             dimensions: vec![],
             intermediate_update: None,
             previous: None,
             declared_type: None,
             initial,
+            aliases: vec![],
         }
     }
 

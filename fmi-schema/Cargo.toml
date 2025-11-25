@@ -14,10 +14,7 @@ publish = true
 repository.workspace = true
 
 [features]
-default = [
-    #"fmi2", #TODO re-enable when hard_xml porting is done
-    "fmi3",
-]
+default = ["fmi2", "fmi3"]
 ## Enable support for FMI 2.0
 fmi2 = []
 ## Enable support for FMI 3.0

@@ -42,8 +42,8 @@ fn test_instance_dahlquist() {
     let states = (0..import
         .model_description()
         .model_structure
-        .continuous_state_derivative
-        .len())
+        .continuous_state_derivatives()
+        .count())
         .map(|x| x as f64)
         .collect::<Vec<_>>();
 
@@ -75,10 +75,11 @@ fn test_instance_feedthrough_string() {
         .unwrap();
     assert_eq!(inst1.get_version(), "3.0");
 
-    let string_var = import
+    let string_vars = import
         .model_description()
         .model_variables
-        .string
+        .string();
+    let string_var = string_vars
         .first()
         .expect("No string variables found");
 
@@ -117,15 +118,16 @@ fn test_instance_feedthrough_binary() {
         .unwrap();
     assert_eq!(inst1.get_version(), "3.0");
 
-    let binary_var = &import.model_description().model_variables.binary[0];
+    let binary_vars = import.model_description().model_variables.binary();
+    let binary_var = &binary_vars[0];
     let mut my_binary = vec![0u8; 16];
     let value_sizes = inst1
         .get_binary(&[binary_var.value_reference()], &mut [&mut my_binary])
         .unwrap();
 
-    let binary_start = binary_var.start().unwrap()[0]
-        .as_bytes()
-        .expect("Binary variable start value invalid");
+    let binary_start = fmi::schema::fmi3::FmiBinary::decode_start_value(
+        &binary_var.start().unwrap()[0].value
+    ).expect("Binary variable start value invalid");
 
     // compare binary_start to my_binary, but only the length of binary_start
     assert_eq!(binary_start.len(), value_sizes[0]);

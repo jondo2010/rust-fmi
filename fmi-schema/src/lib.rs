@@ -51,16 +51,14 @@ pub enum Error {
     Model(String),
 }
 
-/// A helper function to provide a default value for types that implement `Default`.
-/// This is used in the schema definitions to provide default values for fields.
-#[inline]
-fn default_wrapper<T: Default>() -> T {
-    T::default()
-}
-
 /// Serialize a value to XML string. If `fragment` is true, the XML declaration is omitted.
-pub fn serialize<T: hard_xml::XmlWrite>(value: &T, _fragment: bool) -> Result<String, Error> {
-    hard_xml::XmlWrite::to_string(value).map_err(Error::XmlParse)
+pub fn serialize<T: hard_xml::XmlWrite>(value: &T, fragment: bool) -> Result<String, Error> {
+    let xml = hard_xml::XmlWrite::to_string(value).map_err(Error::XmlParse)?;
+    if fragment {
+        Ok(xml)
+    } else {
+        Ok(format!(r#"<?xml version="1.0" encoding="UTF-8"?>{}"#, xml))
+    }
 }
 
 pub fn deserialize<'a, T: hard_xml::XmlRead<'a>>(xml: &'a str) -> Result<T, Error> {

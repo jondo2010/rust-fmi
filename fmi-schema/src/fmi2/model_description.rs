@@ -1,87 +1,86 @@
-use yaserde_derive::{YaDeserialize, YaSerialize};
-
-use crate::{Error, default_wrapper, traits::FmiModelDescription};
+use crate::{Error, traits::FmiModelDescription};
 
 use super::{
     CoSimulation, Fmi2Unit, Fmi2VariableDependency, ModelExchange, ScalarVariable, SimpleType,
 };
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "fmiModelDescription", strict(unknown_attribute, unknown_element))]
 pub struct Fmi2ModelDescription {
     /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
     /// as "2.0").
-    #[yaserde(attribute = true, rename = "fmiVersion")]
+    #[xml(attr = "fmiVersion")]
     pub fmi_version: String,
 
     /// The name of the model as used in the modeling environment that generated the XML file, such
     /// as Modelica.Mechanics.Rotational.Examples.CoupledClutches.
-    #[yaserde(attribute = true, rename = "modelName")]
+    #[xml(attr = "modelName")]
     pub model_name: String,
 
     /// Fingerprint of xml-file content to verify that xml-file and C-functions are compatible to
     /// each other
-    #[yaserde(attribute = true)]
+    #[xml(attr = "guid")]
     pub guid: String,
 
-    #[yaserde(attribute = true)]
+    #[xml(attr = "description")]
     pub description: Option<String>,
 
     /// Version of FMU, e.g., "1.4.1"
-    #[yaserde(attribute = true)]
+    #[xml(attr = "version")]
     pub version: Option<String>,
 
-    /// Information on intellectual property copyright for this FMU, such as “© MyCompany 2011“
-    #[yaserde(attribute = true)]
+    /// Information on intellectual property copyright for this FMU, such as "© MyCompany 2011"
+    #[xml(attr = "copyright")]
     pub copyright: Option<String>,
 
-    /// Information on intellectual property licensing for this FMU, such as “BSD license”,
+    /// Information on intellectual property licensing for this FMU, such as "BSD license",
     /// "Proprietary", or "Public Domain"
-    #[yaserde(attribute = true)]
+    #[xml(attr = "license")]
     pub license: Option<String>,
 
     /// Name of the tool that generated the XML file.
-    #[yaserde(attribute = true, rename = "generationTool")]
+    #[xml(attr = "generationTool")]
     pub generation_tool: Option<String>,
 
     /// time/date of database creation according to ISO 8601 (preference: YYYY-MM-DDThh:mm:ss)
     /// Date and time when the XML file was generated. The format is a subset of dateTime and
     /// should be: YYYY-MM-DDThh:mm:ssZ (with one T between date and time; Z characterizes the
     /// Zulu time zone, in other words, Greenwich meantime) [for example 2009-12-08T14:33:22Z].
-    #[yaserde(attribute = true, rename = "generationDateAndTime")]
+    #[xml(attr = "generationDateAndTime")]
     pub generation_date_and_time: Option<String>,
 
     /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
     /// particular convention.
-    #[yaserde(attribute = true, rename = "variableNamingConvention")]
+    #[xml(attr = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
 
-    #[yaserde(attribute = true, rename = "numberOfEventIndicators")]
+    #[xml(attr = "numberOfEventIndicators")]
     pub number_of_event_indicators: u32,
 
     /// If present, the FMU is based on FMI for Model Exchange
-    #[yaserde(rename = "ModelExchange")]
+    #[xml(child = "ModelExchange")]
     pub model_exchange: Option<ModelExchange>,
 
     /// If present, the FMU is based on FMI for Co-Simulation
-    #[yaserde(rename = "CoSimulation")]
+    #[xml(child = "CoSimulation")]
     pub co_simulation: Option<CoSimulation>,
 
-    #[yaserde(rename = "LogCategories")]
+    #[xml(child = "LogCategories")]
     pub log_categories: Option<LogCategories>,
 
-    #[yaserde(rename = "DefaultExperiment")]
+    #[xml(child = "DefaultExperiment")]
     pub default_experiment: Option<DefaultExperiment>,
 
-    #[yaserde(rename = "UnitDefinitions")]
+    #[xml(child = "UnitDefinitions")]
     pub unit_definitions: Option<UnitDefinitions>,
 
-    #[yaserde(rename = "TypeDefinitions")]
+    #[xml(child = "TypeDefinitions")]
     pub type_definitions: Option<TypeDefinitions>,
 
-    #[yaserde(rename = "ModelVariables")]
+    #[xml(child = "ModelVariables", default)]
     pub model_variables: ModelVariables,
 
-    #[yaserde(rename = "ModelStructure")]
+    #[xml(child = "ModelStructure", default)]
     pub model_structure: ModelStructure,
 }
 
@@ -246,35 +245,34 @@ impl FmiModelDescription for Fmi2ModelDescription {
     }
 
     fn deserialize(xml: &str) -> Result<Self, crate::Error> {
-        yaserde::de::from_str(xml).map_err(crate::Error::XmlParse)
+        hard_xml::XmlRead::from_str(xml).map_err(crate::Error::XmlParse)
     }
 
     fn serialize(&self) -> Result<String, crate::Error> {
-        yaserde::ser::to_string(self).map_err(crate::Error::XmlParse)
+        hard_xml::XmlWrite::to_string(self).map_err(crate::Error::XmlParse)
     }
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "LogCategories", strict(unknown_attribute, unknown_element))]
 pub struct LogCategories {
-    #[yaserde(rename = "Category")]
+    #[xml(child = "Category")]
     pub categories: Vec<Category>,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Category", strict(unknown_attribute, unknown_element))]
 pub struct Category {
-    #[yaserde(attribute = true)]
+    #[xml(attr = "name")]
     pub name: String,
-    #[yaserde(attribute = true)]
+    #[xml(attr = "description")]
     pub description: String,
 }
 
-#[derive(Clone, Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
+#[derive(Clone, Default, PartialEq, Debug)]
 pub struct DefaultExperiment {
-    #[yaserde(attribute = true, default = "default_start_time", rename = "startTime")]
     pub start_time: f64,
-    #[yaserde(attribute = true, default = "default_stop_time", rename = "stopTime")]
     pub stop_time: f64,
-    #[yaserde(attribute = true, default = "default_tolerance", rename = "tolerance")]
     pub tolerance: f64,
 }
 
@@ -289,45 +287,146 @@ const fn default_tolerance() -> f64 {
     1e-3
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+impl<'__input> ::hard_xml::XmlRead<'__input> for DefaultExperiment {
+    fn from_reader(reader: &mut ::hard_xml::XmlReader<'__input>) -> ::hard_xml::XmlResult<Self> {
+        use ::hard_xml::xmlparser::{ElementEnd, Token};
+        use ::hard_xml::XmlError;
+
+        let mut __self_start_time = None;
+        let mut __self_stop_time = None;
+        let mut __self_tolerance = None;
+
+        let tag = reader
+            .find_element_start(None)?
+            .expect("Expected start element");
+        let _ = reader.next().unwrap()?;
+
+        while let Some((__key, __value)) = reader.find_attribute()? {
+            match __key {
+                "startTime" => {
+                    __self_start_time = Some(
+                        <f64 as std::str::FromStr>::from_str(&__value)
+                            .map_err(|e| XmlError::FromStr(e.into()))?,
+                    );
+                }
+                "stopTime" => {
+                    __self_stop_time = Some(
+                        <f64 as std::str::FromStr>::from_str(&__value)
+                            .map_err(|e| XmlError::FromStr(e.into()))?,
+                    );
+                }
+                "tolerance" => {
+                    __self_tolerance = Some(
+                        <f64 as std::str::FromStr>::from_str(&__value)
+                            .map_err(|e| XmlError::FromStr(e.into()))?,
+                    );
+                }
+                _ => {
+                    // Ignore unknown attributes for forward compatibility
+                }
+            }
+        }
+
+        if let Token::ElementEnd {
+            end: ElementEnd::Empty,
+            ..
+        } = reader.next().unwrap()?
+        {
+            return Ok(DefaultExperiment {
+                start_time: __self_start_time.unwrap_or_else(default_start_time),
+                stop_time: __self_stop_time.unwrap_or_else(default_stop_time),
+                tolerance: __self_tolerance.unwrap_or_else(default_tolerance),
+            });
+        }
+
+        while let Some(__tag) = reader.find_element_start(Some(tag))? {
+            return Err(XmlError::UnknownField {
+                name: "DefaultExperiment".to_owned(),
+                field: __tag.to_owned(),
+            });
+        }
+
+        Ok(DefaultExperiment {
+            start_time: __self_start_time.unwrap_or_else(default_start_time),
+            stop_time: __self_stop_time.unwrap_or_else(default_stop_time),
+            tolerance: __self_tolerance.unwrap_or_else(default_tolerance),
+        })
+    }
+}
+
+impl ::hard_xml::XmlWrite for DefaultExperiment {
+    fn to_writer<W: std::io::Write>(
+        &self,
+        writer: &mut ::hard_xml::XmlWriter<W>,
+    ) -> ::hard_xml::XmlResult<()> {
+        writer.write_element_start("DefaultExperiment")?;
+        writer.write_attribute("startTime", &format!("{}", self.start_time))?;
+        writer.write_attribute("stopTime", &format!("{}", self.stop_time))?;
+        writer.write_attribute("tolerance", &format!("{}", self.tolerance))?;
+        writer.write_element_end_empty()?;
+        Ok(())
+    }
+}
+
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "UnitDefinitions", strict(unknown_attribute, unknown_element))]
 pub struct UnitDefinitions {
-    #[yaserde(rename = "Unit")]
+    #[xml(child = "Unit")]
     pub units: Vec<Fmi2Unit>,
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "TypeDefinitions", strict(unknown_attribute, unknown_element))]
 pub struct TypeDefinitions {
-    #[yaserde(rename = "SimpleType")]
+    #[xml(child = "SimpleType")]
     pub types: Vec<SimpleType>,
 }
 
-#[derive(Default, Debug, YaSerialize, YaDeserialize)]
+#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "ModelVariables", strict(unknown_attribute, unknown_element))]
 pub struct ModelVariables {
-    #[yaserde(rename = "ScalarVariable")]
+    #[xml(child = "ScalarVariable")]
     pub variables: Vec<ScalarVariable>,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-#[yaserde(rename = "ModelStructure")]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "ModelStructure", strict(unknown_attribute, unknown_element))]
 pub struct ModelStructure {
-    #[yaserde(rename = "Outputs")]
-    pub outputs: UnknownList,
+    #[xml(child = "Outputs", default)]
+    pub outputs: Outputs,
 
-    #[yaserde(rename = "Derivatives", default = "default_wrapper")]
-    pub derivatives: UnknownList,
+    #[xml(child = "Derivatives", default)]
+    pub derivatives: Derivatives,
 
-    #[yaserde(rename = "InitialUnknowns", default = "default_wrapper")]
-    pub initial_unknowns: UnknownList,
+    #[xml(child = "InitialUnknowns", default)]
+    pub initial_unknowns: InitialUnknowns,
 }
 
-#[derive(Default, PartialEq, Debug, YaSerialize, YaDeserialize)]
-pub struct UnknownList {
-    #[yaserde(rename = "Unknown")]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Outputs")]
+pub struct Outputs {
+    #[xml(child = "Unknown")]
+    pub unknowns: Vec<Fmi2VariableDependency>,
+}
+
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Derivatives")]
+pub struct Derivatives {
+    #[xml(child = "Unknown")]
+    pub unknowns: Vec<Fmi2VariableDependency>,
+}
+
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "InitialUnknowns")]
+pub struct InitialUnknowns {
+    #[xml(child = "Unknown")]
     pub unknowns: Vec<Fmi2VariableDependency>,
 }
 
 #[cfg(test)]
 mod tests {
+    use hard_xml::XmlRead;
+
     use super::*;
 
     #[test]
@@ -358,7 +457,7 @@ mod tests {
     <InitialUnknowns />
 </ModelStructure>
 </fmiModelDescription>"##;
-        let md = Fmi2ModelDescription::deserialize(&s).unwrap();
+        let md = Fmi2ModelDescription::from_str(&s).unwrap();
         assert_eq!(md.fmi_version, "2.0");
         assert_eq!(md.model_name, "MyLibrary.SpringMassDamper");
         assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}");

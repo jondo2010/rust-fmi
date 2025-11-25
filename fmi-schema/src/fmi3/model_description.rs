@@ -103,10 +103,6 @@ pub struct Fmi3ModelDescription {
     pub annotations: Option<Annotations>,
 }
 
-fn default_model_variables() -> ModelVariables {
-    ModelVariables::default()
-}
-
 impl FmiModelDescription for Fmi3ModelDescription {
     fn model_name(&self) -> &str {
         &self.model_name
