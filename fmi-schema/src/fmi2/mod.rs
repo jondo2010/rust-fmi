@@ -38,19 +38,21 @@ impl FromStr for Fmi2ModelDescription {
 
 impl crate::traits::DefaultExperiment for Fmi2ModelDescription {
     fn start_time(&self) -> Option<f64> {
-        self.default_experiment.as_ref().map(|de| de.start_time)
+        self.default_experiment
+            .as_ref()
+            .and_then(|de| de.start_time)
     }
 
     fn stop_time(&self) -> Option<f64> {
-        self.default_experiment.as_ref().map(|de| de.stop_time)
+        self.default_experiment.as_ref().and_then(|de| de.stop_time)
     }
 
     fn tolerance(&self) -> Option<f64> {
-        self.default_experiment.as_ref().map(|de| de.tolerance)
+        self.default_experiment.as_ref().and_then(|de| de.tolerance)
     }
 
     fn step_size(&self) -> Option<f64> {
-        None
+        self.default_experiment.as_ref().and_then(|de| de.step_size)
     }
 }
 
@@ -123,15 +125,15 @@ mod tests {
     fn test_default_experiment() {
         let s = r##"<DefaultExperiment stopTime="3.0" tolerance="0.0001"/>"##;
         let x = DefaultExperiment::from_str(s).unwrap();
-        assert_eq!(x.start_time, 0.0);
-        assert_eq!(x.stop_time, 3.0);
-        assert_eq!(x.tolerance, 0.0001);
+        assert_eq!(x.start_time, None);
+        assert_eq!(x.stop_time, Some(3.0));
+        assert_eq!(x.tolerance, Some(0.0001));
 
         let s = r#"<DefaultExperiment startTime="0.20000000000000000e+00" stopTime="1.50000000000000000e+00" tolerance="0.0001"/>"#;
         let x = DefaultExperiment::from_str(s).unwrap();
-        assert_eq!(x.start_time, 0.2);
-        assert_eq!(x.stop_time, 1.5);
-        assert_eq!(x.tolerance, 0.0001);
+        assert_eq!(x.start_time, Some(0.2));
+        assert_eq!(x.stop_time, Some(1.5));
+        assert_eq!(x.tolerance, Some(0.0001));
     }
 
     #[test]

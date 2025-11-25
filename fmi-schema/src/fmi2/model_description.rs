@@ -272,102 +272,39 @@ pub struct Category {
     pub description: String,
 }
 
-#[derive(Clone, Default, PartialEq, Debug)]
+#[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "DefaultExperiment")]
 pub struct DefaultExperiment {
-    pub start_time: f64,
-    pub stop_time: f64,
-    pub tolerance: f64,
+    /// Default start time of simulation
+    #[xml(attr = "startTime")]
+    pub start_time: Option<f64>,
+    /// Default stop time of simulation
+    #[xml(attr = "stopTime")]
+    pub stop_time: Option<f64>,
+    /// Default relative integration tolerance
+    #[xml(attr = "tolerance")]
+    pub tolerance: Option<f64>,
+    /// ModelExchange: Default step size for fixed step integrators.
+    /// CoSimulation: Preferred communicationStepSize.
+    #[xml(attr = "stepSize")]
+    pub step_size: Option<f64>,
 }
 
-const fn default_start_time() -> f64 {
-    0.0
-}
-
-const fn default_stop_time() -> f64 {
-    10.0
-}
-const fn default_tolerance() -> f64 {
-    1e-3
-}
-
-impl<'__input> ::hard_xml::XmlRead<'__input> for DefaultExperiment {
-    fn from_reader(reader: &mut ::hard_xml::XmlReader<'__input>) -> ::hard_xml::XmlResult<Self> {
-        use ::hard_xml::XmlError;
-        use ::hard_xml::xmlparser::{ElementEnd, Token};
-
-        let mut __self_start_time = None;
-        let mut __self_stop_time = None;
-        let mut __self_tolerance = None;
-
-        let tag = reader
-            .find_element_start(None)?
-            .expect("Expected start element");
-        let _ = reader.next().unwrap()?;
-
-        while let Some((__key, __value)) = reader.find_attribute()? {
-            match __key {
-                "startTime" => {
-                    __self_start_time = Some(
-                        <f64 as std::str::FromStr>::from_str(&__value)
-                            .map_err(|e| XmlError::FromStr(e.into()))?,
-                    );
-                }
-                "stopTime" => {
-                    __self_stop_time = Some(
-                        <f64 as std::str::FromStr>::from_str(&__value)
-                            .map_err(|e| XmlError::FromStr(e.into()))?,
-                    );
-                }
-                "tolerance" => {
-                    __self_tolerance = Some(
-                        <f64 as std::str::FromStr>::from_str(&__value)
-                            .map_err(|e| XmlError::FromStr(e.into()))?,
-                    );
-                }
-                _ => {
-                    // Ignore unknown attributes for forward compatibility
-                }
-            }
-        }
-
-        if let Token::ElementEnd {
-            end: ElementEnd::Empty,
-            ..
-        } = reader.next().unwrap()?
-        {
-            return Ok(DefaultExperiment {
-                start_time: __self_start_time.unwrap_or_else(default_start_time),
-                stop_time: __self_stop_time.unwrap_or_else(default_stop_time),
-                tolerance: __self_tolerance.unwrap_or_else(default_tolerance),
-            });
-        }
-
-        while let Some(__tag) = reader.find_element_start(Some(tag))? {
-            return Err(XmlError::UnknownField {
-                name: "DefaultExperiment".to_owned(),
-                field: __tag.to_owned(),
-            });
-        }
-
-        Ok(DefaultExperiment {
-            start_time: __self_start_time.unwrap_or_else(default_start_time),
-            stop_time: __self_stop_time.unwrap_or_else(default_stop_time),
-            tolerance: __self_tolerance.unwrap_or_else(default_tolerance),
-        })
+impl DefaultExperiment {
+    pub fn start_time(&self) -> f64 {
+        self.start_time.unwrap_or(0.0)
     }
-}
 
-impl ::hard_xml::XmlWrite for DefaultExperiment {
-    fn to_writer<W: std::io::Write>(
-        &self,
-        writer: &mut ::hard_xml::XmlWriter<W>,
-    ) -> ::hard_xml::XmlResult<()> {
-        writer.write_element_start("DefaultExperiment")?;
-        writer.write_attribute("startTime", &format!("{}", self.start_time))?;
-        writer.write_attribute("stopTime", &format!("{}", self.stop_time))?;
-        writer.write_attribute("tolerance", &format!("{}", self.tolerance))?;
-        writer.write_element_end_empty()?;
-        Ok(())
+    pub fn stop_time(&self) -> f64 {
+        self.stop_time.unwrap_or(10.0)
+    }
+
+    pub fn tolerance(&self) -> f64 {
+        self.tolerance.unwrap_or(1e-3)
+    }
+
+    pub fn step_size(&self) -> Option<f64> {
+        self.step_size
     }
 }
 

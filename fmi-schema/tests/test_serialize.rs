@@ -92,9 +92,10 @@ fn test_serialize_fragment() {
 #[cfg(feature = "fmi2")]
 fn test_serialize_deserialize_default_experiment() {
     let default_experiment = DefaultExperiment {
-        start_time: 0.0,
-        stop_time: 10.0,
-        tolerance: 1e-7,
+        start_time: Some(0.0),
+        stop_time: Some(10.0),
+        tolerance: Some(1e-7),
+        step_size: None,
     };
 
     // Serialize to XML
