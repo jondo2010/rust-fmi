@@ -53,6 +53,7 @@ where
             instance_name: name,
             context: Box::new(context),
             state: ModelState::Instantiated,
+            instance_type: fmi::InterfaceType::ModelExchange,
             is_dirty_values: true,
             model: M::default(),
         };

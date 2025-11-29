@@ -81,12 +81,12 @@ impl ToTokens for BuildMetadataGen<'_> {
 
                                     // Add this field (derivative) to continuous_state_derivative
                                     model_structure_tokens.push(quote! {
-                                        model_structure.continuous_state_derivative.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                        model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::ContinuousStateDerivative(::fmi::schema::fmi3::Fmi3Unknown {
                                             annotations: None,
                                             value_reference: current_vr_offset + #current_vr,
                                             dependencies: None,
                                             dependencies_kind: None,
-                                        });
+                                        }));
                                     });
 
                                     // Add this field to initial_unknown if it has initial = Calculated
@@ -98,12 +98,12 @@ impl ToTokens for BuildMetadataGen<'_> {
                                             ::fmi::fmi3::schema::Initial::Calculated
                                         ) {
                                             model_structure_tokens.push(quote! {
-                                                model_structure.initial_unknown.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                                model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::InitialUnknown(::fmi::schema::fmi3::Fmi3Unknown {
                                                     annotations: None,
                                                     value_reference: current_vr_offset + #current_vr,
                                                     dependencies: None,
                                                     dependencies_kind: None,
-                                                });
+                                                }));
                                             });
                                         }
                                     }
@@ -150,22 +150,22 @@ impl ToTokens for BuildMetadataGen<'_> {
 
                                     if let Some(dep_vr) = derivative_vr {
                                         model_structure_tokens.push(quote! {
-                                            model_structure.outputs.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                            model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::Output(::fmi::schema::fmi3::Fmi3Unknown {
                                                 annotations: None,
                                                 value_reference: current_vr_offset + #current_vr,
-                                                dependencies: Some(vec![current_vr_offset + #dep_vr]),
-                                                dependencies_kind: Some(vec![::fmi::schema::fmi3::DependenciesKind::Dependent]),
-                                            });
+                                                dependencies: Some(::fmi::schema::utils::AttrList(vec![current_vr_offset + #dep_vr])),
+                                                dependencies_kind: Some(::fmi::schema::utils::AttrList(vec![::fmi::schema::fmi3::DependenciesKind::Dependent])),
+                                            }));
                                         });
                                     } else {
                                         // Output without dependencies
                                         model_structure_tokens.push(quote! {
-                                            model_structure.outputs.push(::fmi::schema::fmi3::Fmi3Unknown {
+                                            model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::Output(::fmi::schema::fmi3::Fmi3Unknown {
                                                 annotations: None,
                                                 value_reference: current_vr_offset + #current_vr,
                                                 dependencies: None,
                                                 dependencies_kind: None,
-                                            });
+                                            }));
                                         });
                                     }
                                 }

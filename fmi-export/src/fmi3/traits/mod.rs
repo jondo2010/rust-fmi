@@ -12,7 +12,7 @@ mod model_get_set;
 mod wrappers;
 
 pub use model_get_set::{ModelGetSet, ModelGetSetStates};
-//pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
+pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
 
 /// Context trait for FMU instances
 pub trait Context<M: UserModel> {
@@ -69,7 +69,15 @@ pub trait Model: Default {
         fmi::schema::fmi3::ModelStructure,
     ) {
         let mut variables = fmi::schema::fmi3::ModelVariables::default();
-        let time = fmi::schema::fmi3::FmiFloat64::new_time(None);
+        let time = fmi::schema::fmi3::FmiFloat64::new(
+            "time".to_string(),
+            0,
+            None,
+            fmi::schema::fmi3::Causality::Independent,
+            fmi::schema::fmi3::Variability::Continuous,
+            None,
+            None,
+        );
         AppendToModelVariables::append_to_variables(time, &mut variables);
         let mut structure = fmi::schema::fmi3::ModelStructure::default();
         let _num_vars = Self::build_metadata(&mut variables, &mut structure, 1);

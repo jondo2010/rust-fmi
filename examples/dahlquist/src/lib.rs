@@ -33,7 +33,7 @@ struct Dahlquist {
 impl UserModel for Dahlquist {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &impl Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &dyn Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // Calculate the derivative: der(x) = -k * x
         self.der_x = -self.k * self.x;
         Ok(Fmi3Res::OK)

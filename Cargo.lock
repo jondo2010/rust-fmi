@@ -1138,7 +1138,7 @@ version = "0.5.0"
 dependencies = [
  "fmi",
  "fmi-sys",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
 ]
 
 [[package]]

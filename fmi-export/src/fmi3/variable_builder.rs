@@ -305,15 +305,15 @@ macro_rules! impl_fmi_variable_builder_float {
 
                 // Set float-specific attributes if present
                 if let Some(derivative) = builder.derivative {
-                    var.real_var_attr.derivative = Some(derivative);
+                    var.derivative = Some(derivative);
                 }
                 if let Some(reinit) = builder.reinit {
-                    var.real_var_attr.reinit = Some(reinit);
+                    var.reinit = Some(reinit);
                 }
 
                 // Apply dimensions if any
                 if !builder.dimensions.is_empty() {
-                    var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
+                    var.dimensions = builder.dimensions;
                 }
 
                 var
@@ -346,7 +346,7 @@ macro_rules! impl_fmi_variable_builder_int {
 
                 // Apply dimensions if any
                 if !builder.dimensions.is_empty() {
-                    var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
+                    var.dimensions = builder.dimensions;
                 }
 
                 var
@@ -387,7 +387,7 @@ impl FmiVariableBuilder for bool {
 
         // Apply dimensions if any
         if !builder.dimensions.is_empty() {
-            var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
+            var.dimensions = builder.dimensions;
         }
 
         var
@@ -416,7 +416,7 @@ impl FmiVariableBuilder for String {
 
         // Apply dimensions if any
         if !builder.dimensions.is_empty() {
-            var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
+            var.dimensions = builder.dimensions;
         }
 
         var
@@ -539,10 +539,12 @@ impl FmiVariableBuilder for Binary {
     fn finish(builder: VariableBuilder<Self>) -> Self::Var {
         let start_values = builder.start.map(|start| {
             let vec_values: Vec<Vec<u8>> = start.into();
-            vec_values.into_iter()
+            vec_values
+                .into_iter()
                 .map(|bytes| {
                     // Simple hex encoding since base64 is not available
-                    bytes.iter()
+                    bytes
+                        .iter()
                         .map(|b| format!("{:02x}", b))
                         .collect::<String>()
                 })
@@ -564,19 +566,19 @@ impl FmiVariableBuilder for Binary {
             var.max_size = Some(max_size as u32);
         }
 
-        // Set mime_type if provided  
+        // Set mime_type if provided
         if let Some(mime_type) = builder.mime_type {
-            var.mime_type = mime_type;
+            var.mime_type = Some(mime_type);
         }
 
         // Set clocks if provided
         if let Some(clocks) = builder.clocks {
-            var.abstract_var.clocks = Some(clocks);
+            var.clocks = Some(fmi::schema::utils::AttrList(clocks));
         }
 
         // Apply dimensions if any
         if !builder.dimensions.is_empty() {
-            var.init_var.typed_arrayable_var.arrayable_var.dimensions = builder.dimensions;
+            var.dimensions = builder.dimensions;
         }
 
         var

@@ -32,6 +32,8 @@ pub enum Variable {
     String(FmiString),
     #[xml(tag = "Binary")]
     Binary(FmiBinary),
+    #[xml(tag = "Clock")]
+    Clock(FmiClock),
 }
 
 #[derive(Debug, PartialEq, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
@@ -317,18 +319,18 @@ impl AppendToModelVariables for FmiBoolean {
 
 impl AppendToModelVariables for FmiString {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.string.push(self);
+        variables.variables.push(Variable::String(self));
     }
 }
 
 impl AppendToModelVariables for FmiBinary {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.binary.push(self);
+        variables.variables.push(Variable::Binary(self));
     }
 }
 
 impl AppendToModelVariables for FmiClock {
     fn append_to_variables(self, variables: &mut ModelVariables) {
-        variables.clock.push(self);
+        variables.variables.push(Variable::Clock(self));
     }
 }

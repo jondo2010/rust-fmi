@@ -9,7 +9,7 @@
 use crate::{
     checked_deref,
     fmi3::{
-        ModelGetSetStates, ModelInstance, UserModel,
+        ModelGetSetStates, ModelInstance, UserModel, instance::context::BasicContext,
         traits::{ModelGetSet, UserModelCSWrapper, UserModelME},
     },
 };
@@ -98,7 +98,7 @@ macro_rules! wrapper_getset_functions {
     };
 }
 
-pub trait Fmi3Common: Model + UserModel + ModelGetSet<Self> + Sized {
+pub trait Fmi3Common: Model + UserModel + ModelGetSet<Self> + Sized where Self: 'static {
     #[inline(always)]
     unsafe fn fmi3_get_version() -> *const ::std::os::raw::c_char {
         binding::fmi3Version.as_ptr() as *const _
@@ -169,13 +169,9 @@ pub trait Fmi3Common: Model + UserModel + ModelGetSet<Self> + Sized {
             },
         );
 
-        match crate::fmi3::ModelInstance::<Self>::new(
-            name,
-            resource_path,
-            logging_on,
-            log_message,
-            &token,
-        ) {
+        let context = BasicContext::new(logging_on, log_message, resource_path);
+
+        match crate::fmi3::ModelInstance::<Self>::new(name, &token, context) {
             Ok(instance) => {
                 let this: ::std::boxed::Box<dyn ::fmi::fmi3::Common> =
                     ::std::boxed::Box::new(instance);
@@ -1247,18 +1243,18 @@ where
 }
 
 // Automatic implementations for all models
-impl<T> Fmi3Common for T where T: Model + UserModel + ModelGetSet<Self> {}
+impl<T> Fmi3Common for T where T: Model + UserModel + ModelGetSet<Self> + 'static {}
 
 impl<T> Fmi3ModelExchange for T
 where
-    T: Model + UserModel + UserModelME + Fmi3Common + ModelGetSetStates,
+    T: Model + UserModel + UserModelME + Fmi3Common + ModelGetSetStates + 'static,
     ModelInstance<T>: fmi::fmi3::ModelExchange,
 {
 }
 
 impl<T> Fmi3CoSimulation for T
 where
-    T: Model + ModelGetSetStates + UserModel + UserModelCSWrapper + Fmi3Common,
+    T: Model + ModelGetSetStates + UserModel + UserModelCSWrapper + Fmi3Common + 'static,
     ModelInstance<T>: fmi::fmi3::CoSimulation,
 {
 }

@@ -392,7 +392,7 @@ fn test_variable_annotations() {
 fn test_clocks() {
     let xml = r#"<Clock name="10msClock" valueReference="5" causality="input" intervalVariability="constant" priority="1" intervalDecimal="0.01"/>"#;
 
-    let var: FmiClock = yaserde::de::from_str(xml).unwrap();
+    let var: FmiClock = FmiClock::from_str(xml).unwrap();
     assert_eq!(var.name(), "10msClock");
     assert_eq!(var.value_reference(), 5);
     assert_eq!(var.causality(), Causality::Input);
@@ -438,19 +438,12 @@ fn test_data_type_enum() {
 
     let string_var: FmiString = Default::default();
     assert_eq!(string_var.data_type(), VariableType::FmiString);
-<<<<<<< HEAD
 
     let binary_var: FmiBinary = Default::default();
     assert_eq!(binary_var.data_type(), VariableType::FmiBinary);
 
     let clock_var: FmiClock = Default::default();
     assert_eq!(clock_var.data_type(), VariableType::FmiClock);
-||||||| fb41858
-
-    let binary_var: FmiBinary = Default::default();
-    assert_eq!(binary_var.data_type(), VariableType::FmiBinary);
-=======
->>>>>>> origin/main
 }
 
 #[cfg(feature = "arrow")]

@@ -37,6 +37,51 @@ pub struct FloatVariableAlias {
     pub display_unit: Option<String>,
 }
 
+/// IntervalVariability declares the Clock type
+///
+/// See <https://fmi-standard.org/docs/3.0.1/#table-overview-clocks>
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+pub enum IntervalVariability {
+    Constant,
+    Fixed,
+    Tunable,
+    Changing,
+    Countdown,
+    /// IntervalVariability *must* be set to Triggered for Clocks with causality = Output
+    #[default]
+    Triggered,
+}
+
+impl FromStr for IntervalVariability {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "constant" => Ok(Self::Constant),
+            "fixed" => Ok(Self::Fixed),
+            "tunable" => Ok(Self::Tunable),
+            "changing" => Ok(Self::Changing),
+            "countdown" => Ok(Self::Countdown),
+            "triggered" => Ok(Self::Triggered),
+            _ => Err(format!("Invalid IntervalVariability: {}", s)),
+        }
+    }
+}
+
+impl Display for IntervalVariability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Constant => "constant",
+            Self::Fixed => "fixed",
+            Self::Tunable => "tunable",
+            Self::Changing => "changing",
+            Self::Countdown => "countdown",
+            Self::Triggered => "triggered",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 /// An enumeration that defines the type of a variable.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum VariableType {
@@ -140,6 +185,9 @@ macro_rules! impl_abstract_variable {
             }
             fn can_handle_multiple_set_per_time_instant(&self) -> Option<bool> {
                 self.can_handle_multiple_set_per_time_instant
+            }
+            fn clocks(&self) -> Option<&[u32]> {
+                self.clocks.as_ref().map(|c| c.0.as_slice())
             }
             fn data_type(&self) -> VariableType {
                 $variable_type
@@ -669,7 +717,7 @@ impl FmiString {
 
 impl_abstract_variable!(FmiString, Variability::Discrete, VariableType::FmiString);
 impl_arrayable_variable!(FmiString);
-impl_typed_arrayable_variable!(FmiString);
+impl_typed_variable!(FmiString);
 impl InitializableVariableTrait for FmiString {
     type StartType = StringStart;
 
@@ -693,7 +741,7 @@ pub struct BinaryStart {
     pub value: String,
 }
 
-#[derive(PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
 #[xml(tag = "Binary")]
 pub struct FmiBinary {
     #[xml(attr = "name")]
@@ -792,7 +840,7 @@ impl FmiBinary {
 
 impl_abstract_variable!(FmiBinary, Variability::Discrete, VariableType::FmiBinary);
 impl_arrayable_variable!(FmiBinary);
-impl_typed_arrayable_variable!(FmiBinary);
+impl_typed_variable!(FmiBinary);
 
 impl InitializableVariableTrait for FmiBinary {
     type StartType = BinaryStart;
@@ -807,5 +855,88 @@ impl InitializableVariableTrait for FmiBinary {
         } else {
             Some(&self.start)
         }
+    }
+}
+
+/// Clock variable type
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[xml(tag = "Clock", strict(unknown_attribute, unknown_element))]
+pub struct FmiClock {
+    #[xml(attr = "name")]
+    pub name: String,
+    #[xml(attr = "valueReference")]
+    pub value_reference: u32,
+    #[xml(attr = "description")]
+    pub description: Option<String>,
+    #[xml(attr = "causality")]
+    pub causality: Option<Causality>,
+    #[xml(attr = "variability")]
+    pub variability: Option<Variability>,
+    #[xml(attr = "canHandleMultipleSetPerTimeInstant")]
+    pub can_handle_multiple_set_per_time_instant: Option<bool>,
+    #[xml(attr = "clocks")]
+    pub clocks: Option<AttrList<u32>>,
+    #[xml(attr = "declaredType")]
+    pub declared_type: Option<String>,
+    #[xml(attr = "canBeDeactivated")]
+    pub can_be_deactivated: Option<bool>,
+    #[xml(attr = "priority")]
+    pub priority: Option<i32>,
+    #[xml(attr = "intervalVariability")]
+    pub interval_variability: Option<IntervalVariability>,
+    #[xml(attr = "intervalDecimal")]
+    pub interval_decimal: Option<f64>,
+    #[xml(attr = "shiftDecimal")]
+    pub shift_decimal: Option<f64>,
+    #[xml(attr = "supportsFraction")]
+    pub supports_fraction: Option<bool>,
+    #[xml(attr = "resolution")]
+    pub resolution: Option<u64>,
+    #[xml(attr = "intervalCounter")]
+    pub interval_counter: Option<u64>,
+    #[xml(attr = "shiftCounter")]
+    pub shift_counter: Option<u64>,
+    #[xml(child = "Annotations")]
+    pub annotations: Option<Annotations>,
+    #[xml(child = "Alias")]
+    pub aliases: Vec<VariableAlias>,
+}
+
+impl_abstract_variable!(FmiClock, Variability::Discrete, VariableType::FmiClock);
+impl_typed_variable!(FmiClock);
+
+impl FmiClock {
+    pub fn new(
+        name: String,
+        value_reference: u32,
+        description: Option<String>,
+        causality: Causality,
+        variability: Variability,
+    ) -> Self {
+        Self {
+            name,
+            value_reference,
+            description,
+            causality: Some(causality),
+            variability: Some(variability),
+            can_handle_multiple_set_per_time_instant: None,
+            clocks: None,
+            declared_type: None,
+            can_be_deactivated: None,
+            priority: None,
+            interval_variability: None,
+            interval_decimal: None,
+            shift_decimal: None,
+            supports_fraction: None,
+            resolution: None,
+            interval_counter: None,
+            shift_counter: None,
+            annotations: None,
+            aliases: vec![],
+        }
+    }
+
+    pub fn interval_variability(&self) -> IntervalVariability {
+        self.interval_variability.unwrap_or_default()
     }
 }

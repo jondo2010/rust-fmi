@@ -23,7 +23,7 @@ use std::{fmt::Display, str::FromStr};
 // Re-exports
 pub use instance::ModelInstance;
 pub use traits::{
-    Context, /*Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange,*/ Model, ModelGetSet,
+    Context, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Model, ModelGetSet,
     ModelGetSetStates, ModelLoggingCategory, UserModel, UserModelCSWrapper, UserModelME,
 };
 pub use types::{Binary, Clock, InitializeFromStart};

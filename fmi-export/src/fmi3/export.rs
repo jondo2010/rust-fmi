@@ -12,7 +12,7 @@ macro_rules! generate_getset_functions {
                 values: *mut $fmi_type,
                 n_values: usize,
             ) -> ::fmi::fmi3::binding::fmi3Status {
-                <$ty as $crate::fmi3::Fmi3Common<MC>>::[<fmi3_get_ $type_name:snake>](
+                <$ty as $crate::fmi3::Fmi3Common>::[<fmi3_get_ $type_name:snake>](
                     instance,
                     value_references,
                     n_value_references,

@@ -8,9 +8,9 @@
 use std::path::PathBuf;
 
 use crate::fmi3::{
-    Context, Model, ModelGetSet, ModelGetSetStates, ModelState, UserModel,
+    Context, Model, ModelGetSet, ModelGetSetStates, UserModel,
     instance::LogMessageClosure,
-    traits::{ModelLoggingCategory, UserModelCS, UserModelCSWrapper, UserModelME},
+    traits::{ModelLoggingCategory, UserModelCSWrapper, UserModelME},
 };
 use fmi::{
     EventFlags,

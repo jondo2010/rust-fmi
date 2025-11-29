@@ -65,7 +65,7 @@ impl VariableCounts for ModelVariables {
                 | Variable::Int64(_)
                 | Variable::UInt64(_) => num_integer_vars += 1,
                 Variable::String(_) => num_string_vars += 1,
-                Variable::Binary(_) => {}
+                Variable::Binary(_) | Variable::Clock(_) => {}
             }
         }
 
