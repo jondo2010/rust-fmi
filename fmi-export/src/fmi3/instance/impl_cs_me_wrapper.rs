@@ -8,103 +8,23 @@
 use std::path::PathBuf;
 
 use crate::fmi3::{
-    Context, Model, ModelGetSet, ModelGetSetStates, UserModel,
+    Context, Model, ModelGetSet, ModelGetSetStates, ModelState, UserModel,
     instance::LogMessageClosure,
-    traits::{ModelLoggingCategory, UserModelCSWrapper, UserModelME},
+    traits::{ModelLoggingCategory, UserModelCS, UserModelCSWrapper, UserModelME},
 };
 use fmi::{
     EventFlags,
     fmi3::{CoSimulation, Fmi3Error, Fmi3Res, Fmi3Status},
 };
 
-use super::{ModelInstance, context::BasicContext};
+use super::{ModelInstance, context::{BasicContext, WrapperContext}};
 
-/// Extended context implementing Co-Simulation by wrapping Model-Exchange methods
-struct WrapperContext<M: UserModel> {
-    basic: BasicContext<M>,
-    /// Internal step count
-    num_steps: usize,
-    /// Whether early return from a step is allowed.
-    early_return_allowed: bool,
-    /// Whether event mode is used.
-    event_mode_used: bool,
-    /// Next communication point for co-simulation.
-    next_communication_point: f64,
-    /// Event indicators' current values
-    cur_z: Vec<f64>,
-    /// Event indicators' last values
-    pre_z: Vec<f64>,
-    /// Current state vector
-    x: Vec<f64>,
-    /// Derivative of the state vector
-    dx: Vec<f64>,
-}
+/// Co-Simulation implementation using embedded solver to wrap Model Exchange
 
-impl<M: Model + UserModel + ModelGetSetStates> WrapperContext<M> {
-    pub fn new(
-        logging_on: bool,
-        log_message: LogMessageClosure,
-        resource_path: PathBuf,
-        early_return_allowed: bool,
-    ) -> Self {
-        Self {
-            basic: BasicContext::new(logging_on, log_message, resource_path),
-            num_steps: 0,
-            early_return_allowed,
-            event_mode_used: false,
-            next_communication_point: 0.0,
-            cur_z: vec![0.0; <M as Model>::MAX_EVENT_INDICATORS],
-            pre_z: vec![0.0; <M as Model>::MAX_EVENT_INDICATORS],
-            x: vec![0.0; <M as ModelGetSetStates>::NUM_STATES],
-            dx: vec![0.0; <M as ModelGetSetStates>::NUM_STATES],
-        }
-    }
-}
-
-impl<M> Context<M> for WrapperContext<M>
-where
-    M: UserModel + 'static,
-{
-    fn logging_on(&self, category: <M as UserModel>::LoggingCategory) -> bool {
-        self.basic.logging_on(category)
-    }
-
-    fn set_logging(&mut self, category: <M as UserModel>::LoggingCategory, enabled: bool) {
-        self.basic.set_logging(category, enabled);
-    }
-
-    /// Log a message if the specified logging category is enabled.
-    fn log(&self, status: Fmi3Status, category: M::LoggingCategory, args: std::fmt::Arguments<'_>) {
-        self.basic.log(status, category, args);
-    }
-
-    /// Get the path to the resources directory.
-    fn resource_path(&self) -> &PathBuf {
-        &self.basic.resource_path()
-    }
-
-    fn initialize(&mut self, start_time: f64, stop_time: Option<f64>) {
-        self.basic.initialize(start_time, stop_time);
-    }
-
-    fn time(&self) -> f64 {
-        self.basic.time()
-    }
-
-    fn set_time(&mut self, time: f64) {
-        self.basic.set_time(time);
-    }
-
-    fn stop_time(&self) -> Option<f64> {
-        self.basic.stop_time()
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-}
-
-impl<M> CoSimulation for ModelInstance<M>
+// TODO: Co-Simulation implementation for direct CS (UserModelCS)
+// This will be implemented when we have a model that directly implements UserModelCS
+/*
+impl<M> CoSimulation for ModelInstance<M, CSContext<M>>
 where
     M: Model + ModelGetSet<M> + ModelGetSetStates + UserModel + UserModelCS + UserModelME + 'static,
 {
@@ -133,28 +53,30 @@ where
 
     fn get_output_derivatives(
         &mut self,
-        vrs: &[fmi::fmi3::binding::fmi3ValueReference],
-        orders: &[i32],
-        values: &mut [f64],
+        _vrs: &[fmi::fmi3::binding::fmi3ValueReference],
+        _orders: &[i32],
+        _values: &mut [f64],
     ) -> Result<Fmi3Res, Fmi3Error> {
         todo!()
     }
 
     fn do_step(
         &mut self,
-        current_communication_point: f64,
-        communication_step_size: f64,
-        no_set_fmu_state_prior_to_current_point: bool,
-        event_handling_needed: &mut bool,
-        terminate_simulation: &mut bool,
-        early_return: &mut bool,
-        last_successful_time: &mut f64,
+        _current_communication_point: f64,
+        _communication_step_size: f64,
+        _no_set_fmu_state_prior_to_current_point: bool,
+        _event_handling_needed: &mut bool,
+        _terminate_simulation: &mut bool,
+        _early_return: &mut bool,
+        _last_successful_time: &mut f64,
     ) -> Result<Fmi3Res, Fmi3Error> {
         todo!()
     }
 }
+*/
 
-impl<M> CoSimulation for ModelInstance<M>
+/// Co-Simulation implementation using embedded solver to wrap Model Exchange
+impl<M> CoSimulation for ModelInstance<M, WrapperContext<M>>
 where
     M: Model
         + ModelGetSet<M>
@@ -307,9 +229,9 @@ where
 
     fn get_output_derivatives(
         &mut self,
-        vrs: &[fmi::fmi3::binding::fmi3ValueReference],
-        orders: &[i32],
-        values: &mut [f64],
+        _vrs: &[fmi::fmi3::binding::fmi3ValueReference],
+        _orders: &[i32],
+        _values: &mut [f64],
     ) -> Result<Fmi3Res, Fmi3Error> {
         todo!()
     }

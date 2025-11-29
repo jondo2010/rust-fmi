@@ -1,13 +1,14 @@
 use super::ModelInstance;
 use crate::fmi3::{
     Model, ModelGetSetStates, ModelState, UserModel,
-    traits::{ModelGetSet, ModelLoggingCategory, UserModelME},
+    traits::{Context, ModelGetSet, ModelLoggingCategory, UserModelME},
 };
 use fmi::fmi3::{Fmi3Error, Fmi3Res, ModelExchange};
 
-impl<M> ModelExchange for ModelInstance<M>
+impl<M, C> ModelExchange for ModelInstance<M, C>
 where
     M: Model + UserModel + ModelGetSet<M> + ModelGetSetStates + UserModelME,
+    C: Context<M>,
 {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {
         self.context.log(
@@ -91,7 +92,7 @@ where
     ) -> Result<Fmi3Res, Fmi3Error> {
         // Ensure values are up to date before computing derivatives
         if self.is_dirty_values {
-            self.model.calculate_values(self.context.as_ref())?;
+            self.model.calculate_values(&self.context)?;
             self.is_dirty_values = false;
         }
         self.model.get_continuous_state_derivatives(derivatives)?;
@@ -106,7 +107,7 @@ where
     fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
         let res = self
             .model
-            .get_event_indicators(self.context.as_ref(), indicators)?;
+            .get_event_indicators(&self.context, indicators)?;
         self.context.log(
             Fmi3Res::OK.into(),
             M::LoggingCategory::trace_category(),

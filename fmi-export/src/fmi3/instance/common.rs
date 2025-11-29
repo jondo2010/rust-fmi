@@ -1,16 +1,17 @@
 use super::ModelInstance;
 use crate::fmi3::{
     Model, ModelState, UserModel,
-    traits::{ModelGetSet, ModelLoggingCategory},
+    traits::{Context, ModelGetSet, ModelLoggingCategory},
 };
 use fmi::{
     EventFlags, InterfaceType,
     fmi3::{Common, Fmi3Error, Fmi3Res, binding},
 };
 
-impl<M> Common for ModelInstance<M>
+impl<M, C> Common for ModelInstance<M, C>
 where
     M: Model + UserModel + ModelGetSet<M>,
+    C: Context<M>,
 {
     fn get_version(&self) -> &str {
         // Safety: binding::fmi3Version is a null-terminated byte array representing the version string
@@ -80,7 +81,7 @@ where
 
         // if values were set and no get call triggered update before, ensure calculated values are updated now
         if self.is_dirty_values {
-            self.model.calculate_values(self.context.as_ref())?;
+            self.model.calculate_values(&self.context)?;
             self.is_dirty_values = false;
         }
 
@@ -102,7 +103,7 @@ where
             }
         }
 
-        self.model.configurate(self.context.as_ref())?;
+        self.model.configurate(&self.context)?;
 
         Ok(Fmi3Res::OK)
     }
@@ -211,7 +212,7 @@ where
             format_args!("update_discrete_states()"),
         );
         //UserModel::event_update(&mut self.model, &self.context, event_flags)
-        self.model.event_update(self.context.as_ref(), event_flags)
+        self.model.event_update(&self.context, event_flags)
     }
 
     fn get_number_of_variable_dependencies(

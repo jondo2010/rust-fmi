@@ -132,7 +132,7 @@ pub enum Error {
     Fmi3Error(#[from] fmi3::Fmi3Error),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InterfaceType {
     ModelExchange,
     CoSimulation,

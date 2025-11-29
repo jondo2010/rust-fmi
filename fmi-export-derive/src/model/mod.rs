@@ -25,12 +25,43 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
     }
 }
 
-/// StructAttribute represents the attributes that can be applied to the model struct
+/// Co-Simulation configuration options
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
+#[attribute(ident = co_simulation)]
+pub struct CoSimulationAttr {
+    /// Embedded solver configuration
+    #[attribute(optional)]
+    pub embedded_solver: Option<EmbeddedSolverAttr>,
+}
+
+/// Embedded solver configuration for Co-Simulation wrapper
 #[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone)]
+#[attribute(ident = embedded_solver)]
+pub struct EmbeddedSolverAttr {
+    /// Fixed step size for the embedded solver
+    #[attribute(optional)]
+    pub step_size: Option<f64>,
+}
+
+/// StructAttribute represents the attributes that can be applied to the model struct
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
 #[attribute(ident = model)]
 pub struct StructAttr {
     /// Optional model description (defaults to the struct docstring)
+    #[attribute(optional)]
     pub description: Option<String>,
+    
+    /// Enable Model Exchange interface
+    #[attribute(optional)]
+    pub model_exchange: Option<bool>,
+    
+    /// Enable Co-Simulation interface (with optional configuration)
+    #[attribute(optional)]
+    pub co_simulation: Option<CoSimulationAttr>,
+    
+    /// Enable Scheduled Execution interface
+    #[attribute(optional)]
+    pub scheduled_execution: Option<bool>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -127,6 +158,62 @@ impl Model {
         //self.iter_derivatives()
         //    .map(|field| field.field_type.total_elements())
         //    .sum()
+    }
+
+    /// Get the parsed model attribute, if present
+    pub fn get_model_attr(&self) -> Option<&StructAttr> {
+        self.attrs.iter().find_map(|attr| match attr {
+            StructAttrOuter::Model(model_attr) => Some(model_attr),
+            _ => None,
+        })
+    }
+
+    /// Check if Model Exchange is supported
+    pub fn supports_model_exchange(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.model_exchange)
+            .unwrap_or(true) // Default to true if not specified
+    }
+
+    /// Check if Co-Simulation is supported
+    pub fn supports_co_simulation(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.co_simulation.as_ref())
+            .is_some()
+    }
+
+    /// Check if Scheduled Execution is supported
+    pub fn supports_scheduled_execution(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.scheduled_execution)
+            .unwrap_or(false)
+    }
+
+    /// Get the Co-Simulation mode
+    pub fn cs_mode(&self) -> &'static str {
+        if !self.supports_co_simulation() {
+            return "::fmi_export::fmi3::CSMode::NotSupported";
+        }
+
+        let has_embedded_solver = self
+            .get_model_attr()
+            .and_then(|attr| attr.co_simulation.as_ref())
+            .and_then(|cs| cs.embedded_solver.as_ref())
+            .is_some();
+
+        if has_embedded_solver {
+            "::fmi_export::fmi3::CSMode::Wrapper"
+        } else {
+            "::fmi_export::fmi3::CSMode::Direct"
+        }
+    }
+
+    /// Get the fixed solver step size if using embedded solver
+    pub fn fixed_solver_step(&self) -> Option<f64> {
+        self.get_model_attr()
+            .and_then(|attr| attr.co_simulation.as_ref())
+            .and_then(|cs| cs.embedded_solver.as_ref())
+            .and_then(|solver| solver.step_size)
     }
 }
 

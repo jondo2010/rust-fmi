@@ -12,7 +12,7 @@ mod model_get_set;
 mod wrappers;
 
 pub use model_get_set::{ModelGetSet, ModelGetSetStates};
-pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
+pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Fmi3ScheduledExecution};
 
 /// Context trait for FMU instances
 pub trait Context<M: UserModel> {
@@ -52,6 +52,18 @@ pub trait Model: Default {
 
     /// Number of event indicators
     const MAX_EVENT_INDICATORS: usize;
+
+    /// Whether this model supports Model Exchange interface
+    const SUPPORTS_MODEL_EXCHANGE: bool;
+
+    /// Whether this model supports Co-Simulation interface
+    const SUPPORTS_CO_SIMULATION: bool;
+
+    /// Whether this model supports Scheduled Execution interface
+    const SUPPORTS_SCHEDULED_EXECUTION: bool;
+
+    /// How Co-Simulation is implemented (if supported)
+    const CS_MODE: crate::fmi3::CSMode;
 
     /// Recursively build the model variables and structure by appending to the provided
     /// `ModelVariables` and `ModelStructure` instances.
@@ -180,3 +192,6 @@ pub trait UserModelCS: UserModel {}
 pub trait UserModelCSWrapper: UserModel {
     const FIXED_SOLVER_STEP: f64 = 0.1;
 }
+
+/// Implement this trait on your model for Scheduled Execution support.
+pub trait UserModelSE: UserModel {}

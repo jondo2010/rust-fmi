@@ -99,7 +99,7 @@ fn build_getter_fn(
             &self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             values: &mut [#ty],
-            context: &impl ::fmi_export::fmi3::Context<Self>
+            context: &dyn ::fmi_export::fmi3::Context<Self>
         ) -> Result<usize, ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -197,7 +197,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             &mut self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             value: &mut ::fmi::fmi3::binding::fmi3Clock,
-            context: &impl ::fmi_export::fmi3::Context<Self>
+            context: &dyn ::fmi_export::fmi3::Context<Self>
         ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -296,7 +296,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             &mut self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             value: &::fmi::fmi3::binding::fmi3Clock,
-            context: &impl ::fmi_export::fmi3::Context<Self>
+            context: &dyn ::fmi_export::fmi3::Context<Self>
         ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions

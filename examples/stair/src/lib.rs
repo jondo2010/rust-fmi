@@ -9,7 +9,7 @@ use fmi::{
     EventFlags,
 };
 use fmi_export::{
-    fmi3::{DefaultLoggingCategory, ModelContextME, UserModel},
+    fmi3::{Context, DefaultLoggingCategory, UserModel},
     FmuModel,
 };
 
@@ -33,7 +33,7 @@ impl UserModel for Stair {
 
     fn event_update(
         &mut self,
-        context: &ModelContextME<Self>,
+        context: &dyn Context<Self>,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         let epsilon = (1.0 + context.time().abs()) * f64::EPSILON;
@@ -54,10 +54,6 @@ impl UserModel for Stair {
 
         Ok(Fmi3Res::OK)
     }
-}
-
-fn foo() {
-    <Stair as fmi_export::fmi3::Fmi3Common<_>>::fmi3_get_version();
 }
 
 // Export the FMU with full C API

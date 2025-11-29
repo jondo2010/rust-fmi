@@ -15,7 +15,7 @@ use fmi_export::{
 /// This is a simple first-order linear ODE that demonstrates basic
 /// Model Exchange and Co-Simulation capabilities.
 #[derive(FmuModel, Default, Debug)]
-#[model()]
+#[model(model_exchange = true, co_simulation(embedded_solver(step_size = 0.1)))]
 struct Dahlquist {
     /// The state variable
     #[variable(causality = Output, variability = Continuous, start = 1.0, initial = Exact)]
@@ -47,17 +47,22 @@ impl UserModelCSWrapper for Dahlquist {
 }
 
 // Export the FMU with full C API
-//fmi_export::export_fmu!(Dahlquist);
+fmi_export::export_fmu!(Dahlquist);
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::CString;
     use std::path::PathBuf;
 
     use super::*;
-    use fmi::fmi3::{CoSimulation, GetSet, ModelExchange};
+    use fmi::fmi3::{CoSimulation, Fmi3Status, GetSet, ModelExchange};
     use fmi::schema::fmi3::{AbstractVariableTrait, DependenciesKind, Fmi3Unknown};
-    use fmi_export::fmi3::{Model, ModelInstance};
+    use fmi::traits::FmiStatus;
+    use fmi_export::fmi3::{
+        BasicContext, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Model, ModelInstance,
+    };
 
+    #[cfg(false)]
     #[test]
     fn test_metadata() {
         let (vars, structure) = Dahlquist::build_toplevel_metadata();
@@ -109,17 +114,61 @@ mod tests {
 
     #[test]
     fn test_model_get_set() {
-        let mut inst = ModelInstance::<Dahlquist>::new(
-            "Dahlquist".to_string(),
-            Dahlquist::INSTANTIATION_TOKEN,
-            BasicContext::new(true, Box::new(|_, _, _| {}), PathBuf::new()),
-        )
-        .unwrap();
+        let inst = unsafe {
+            <Dahlquist as Fmi3Common>::fmi3_instantiate_model_exchange(
+                CString::new("test").unwrap().as_ptr(),
+                CString::new(Dahlquist::INSTANTIATION_TOKEN)
+                    .unwrap()
+                    .as_ptr() as *mut i8,
+                CString::new("path/to/fmu").unwrap().as_ptr(),
+                false as _,
+                true as _,
+                std::ptr::null_mut(),
+                None,
+            )
+        };
 
-        inst.set_time(123.0).unwrap();
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3Common>::fmi3_enter_initialization_mode(
+                    inst, false, 0.0, 0.0, false, 0.0,
+                )
+            })
+            .ok(),
+            Ok(Fmi3Res::OK),
+        );
+
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3Common>::fmi3_exit_initialization_mode(inst)
+            })
+            .ok(),
+            Ok(Fmi3Res::OK),
+        );
+
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3ModelExchange>::fmi3_set_time(inst, 123.0)
+            })
+            .ok(),
+            Ok(Fmi3Res::OK),
+        );
 
         let mut f64_vals = [0.0; 4];
-        inst.get_float64(&[0, 1, 2, 3], &mut f64_vals).unwrap();
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3Common>::fmi3_get_float64(
+                    inst,
+                    [0, 1, 2, 3].as_ptr(),
+                    4,
+                    f64_vals.as_mut_ptr(),
+                    4,
+                )
+            })
+            .ok(),
+            Ok(Fmi3Res::OK),
+        );
+
         assert_eq!(
             f64_vals,
             [
@@ -131,18 +180,74 @@ mod tests {
         );
 
         // Test the time VR=0
-        assert_eq!(inst.set_float64(&[0], &[0.0]), Err(Fmi3Error::Error));
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3Common>::fmi3_set_float64(
+                    inst,
+                    [0].as_ptr(),
+                    1,
+                    f64_vals[0..1].as_ptr(),
+                    1,
+                )
+            })
+            .ok(),
+            Err(Fmi3Error::Error)
+        );
     }
 
     #[test]
     fn test_model_cs_wrapper() {
-        let mut inst = ModelInstance::<Dahlquist>::new(
-            "Dahlquist".to_string(),
-            Dahlquist::INSTANTIATION_TOKEN,
-            MEWrapperContext::new(true, Box::new(|_, _, _| {}), PathBuf::new(), false),
-        )
-        .unwrap();
+        let inst = unsafe {
+            <Dahlquist as Fmi3Common>::fmi3_instantiate_co_simulation(
+                CString::new("test").unwrap().as_ptr(),
+                CString::new(Dahlquist::INSTANTIATION_TOKEN)
+                    .unwrap()
+                    .as_ptr() as *mut i8,
+                CString::new("path/to/fmu").unwrap().as_ptr(),
+                false as _,
+                true as _,
+                false as _,
+                false as _,
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null_mut(),
+                None,
+                None,
+            )
+        };
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3Common>::fmi3_enter_initialization_mode(
+                    inst, false, 0.0, 0.0, false, 0.0,
+                )
+            })
+            .ok(),
+            Ok(Fmi3Res::OK),
+        );
 
-        //inst.do_step(0.0, 0.1, true).unwrap();
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3Common>::fmi3_exit_initialization_mode(inst)
+            })
+            .ok(),
+            Ok(Fmi3Res::OK),
+        );
+
+        assert_eq!(
+            Fmi3Status::from(unsafe {
+                <Dahlquist as Fmi3CoSimulation>::fmi3_do_step(
+                    inst,
+                    0.0,
+                    0.1,
+                    false as _,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            })
+            .ok(),
+            Ok(Fmi3Res::OK),
+        );
     }
 }

@@ -12,17 +12,23 @@ pub mod context;
 mod get_set;
 mod impl_cs_me_wrapper;
 mod impl_me;
+mod impl_se;
 
 pub type LogMessageClosure = Box<dyn Fn(Fmi3Status, &str, std::fmt::Arguments<'_>) + Send + Sync>;
 
-/// An exportable FMU instance
-pub struct ModelInstance<M> {
-    /// The instance type
-    instance_type: fmi::InterfaceType,
+/// An exportable FMU instance, generic over model type M and context type C
+#[repr(C)]
+pub struct ModelInstance<M, C>
+where
+    M: UserModel,
+    C: Context<M>,
+{
+    /// The instance type (public for FFI access)
+    pub(crate) instance_type: fmi::InterfaceType,
     /// The name of this instance
     instance_name: String,
     /// Context for the model instance
-    context: Box<dyn Context<M>>,
+    context: C,
     /// Current state of the model instance
     state: ModelState,
     /// Do we need to re-evaluate the model equations?
@@ -31,14 +37,17 @@ pub struct ModelInstance<M> {
     model: M,
 }
 
-impl<M> ModelInstance<M>
+impl<M, C> ModelInstance<M, C>
 where
     M: Model + UserModel,
+    C: Context<M>,
 {
-    pub fn new<C>(name: String, instantiation_token: &str, context: C) -> Result<Self, Fmi3Error>
-    where
-        C: Context<M> + 'static,
-    {
+    pub fn new(
+        name: String,
+        instantiation_token: &str,
+        context: C,
+        instance_type: fmi::InterfaceType,
+    ) -> Result<Self, Fmi3Error> {
         // Validate the instantiation token using the compile-time constant
         if instantiation_token != M::INSTANTIATION_TOKEN {
             eprintln!(
@@ -51,9 +60,9 @@ where
 
         let mut instance = Self {
             instance_name: name,
-            context: Box::new(context),
+            context,
             state: ModelState::Instantiated,
-            instance_type: fmi::InterfaceType::ModelExchange,
+            instance_type,
             is_dirty_values: true,
             model: M::default(),
         };
@@ -68,8 +77,12 @@ where
         &self.instance_name
     }
 
-    pub fn context(&self) -> &dyn Context<M> {
-        self.context.as_ref()
+    pub fn instance_type(&self) -> fmi::InterfaceType {
+        self.instance_type
+    }
+
+    pub fn context(&self) -> &C {
+        &self.context
     }
 
     #[inline]

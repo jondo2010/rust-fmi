@@ -1,6 +1,6 @@
 use fmi::fmi3::{Fmi3Error, Fmi3Res, GetSet, binding};
 
-use crate::fmi3::{Model, UserModel, traits::ModelGetSet};
+use crate::fmi3::{Model, UserModel, traits::{Context, ModelGetSet}};
 
 /// Macro to generate getter implementations for ModelInstance
 macro_rules! instance_getter {
@@ -12,7 +12,7 @@ macro_rules! instance_getter {
                 values: &mut [$ty],
             ) -> Result<Fmi3Res, Fmi3Error> {
                 if self.is_dirty_values {
-                    self.model.calculate_values(self.context.as_ref())?;
+                    self.model.calculate_values(&self.context)?;
                     self.is_dirty_values = false;
                 }
                 let mut value_index = 0;
@@ -21,7 +21,7 @@ macro_rules! instance_getter {
                         // 'time VR is not valid here
                         return Err(Fmi3Error::Error);
                     }
-                    let elements_read = self.model.[<get_ $name>](*vr-1, &mut values[value_index..], self.context.as_ref())?;
+                    let elements_read = self.model.[<get_ $name>](*vr-1, &mut values[value_index..], &self.context)?;
                     value_index += elements_read;
                 }
                 Ok(Fmi3Res::OK)
@@ -47,7 +47,7 @@ macro_rules! instance_setter {
                         return Err(Fmi3Error::Error);
                     }
                     //self.validate_variable_setting(*vr-1)?;
-                    let elements_written = self.model.[<set_ $name>](*vr-1, &values[value_index..], self.context.as_ref())?;
+                    let elements_written = self.model.[<set_ $name>](*vr-1, &values[value_index..], &self.context)?;
                     value_index += elements_written;
                 }
 
@@ -76,9 +76,10 @@ macro_rules! instance_getter_setter {
 ///
 /// Only the float64 getter has special handling for 'time' VR=0, as it is the only type that can represent time.
 
-impl<M> GetSet for super::ModelInstance<M>
+impl<M, C> GetSet for super::ModelInstance<M, C>
 where
     M: Model + UserModel + ModelGetSet<M>,
+    C: Context<M>,
 {
     // Standard getter/setter pairs
     instance_getter_setter!(boolean, bool);
@@ -98,7 +99,7 @@ where
         values: &mut [f64],
     ) -> Result<Fmi3Res, Fmi3Error> {
         if self.is_dirty_values {
-            self.model.calculate_values(self.context.as_ref())?;
+            self.model.calculate_values(&self.context)?;
             self.is_dirty_values = false;
         }
         let mut value_index = 0;
@@ -111,7 +112,7 @@ where
                 let elements_read = self.model.get_float64(
                     *vr - 1,
                     &mut values[value_index..],
-                    self.context.as_ref(),
+                    &self.context,
                 )?;
                 value_index += elements_read;
             }
@@ -134,7 +135,7 @@ where
             let elements_read = self.model.get_string(
                 *vr - 1,
                 &mut values[value_index..],
-                self.context.as_ref(),
+                &self.context,
             )?;
             value_index += elements_read;
         }
@@ -155,7 +156,7 @@ where
             //self.validate_variable_setting(*vr)?;
             let elements_written =
                 self.model
-                    .set_string(*vr - 1, &values[value_index..], self.context.as_ref())?;
+                    .set_string(*vr - 1, &values[value_index..], &self.context)?;
             value_index += elements_written;
         }
         self.is_dirty_values = true;
@@ -177,7 +178,7 @@ where
             let binary_sizes = self.model.get_binary(
                 *vr - 1,
                 &mut values[value_index..],
-                self.context.as_ref(),
+                &self.context,
             )?;
             result_sizes.extend(binary_sizes.iter());
             value_index += binary_sizes.len();
@@ -199,7 +200,7 @@ where
             //self.validate_variable_setting(*vr - 1)?;
             let elements_written =
                 self.model
-                    .set_binary(*vr - 1, &values[value_index..], self.context.as_ref())?;
+                    .set_binary(*vr - 1, &values[value_index..], &self.context)?;
             value_index += elements_written;
         }
         self.is_dirty_values = true;
@@ -217,7 +218,7 @@ where
                 return Err(Fmi3Error::Error);
             }
             self.model
-                .get_clock(*vr - 1, value, self.context.as_ref())?;
+                .get_clock(*vr - 1, value, &self.context)?;
         }
         Ok(Fmi3Res::OK)
     }
@@ -234,7 +235,7 @@ where
             }
             //self.validate_variable_setting(*vr - 1)?;
             self.model
-                .set_clock(*vr - 1, value, self.context.as_ref())?;
+                .set_clock(*vr - 1, value, &self.context)?;
         }
         Ok(Fmi3Res::OK)
     }
