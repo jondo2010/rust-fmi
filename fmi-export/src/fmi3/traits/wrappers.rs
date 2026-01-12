@@ -14,13 +14,15 @@ use crate::{
         ModelGetSetStates, ModelInstance, UserModel,
         instance::{
             LogMessageClosure,
-            context::{BasicContext, WrapperContext},
+            context::BasicContext,
         },
-        traits::{ModelGetSet, UserModelCSWrapper, UserModelME},
+        traits::{ModelGetSet, UserModelCS, UserModelME},
     },
 };
 
 use super::{Context, Model};
+
+use fmi::fmi3::CoSimulation;
 
 use ::fmi::fmi3::Fmi3Status;
 use fmi::fmi3::{Common, Fmi3Res, GetSet, ModelExchange, ScheduledExecution, binding};
@@ -54,7 +56,7 @@ macro_rules! checked_deref_cs {
         let instance = unsafe {
             &mut *($ptr as *mut $crate::fmi3::ModelInstance<
                 $ty,
-                $crate::fmi3::instance::context::WrapperContext<$ty>,
+                $crate::fmi3::instance::context::BasicContext<$ty>,
             >)
         };
         instance
@@ -88,7 +90,7 @@ macro_rules! dispatch_by_instance_type {
             }
             fmi::InterfaceType::CoSimulation => {
                 let instance = unsafe {
-                    &mut *($ptr as *mut $crate::fmi3::ModelInstance<$ty, $crate::fmi3::instance::context::WrapperContext<$ty>>)
+                    &mut *($ptr as *mut $crate::fmi3::ModelInstance<$ty, $crate::fmi3::instance::context::BasicContext<$ty>>)
                 };
                 instance.$method($($arg),*)
             }
@@ -113,8 +115,6 @@ macro_rules! wrapper_getset_functions {
                 values: *mut $fmi_type,
                 n_values: usize,
             ) -> binding::fmi3Status {
-                let instance = $crate::checked_deref_me!(instance, Self);
-
                 // Validate array lengths match
                 if n_value_references != n_values {
                     eprintln!("FMI3: Array length mismatch in fmi3Get{}: value_references={}, values={}",
@@ -125,9 +125,7 @@ macro_rules! wrapper_getset_functions {
                 let value_refs = unsafe { std::slice::from_raw_parts(value_references, n_value_references) };
                 let values = unsafe { std::slice::from_raw_parts_mut(values, n_values) };
 
-                match <$crate::fmi3::ModelInstance<Self, $crate::fmi3::instance::context::BasicContext<Self>> as ::fmi::fmi3::GetSet>::$get_method(
-                    instance, value_refs, values
-                ) {
+                match $crate::dispatch_by_instance_type!(instance, Self, $get_method, value_refs, values) {
                     Ok(res) => {
                         let status: ::fmi::fmi3::Fmi3Status = res.into();
                         status.into()
@@ -143,8 +141,6 @@ macro_rules! wrapper_getset_functions {
                 values: *const $fmi_type,
                 n_values: usize,
             ) -> binding::fmi3Status {
-                let instance = $crate::checked_deref_me!(instance, Self);
-
                 // Validate array lengths match
                 if n_value_references != n_values {
                     eprintln!("FMI3: Array length mismatch in fmi3Set{}: value_references={}, values={}",
@@ -155,9 +151,7 @@ macro_rules! wrapper_getset_functions {
                 let value_refs = unsafe { std::slice::from_raw_parts(value_references, n_value_references) };
                 let values = unsafe { std::slice::from_raw_parts(values, n_values) };
 
-                match <$crate::fmi3::ModelInstance<Self, $crate::fmi3::instance::context::BasicContext<Self>> as ::fmi::fmi3::GetSet>::$set_method(
-                    instance, value_refs, values
-                ) {
+                match $crate::dispatch_by_instance_type!(instance, Self, $set_method, value_refs, values) {
                     Ok(res) => {
                         let status: ::fmi::fmi3::Fmi3Status = res.into();
                         status.into()
@@ -255,7 +249,7 @@ where
             return ::std::ptr::null_mut();
         }
 
-        let context = BasicContext::new(logging_on, log_message, resource_path);
+        let context = BasicContext::new(logging_on, log_message, resource_path, false);
 
         match crate::fmi3::ModelInstance::<Self, BasicContext<Self>>::new(
             name,
@@ -366,36 +360,26 @@ where
             )
         };
 
-        match Self::CS_MODE {
-            crate::fmi3::CSMode::NotSupported => {
-                eprintln!("Co-Simulation is not supported");
-                ::std::ptr::null_mut()
-            }
-            crate::fmi3::CSMode::Direct => {
-                // Direct Co-Simulation: user implements UserModelCS
-                eprintln!("Direct Co-Simulation not yet implemented");
-                ::std::ptr::null_mut()
-            }
-            crate::fmi3::CSMode::Wrapper => {
-                // Wrapper mode: wrap Model Exchange with a solver
-                let early_return_allowed = _early_return_allowed.into();
-                let context = WrapperContext::new(logging_on, log_message, resource_path, early_return_allowed);
+        let early_return_allowed = _early_return_allowed.into();
+        let context = BasicContext::new(
+            logging_on,
+            log_message,
+            resource_path,
+            early_return_allowed,
+        );
 
-                match crate::fmi3::ModelInstance::<Self, WrapperContext<Self>>::new(
-                    name,
-                    &token,
-                    context,
-                    fmi::InterfaceType::CoSimulation,
-                ) {
-                    Ok(instance) => {
-                        ::std::boxed::Box::into_raw(::std::boxed::Box::new(instance))
-                            as binding::fmi3Instance
-                    }
-                    Err(_) => {
-                        eprintln!("Failed to instantiate FMU: invalid instantiation token");
-                        ::std::ptr::null_mut()
-                    }
-                }
+        match crate::fmi3::ModelInstance::<Self, BasicContext<Self>>::new(
+            name,
+            &token,
+            context,
+            fmi::InterfaceType::CoSimulation,
+        ) {
+            Ok(instance) => {
+                ::std::boxed::Box::into_raw(::std::boxed::Box::new(instance)) as binding::fmi3Instance
+            }
+            Err(_) => {
+                eprintln!("Failed to instantiate FMU: invalid instantiation token");
+                ::std::ptr::null_mut()
             }
         }
     }
@@ -469,7 +453,7 @@ where
                         instance
                             as *mut crate::fmi3::ModelInstance<
                                 Self,
-                                crate::fmi3::instance::context::WrapperContext<Self>,
+                                crate::fmi3::instance::context::BasicContext<Self>,
                             >,
                     )
                 };
@@ -785,7 +769,6 @@ where
         next_event_time_defined: *mut binding::fmi3Boolean,
         next_event_time: *mut binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let mut event_flags = ::fmi::EventFlags::default();
 
         // next_time_event is potentially used as an in-out parameter
@@ -793,7 +776,7 @@ where
             event_flags.next_event_time = Some(unsafe { *next_event_time });
         }
 
-        match instance.update_discrete_states(&mut event_flags) {
+        match dispatch_by_instance_type!(instance, Self, update_discrete_states, &mut event_flags) {
             Ok(res) => {
                 unsafe {
                     *discrete_states_need_update = event_flags.discrete_states_need_update;
@@ -840,8 +823,6 @@ where
         values: *mut binding::fmi3String,
         n_values: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-
         if n_value_references != n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3GetString: value_references={}, values={}",
@@ -856,7 +837,13 @@ where
         // Create temporary buffer for CString results
         let mut temp_strings = vec![::std::ffi::CString::default(); n_values];
 
-        match instance.get_string(value_refs, &mut temp_strings) {
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_string,
+            value_refs,
+            &mut temp_strings
+        ) {
             Ok(_) => {
                 // Copy C string pointers to output array
                 let values_slice = unsafe { ::std::slice::from_raw_parts_mut(values, n_values) };
@@ -877,8 +864,6 @@ where
         values: *const binding::fmi3String,
         n_values: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-
         if n_value_references != n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3SetString: value_references={}, values={}",
@@ -902,7 +887,7 @@ where
             }
         }
 
-        match instance.set_string(value_refs, &temp_strings) {
+        match dispatch_by_instance_type!(instance, Self, set_string, value_refs, &temp_strings) {
             Ok(_) => binding::fmi3Status_fmi3OK,
             Err(_) => binding::fmi3Status_fmi3Error,
         }
@@ -918,8 +903,6 @@ where
         values: *mut *mut binding::fmi3Byte,
         n_values: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-
         if n_value_references != n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3GetBinary: value_references={}, values={}",
@@ -945,7 +928,7 @@ where
             }
         }
 
-        match instance.get_binary(value_refs, &mut temp_buffers) {
+        match dispatch_by_instance_type!(instance, Self, get_binary, value_refs, &mut temp_buffers) {
             Ok(actual_sizes) => {
                 // Update the actual sizes
                 for (i, &size) in actual_sizes.iter().enumerate() {
@@ -966,8 +949,6 @@ where
         values: *const *const binding::fmi3Byte,
         n_values: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-
         if n_value_references != n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3SetBinary: value_references={}, values={}",
@@ -993,7 +974,7 @@ where
             }
         }
 
-        match instance.set_binary(value_refs, &temp_buffers) {
+        match dispatch_by_instance_type!(instance, Self, set_binary, value_refs, &temp_buffers) {
             Ok(_) => binding::fmi3Status_fmi3OK,
             Err(_) => binding::fmi3Status_fmi3Error,
         }
@@ -1007,11 +988,10 @@ where
         n_value_references: usize,
         values: *mut binding::fmi3Clock,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let value_refs =
             unsafe { ::std::slice::from_raw_parts(value_references, n_value_references) };
         let values_slice = unsafe { ::std::slice::from_raw_parts_mut(values, n_value_references) };
-        match instance.get_clock(value_refs, values_slice) {
+        match dispatch_by_instance_type!(instance, Self, get_clock, value_refs, values_slice) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1027,11 +1007,10 @@ where
         n_value_references: usize,
         values: *const binding::fmi3Clock,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let value_refs =
             unsafe { ::std::slice::from_raw_parts(value_references, n_value_references) };
         let values_slice = unsafe { ::std::slice::from_raw_parts(values, n_value_references) };
-        match instance.set_clock(value_refs, values_slice) {
+        match dispatch_by_instance_type!(instance, Self, set_clock, value_refs, values_slice) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1047,8 +1026,12 @@ where
         value_reference: binding::fmi3ValueReference,
         n_dependencies: *mut usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-        match instance.get_number_of_variable_dependencies(value_reference) {
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_number_of_variable_dependencies,
+            value_reference
+        ) {
             Ok(res) => {
                 unsafe {
                     *n_dependencies = res;
@@ -1069,13 +1052,16 @@ where
         dependency_kinds: *mut binding::fmi3DependencyKind,
         n_dependencies: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-
         // Convert the value reference to our trait's ValueRef type
         let dependent_vr = dependent.into();
 
         // Call the Rust method to get dependencies
-        match instance.get_variable_dependencies(dependent_vr) {
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_variable_dependencies,
+            dependent_vr
+        ) {
             Ok(dependencies) => {
                 // Check if the caller provided enough space
                 if dependencies.len() > n_dependencies {
@@ -1127,8 +1113,7 @@ where
     unsafe fn fmi3_enter_continuous_time_mode(
         instance: binding::fmi3Instance,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-        match instance.enter_continuous_time_mode() {
+        match dispatch_by_instance_type!(instance, Self, enter_continuous_time_mode) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1144,13 +1129,15 @@ where
         enter_event_mode: *mut binding::fmi3Boolean,
         terminate_simulation: *mut binding::fmi3Boolean,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let mut enter_event = false;
         let mut terminate = false;
-        match instance.completed_integrator_step(
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            completed_integrator_step,
             no_set_fmu_state_prior,
             &mut enter_event,
-            &mut terminate,
+            &mut terminate
         ) {
             Ok(_) => {
                 unsafe {
@@ -1168,8 +1155,7 @@ where
         instance: binding::fmi3Instance,
         time: binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-        match instance.set_time(time) {
+        match dispatch_by_instance_type!(instance, Self, set_time, time) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1184,10 +1170,9 @@ where
         continuous_states: *const binding::fmi3Float64,
         n_continuous_states: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let states =
             unsafe { ::std::slice::from_raw_parts(continuous_states, n_continuous_states) };
-        match instance.set_continuous_states(states) {
+        match dispatch_by_instance_type!(instance, Self, set_continuous_states, states) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1202,9 +1187,13 @@ where
         derivatives: *mut binding::fmi3Float64,
         n_continuous_states: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let derivs = unsafe { ::std::slice::from_raw_parts_mut(derivatives, n_continuous_states) };
-        match instance.get_continuous_state_derivatives(derivs) {
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_continuous_state_derivatives,
+            derivs
+        ) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1219,10 +1208,9 @@ where
         event_indicators: *mut binding::fmi3Float64,
         n_event_indicators: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let indicators =
             unsafe { ::std::slice::from_raw_parts_mut(event_indicators, n_event_indicators) };
-        match instance.get_event_indicators(indicators) {
+        match dispatch_by_instance_type!(instance, Self, get_event_indicators, indicators) {
             Ok(_) => binding::fmi3Status_fmi3OK,
             Err(_) => binding::fmi3Status_fmi3Error,
         }
@@ -1234,10 +1222,9 @@ where
         continuous_states: *mut binding::fmi3Float64,
         n_continuous_states: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let states =
             unsafe { ::std::slice::from_raw_parts_mut(continuous_states, n_continuous_states) };
-        match instance.get_continuous_states(states) {
+        match dispatch_by_instance_type!(instance, Self, get_continuous_states, states) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1252,9 +1239,13 @@ where
         nominals: *mut binding::fmi3Float64,
         n_continuous_states: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
         let nominals = unsafe { ::std::slice::from_raw_parts_mut(nominals, n_continuous_states) };
-        match instance.get_nominals_of_continuous_states(nominals) {
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_nominals_of_continuous_states,
+            nominals
+        ) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1268,8 +1259,7 @@ where
         instance: binding::fmi3Instance,
         n_event_indicators: *mut usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-        match instance.get_number_of_event_indicators() {
+        match dispatch_by_instance_type!(instance, Self, get_number_of_event_indicators) {
             Ok(n) => {
                 unsafe {
                     *n_event_indicators = n;
@@ -1285,8 +1275,7 @@ where
         instance: binding::fmi3Instance,
         n_continuous_states: *mut usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-        match instance.get_number_of_continuous_states() {
+        match dispatch_by_instance_type!(instance, Self, get_number_of_continuous_states) {
             Ok(n) => {
                 unsafe {
                     *n_continuous_states = n;
@@ -1299,16 +1288,13 @@ where
 }
 
 // Co-Simulation trait
-pub trait Fmi3CoSimulation: Fmi3Common + ModelGetSetStates + UserModelCSWrapper
+pub trait Fmi3CoSimulation: Fmi3Common + ModelGetSetStates + UserModelCS
 where
-    ModelInstance<Self, WrapperContext<Self>>: fmi::fmi3::CoSimulation,
+    ModelInstance<Self, BasicContext<Self>>: fmi::fmi3::CoSimulation,
 {
     #[inline(always)]
     unsafe fn fmi3_enter_step_mode(instance: binding::fmi3Instance) -> binding::fmi3Status {
-        let instance = checked_deref_cs!(instance, Self);
-        match <crate::fmi3::ModelInstance<Self, WrapperContext<Self>> as ::fmi::fmi3::CoSimulation>::enter_step_mode(
-            instance,
-        ) {
+        match dispatch_by_instance_type!(instance, Self, enter_step_mode) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1326,16 +1312,17 @@ where
         values: *mut binding::fmi3Float64,
         n_values: usize,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_cs!(instance, Self);
         let value_refs =
             unsafe { ::std::slice::from_raw_parts(value_references, n_value_references) };
         let orders_slice = unsafe { ::std::slice::from_raw_parts(orders, n_value_references) };
         let values_slice = unsafe { ::std::slice::from_raw_parts_mut(values, n_values) };
-        match <crate::fmi3::ModelInstance<Self, WrapperContext<Self>> as ::fmi::fmi3::CoSimulation>::get_output_derivatives(
+        match dispatch_by_instance_type!(
             instance,
+            Self,
+            get_output_derivatives,
             value_refs,
             orders_slice,
-            values_slice,
+            values_slice
         ) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
@@ -1356,19 +1343,53 @@ where
         early_return: *mut binding::fmi3Boolean,
         last_successful_time: *mut binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_cs!(instance, Self);
-        match unsafe {
-            <crate::fmi3::ModelInstance<Self, WrapperContext<Self>> as ::fmi::fmi3::CoSimulation>::do_step(
-                instance,
-                current_communication_point,
-                communication_step_size,
-                no_set_fmu_state_prior_to_current_point,
-                &mut *event_handling_needed,
-                &mut *terminate_simulation,
-                &mut *early_return,
-                &mut *last_successful_time,
-            )
-        } {
+        // Handle optional output pointers gracefully; if null, write into local temps.
+        let mut event_handling_needed_tmp = false;
+        let mut terminate_simulation_tmp = false;
+        let mut early_return_tmp = false;
+        let mut last_successful_time_tmp = 0.0;
+
+        let event_handling_needed = unsafe {
+            if event_handling_needed.is_null() {
+                &mut event_handling_needed_tmp
+            } else {
+                &mut *event_handling_needed
+            }
+        };
+        let terminate_simulation = unsafe {
+            if terminate_simulation.is_null() {
+                &mut terminate_simulation_tmp
+            } else {
+                &mut *terminate_simulation
+            }
+        };
+        let early_return = unsafe {
+            if early_return.is_null() {
+                &mut early_return_tmp
+            } else {
+                &mut *early_return
+            }
+        };
+        let last_successful_time = unsafe {
+            if last_successful_time.is_null() {
+                &mut last_successful_time_tmp
+            } else {
+                &mut *last_successful_time
+            }
+        };
+
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            do_step,
+            current_communication_point,
+            communication_step_size,
+            no_set_fmu_state_prior_to_current_point,
+            event_handling_needed,
+            terminate_simulation,
+            early_return,
+            last_successful_time
+        ) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1388,8 +1409,13 @@ where
         clock_reference: binding::fmi3ValueReference,
         activation_time: binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        let instance = checked_deref_me!(instance, Self);
-        match instance.activate_model_partition(clock_reference.into(), activation_time) {
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            activate_model_partition,
+            clock_reference.into(),
+            activation_time
+        ) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1411,8 +1437,8 @@ where
 
 impl<T> Fmi3CoSimulation for T
 where
-    T: Model + ModelGetSetStates + UserModel + UserModelCSWrapper + Fmi3Common + 'static,
-    ModelInstance<T, WrapperContext<T>>: fmi::fmi3::CoSimulation,
+    T: Model + ModelGetSetStates + UserModel + UserModelCS + Fmi3Common + 'static,
+    ModelInstance<T, BasicContext<T>>: fmi::fmi3::CoSimulation,
 {
 }
 

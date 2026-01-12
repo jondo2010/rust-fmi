@@ -43,7 +43,6 @@ impl ToTokens for ModelImpl<'_> {
         let supports_me = self.model.supports_model_exchange();
         let supports_cs = self.model.supports_co_simulation();
         let supports_se = self.model.supports_scheduled_execution();
-        let cs_mode_value = syn::parse_str::<syn::Expr>(self.model.cs_mode()).unwrap();
 
         tokens.extend(quote! {
             #[automatically_derived]
@@ -56,7 +55,6 @@ impl ToTokens for ModelImpl<'_> {
                 const SUPPORTS_MODEL_EXCHANGE: bool = #supports_me;
                 const SUPPORTS_CO_SIMULATION: bool = #supports_cs;
                 const SUPPORTS_SCHEDULED_EXECUTION: bool = #supports_se;
-                const CS_MODE: ::fmi_export::fmi3::CSMode = #cs_mode_value;
 
                 fn build_metadata(
                     variables: &mut ::fmi::schema::fmi3::ModelVariables,

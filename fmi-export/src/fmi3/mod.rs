@@ -21,26 +21,16 @@ mod variable_builder;
 use std::{fmt::Display, str::FromStr};
 
 // Re-exports
-pub use instance::{context::{BasicContext, WrapperContext}, ModelInstance};
+pub use instance::{context::BasicContext, ModelInstance};
 pub use traits::{
-    Context, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Fmi3ScheduledExecution, Model,
-    ModelGetSet, ModelGetSetStates, ModelLoggingCategory, UserModel, UserModelCSWrapper,
-    UserModelME, UserModelSE,
+    Context, CSDoStepResult, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange,
+    Fmi3ScheduledExecution, Model, ModelGetSet, ModelGetSetStates, ModelLoggingCategory, UserModel,
+    UserModelCS, UserModelME, UserModelSE,
 };
 pub use types::{Binary, Clock, InitializeFromStart};
 pub use variable_builder::{FmiVariableBuilder, VariableBuilder};
 
 /// Specifies how Co-Simulation is implemented for a model
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CSMode {
-    /// Co-Simulation is not supported
-    NotSupported,
-    /// User directly implements the `UserModelCS` trait with custom stepping logic
-    Direct,
-    /// Model Exchange is wrapped with an embedded solver to provide Co-Simulation
-    Wrapper,
-}
-
 /// Represents the current state of the model instance
 #[derive(Debug)]
 pub enum ModelState {

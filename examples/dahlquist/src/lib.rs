@@ -6,7 +6,7 @@
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
-    fmi3::{Context, DefaultLoggingCategory, UserModel, UserModelCSWrapper, UserModelME},
+    fmi3::{CSDoStepResult, Context, DefaultLoggingCategory, UserModel, UserModelCS, UserModelME},
     FmuModel,
 };
 
@@ -15,7 +15,7 @@ use fmi_export::{
 /// This is a simple first-order linear ODE that demonstrates basic
 /// Model Exchange and Co-Simulation capabilities.
 #[derive(FmuModel, Default, Debug)]
-#[model(model_exchange = true, co_simulation(embedded_solver(step_size = 0.1)))]
+#[model(model_exchange = true, co_simulation())]
 struct Dahlquist {
     /// The state variable
     #[variable(causality = Output, variability = Continuous, start = 1.0, initial = Exact)]
@@ -42,8 +42,28 @@ impl UserModel for Dahlquist {
 
 impl UserModelME for Dahlquist {}
 
-impl UserModelCSWrapper for Dahlquist {
-    const FIXED_SOLVER_STEP: f64 = 0.1;
+impl UserModelCS for Dahlquist {
+    fn do_step(
+        &mut self,
+        context: &mut dyn Context<Self>,
+        current_communication_point: f64,
+        communication_step_size: f64,
+        _no_set_fmu_state_prior_to_current_point: bool,
+    ) -> Result<CSDoStepResult, Fmi3Error> {
+        // Align context time with the current communication point
+        context.set_time(current_communication_point);
+
+        // Compute derivatives at the current point
+        self.calculate_values(context)?;
+
+        // Forward Euler step for the single state
+        self.x += self.der_x * communication_step_size;
+
+        let last_time = current_communication_point + communication_step_size;
+        context.set_time(last_time);
+
+        Ok(CSDoStepResult::completed(last_time))
+    }
 }
 
 // Export the FMU with full C API

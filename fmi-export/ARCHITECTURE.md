@@ -68,12 +68,12 @@ Example call flow:
 | Case | ME | CS | SE | ModelDescription | Notes |
 |------|----|----|----|------------------|---------------------------------------------------------------------------------|
 | 1    | ✓  | x  | x  | ME only          | Default case                                                                    |
-| 2    | x  | ✓  | x  | CS only          | User-implemented doStep(). ME functions still generated but inactive            |
-| 3    | ✓  | ✓  | x  | ME + CS          | User-implemented doStep(). User provides both ME physics and CS stepping logic  |
-| 4    | ✓  | ✓  | x  | ME + CS          | Embedded solver wrapping ME. CS automatically wraps ME with internal solver     |
+| 2    | x  | ✓  | x  | CS only          | User-owned `doStep` (raw CS). ME functions still generated but inactive         |
+| 3    | ✓  | ✓  | x  | ME + CS          | User-owned `doStep` plus ME physics; no hidden solver                           |
+| 4    | ✓  | ✓  | x  | ME + CS          | (Future) Pluggable CS-over-ME solver that delegates to user-provided solver     |
 | 5    | x  | x  | ✓  | SE only          | Future work                                                                     |
 
 ## Additional requirements
 
 1. At runtime, the FMU instance can only be one of ME, CS or SE. Calls to functions unsupported for that instance type must return error codes as per the FMI specification.
-2. The additional state required for the embedded CS solver must be stored within the FMU instance. The user model struct must not be required to store this additional state (it should be hidden from the user).
+2. The additional state required for the embedded CS solver must be stored within the user's FMU model struct.

@@ -4,15 +4,21 @@ use anyhow::{Context, Result};
 use libloading::Library;
 use std::path::Path;
 
-use fmi::fmi3::schema;
+use fmi::fmi3::{binding, schema};
 
 const MODEL_METADATA_SYM: &[u8] = b"model_metadata";
 const INSTANTIATION_TOKEN_SYM: &[u8] = b"FMI3_INSTANTIATION_TOKEN";
+const SUPPORTS_ME_SYM: &[u8] = b"fmi3SupportsModelExchange";
+const SUPPORTS_CS_SYM: &[u8] = b"fmi3SupportsCoSimulation";
+const SUPPORTS_SE_SYM: &[u8] = b"fmi3SupportsScheduledExecution";
 
 pub struct ModelData {
     pub model_variables: schema::ModelVariables,
     pub model_structure: schema::ModelStructure,
     pub instantiation_token: String,
+    pub supports_model_exchange: bool,
+    pub supports_co_simulation: bool,
+    pub supports_scheduled_execution: bool,
 }
 
 impl ModelData {
@@ -46,10 +52,28 @@ impl ModelData {
                 }
             };
 
+            let supports_model_exchange = {
+                let symbol = lib.get::<fn() -> binding::fmi3Boolean>(SUPPORTS_ME_SYM)?;
+                symbol()
+            };
+
+            let supports_co_simulation = {
+                let symbol = lib.get::<fn() -> binding::fmi3Boolean>(SUPPORTS_CS_SYM)?;
+                symbol()
+            };
+
+            let supports_scheduled_execution = {
+                let symbol = lib.get::<fn() -> binding::fmi3Boolean>(SUPPORTS_SE_SYM)?;
+                symbol()
+            };
+
             Ok(ModelData {
                 model_variables,
                 model_structure,
                 instantiation_token,
+                supports_model_exchange,
+                supports_co_simulation,
+                supports_scheduled_execution,
             })
         }
     }

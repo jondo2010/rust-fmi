@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 use fmi::fmi3::Fmi3Status;
 
-use crate::fmi3::{Model, ModelGetSetStates, ModelLoggingCategory, UserModel, instance::LogMessageClosure, traits::Context};
+use crate::fmi3::{UserModel, instance::LogMessageClosure, traits::{Context, ModelLoggingCategory}};
 
 /// Basic context for Model-Exchange FMU instances
 pub struct BasicContext<M: UserModel> {
@@ -17,10 +17,17 @@ pub struct BasicContext<M: UserModel> {
     stop_time: Option<f64>,
     /// Current simulation time.
     time: f64,
+    /// Whether early return is allowed for CS steps.
+    early_return_allowed: bool,
 }
 
 impl<M: UserModel> BasicContext<M> {
-    pub fn new(logging_on: bool, log_message: LogMessageClosure, resource_path: PathBuf) -> Self {
+    pub fn new(
+        logging_on: bool,
+        log_message: LogMessageClosure,
+        resource_path: PathBuf,
+        early_return_allowed: bool,
+    ) -> Self {
         let logging_on = <M as UserModel>::LoggingCategory::all_categories()
             .map(|category| (category, logging_on))
             .collect();
@@ -30,6 +37,7 @@ impl<M: UserModel> BasicContext<M> {
             resource_path,
             stop_time: None,
             time: 0.0,
+            early_return_allowed,
         }
     }
 }
@@ -78,90 +86,8 @@ where
         self.stop_time
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-}
-
-/// Extended context implementing Co-Simulation by wrapping Model-Exchange methods
-pub struct WrapperContext<M: UserModel> {
-    pub basic: BasicContext<M>,
-    /// Internal step count
-    pub num_steps: usize,
-    /// Whether early return from a step is allowed.
-    pub early_return_allowed: bool,
-    /// Whether event mode is used.
-    pub event_mode_used: bool,
-    /// Next communication point for co-simulation.
-    pub next_communication_point: f64,
-    /// Event indicators' current values
-    pub cur_z: Vec<f64>,
-    /// Event indicators' last values
-    pub pre_z: Vec<f64>,
-    /// Current state vector
-    pub x: Vec<f64>,
-    /// Derivative of the state vector
-    pub dx: Vec<f64>,
-}
-
-impl<M> WrapperContext<M> 
-where 
-    M: Model + UserModel + ModelGetSetStates
-{
-    pub fn new(
-        logging_on: bool,
-        log_message: LogMessageClosure,
-        resource_path: PathBuf,
-        early_return_allowed: bool,
-    ) -> Self {
-        Self {
-            basic: BasicContext::new(logging_on, log_message, resource_path),
-            num_steps: 0,
-            early_return_allowed,
-            event_mode_used: false,
-            next_communication_point: 0.0,
-            cur_z: vec![0.0; M::MAX_EVENT_INDICATORS],
-            pre_z: vec![0.0; M::MAX_EVENT_INDICATORS],
-            x: vec![0.0; M::NUM_STATES],
-            dx: vec![0.0; M::NUM_STATES],
-        }
-    }
-}
-
-impl<M> Context<M> for WrapperContext<M>
-where
-    M: UserModel + 'static,
-{
-    fn logging_on(&self, category: M::LoggingCategory) -> bool {
-        self.basic.logging_on(category)
-    }
-
-    fn set_logging(&mut self, category: M::LoggingCategory, enabled: bool) {
-        self.basic.set_logging(category, enabled);
-    }
-
-    fn log(&self, status: Fmi3Status, category: M::LoggingCategory, args: std::fmt::Arguments<'_>) {
-        self.basic.log(status, category, args);
-    }
-
-    fn resource_path(&self) -> &PathBuf {
-        self.basic.resource_path()
-    }
-
-    fn initialize(&mut self, start_time: f64, stop_time: Option<f64>) {
-        self.basic.initialize(start_time, stop_time);
-    }
-
-    fn time(&self) -> f64 {
-        self.basic.time()
-    }
-
-    fn set_time(&mut self, time: f64) {
-        self.basic.set_time(time);
-    }
-
-    fn stop_time(&self) -> Option<f64> {
-        self.basic.stop_time()
+    fn early_return_allowed(&self) -> bool {
+        self.early_return_allowed
     }
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {

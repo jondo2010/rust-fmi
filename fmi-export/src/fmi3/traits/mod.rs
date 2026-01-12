@@ -39,6 +39,11 @@ pub trait Context<M: UserModel> {
     /// Get the simulation stop time, if any.
     fn stop_time(&self) -> Option<f64>;
 
+    /// Whether early return is allowed for this instance (relevant for CS).
+    fn early_return_allowed(&self) -> bool {
+        false
+    }
+
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
@@ -61,9 +66,6 @@ pub trait Model: Default {
 
     /// Whether this model supports Scheduled Execution interface
     const SUPPORTS_SCHEDULED_EXECUTION: bool;
-
-    /// How Co-Simulation is implemented (if supported)
-    const CS_MODE: crate::fmi3::CSMode;
 
     /// Recursively build the model variables and structure by appending to the provided
     /// `ModelVariables` and `ModelStructure` instances.
@@ -120,6 +122,26 @@ pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
     fn trace_category() -> Self;
     /// Get the category for logging errors
     fn error_category() -> Self;
+}
+
+/// Result payload for a Co-Simulation `do_step` implementation.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CSDoStepResult {
+    pub event_handling_needed: bool,
+    pub terminate_simulation: bool,
+    pub early_return: bool,
+    pub last_successful_time: f64,
+}
+
+impl CSDoStepResult {
+    pub fn completed(last_successful_time: f64) -> Self {
+        Self {
+            event_handling_needed: false,
+            terminate_simulation: false,
+            early_return: false,
+            last_successful_time,
+        }
+    }
 }
 
 /// User-defined model behavior trait
@@ -184,14 +206,18 @@ pub trait UserModelME: UserModel {
 }
 
 /// Implement this trait on your model for Co-Simulation support.
-pub trait UserModelCS: UserModel {}
+pub trait UserModelCS: UserModel {
+    fn do_step(
+        &mut self,
+        context: &mut dyn Context<Self>,
+        current_communication_point: f64,
+        communication_step_size: f64,
+        no_set_fmu_state_prior_to_current_point: bool,
+    ) -> Result<CSDoStepResult, Fmi3Error>;
+}
 
 /// Implement this trait on your model to enable an FMU wrapper for Co-Simulation.
 ///
 /// A fixed-step solver will be used to advance the simulation time.
-pub trait UserModelCSWrapper: UserModel {
-    const FIXED_SOLVER_STEP: f64 = 0.1;
-}
-
 /// Implement this trait on your model for Scheduled Execution support.
 pub trait UserModelSE: UserModel {}

@@ -1,16 +1,14 @@
-use std::path::PathBuf;
-
 use fmi::fmi3::{Fmi3Error, Fmi3Status, binding};
 
 use crate::fmi3::{
-    ModelLoggingCategory, ModelState, UserModel,
+    ModelState, UserModel,
     traits::{Context, Model},
 };
 
 mod common;
 pub mod context;
 mod get_set;
-mod impl_cs_me_wrapper;
+mod impl_cs;
 mod impl_me;
 mod impl_se;
 

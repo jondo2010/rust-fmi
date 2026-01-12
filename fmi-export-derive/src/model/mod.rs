@@ -29,18 +29,9 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
 #[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
 #[attribute(ident = co_simulation)]
 pub struct CoSimulationAttr {
-    /// Embedded solver configuration
+    /// Whether Co-Simulation is enabled. Presence of the attribute defaults to `true`.
     #[attribute(optional)]
-    pub embedded_solver: Option<EmbeddedSolverAttr>,
-}
-
-/// Embedded solver configuration for Co-Simulation wrapper
-#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone)]
-#[attribute(ident = embedded_solver)]
-pub struct EmbeddedSolverAttr {
-    /// Fixed step size for the embedded solver
-    #[attribute(optional)]
-    pub step_size: Option<f64>,
+    pub enabled: Option<bool>,
 }
 
 /// StructAttribute represents the attributes that can be applied to the model struct
@@ -179,7 +170,8 @@ impl Model {
     pub fn supports_co_simulation(&self) -> bool {
         self.get_model_attr()
             .and_then(|attr| attr.co_simulation.as_ref())
-            .is_some()
+            .map(|cs| cs.enabled.unwrap_or(true))
+            .unwrap_or(false)
     }
 
     /// Check if Scheduled Execution is supported
@@ -189,32 +181,6 @@ impl Model {
             .unwrap_or(false)
     }
 
-    /// Get the Co-Simulation mode
-    pub fn cs_mode(&self) -> &'static str {
-        if !self.supports_co_simulation() {
-            return "::fmi_export::fmi3::CSMode::NotSupported";
-        }
-
-        let has_embedded_solver = self
-            .get_model_attr()
-            .and_then(|attr| attr.co_simulation.as_ref())
-            .and_then(|cs| cs.embedded_solver.as_ref())
-            .is_some();
-
-        if has_embedded_solver {
-            "::fmi_export::fmi3::CSMode::Wrapper"
-        } else {
-            "::fmi_export::fmi3::CSMode::Direct"
-        }
-    }
-
-    /// Get the fixed solver step size if using embedded solver
-    pub fn fixed_solver_step(&self) -> Option<f64> {
-        self.get_model_attr()
-            .and_then(|attr| attr.co_simulation.as_ref())
-            .and_then(|cs| cs.embedded_solver.as_ref())
-            .and_then(|solver| solver.step_size)
-    }
 }
 
 impl TryFrom<syn::Field> for Field {
@@ -307,6 +273,7 @@ impl From<syn::DeriveInput> for Model {
     }
 }
 
+/// Parse struct-level attributes, tolerating both `co_simulation()` and `co_simulation = true/false`
 pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
     attrs
         .into_iter()
@@ -315,17 +282,78 @@ pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
                 parse_doc_attribute(&attr).map(StructAttrOuter::Docstring)
             }
 
-            Some(ident) if ident == "model" => match StructAttr::from_attribute(attr.clone()) {
-                Ok(attr) => Some(StructAttrOuter::Model(attr)),
-                Err(e) => {
-                    emit_error!(attr, format!("{e}"));
-                    None
+            Some(ident) if ident == "model" => {
+                // Prefer the derived parser; fall back to a manual tolerant parser for bool flags
+                match StructAttr::from_attribute(attr.clone())
+                    .or_else(|_e| parse_model_attr_bool(attr.clone()))
+                {
+                    Ok(attr) => Some(StructAttrOuter::Model(attr)),
+                    Err(e) => {
+                        emit_error!(attr, format!("{e}"));
+                        None
+                    }
                 }
-            },
+            }
 
             _ => None,
         })
         .collect()
+}
+
+/// Fallback parser that accepts boolean flags for co_simulation/model_exchange/scheduled_execution
+fn parse_model_attr_bool(attr: syn::Attribute) -> Result<StructAttr, String> {
+    let mut model_attr = StructAttr::default();
+
+    let list = attr
+        .meta
+        .require_list()
+        .map_err(|_| "expected a model attribute list like #[model(...)]".to_string())?;
+
+    for nested in list.parse_args_with(syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)
+        .map_err(|_| "failed to parse #[model(...)] arguments".to_string())?
+    {
+        match nested {
+            syn::Meta::NameValue(nv) if nv.path.is_ident("model_exchange") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.model_exchange = Some(lit_bool.value);
+                } else {
+                    return Err("model_exchange expects a boolean".into());
+                }
+            }
+            syn::Meta::NameValue(nv) if nv.path.is_ident("co_simulation") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.co_simulation = Some(CoSimulationAttr {
+                        enabled: Some(lit_bool.value),
+                    });
+                } else {
+                    return Err("co_simulation expects a boolean".into());
+                }
+            }
+            syn::Meta::NameValue(nv) if nv.path.is_ident("scheduled_execution") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.scheduled_execution = Some(lit_bool.value);
+                } else {
+                    return Err("scheduled_execution expects a boolean".into());
+                }
+            }
+            // Ignore unknown entries here and let the main parser report errors elsewhere
+            _ => {}
+        }
+    }
+
+    Ok(model_attr)
 }
 
 /// Check if a field has any FMU-relevant attributes (variable or alias)
