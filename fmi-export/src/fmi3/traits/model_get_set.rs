@@ -2,7 +2,7 @@ use fmi::fmi3::{Fmi3Error, binding};
 
 use crate::fmi3::{Clock, types::Binary};
 
-use super::{Context, Model, UserModel};
+use super::{Context, Model};
 
 /// Macro to generate getter and setter method declarations for the ModelGetSet trait
 macro_rules! model_getter_setter {
@@ -37,7 +37,7 @@ macro_rules! model_getter_setter {
 macro_rules! impl_model_get_set_primitive {
     ($name:ident, $ty:ty, $data_type:expr) => {
         paste::paste! {
-            impl<M: Model + UserModel> ModelGetSet<M> for $ty {
+            impl<M: Model> ModelGetSet<M> for $ty {
                 const FIELD_COUNT: usize = 1;
                 fn [<get_ $name>](
                     &self,
@@ -67,7 +67,7 @@ macro_rules! impl_model_get_set_primitive {
                 }
             }
 
-            impl<M: Model + UserModel, const N: usize> ModelGetSet<M> for [$ty; N] {
+            impl<M: Model, const N: usize> ModelGetSet<M> for [$ty; N] {
                 const FIELD_COUNT: usize = N;
                 fn [<get_ $name>](
                     &self,
@@ -102,7 +102,7 @@ macro_rules! impl_model_get_set_primitive {
     };
 }
 
-pub trait ModelGetSet<M: Model + UserModel> {
+pub trait ModelGetSet<M: Model> {
     /// The total number of primitive fields when flattened
     const FIELD_COUNT: usize;
 
@@ -175,7 +175,7 @@ impl_model_get_set_primitive!(uint16, u16, schema::DataType::Uint16);
 impl_model_get_set_primitive!(uint32, u32, schema::DataType::Uint32);
 impl_model_get_set_primitive!(uint64, u64, schema::DataType::Uint64);
 
-impl<M: Model + UserModel> ModelGetSet<M> for String {
+impl<M: Model> ModelGetSet<M> for String {
     const FIELD_COUNT: usize = 1;
     fn get_string(
         &self,
@@ -208,7 +208,7 @@ impl<M: Model + UserModel> ModelGetSet<M> for String {
     }
 }
 
-impl<M: Model + UserModel> ModelGetSet<M> for Clock {
+impl<M: Model> ModelGetSet<M> for Clock {
     const FIELD_COUNT: usize = 1;
     fn get_clock(
         &mut self,
@@ -240,7 +240,7 @@ impl<M: Model + UserModel> ModelGetSet<M> for Clock {
     }
 }
 
-impl<M: Model + UserModel> ModelGetSet<M> for Binary {
+impl<M: Model> ModelGetSet<M> for Binary {
     const FIELD_COUNT: usize = 1;
     fn get_binary(
         &self,
