@@ -60,6 +60,7 @@ impl ToTokens for ModelImpl<'_> {
                     variables: &mut ::fmi::schema::fmi3::ModelVariables,
                     model_structure: &mut ::fmi::schema::fmi3::ModelStructure,
                     vr_offset: u32,
+                    prefix: Option<&str>,
                 ) -> u32 {
                     #build_metadata_body
                 }

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, format_ident, quote};
 use syn::Ident;
 
-use crate::model::{FieldAttributeOuter, Model};
+use crate::model::{Field, FieldAttributeOuter, Model};
 
 /// Generator for the ModelGetSetStates trait implementation
 pub struct ModelGetSetStatesImpl<'a> {
@@ -15,11 +15,27 @@ impl<'a> ModelGetSetStatesImpl<'a> {
         Self { struct_name, model }
     }
 
+    fn child_fields(&self) -> impl Iterator<Item = &Field> {
+        self.model.fields.iter().filter(|field| {
+            field
+                .attrs
+                .iter()
+                .any(|attr| matches!(attr, FieldAttributeOuter::Child))
+        })
+    }
+
     /// Generate the NUM_STATES constant calculation
     fn generate_num_states(&self) -> TokenStream2 {
         let mut state_counts = Vec::new();
 
         for field in self.model.iter_continuous_states() {
+            let field_type = &field.rust_type;
+            state_counts.push(quote! {
+                <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::NUM_STATES
+            });
+        }
+
+        for field in self.child_fields() {
             let field_type = &field.rust_type;
             state_counts.push(quote! {
                 <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::NUM_STATES
@@ -55,6 +71,22 @@ impl<'a> ModelGetSetStatesImpl<'a> {
             offset_var = quote! { #offset_var + #count_var };
         }
 
+        for field in self.child_fields() {
+            let field_name = &field.ident;
+            let field_type = &field.rust_type;
+            let count_var = format_ident!("{}_count", field_name);
+
+            state_assignments.push(quote! {
+                let #count_var = <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::NUM_STATES;
+                <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::get_continuous_states(
+                    &self.#field_name,
+                    &mut states[#offset_var..#offset_var + #count_var]
+                )?;
+            });
+
+            offset_var = quote! { #offset_var + #count_var };
+        }
+
         if state_assignments.is_empty() {
             quote! {
                 // No continuous states in this model
@@ -87,6 +119,22 @@ impl<'a> ModelGetSetStatesImpl<'a> {
             });
 
             // Update offset for next iteration
+            offset_var = quote! { #offset_var + #count_var };
+        }
+
+        for field in self.child_fields() {
+            let field_name = &field.ident;
+            let field_type = &field.rust_type;
+            let count_var = format_ident!("{}_count", field_name);
+
+            state_assignments.push(quote! {
+                let #count_var = <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::NUM_STATES;
+                <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::set_continuous_states(
+                    &mut self.#field_name,
+                    &states[#offset_var..#offset_var + #count_var]
+                )?;
+            });
+
             offset_var = quote! { #offset_var + #count_var };
         }
 
@@ -160,6 +208,22 @@ impl<'a> ModelGetSetStatesImpl<'a> {
             });
 
             // Update offset for next iteration
+            offset_var = quote! { #offset_var + #count_var };
+        }
+
+        for field in self.child_fields() {
+            let field_name = &field.ident;
+            let field_type = &field.rust_type;
+            let count_var = format_ident!("{}_count", field_name);
+
+            derivative_assignments.push(quote! {
+                let #count_var = <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::NUM_STATES;
+                <#field_type as ::fmi_export::fmi3::ModelGetSetStates>::get_continuous_state_derivatives(
+                    &mut self.#field_name,
+                    &mut derivatives[#offset_var..#offset_var + #count_var]
+                )?;
+            });
+
             offset_var = quote! { #offset_var + #count_var };
         }
 

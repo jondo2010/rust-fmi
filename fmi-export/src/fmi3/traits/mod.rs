@@ -75,6 +75,7 @@ pub trait Model: Default {
         variables: &mut fmi::schema::fmi3::ModelVariables,
         model_structure: &mut fmi::schema::fmi3::ModelStructure,
         vr_offset: u32,
+        prefix: Option<&str>,
     ) -> u32;
 
     /// Build the top-level model variables and structure, including the 'time' variable.
@@ -94,7 +95,7 @@ pub trait Model: Default {
         );
         AppendToModelVariables::append_to_variables(time, &mut variables);
         let mut structure = fmi::schema::fmi3::ModelStructure::default();
-        let _num_vars = Self::build_metadata(&mut variables, &mut structure, 1);
+        let _num_vars = Self::build_metadata(&mut variables, &mut structure, 1, None);
         (variables, structure)
     }
 

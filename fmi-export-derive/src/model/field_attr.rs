@@ -203,4 +203,5 @@ pub enum FieldAttributeOuter {
     Docstring(String),
     Variable(FieldAttribute),
     Alias(FieldAttribute),
+    Child,
 }

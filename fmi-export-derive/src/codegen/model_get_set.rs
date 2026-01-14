@@ -39,7 +39,7 @@ fn build_getter_fn(
         let count_name = format_ident!("{}_count", f.ident);
         let field_type = &f.rust_type;
         quote! {
-            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT as u32;
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT as u32;
         }
     });
 
@@ -78,7 +78,7 @@ fn build_getter_fn(
 
         conditions.push(quote! {
             if vr < #cumulative_sum {
-                <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::#fn_name(&self.#field_name, #vr_offset, values, context)
+                <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::#fn_name(&self.#field_name, #vr_offset, values, context)
             }
         });
     }
@@ -99,7 +99,7 @@ fn build_getter_fn(
             &self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             values: &mut [#ty],
-            context: &dyn ::fmi_export::fmi3::Context<Self>
+            context: &dyn ::fmi_export::fmi3::Context<M>
         ) -> Result<usize, ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -116,7 +116,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let count_name = format_ident!("{}_count", f.ident);
         let field_type = &f.rust_type;
         quote! {
-            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT as u32;
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT as u32;
         }
     });
 
@@ -168,7 +168,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         if has_output_causality {
             conditions.push(quote! {
                 if vr < #cumulative_sum {
-                    <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::get_clock(&mut self.#field_name, #vr_offset, value, context)
+                    <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::get_clock(&mut self.#field_name, #vr_offset, value, context)
                 }
             });
         } else {
@@ -197,7 +197,7 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             &mut self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             value: &mut ::fmi::fmi3::binding::fmi3Clock,
-            context: &dyn ::fmi_export::fmi3::Context<Self>
+            context: &dyn ::fmi_export::fmi3::Context<M>
         ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -214,7 +214,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let count_name = format_ident!("{}_count", f.ident);
         let field_type = &f.rust_type;
         quote! {
-            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT as u32;
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT as u32;
         }
     });
 
@@ -267,7 +267,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             // For Input clocks: allow setting
             conditions.push(quote! {
                 if vr < #cumulative_sum {
-                    <#field_type as ::fmi_export::fmi3::ModelGetSet<Self>>::set_clock(&mut self.#field_name, #vr_offset, value, context)
+                    <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::set_clock(&mut self.#field_name, #vr_offset, value, context)
                 }
             });
         } else {
@@ -296,7 +296,7 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
             &mut self,
             vr: ::fmi::fmi3::binding::fmi3ValueReference,
             value: &::fmi::fmi3::binding::fmi3Clock,
-            context: &dyn ::fmi_export::fmi3::Context<Self>
+            context: &dyn ::fmi_export::fmi3::Context<M>
         ) -> Result<(), ::fmi::fmi3::Fmi3Error> {
             #(#scalar_var_counts)*
             #chained_conditions
@@ -345,9 +345,9 @@ impl ToTokens for ModelGetSetImpl<'_> {
         let clock_set_fn = build_clock_set_fn(self.model);
 
         tokens.extend(quote! {
-            impl ::fmi_export::fmi3::ModelGetSet<Self> for #struct_name {
+            impl<M: ::fmi_export::fmi3::Model> ::fmi_export::fmi3::ModelGetSet<M> for #struct_name {
                 const FIELD_COUNT: usize = #(
-                    <#field_types as ::fmi_export::fmi3::ModelGetSet<Self>>::FIELD_COUNT
+                    <#field_types as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT
                 )+*;
 
                 #boolean_get_fn

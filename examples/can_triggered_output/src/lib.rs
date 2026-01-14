@@ -1,13 +1,23 @@
 #![deny(clippy::all)]
 
-use fmi::fmi3::{Fmi3Error, Fmi3Res, Fmi3Status};
+use std::borrow::Cow;
+
+use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
-    fmi3::{Binary, Clock, DefaultLoggingCategory, Context, UserModel},
+    fmi3::{
+        Binary, CSDoStepResult, Clock, Context, DefaultLoggingCategory, UserModel, UserModelCS,
+        UserModelME,
+    },
     FmuModel,
 };
 use fmi_ls_bus::can::{LsBusCanArbitrationLostBehavior, LsBusCanOp};
 
-#[derive(FmuModel, Default, Debug)]
+const MAX_BUS_BUFFER: usize = 2048;
+const TRANSMIT_INTERVAL: f64 = 0.3;
+const CAN_ID: u32 = 0x1;
+
+#[derive(FmuModel, Debug)]
+#[model(co_simulation(), model_exchange = false)]
 struct CanTriggeredOutput {
     #[variable(
         name = "CanChannel.Rx_Data",
@@ -44,6 +54,12 @@ struct CanTriggeredOutput {
     #[variable(skip)]
     tx_bus: fmi_ls_bus::FmiLsBus,
 
+    #[variable(skip)]
+    simulation_time: f64,
+
+    #[variable(skip)]
+    next_transmit_time: f64,
+
     #[variable(
         name = "org.fmi_standard.fmi_ls_bus.Can_BusNotifications",
         causality = StructuralParameter,
@@ -54,12 +70,47 @@ struct CanTriggeredOutput {
     can_bus_notifications: bool,
 }
 
+impl Default for CanTriggeredOutput {
+    fn default() -> Self {
+        Self {
+            rx_data: Binary(Vec::new()),
+            tx_data: Binary(Vec::new()),
+            rx_clock: Clock::default(),
+            tx_clock: Clock::default(),
+            rx_bus: fmi_ls_bus::FmiLsBus::new(),
+            tx_bus: fmi_ls_bus::FmiLsBus::new(),
+            simulation_time: 0.0,
+            next_transmit_time: TRANSMIT_INTERVAL,
+            can_bus_notifications: false,
+        }
+    }
+}
+
+impl CanTriggeredOutput {
+    fn ensure_tx_buffer_capacity(&mut self) {
+        // Make sure the vector is large enough for writes and the current write position is valid
+        let needed_len = MAX_BUS_BUFFER.max(self.tx_bus.write_pos);
+        if self.tx_data.0.len() < needed_len {
+            self.tx_data.0.resize(needed_len, 0);
+        }
+    }
+
+    fn shrink_tx_buffer(&mut self) {
+        // Only expose the bytes we actually wrote into the buffer
+        self.tx_data.0.truncate(self.tx_bus.write_pos);
+    }
+}
+
 impl UserModel for CanTriggeredOutput {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn configurate(&mut self, _context: &impl Context<Self>) -> Result<(), Fmi3Error> {
-        self.rx_data.0.resize(2048, 0);
-        self.tx_data.0.resize(2048, 0);
+    fn configurate(&mut self, _context: &dyn Context<Self>) -> Result<(), Fmi3Error> {
+        self.rx_bus.reset();
+        self.tx_bus.reset();
+        self.rx_data.0.clear();
+        self.tx_data.0.clear();
+
+        self.ensure_tx_buffer_capacity();
 
         // Create bus configuration operations
         self.tx_bus
@@ -75,20 +126,21 @@ impl UserModel for CanTriggeredOutput {
             )
             .map_err(|_| Fmi3Error::Error)?;
 
+        self.shrink_tx_buffer();
+
         *self.tx_clock = true;
+        self.simulation_time = 0.0;
+        self.next_transmit_time = TRANSMIT_INTERVAL;
         Ok(())
     }
 
-    fn calculate_values(
-        &mut self,
-        _context: &impl Context<Self>,
-    ) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &dyn Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         Ok(Fmi3Res::OK)
     }
 
     fn event_update(
         &mut self,
-        context: &impl Context<Self>,
+        context: &dyn Context<Self>,
         event_flags: &mut fmi::EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         // We only process bus operations when the RX clock is set
@@ -102,7 +154,7 @@ impl UserModel for CanTriggeredOutput {
                 match op {
                     LsBusCanOp::Transmit { id, data, .. } => {
                         context.log(
-                            Fmi3Res::OK,
+                            Fmi3Res::OK.into(),
                             Self::LoggingCategory::default(),
                             format_args!(
                                 "Received CAN frame with ID {id} and length {}",
@@ -119,7 +171,7 @@ impl UserModel for CanTriggeredOutput {
                     }
                     _ => {
                         context.log(
-                            Fmi3Res::Warning,
+                            Fmi3Res::Warning.into(),
                             Self::LoggingCategory::default(),
                             format_args!("Received unexpected CAN operation: {:?}", op),
                         );
@@ -131,10 +183,12 @@ impl UserModel for CanTriggeredOutput {
         // Deactivate RX clock and clear RX buffer since all operations should have been processed
         *self.rx_clock = false;
         self.rx_bus.reset();
+        self.rx_data.0.clear();
 
         // Deactivate TX clock and clear TX buffer since both should have been retrieved by this time
         *self.tx_clock = false;
         self.tx_bus.reset();
+        self.tx_data.0.clear();
 
         event_flags.reset();
 
@@ -142,8 +196,77 @@ impl UserModel for CanTriggeredOutput {
     }
 }
 
+impl UserModelCS for CanTriggeredOutput {
+    fn do_step(
+        &mut self,
+        context: &mut dyn Context<Self>,
+        current_communication_point: f64,
+        communication_step_size: f64,
+        _no_set_fmu_state_prior_to_current_point: bool,
+    ) -> Result<CSDoStepResult, Fmi3Error> {
+        context.set_time(current_communication_point);
+        self.simulation_time = current_communication_point;
+
+        let target_time = current_communication_point + communication_step_size;
+        let initial_write_pos = self.tx_bus.write_pos;
+        let mut event_needed = false;
+
+        // Append outgoing frames scheduled within this step
+        self.ensure_tx_buffer_capacity();
+
+        while self.next_transmit_time <= target_time {
+            self.simulation_time = self.next_transmit_time;
+
+            self.tx_bus
+                .write_operation(
+                    LsBusCanOp::Transmit {
+                        id: CAN_ID,
+                        ide: 0,
+                        rtr: 0,
+                        data: Cow::Owned(vec![1, 2, 3, 4]),
+                    },
+                    &mut self.tx_data,
+                )
+                .map_err(|_| Fmi3Error::Error)?;
+
+            context.log(
+                Fmi3Res::OK.into(),
+                Self::LoggingCategory::default(),
+                format_args!(
+                    "Transmitting CAN frame with ID {CAN_ID} at internal time {:.3}",
+                    self.next_transmit_time
+                ),
+            );
+
+            self.next_transmit_time += TRANSMIT_INTERVAL;
+        }
+
+        // Only signal a clock tick if we queued new data
+        if self.tx_bus.write_pos > initial_write_pos {
+            self.shrink_tx_buffer();
+            *self.tx_clock = true;
+            event_needed = true;
+        } else {
+            // Ensure buffer length matches write_pos so we don't expose stale zeros
+            self.shrink_tx_buffer();
+        }
+
+        self.simulation_time = target_time;
+        context.set_time(target_time);
+
+        Ok(CSDoStepResult {
+            event_handling_needed: event_needed,
+            terminate_simulation: false,
+            early_return: false,
+            last_successful_time: target_time,
+        })
+    }
+}
+
+impl UserModelME for CanTriggeredOutput {}
+
 // Export the FMU with full C API
-//fmi_export::export_fmu!(CanTriggeredOutput);
+fmi_export::export_fmu!(CanTriggeredOutput);
 
 #[cfg(test)]
 mod tests {

@@ -215,6 +215,8 @@ impl TryFrom<syn::Field> for Field {
                     }
                 }
 
+                Some(ident) if ident == "child" => Some(FieldAttributeOuter::Child),
+
                 _ => None,
             })
             .collect();
@@ -362,7 +364,7 @@ fn has_fmu_attributes(field: &syn::Field) -> bool {
         attr.meta
             .path()
             .get_ident()
-            .map(|ident| ident == "variable" || ident == "alias")
+            .map(|ident| ident == "variable" || ident == "alias" || ident == "child")
             .unwrap_or(false)
     })
 }

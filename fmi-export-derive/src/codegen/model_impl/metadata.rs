@@ -17,6 +17,8 @@ impl<'a> BuildMetadataGen<'a> {
 
 impl ToTokens for BuildMetadataGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let prefix_binding = quote! { prefix.unwrap_or("") };
+
         // Build a map of field names to their assigned value references
         let mut field_name_to_vr = HashMap::new();
         let mut current_vr = 0u32; // Start at 0, will be added to vr_offset (1) to get actual VRs starting at 1
@@ -37,6 +39,9 @@ impl ToTokens for BuildMetadataGen<'_> {
                     FieldAttributeOuter::Alias(_) => {
                         // Ignore Alias attributes for now
                     }
+                    FieldAttributeOuter::Child => {
+                        // Child fields are flattened in a later pass; VRs are assigned then
+                    }
                     FieldAttributeOuter::Docstring(_) => {
                         // Skip docstrings
                     }
@@ -53,11 +58,26 @@ impl ToTokens for BuildMetadataGen<'_> {
             if self.has_skip_attribute(field) {
                 // For fields with skip=true, don't generate anything
                 continue;
+            } else if self.is_child_field(field) {
+                // For child fields, recursively call build_metadata and prefix variable names
+                let field_type = &field.rust_type;
+                let field_name = field.ident.to_string();
+                variable_tokens.push(quote! {
+                    let child_prefix = format!("{}{}.", #prefix_binding, #field_name);
+                    let field_count = <#field_type as ::fmi_export::fmi3::Model>::build_metadata(
+                        variables,
+                        model_structure,
+                        current_vr_offset,
+                        Some(child_prefix.as_str())
+                    );
+
+                    current_vr_offset += field_count;
+                });
             } else if self.has_no_variable_attributes(field) {
                 // For fields with no attributes, recursively call build_metadata
                 let field_type = &field.rust_type;
                 variable_tokens.push(quote! {
-                    let field_count = <#field_type as ::fmi_export::fmi3::Model>::build_metadata(variables, model_structure, current_vr_offset);
+                    let field_count = <#field_type as ::fmi_export::fmi3::Model>::build_metadata(variables, model_structure, current_vr_offset, Some(#prefix_binding));
                     current_vr_offset += field_count;
                 });
             } else {
@@ -70,6 +90,7 @@ impl ToTokens for BuildMetadataGen<'_> {
                                 var_attr,
                                 &field.ident.to_string(),
                                 &field_name_to_vr,
+                                &prefix_binding,
                             );
                             variable_tokens.push(var_token);
 
@@ -174,6 +195,9 @@ impl ToTokens for BuildMetadataGen<'_> {
                         FieldAttributeOuter::Alias(_) => {
                             // Ignore Alias attributes for now
                         }
+                        FieldAttributeOuter::Child => {
+                            // Child fields are handled separately
+                        }
                         FieldAttributeOuter::Docstring(_) => {
                             // Skip docstrings
                         }
@@ -213,6 +237,13 @@ impl BuildMetadataGen<'_> {
             .any(|attr| matches!(attr, FieldAttributeOuter::Variable(_)))
     }
 
+    fn is_child_field(&self, field: &Field) -> bool {
+        field
+            .attrs
+            .iter()
+            .any(|attr| matches!(attr, FieldAttributeOuter::Child))
+    }
+
     /// Generate a variable definition for a field
     fn generate_variable_definition(
         &self,
@@ -220,6 +251,7 @@ impl BuildMetadataGen<'_> {
         var_attr: &crate::model::FieldAttribute,
         var_name: &str,
         field_name_to_vr: &HashMap<String, u32>,
+        prefix_binding: &TokenStream2,
     ) -> TokenStream2 {
         let field_type = &field.rust_type;
         let current_vr = field_name_to_vr[var_name];
@@ -228,6 +260,7 @@ impl BuildMetadataGen<'_> {
         let variable_name = var_attr.name.as_ref()
             .map(|s| s.clone())
             .unwrap_or_else(|| field.ident.to_string());
+        let variable_name_prefixed = quote! { format!("{}{}", #prefix_binding, #variable_name) };
 
         // Build the variable definition
         let mut builder_calls = Vec::new();
@@ -324,7 +357,7 @@ impl BuildMetadataGen<'_> {
         };
 
         quote! {
-            <#field_type as ::fmi_export::fmi3::FmiVariableBuilder>::variable(#variable_name, current_vr_offset + #current_vr)
+            <#field_type as ::fmi_export::fmi3::FmiVariableBuilder>::variable(#variable_name_prefixed, current_vr_offset + #current_vr)
                 #description
                 #(#builder_calls)*
                 .finish()
