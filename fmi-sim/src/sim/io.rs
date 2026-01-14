@@ -189,6 +189,7 @@ pub struct Recorder<Inst: FmiInstance> {
     pub(crate) field: Field,
     pub(crate) value_reference: Inst::ValueRef,
     pub(crate) builder: Box<dyn ArrayBuilder>,
+    pub(crate) binary_max_size: Option<usize>,
 }
 
 pub struct RecorderState<Inst: FmiInstance> {
@@ -214,10 +215,16 @@ where
             .outputs()
             .map(|(field, vr)| {
                 let builder = make_builder(field.data_type(), num_points);
+                let binary_max_size = if field.data_type() == &DataType::Binary {
+                    import.binary_max_size(vr)
+                } else {
+                    None
+                };
                 Recorder {
                     field,
                     value_reference: vr,
                     builder,
+                    binary_max_size,
                 }
             })
             .collect();
@@ -237,6 +244,7 @@ where
                  field,
                  value_reference: _,
                  mut builder,
+                  ..
              }| { (field, builder.finish()) },
         );
 

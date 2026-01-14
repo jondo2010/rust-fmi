@@ -44,8 +44,14 @@ macro_rules! impl_record_values {
                     field,
                     value_reference: vr,
                     builder,
+                    ..
                 } in &mut recorder.recorders
                 {
+                    log::trace!(
+                        "Recording variable VR={} of type {:?}",
+                        vr,
+                        field.data_type()
+                    );
                     match field.data_type() {
                         DataType::Boolean => {
                             let mut value = [std::default::Default::default()];
@@ -83,6 +89,8 @@ macro_rules! impl_record_values {
                         _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
                     }
                 }
+
+                println!("Recorded outputs at time {}", time);
                 Ok(())
             }
         }

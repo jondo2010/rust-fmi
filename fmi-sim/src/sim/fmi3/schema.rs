@@ -4,7 +4,7 @@ use arrow::{
 };
 use fmi::{
     fmi3::{import::Fmi3Import, schema::Causality},
-    schema::fmi3::Variability,
+    schema::fmi3::{Variability, Variable},
     traits::FmiImport,
 };
 
@@ -131,5 +131,16 @@ where
             structural_parameters,
             variables,
         })
+    }
+
+    fn binary_max_size(&self, vr: Self::ValueRef) -> Option<usize> {
+        self.model_description()
+            .model_variables
+            .variables
+            .iter()
+            .find_map(|v| match v {
+                Variable::Binary(var) if var.value_reference == vr => var.max_size.map(|m| m as usize),
+                _ => None,
+            })
     }
 }
