@@ -57,8 +57,9 @@ pub struct Fmi2ModelDescription {
     #[xml(attr = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
 
+    /// FMI 2.0: Required for ModelExchange, ignored for Co-Simulation (may be absent).
     #[xml(attr = "numberOfEventIndicators")]
-    pub number_of_event_indicators: u32,
+    pub number_of_event_indicators: Option<u32>,
 
     /// If present, the FMU is based on FMI for Model Exchange
     #[xml(child = "ModelExchange")]
@@ -99,7 +100,7 @@ impl Fmi2ModelDescription {
     }
 
     pub fn num_event_indicators(&self) -> usize {
-        self.number_of_event_indicators as usize
+        self.number_of_event_indicators.unwrap_or(0) as usize
     }
 
     /// Get a iterator of the SalarVariables
@@ -408,7 +409,7 @@ mod tests {
         assert_eq!(md.version.as_deref(), Some("1.0"));
         // assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
         assert_eq!(md.variable_naming_convention, Some("structured".to_owned()));
-        assert_eq!(md.number_of_event_indicators, 2);
+        assert_eq!(md.number_of_event_indicators, Some(2));
         assert_eq!(md.model_variables.variables.len(), 4);
 
         let outputs = &md.model_structure.outputs.unknowns;

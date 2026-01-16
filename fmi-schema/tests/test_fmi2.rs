@@ -24,7 +24,7 @@ fn test_fmi2() {
         )
     );
     assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}");
-    assert_eq!(md.number_of_event_indicators, 1);
+    assert_eq!(md.number_of_event_indicators, Some(1));
 
     let me = md.model_exchange.unwrap();
     assert_eq!(me.model_identifier(), "BouncingBall");
@@ -66,4 +66,24 @@ fn test_fmi2() {
     assert_eq!(typedefs.types.len(), 3);
     assert_eq!(typedefs.types[0].name, "Position");
     assert!(matches!(typedefs.types[0].elem, SimpleTypeElement::Real(_)));
+}
+
+#[test]
+#[cfg(feature = "fmi2")]
+fn test_fmi2_co_simulation_without_event_indicators() {
+    use std::str::FromStr;
+
+    let xml = r#"
+<fmiModelDescription fmiVersion="2.0" modelName="CsOnly" guid="{00000000-0000-0000-0000-000000000000}">
+    <CoSimulation modelIdentifier="CsOnly" />
+    <ModelVariables />
+    <ModelStructure />
+</fmiModelDescription>
+"#;
+
+    let md = fmi_schema::fmi2::Fmi2ModelDescription::from_str(xml).unwrap();
+    assert!(md.model_exchange.is_none());
+    assert!(md.co_simulation.is_some());
+    assert_eq!(md.number_of_event_indicators, None);
+    assert_eq!(md.num_event_indicators(), 0);
 }
