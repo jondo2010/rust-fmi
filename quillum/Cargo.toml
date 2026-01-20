@@ -1,0 +1,20 @@
+[package]
+name = "quillum"
+version = "0.1.0"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fmi = { path = "../fmi" }
+boomerang = { path = "../../boomerang/boomerang" }
+diffsol = { version = "0.10", features = ["faer"] }
+ssp-schema = { path = "../ssp-schema" }
+thiserror = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+boomerang_util = { path = "../../boomerang/boomerang_util", features = [
+    "runner",
+] }
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }

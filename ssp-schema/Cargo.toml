@@ -1,0 +1,29 @@
+[package]
+name = "ssp-schema"
+version = "0.1.0"
+description = "XML schema support for SSP"
+readme = "README.md"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include.workspace = true
+keywords.workspace = true
+license.workspace = true
+publish = true
+repository.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+document-features = { workspace = true }
+hard-xml = { version = "1.41" }
+lenient_semver = "0.4"
+semver = "1.0"
+serde = { version = "1.0", features = ["derive"], optional = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+env_logger = "0.8"
+hard-xml = { version = "*", features = ["log"] }

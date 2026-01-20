@@ -8,8 +8,9 @@ members = [
     "fmi-sim",
     "fmi-sys",
     "fmi-test-data",
-    "fmi-xtask",
     "xtask",
+    "quillum",
+    "ssp-schema",
 ]
 resolver = "2"
 
