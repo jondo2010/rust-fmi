@@ -25,6 +25,31 @@ fn filter_non_skipped_fields(fields: &[Field]) -> Vec<&Field> {
         .collect()
 }
 
+fn is_binary_type(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .map(|segment| segment.ident == "Binary")
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
+fn filter_binary_fields(fields: &[Field]) -> Vec<&Field> {
+    filter_non_skipped_fields(fields)
+        .into_iter()
+        .filter(|field| {
+            is_binary_type(&field.rust_type)
+                || field
+                    .attrs
+                    .iter()
+                    .any(|attr| matches!(attr, FieldAttributeOuter::Child(_)))
+        })
+        .collect()
+}
+
 fn build_getter_fn(
     fn_name: Ident,
     ty: syn::Type,
@@ -107,6 +132,221 @@ fn build_getter_fn(
     }
 }
 
+fn build_setter_fn(
+    fn_name: Ident,
+    ty: syn::Type,
+    model: &crate::model::Model,
+) -> proc_macro2::TokenStream {
+    // Filter out skipped fields
+    let non_skipped_fields = filter_non_skipped_fields(&model.fields);
+
+    let scalar_var_counts = non_skipped_fields.iter().map(|f| {
+        let count_name = format_ident!("{}_count", f.ident);
+        let field_type = &f.rust_type;
+        quote! {
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT as u32;
+        }
+    });
+
+    let mut conditions = Vec::new();
+
+    for (i, field) in non_skipped_fields.iter().enumerate() {
+        let field_name = &field.ident;
+        let field_type = &field.rust_type;
+        let count_name = format_ident!("{}_count", field.ident);
+
+        let cumulative_sum = if i == 0 {
+            quote! { #count_name }
+        } else {
+            let prev_sums: Vec<_> = non_skipped_fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { #(#prev_sums)+* + #count_name }
+        };
+
+        let vr_offset = if i == 0 {
+            quote! { vr }
+        } else {
+            let prev_sums: Vec<_> = non_skipped_fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { vr - (#(#prev_sums)+*) }
+        };
+
+        conditions.push(quote! {
+            if vr < #cumulative_sum {
+                <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::#fn_name(&mut self.#field_name, #vr_offset, values, context)
+            }
+        });
+    }
+
+    let chained_conditions = if conditions.is_empty() {
+        quote! { Err(::fmi::fmi3::Fmi3Error::Error) }
+    } else {
+        let mut result = quote! { { Err(::fmi::fmi3::Fmi3Error::Error) } };
+        for condition in conditions.into_iter().rev() {
+            result = quote! { #condition else #result };
+        }
+        result
+    };
+
+    quote! {
+        fn #fn_name(
+            &mut self,
+            vr: ::fmi::fmi3::binding::fmi3ValueReference,
+            values: &[#ty],
+            context: &dyn ::fmi_export::fmi3::Context<M>
+        ) -> Result<usize, ::fmi::fmi3::Fmi3Error> {
+            #(#scalar_var_counts)*
+            #chained_conditions
+        }
+    }
+}
+
+fn build_binary_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
+    let non_skipped_fields = filter_binary_fields(&model.fields);
+
+    let scalar_var_counts = non_skipped_fields.iter().map(|f| {
+        let count_name = format_ident!("{}_count", f.ident);
+        let field_type = &f.rust_type;
+        quote! {
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT as u32;
+        }
+    });
+
+    let mut conditions = Vec::new();
+
+    for (i, field) in non_skipped_fields.iter().enumerate() {
+        let field_name = &field.ident;
+        let field_type = &field.rust_type;
+        let count_name = format_ident!("{}_count", field.ident);
+
+        let cumulative_sum = if i == 0 {
+            quote! { #count_name }
+        } else {
+            let prev_sums: Vec<_> = non_skipped_fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { #(#prev_sums)+* + #count_name }
+        };
+
+        let vr_offset = if i == 0 {
+            quote! { vr }
+        } else {
+            let prev_sums: Vec<_> = non_skipped_fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { vr - (#(#prev_sums)+*) }
+        };
+
+        conditions.push(quote! {
+            if vr < #cumulative_sum {
+                <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::get_binary(&self.#field_name, #vr_offset, values, context)
+            }
+        });
+    }
+
+    let chained_conditions = if conditions.is_empty() {
+        quote! { Err(::fmi::fmi3::Fmi3Error::Error) }
+    } else {
+        let mut result = quote! { { Err(::fmi::fmi3::Fmi3Error::Error) } };
+        for condition in conditions.into_iter().rev() {
+            result = quote! { #condition else #result };
+        }
+        result
+    };
+
+    quote! {
+        fn get_binary(
+            &self,
+            vr: ::fmi::fmi3::binding::fmi3ValueReference,
+            values: &mut [&mut [u8]],
+            context: &dyn ::fmi_export::fmi3::Context<M>
+        ) -> Result<Vec<usize>, ::fmi::fmi3::Fmi3Error> {
+            #(#scalar_var_counts)*
+            #chained_conditions
+        }
+    }
+}
+
+fn build_binary_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
+    let non_skipped_fields = filter_binary_fields(&model.fields);
+
+    let scalar_var_counts = non_skipped_fields.iter().map(|f| {
+        let count_name = format_ident!("{}_count", f.ident);
+        let field_type = &f.rust_type;
+        quote! {
+            let #count_name = <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT as u32;
+        }
+    });
+
+    let mut conditions = Vec::new();
+
+    for (i, field) in non_skipped_fields.iter().enumerate() {
+        let field_name = &field.ident;
+        let field_type = &field.rust_type;
+        let count_name = format_ident!("{}_count", field.ident);
+
+        let cumulative_sum = if i == 0 {
+            quote! { #count_name }
+        } else {
+            let prev_sums: Vec<_> = non_skipped_fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { #(#prev_sums)+* + #count_name }
+        };
+
+        let vr_offset = if i == 0 {
+            quote! { vr }
+        } else {
+            let prev_sums: Vec<_> = non_skipped_fields
+                .iter()
+                .take(i)
+                .map(|f| format_ident!("{}_count", f.ident))
+                .collect();
+            quote! { vr - (#(#prev_sums)+*) }
+        };
+
+        conditions.push(quote! {
+            if vr < #cumulative_sum {
+                <#field_type as ::fmi_export::fmi3::ModelGetSet<M>>::set_binary(&mut self.#field_name, #vr_offset, values, context)
+            }
+        });
+    }
+
+    let chained_conditions = if conditions.is_empty() {
+        quote! { Err(::fmi::fmi3::Fmi3Error::Error) }
+    } else {
+        let mut result = quote! { { Err(::fmi::fmi3::Fmi3Error::Error) } };
+        for condition in conditions.into_iter().rev() {
+            result = quote! { #condition else #result };
+        }
+        result
+    };
+
+    quote! {
+        fn set_binary(
+            &mut self,
+            vr: ::fmi::fmi3::binding::fmi3ValueReference,
+            values: &[&[u8]],
+            context: &dyn ::fmi_export::fmi3::Context<M>
+        ) -> Result<usize, ::fmi::fmi3::Fmi3Error> {
+            #(#scalar_var_counts)*
+            #chained_conditions
+        }
+    }
+}
+
 fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
     // Filter out skipped fields
     let non_skipped_fields = filter_non_skipped_fields(&model.fields);
@@ -128,18 +368,24 @@ fn build_clock_get_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let field_type = &field.rust_type;
         let count_name = format_ident!("{}_count", field.ident);
 
-        // Check if this field has Output causality for Clock variables
-        let has_output_causality = field.attrs.iter().any(|attr| {
-            if let crate::model::FieldAttributeOuter::Variable(var_attr) = attr {
-                if let Some(causality) = &var_attr.causality {
-                    matches!(causality.0, fmi::fmi3::schema::Causality::Output)
+        // Check if this field has Output causality for Clock variables,
+        // or if it is a child model (delegate to child for causality checks).
+        let is_child = field
+            .attrs
+            .iter()
+            .any(|attr| matches!(attr, crate::model::FieldAttributeOuter::Child(_)));
+        let has_output_causality = is_child
+            || field.attrs.iter().any(|attr| {
+                if let crate::model::FieldAttributeOuter::Variable(var_attr) = attr {
+                    if let Some(causality) = &var_attr.causality {
+                        matches!(causality.0, fmi::fmi3::schema::Causality::Output)
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }
-            } else {
-                false
-            }
-        });
+            });
 
         // Build cumulative sum for the condition
         let cumulative_sum = if i == 0 {
@@ -226,18 +472,24 @@ fn build_clock_set_fn(model: &crate::model::Model) -> proc_macro2::TokenStream {
         let field_type = &field.rust_type;
         let count_name = format_ident!("{}_count", field.ident);
 
-        // Check if this field has Input causality for Clock variables
-        let has_input_causality = field.attrs.iter().any(|attr| {
-            if let crate::model::FieldAttributeOuter::Variable(var_attr) = attr {
-                if let Some(causality) = &var_attr.causality {
-                    matches!(causality.0, fmi::fmi3::schema::Causality::Input)
+        // Check if this field has Input causality for Clock variables,
+        // or if it is a child model (delegate to child for causality checks).
+        let is_child = field
+            .attrs
+            .iter()
+            .any(|attr| matches!(attr, crate::model::FieldAttributeOuter::Child(_)));
+        let has_input_causality = is_child
+            || field.attrs.iter().any(|attr| {
+                if let crate::model::FieldAttributeOuter::Variable(var_attr) = attr {
+                    if let Some(causality) = &var_attr.causality {
+                        matches!(causality.0, fmi::fmi3::schema::Causality::Input)
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }
-            } else {
-                false
-            }
-        });
+            });
 
         // Build cumulative sum for the condition
         let cumulative_sum = if i == 0 {
@@ -315,30 +567,59 @@ impl ToTokens for ModelGetSetImpl<'_> {
         // Generate all getter/setter functions
         let boolean_get_fn =
             build_getter_fn(format_ident!("get_boolean"), parse_quote!(bool), self.model);
+        let boolean_set_fn =
+            build_setter_fn(format_ident!("set_boolean"), parse_quote!(bool), self.model);
         let float32_get_fn =
             build_getter_fn(format_ident!("get_float32"), parse_quote!(f32), self.model);
+        let float32_set_fn =
+            build_setter_fn(format_ident!("set_float32"), parse_quote!(f32), self.model);
         let float64_get_fn =
             build_getter_fn(format_ident!("get_float64"), parse_quote!(f64), self.model);
+        let float64_set_fn =
+            build_setter_fn(format_ident!("set_float64"), parse_quote!(f64), self.model);
         let int8_get_fn = build_getter_fn(format_ident!("get_int8"), parse_quote!(i8), self.model);
+        let int8_set_fn = build_setter_fn(format_ident!("set_int8"), parse_quote!(i8), self.model);
         let int16_get_fn =
             build_getter_fn(format_ident!("get_int16"), parse_quote!(i16), self.model);
+        let int16_set_fn =
+            build_setter_fn(format_ident!("set_int16"), parse_quote!(i16), self.model);
         let int32_get_fn =
             build_getter_fn(format_ident!("get_int32"), parse_quote!(i32), self.model);
+        let int32_set_fn =
+            build_setter_fn(format_ident!("set_int32"), parse_quote!(i32), self.model);
         let int64_get_fn =
             build_getter_fn(format_ident!("get_int64"), parse_quote!(i64), self.model);
+        let int64_set_fn =
+            build_setter_fn(format_ident!("set_int64"), parse_quote!(i64), self.model);
         let uint8_get_fn =
             build_getter_fn(format_ident!("get_uint8"), parse_quote!(u8), self.model);
+        let uint8_set_fn =
+            build_setter_fn(format_ident!("set_uint8"), parse_quote!(u8), self.model);
         let uint16_get_fn =
             build_getter_fn(format_ident!("get_uint16"), parse_quote!(u16), self.model);
+        let uint16_set_fn =
+            build_setter_fn(format_ident!("set_uint16"), parse_quote!(u16), self.model);
         let uint32_get_fn =
             build_getter_fn(format_ident!("get_uint32"), parse_quote!(u32), self.model);
+        let uint32_set_fn =
+            build_setter_fn(format_ident!("set_uint32"), parse_quote!(u32), self.model);
         let uint64_get_fn =
             build_getter_fn(format_ident!("get_uint64"), parse_quote!(u64), self.model);
+        let uint64_set_fn =
+            build_setter_fn(format_ident!("set_uint64"), parse_quote!(u64), self.model);
         let string_get_fn = build_getter_fn(
             format_ident!("get_string"),
             parse_quote!(std::ffi::CString),
             self.model,
         );
+        let string_set_fn = build_setter_fn(
+            format_ident!("set_string"),
+            parse_quote!(std::ffi::CString),
+            self.model,
+        );
+
+        let binary_get_fn = build_binary_get_fn(self.model);
+        let binary_set_fn = build_binary_set_fn(self.model);
 
         // Generate Clock-specific methods
         let clock_get_fn = build_clock_get_fn(self.model);
@@ -351,17 +632,31 @@ impl ToTokens for ModelGetSetImpl<'_> {
                 )+*;
 
                 #boolean_get_fn
+                #boolean_set_fn
                 #float32_get_fn
+                #float32_set_fn
                 #float64_get_fn
+                #float64_set_fn
                 #int8_get_fn
+                #int8_set_fn
                 #int16_get_fn
+                #int16_set_fn
                 #int32_get_fn
+                #int32_set_fn
                 #int64_get_fn
+                #int64_set_fn
                 #uint8_get_fn
+                #uint8_set_fn
                 #uint16_get_fn
+                #uint16_set_fn
                 #uint32_get_fn
+                #uint32_set_fn
                 #uint64_get_fn
+                #uint64_set_fn
                 #string_get_fn
+                #string_set_fn
+                #binary_get_fn
+                #binary_set_fn
                 #clock_get_fn
                 #clock_set_fn
             }

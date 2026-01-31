@@ -23,6 +23,10 @@ This repository is composed of the following crates:
 | `fmi-export-derive` | Procedural macros for `fmi-export`                 | [docs.rs](https://docs.rs/fmi-export-derive/latest) | [README][fmi-export-derive-readme] |
 | `fmi-xtask`         | FMU export build tooling                           | [docs.rs](https://docs.rs/fmi-xtask/latest)         | [README][fmi-xtask-readme]    |
 
+## Building FMUs
+
+See `docs/building-fmus.md` for the step-by-step workflow and expected output paths.
+
 ## Development
 
 For development information, build instructions, and contribution guidelines, see [DEVELOP.md](DEVELOP.md).

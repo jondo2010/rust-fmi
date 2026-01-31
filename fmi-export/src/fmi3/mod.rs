@@ -21,11 +21,10 @@ mod variable_builder;
 use std::{fmt::Display, str::FromStr};
 
 // Re-exports
-pub use instance::{context::BasicContext, ModelInstance};
+pub use instance::{ModelInstance, context::BasicContext};
 pub use traits::{
-    Context, CSDoStepResult, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange,
+    CSDoStepResult, Context, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange,
     Fmi3ScheduledExecution, Model, ModelGetSet, ModelGetSetStates, ModelLoggingCategory, UserModel,
-    UserModelCS, UserModelME, UserModelSE,
 };
 pub use types::{Binary, Clock, InitializeFromStart};
 pub use variable_builder::{FmiVariableBuilder, VariableBuilder};

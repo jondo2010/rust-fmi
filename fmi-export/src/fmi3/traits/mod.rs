@@ -182,9 +182,7 @@ pub trait UserModel: Sized {
         event_flags.reset();
         Ok(Fmi3Res::OK)
     }
-}
 
-pub trait UserModelME: UserModel {
     /// Get event indicators for zero-crossing detection
     ///
     /// # Returns
@@ -204,21 +202,19 @@ pub trait UserModelME: UserModel {
         }
         Ok(true)
     }
-}
 
-/// Implement this trait on your model for Co-Simulation support.
-pub trait UserModelCS: UserModel {
+    /// Co-Simulation step implementation.
+    ///
+    /// Default behavior advances time and reports a completed step.
     fn do_step(
         &mut self,
         context: &mut dyn Context<Self>,
         current_communication_point: f64,
         communication_step_size: f64,
-        no_set_fmu_state_prior_to_current_point: bool,
-    ) -> Result<CSDoStepResult, Fmi3Error>;
+        _no_set_fmu_state_prior_to_current_point: bool,
+    ) -> Result<CSDoStepResult, Fmi3Error> {
+        let target_time = current_communication_point + communication_step_size;
+        context.set_time(target_time);
+        Ok(CSDoStepResult::completed(target_time))
+    }
 }
-
-/// Implement this trait on your model to enable an FMU wrapper for Co-Simulation.
-///
-/// A fixed-step solver will be used to advance the simulation time.
-/// Implement this trait on your model for Scheduled Execution support.
-pub trait UserModelSE: UserModel {}

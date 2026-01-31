@@ -39,7 +39,7 @@ impl ToTokens for BuildMetadataGen<'_> {
                     FieldAttributeOuter::Alias(_) => {
                         // Ignore Alias attributes for now
                     }
-                    FieldAttributeOuter::Child => {
+                    FieldAttributeOuter::Child(_) => {
                         // Child fields are flattened in a later pass; VRs are assigned then
                     }
                     FieldAttributeOuter::Docstring(_) => {
@@ -62,8 +62,9 @@ impl ToTokens for BuildMetadataGen<'_> {
                 // For child fields, recursively call build_metadata and prefix variable names
                 let field_type = &field.rust_type;
                 let field_name = field.ident.to_string();
+                let child_prefix_lit = self.child_prefix_literal(field, &field_name);
                 variable_tokens.push(quote! {
-                    let child_prefix = format!("{}{}.", #prefix_binding, #field_name);
+                    let child_prefix = format!("{}{}.", #prefix_binding, #child_prefix_lit);
                     let field_count = <#field_type as ::fmi_export::fmi3::Model>::build_metadata(
                         variables,
                         model_structure,
@@ -195,7 +196,7 @@ impl ToTokens for BuildMetadataGen<'_> {
                         FieldAttributeOuter::Alias(_) => {
                             // Ignore Alias attributes for now
                         }
-                        FieldAttributeOuter::Child => {
+                        FieldAttributeOuter::Child(_) => {
                             // Child fields are handled separately
                         }
                         FieldAttributeOuter::Docstring(_) => {
@@ -241,7 +242,19 @@ impl BuildMetadataGen<'_> {
         field
             .attrs
             .iter()
-            .any(|attr| matches!(attr, FieldAttributeOuter::Child))
+            .any(|attr| matches!(attr, FieldAttributeOuter::Child(_)))
+    }
+
+    fn child_prefix_literal(&self, field: &Field, default_name: &str) -> syn::LitStr {
+        let prefix = field.attrs.iter().find_map(|attr| {
+            if let FieldAttributeOuter::Child(child_attr) = attr {
+                child_attr.prefix.as_deref()
+            } else {
+                None
+            }
+        });
+        let prefix = prefix.unwrap_or(default_name);
+        syn::LitStr::new(prefix, field.ident.span())
     }
 
     /// Generate a variable definition for a field

@@ -6,7 +6,7 @@
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
-    fmi3::{CSDoStepResult, Context, DefaultLoggingCategory, UserModel, UserModelCS, UserModelME},
+    fmi3::{CSDoStepResult, Context, DefaultLoggingCategory, UserModel},
     FmuModel,
 };
 
@@ -15,7 +15,7 @@ use fmi_export::{
 /// This is a simple first-order linear ODE that demonstrates basic
 /// Model Exchange and Co-Simulation capabilities.
 #[derive(FmuModel, Default, Debug)]
-#[model(model_exchange = true, co_simulation())]
+#[model(model_exchange = true, co_simulation = true, user_model = false)]
 struct Dahlquist {
     /// The state variable
     #[variable(causality = Output, variability = Continuous, start = 1.0, initial = Exact)]
@@ -38,11 +38,7 @@ impl UserModel for Dahlquist {
         self.der_x = -self.k * self.x;
         Ok(Fmi3Res::OK)
     }
-}
 
-impl UserModelME for Dahlquist {}
-
-impl UserModelCS for Dahlquist {
     fn do_step(
         &mut self,
         context: &mut dyn Context<Self>,

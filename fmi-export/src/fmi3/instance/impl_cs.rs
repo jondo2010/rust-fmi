@@ -1,6 +1,6 @@
 use crate::fmi3::{
     Model, ModelGetSetStates, ModelState, UserModel,
-    traits::{Context, ModelGetSet, ModelLoggingCategory, UserModelCS},
+    traits::{Context, ModelGetSet, ModelLoggingCategory},
 };
 use fmi::fmi3::{CoSimulation, Fmi3Error, Fmi3Res};
 
@@ -8,7 +8,7 @@ use super::ModelInstance;
 
 impl<M, C> CoSimulation for ModelInstance<M, C>
 where
-    M: Model + UserModel + ModelGetSet<M> + ModelGetSetStates + UserModelCS,
+    M: Model + UserModel + ModelGetSet<M> + ModelGetSetStates,
     C: Context<M>,
 {
     fn enter_step_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {

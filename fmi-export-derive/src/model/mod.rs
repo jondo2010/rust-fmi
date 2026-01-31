@@ -2,7 +2,7 @@ use attribute_derive::FromAttr;
 use proc_macro_error2::emit_error;
 
 mod field_attr;
-pub use field_attr::{FieldAttribute, FieldAttributeOuter};
+pub use field_attr::{ChildAttribute, FieldAttribute, FieldAttributeOuter};
 
 /// Helper function to extract docstring from a syn::Attribute
 /// Follows DRY principles by centralizing doc attribute parsing logic
@@ -25,15 +25,6 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
     }
 }
 
-/// Co-Simulation configuration options
-#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
-#[attribute(ident = co_simulation)]
-pub struct CoSimulationAttr {
-    /// Whether Co-Simulation is enabled. Presence of the attribute defaults to `true`.
-    #[attribute(optional)]
-    pub enabled: Option<bool>,
-}
-
 /// StructAttribute represents the attributes that can be applied to the model struct
 #[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
 #[attribute(ident = model)]
@@ -46,13 +37,17 @@ pub struct StructAttr {
     #[attribute(optional)]
     pub model_exchange: Option<bool>,
     
-    /// Enable Co-Simulation interface (with optional configuration)
+    /// Enable Co-Simulation interface
     #[attribute(optional)]
-    pub co_simulation: Option<CoSimulationAttr>,
+    pub co_simulation: Option<bool>,
     
     /// Enable Scheduled Execution interface
     #[attribute(optional)]
     pub scheduled_execution: Option<bool>,
+
+    /// Whether to auto-generate a UserModel impl (default: true)
+    #[attribute(optional)]
+    pub user_model: Option<bool>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -169,8 +164,7 @@ impl Model {
     /// Check if Co-Simulation is supported
     pub fn supports_co_simulation(&self) -> bool {
         self.get_model_attr()
-            .and_then(|attr| attr.co_simulation.as_ref())
-            .map(|cs| cs.enabled.unwrap_or(true))
+            .and_then(|attr| attr.co_simulation)
             .unwrap_or(false)
     }
 
@@ -179,6 +173,13 @@ impl Model {
         self.get_model_attr()
             .and_then(|attr| attr.scheduled_execution)
             .unwrap_or(false)
+    }
+
+    /// Check if UserModel impl should be auto-generated
+    pub fn auto_user_model(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.user_model)
+            .unwrap_or(true)
     }
 
 }
@@ -215,7 +216,15 @@ impl TryFrom<syn::Field> for Field {
                     }
                 }
 
-                Some(ident) if ident == "child" => Some(FieldAttributeOuter::Child),
+                Some(ident) if ident == "child" => {
+                    match ChildAttribute::from_attribute(attr).map(FieldAttributeOuter::Child) {
+                        Ok(attr) => Some(attr),
+                        Err(e) => {
+                            emit_error!(attr, format!("{e}"));
+                            None
+                        }
+                    }
+                }
 
                 _ => None,
             })
@@ -275,7 +284,7 @@ impl From<syn::DeriveInput> for Model {
     }
 }
 
-/// Parse struct-level attributes, tolerating both `co_simulation()` and `co_simulation = true/false`
+/// Parse struct-level attributes, accepting explicit boolean values
 pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
     attrs
         .into_iter()
@@ -326,18 +335,30 @@ fn parse_model_attr_bool(attr: syn::Attribute) -> Result<StructAttr, String> {
                     return Err("model_exchange expects a boolean".into());
                 }
             }
+            syn::Meta::Path(path) if path.is_ident("model_exchange") => {
+                return Err("model_exchange expects a boolean value, e.g. model_exchange = true".into());
+            }
+            syn::Meta::List(list) if list.path.is_ident("model_exchange") => {
+                let _ = list;
+                return Err("model_exchange expects a boolean value, e.g. model_exchange = true".into());
+            }
             syn::Meta::NameValue(nv) if nv.path.is_ident("co_simulation") => {
                 if let syn::Expr::Lit(syn::ExprLit {
                     lit: syn::Lit::Bool(lit_bool),
                     ..
                 }) = nv.value
                 {
-                    model_attr.co_simulation = Some(CoSimulationAttr {
-                        enabled: Some(lit_bool.value),
-                    });
+                    model_attr.co_simulation = Some(lit_bool.value);
                 } else {
                     return Err("co_simulation expects a boolean".into());
                 }
+            }
+            syn::Meta::Path(path) if path.is_ident("co_simulation") => {
+                return Err("co_simulation expects a boolean value, e.g. co_simulation = true".into());
+            }
+            syn::Meta::List(list) if list.path.is_ident("co_simulation") => {
+                let _ = list;
+                return Err("co_simulation expects a boolean value, e.g. co_simulation = true".into());
             }
             syn::Meta::NameValue(nv) if nv.path.is_ident("scheduled_execution") => {
                 if let syn::Expr::Lit(syn::ExprLit {
@@ -349,6 +370,37 @@ fn parse_model_attr_bool(attr: syn::Attribute) -> Result<StructAttr, String> {
                 } else {
                     return Err("scheduled_execution expects a boolean".into());
                 }
+            }
+            syn::Meta::Path(path) if path.is_ident("scheduled_execution") => {
+                return Err(
+                    "scheduled_execution expects a boolean value, e.g. scheduled_execution = true"
+                        .into(),
+                );
+            }
+            syn::Meta::List(list) if list.path.is_ident("scheduled_execution") => {
+                let _ = list;
+                return Err(
+                    "scheduled_execution expects a boolean value, e.g. scheduled_execution = true"
+                        .into(),
+                );
+            }
+            syn::Meta::NameValue(nv) if nv.path.is_ident("user_model") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.user_model = Some(lit_bool.value);
+                } else {
+                    return Err("user_model expects a boolean".into());
+                }
+            }
+            syn::Meta::Path(path) if path.is_ident("user_model") => {
+                return Err("user_model expects a boolean value, e.g. user_model = false".into());
+            }
+            syn::Meta::List(list) if list.path.is_ident("user_model") => {
+                let _ = list;
+                return Err("user_model expects a boolean value, e.g. user_model = false".into());
             }
             // Ignore unknown entries here and let the main parser report errors elsewhere
             _ => {}

@@ -21,7 +21,7 @@ use fmi_export::{
 /// - Model termination conditions
 /// - Fixed step size for Co-Simulation
 #[derive(FmuModel, Default, Debug)]
-#[model()]
+#[model(user_model = false)]
 struct Stair {
     /// Counter that increments every second
     #[variable(causality = Output, variability = Discrete, start = 1, initial = Exact)]
@@ -57,4 +57,4 @@ impl UserModel for Stair {
 }
 
 // Export the FMU with full C API
-//fmi_export::export_fmu!(Stair);
+fmi_export::export_fmu!(Stair);

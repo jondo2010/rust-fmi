@@ -9,6 +9,34 @@ A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard.
 
 See [http://www.fmi-standard.org](http://www.fmi-standard.org)
 
+## Quick start: export an FMU
+
+1) Define a `cdylib` model crate and derive `FmuModel`:
+
+```
+use fmi_export::FmuModel;
+
+#[derive(FmuModel, Default, Debug)]
+struct MyModel {
+    #[variable(causality = Output, start = 1.0)]
+    y: f64,
+}
+```
+
+2) Export FMI symbols:
+
+```
+fmi_export::export_fmu!(MyModel);
+```
+
+3) Bundle the FMU with `xtask`:
+
+```
+cargo run --package xtask -- --package my-model bundle
+```
+
+See `docs/building-fmus.md` for a full walkthrough and output location details.
+
 ## License
 
 Licensed under either of

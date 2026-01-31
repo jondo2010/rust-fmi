@@ -203,5 +203,14 @@ pub enum FieldAttributeOuter {
     Docstring(String),
     Variable(FieldAttribute),
     Alias(FieldAttribute),
-    Child,
+    Child(ChildAttribute),
+}
+
+/// Attributes for child model fields
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
+#[attribute(ident = child)]
+pub struct ChildAttribute {
+    /// Optional prefix override for child variable names
+    #[attribute(optional)]
+    pub prefix: Option<String>,
 }

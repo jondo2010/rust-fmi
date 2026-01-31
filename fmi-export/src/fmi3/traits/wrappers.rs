@@ -16,7 +16,7 @@ use crate::{
             LogMessageClosure,
             context::BasicContext,
         },
-        traits::{ModelGetSet, UserModelCS, UserModelME},
+        traits::ModelGetSet,
     },
 };
 
@@ -1105,7 +1105,7 @@ where
 }
 
 // Model Exchange trait
-pub trait Fmi3ModelExchange: Fmi3Common + ModelGetSetStates + UserModelME
+pub trait Fmi3ModelExchange: Fmi3Common + ModelGetSetStates
 where
     ModelInstance<Self, BasicContext<Self>>: fmi::fmi3::ModelExchange,
 {
@@ -1288,7 +1288,7 @@ where
 }
 
 // Co-Simulation trait
-pub trait Fmi3CoSimulation: Fmi3Common + ModelGetSetStates + UserModelCS
+pub trait Fmi3CoSimulation: Fmi3Common + ModelGetSetStates
 where
     ModelInstance<Self, BasicContext<Self>>: fmi::fmi3::CoSimulation,
 {
@@ -1430,14 +1430,14 @@ impl<T> Fmi3Common for T where T: Model + UserModel + ModelGetSet<Self> + ModelG
 
 impl<T> Fmi3ModelExchange for T
 where
-    T: Model + UserModel + UserModelME + Fmi3Common + ModelGetSetStates + 'static,
+    T: Model + UserModel + Fmi3Common + ModelGetSetStates + 'static,
     ModelInstance<T, BasicContext<T>>: fmi::fmi3::ModelExchange,
 {
 }
 
 impl<T> Fmi3CoSimulation for T
 where
-    T: Model + ModelGetSetStates + UserModel + UserModelCS + Fmi3Common + 'static,
+    T: Model + ModelGetSetStates + UserModel + Fmi3Common + 'static,
     ModelInstance<T, BasicContext<T>>: fmi::fmi3::CoSimulation,
 {
 }

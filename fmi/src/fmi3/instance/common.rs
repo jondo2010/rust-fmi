@@ -199,7 +199,7 @@ impl<Tag> GetSet for Instance<Tag> {
         let n_value_references = value_references.len();
         let n_values = value_buffers.len();
 
-        let mut value_sizes = vec![0usize; n_values];
+        let mut value_sizes: Vec<usize> = value_buffers.iter().map(|buf| buf.len()).collect();
 
         // Use stack allocation for small arrays, heap for large ones
         const STACK_THRESHOLD: usize = 32;
@@ -228,9 +228,15 @@ impl<Tag> GetSet for Instance<Tag> {
                     return Err(Fmi3Error::Error);
                 }
 
-                // Copy the data from FMU buffer to user buffer
-                unsafe {
-                    std::ptr::copy_nonoverlapping(fmu_ptr, value_buffer.as_mut_ptr(), fmu_size);
+                // Copy only if FMU didn't write directly into our buffer.
+                if fmu_ptr != value_buffer.as_ptr() {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            fmu_ptr,
+                            value_buffer.as_mut_ptr(),
+                            fmu_size,
+                        );
+                    }
                 }
             }
             Ok(())
@@ -241,9 +247,9 @@ impl<Tag> GetSet for Instance<Tag> {
             let mut stack_ptrs: [MaybeUninit<*const u8>; STACK_THRESHOLD] =
                 [const { MaybeUninit::uninit() }; STACK_THRESHOLD];
 
-            // Initialize pointers to null for the FMU to populate
-            for ptr in stack_ptrs.iter_mut() {
-                *ptr = MaybeUninit::new(std::ptr::null());
+            // Initialize pointers to user-provided buffers.
+            for (ptr, buffer) in stack_ptrs.iter_mut().zip(value_buffers.iter_mut()) {
+                *ptr = MaybeUninit::new(buffer.as_mut_ptr() as *const u8);
             }
 
             Fmi3Status::from(unsafe {
@@ -266,7 +272,8 @@ impl<Tag> GetSet for Instance<Tag> {
             copy_binary_data(&ptr_slice, &value_sizes, value_buffers)?;
         } else {
             // Heap allocation for large arrays
-            let mut value_ptrs: Vec<*const u8> = vec![std::ptr::null(); n_values];
+            let mut value_ptrs: Vec<*const u8> =
+                value_buffers.iter_mut().map(|b| b.as_mut_ptr() as *const u8).collect();
 
             Fmi3Status::from(unsafe {
                 self.binding.fmi3GetBinary(

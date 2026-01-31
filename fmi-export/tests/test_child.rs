@@ -1,8 +1,7 @@
 use fmi::schema::fmi3::{ModelStructure, ModelVariables};
-use fmi_export::fmi3::{Model, UserModelCS, UserModelME};
+use fmi_export::fmi3::Model;
 use fmi_export::{
     FmuModel,
-    fmi3::{DefaultLoggingCategory, UserModel},
 };
 
 #[derive(FmuModel, Default, Debug)]
@@ -16,23 +15,6 @@ struct TestModel {
 struct TestModelParent {
     #[child]
     child: TestModel,
-}
-
-impl UserModel for TestModelParent {
-    type LoggingCategory = DefaultLoggingCategory;
-}
-
-impl UserModelME for TestModelParent {}
-impl UserModelCS for TestModelParent {
-    fn do_step(
-        &mut self,
-        context: &mut dyn fmi_export::fmi3::Context<Self>,
-        current_communication_point: f64,
-        communication_step_size: f64,
-        no_set_fmu_state_prior_to_current_point: bool,
-    ) -> Result<fmi_export::fmi3::CSDoStepResult, fmi::fmi3::Fmi3Error> {
-        todo!()
-    }
 }
 
 fmi_export::export_fmu!(TestModelParent);

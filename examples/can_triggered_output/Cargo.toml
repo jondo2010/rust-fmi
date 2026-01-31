@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 fmi = { workspace = true, features = ["fmi3"] }
 fmi-export = { workspace = true, features = ["fmi3"] }
-fmi-ls-bus = { workspace = true, features = ["can"] }
+fmi-ls-bus = { workspace = true, features = ["can", "fmi-export"] }
 
 [package.metadata.fmu]
 default_experiment = { start_time = "0", stop_time = "10", step_size = "0.001" }

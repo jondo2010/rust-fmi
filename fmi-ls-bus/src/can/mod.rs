@@ -6,6 +6,169 @@ use std::borrow::Cow;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "fmi-export")]
+use fmi_export::{
+    FmuModel,
+    fmi3::{Binary, Clock},
+};
+
+/// MIME type for FMI-LS-BUS CAN payloads.
+pub const CAN_MIME_TYPE: &str =
+    "application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"";
+
+/// Default maximum CAN bus buffer size.
+pub const DEFAULT_CAN_BUFFER_SIZE: usize = 2048;
+
+/// Reusable CAN bus component for FMU models.
+#[cfg(feature = "fmi-export")]
+#[derive(FmuModel, Debug, Default)]
+pub struct CanBus {
+    #[variable(
+        name = "Rx_Data",
+        causality = Input,
+        variability = Discrete,
+        initial = Exact,
+        max_size = 2048,
+        clocks = [rx_clock],
+        mime_type = "application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"",
+        start = b""
+    )]
+    pub rx_data: Binary,
+
+    #[variable(
+        name = "Tx_Data",
+        causality = Output,
+        variability = Discrete,
+        initial = Calculated,
+        max_size = 2048,
+        clocks = [tx_clock],
+        mime_type = "application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"",
+    )]
+    pub tx_data: Binary,
+
+    #[variable(name = "Rx_Clock", causality = Input, interval_variability = Triggered)]
+    pub rx_clock: Clock,
+
+    #[variable(name = "Tx_Clock", causality = Output, interval_variability = Triggered)]
+    pub tx_clock: Clock,
+
+    #[variable(skip)]
+    pub rx_bus: crate::FmiLsBus,
+
+    #[variable(skip)]
+    pub tx_bus: crate::FmiLsBus,
+}
+
+#[cfg(feature = "fmi-export")]
+impl CanBus {
+    /// Reset both RX/TX buffers and associated LS-BUS state.
+    pub fn reset_buffers(&mut self) {
+        self.rx_bus.reset();
+        self.tx_bus.reset();
+        self.rx_data.0.clear();
+        self.tx_data.0.clear();
+    }
+
+    /// Returns true when the RX clock is triggered.
+    pub fn rx_triggered(&self) -> bool {
+        *self.rx_clock
+    }
+
+    /// Read the next CAN operation from the RX buffer (if any).
+    pub fn read_next_operation<'a>(
+        &'a mut self,
+    ) -> Result<Option<LsBusCanOp<'a>>, FmiLsBusError> {
+        self.rx_bus.read_next_operation(&mut self.rx_data)
+    }
+
+    /// Invoke `handler` for every available RX operation when the RX clock is triggered.
+    ///
+    /// This is a convenience wrapper for `rx_triggered` + `read_next_operation` loops.
+    pub fn process_rx<F>(&mut self, mut handler: F) -> Result<(), FmiLsBusError>
+    where
+        F: for<'a> FnMut(LsBusCanOp<'a>),
+    {
+        if !self.rx_triggered() {
+            return Ok(());
+        }
+
+        while let Some(op) = self.read_next_operation()? {
+            handler(op);
+        }
+
+        Ok(())
+    }
+
+    /// Clear RX state, reset buffer, and lower the RX clock.
+    pub fn clear_rx(&mut self) {
+        *self.rx_clock = false;
+        self.rx_bus.reset();
+        self.rx_data.0.clear();
+    }
+
+    /// Clear TX state, reset buffer, and lower the TX clock.
+    pub fn clear_tx(&mut self) {
+        *self.tx_clock = false;
+        self.tx_bus.reset();
+        self.tx_data.0.clear();
+    }
+
+    /// Clear both RX and TX state after event handling.
+    pub fn clear_after_event(&mut self) {
+        self.clear_rx();
+        self.clear_tx();
+    }
+
+    /// Ensure the TX buffer is large enough for upcoming writes.
+    pub fn ensure_tx_buffer_capacity(&mut self) {
+        let needed_len = DEFAULT_CAN_BUFFER_SIZE.max(self.tx_bus.write_pos);
+        if self.tx_data.0.len() < needed_len {
+            self.tx_data.0.resize(needed_len, 0);
+        }
+    }
+
+    /// Prepare a TX batch and return the initial write position.
+    pub fn begin_tx_batch(&mut self) -> usize {
+        self.ensure_tx_buffer_capacity();
+        self.tx_bus.write_pos
+    }
+
+    /// Write a CAN operation into the TX buffer.
+    pub fn write_operation<'a>(&mut self, op: LsBusCanOp<'a>) -> Result<(), FmiLsBusError> {
+        self.ensure_tx_buffer_capacity();
+        self.tx_bus.write_operation(op, &mut self.tx_data)
+    }
+
+    /// Finalize the TX buffer by truncating to the write position.
+    pub fn shrink_tx_buffer(&mut self) {
+        self.tx_data.0.truncate(self.tx_bus.write_pos);
+    }
+
+    /// Finalize a TX batch and toggle the TX clock if data was written.
+    ///
+    /// Returns true if any data was written.
+    pub fn finalize_tx_batch(&mut self, initial_write_pos: usize) -> bool {
+        let wrote_data = self.tx_bus.write_pos > initial_write_pos;
+        self.shrink_tx_buffer();
+        if wrote_data {
+            *self.tx_clock = true;
+        }
+        wrote_data
+    }
+
+    /// Convenience helper to run a TX batch and toggle the TX clock if data was written.
+    ///
+    /// Returns true if any data was written.
+    pub fn tx_send_batch<F>(&mut self, mut writer: F) -> Result<bool, FmiLsBusError>
+    where
+        F: FnMut(&mut Self) -> Result<(), FmiLsBusError>,
+    {
+        let initial_write_pos = self.begin_tx_batch();
+        writer(self)?;
+        Ok(self.finalize_tx_batch(initial_write_pos))
+    }
+}
+
 /// Helper function to peek at the next operation without requiring FmiLsBus instance
 fn peek_next_operation_helper(
     buffer: &[u8],

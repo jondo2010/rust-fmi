@@ -20,6 +20,12 @@ impl<T> From<Vec<T>> for StartValue<T> {
     }
 }
 
+impl<T, const N: usize> From<[T; N]> for StartValue<T> {
+    fn from(value: [T; N]) -> Self {
+        StartValue::Vector(value.into())
+    }
+}
+
 impl<T: Clone> From<StartValue<T>> for Vec<T> {
     fn from(value: StartValue<T>) -> Self {
         match value {

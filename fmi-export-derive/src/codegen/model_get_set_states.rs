@@ -20,7 +20,7 @@ impl<'a> ModelGetSetStatesImpl<'a> {
             field
                 .attrs
                 .iter()
-                .any(|attr| matches!(attr, FieldAttributeOuter::Child))
+                .any(|attr| matches!(attr, FieldAttributeOuter::Child(_)))
         })
     }
 

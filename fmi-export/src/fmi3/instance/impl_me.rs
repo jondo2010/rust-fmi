@@ -1,13 +1,13 @@
 use super::ModelInstance;
 use crate::fmi3::{
     Model, ModelGetSetStates, ModelState, UserModel,
-    traits::{Context, ModelGetSet, ModelLoggingCategory, UserModelME},
+    traits::{Context, ModelGetSet, ModelLoggingCategory},
 };
 use fmi::fmi3::{Fmi3Error, Fmi3Res, ModelExchange};
 
 impl<M, C> ModelExchange for ModelInstance<M, C>
 where
-    M: Model + UserModel + ModelGetSet<M> + ModelGetSetStates + UserModelME,
+    M: Model + UserModel + ModelGetSet<M> + ModelGetSetStates,
     C: Context<M>,
 {
     fn enter_continuous_time_mode(&mut self) -> Result<Fmi3Res, Fmi3Error> {

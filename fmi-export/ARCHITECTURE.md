@@ -10,7 +10,7 @@ The user defines a model struct with state variables and their corresponding der
 
 ```rust
 #[derive(FmuModel, Default, Debug)]
-#[model(model_exchange())]
+#[model(model_exchange = true, user_model = false)]
 struct VanDerPol {
     // Parameters
     #[variable(causality = Parameter, start = 1.0)]
@@ -31,7 +31,7 @@ struct VanDerPol {
     der_x1: f64,
 }
 
-// The user implements some trait(s) to define the model behavior.
+// The user implements UserModel to define the model behavior.
 impl UserModel for VanDerPol {
     fn calculate_values(&mut self) -> fmi::fmi3::Fmi3Status {
         // Access both state variables and derivative fields directly
