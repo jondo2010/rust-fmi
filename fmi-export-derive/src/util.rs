@@ -1,3 +1,4 @@
+#![cfg(test)]
 /// Trait for parsing start values from syn::Expr
 pub trait ParseStartValue: Sized {
     fn parse_literal(lit: &syn::Lit) -> Option<Self>;

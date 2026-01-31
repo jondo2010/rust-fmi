@@ -27,7 +27,7 @@ cargo run --package xtask -- --package bouncing_ball bundle
 
 The FMU zip is written to:
 
-```
+```text
 target/fmu/<model_identifier>.fmu
 ```
 

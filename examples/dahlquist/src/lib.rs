@@ -66,6 +66,7 @@ impl UserModel for Dahlquist {
 fmi_export::export_fmu!(Dahlquist);
 
 #[cfg(test)]
+#[allow(unused_imports)]
 mod tests {
     use std::ffi::CString;
     use std::path::PathBuf;

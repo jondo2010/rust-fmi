@@ -2,7 +2,11 @@ use std::{collections::BTreeMap, path::PathBuf};
 
 use fmi::fmi3::Fmi3Status;
 
-use crate::fmi3::{UserModel, instance::LogMessageClosure, traits::{Context, ModelLoggingCategory}};
+use crate::fmi3::{
+    UserModel,
+    instance::{IntermediateUpdateClosure, LogMessageClosure},
+    traits::{Context, ModelLoggingCategory},
+};
 
 /// Basic context for Model-Exchange FMU instances
 pub struct BasicContext<M: UserModel> {
@@ -19,6 +23,8 @@ pub struct BasicContext<M: UserModel> {
     time: f64,
     /// Whether early return is allowed for CS steps.
     early_return_allowed: bool,
+    /// Optional FMI intermediate update callback (CS).
+    intermediate_update: Option<IntermediateUpdateClosure>,
 }
 
 impl<M: UserModel> BasicContext<M> {
@@ -27,6 +33,7 @@ impl<M: UserModel> BasicContext<M> {
         log_message: LogMessageClosure,
         resource_path: PathBuf,
         early_return_allowed: bool,
+        intermediate_update: Option<IntermediateUpdateClosure>,
     ) -> Self {
         let logging_on = <M as UserModel>::LoggingCategory::all_categories()
             .map(|category| (category, logging_on))
@@ -38,7 +45,12 @@ impl<M: UserModel> BasicContext<M> {
             stop_time: None,
             time: 0.0,
             early_return_allowed,
+            intermediate_update,
         }
+    }
+
+    pub fn intermediate_update(&self) -> Option<&IntermediateUpdateClosure> {
+        self.intermediate_update.as_ref()
     }
 }
 

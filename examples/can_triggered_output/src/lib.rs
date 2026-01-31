@@ -266,7 +266,7 @@ mod tests {
             <CanTriggeredOutput as fmi_export::fmi3::ModelGetSet<CanTriggeredOutput>>::FIELD_COUNT
         );
 
-        let context = BasicContext::new(true, Box::new(|_, _, _| {}), PathBuf::new(), false);
+        let context = BasicContext::new(true, Box::new(|_, _, _| {}), PathBuf::new(), false, None);
         let mut model = ModelInstance::<CanTriggeredOutput, _>::new(
             "CanTriggeredOutput".to_string(),
             CanTriggeredOutput::INSTANTIATION_TOKEN,
@@ -332,7 +332,7 @@ mod tests {
             .expect("tx clock variable")
             .value_reference();
 
-        let context = BasicContext::new(true, Box::new(|_, _, _| {}), PathBuf::new(), false);
+        let context = BasicContext::new(true, Box::new(|_, _, _| {}), PathBuf::new(), false, None);
         let mut model = ModelInstance::<CanTriggeredOutput, _>::new(
             "CanTriggeredOutput".to_string(),
             CanTriggeredOutput::INSTANTIATION_TOKEN,

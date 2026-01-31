@@ -8,16 +8,10 @@
 //!  - must fail here if the model doesn't "support" the requested interface
 use ::std::ffi::CString;
 
-use crate::{
-    checked_deref_cs, checked_deref_me, dispatch_by_instance_type,
-    fmi3::{
-        ModelGetSetStates, ModelInstance, UserModel,
-        instance::{
-            LogMessageClosure,
-            context::BasicContext,
-        },
-        traits::ModelGetSet,
-    },
+use crate::fmi3::{
+    ModelGetSetStates, ModelInstance, UserModel,
+    instance::{IntermediateUpdateClosure, LogMessageClosure, context::BasicContext},
+    traits::ModelGetSet,
 };
 
 use super::{Context, Model};
@@ -249,7 +243,7 @@ where
             return ::std::ptr::null_mut();
         }
 
-        let context = BasicContext::new(logging_on, log_message, resource_path, false);
+        let context = BasicContext::new(logging_on, log_message, resource_path, false, None);
 
         match crate::fmi3::ModelInstance::<Self, BasicContext<Self>>::new(
             name,
@@ -279,7 +273,7 @@ where
         _n_required_intermediate_variables: usize,
         _instance_environment: binding::fmi3InstanceEnvironment,
         _log_message: binding::fmi3LogMessageCallback,
-        _intermediate_update: binding::fmi3IntermediateUpdateCallback,
+        intermediate_update: binding::fmi3IntermediateUpdateCallback,
     ) -> binding::fmi3Instance {
         let name = unsafe { ::std::ffi::CStr::from_ptr(instance_name) }
             .to_string_lossy()
@@ -291,37 +285,39 @@ where
                 .into_owned(),
         );
 
-        let intermediate_update = _intermediate_update.map(|cb| {
-            Box::new(
-                move |time: f64,
-                      variable_set_requested: bool,
-                      variable_get_allowed: bool,
-                      step_finished: bool,
-                      can_return_early: bool|
-                      -> Option<f64> {
-                    let mut early_return_requested: binding::fmi3Boolean = false.into();
-                    let mut early_return_time: binding::fmi3Float64 = 0.0;
-                    unsafe {
-                        cb(
-                            std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
-                            time,
-                            variable_set_requested.into(),
-                            variable_get_allowed.into(),
-                            step_finished.into(),
-                            can_return_early.into(),
-                            &mut early_return_requested as *mut binding::fmi3Boolean,
-                            &mut early_return_time as *mut binding::fmi3Float64,
-                        )
-                    };
+        let intermediate_update: Option<IntermediateUpdateClosure> =
+            intermediate_update.map(|cb| {
+                let closure: IntermediateUpdateClosure = Box::new(
+                    move |time: f64,
+                          variable_set_requested: bool,
+                          variable_get_allowed: bool,
+                          step_finished: bool,
+                          can_return_early: bool|
+                          -> Option<f64> {
+                        let mut early_return_requested: binding::fmi3Boolean = false.into();
+                        let mut early_return_time: binding::fmi3Float64 = 0.0;
+                        unsafe {
+                            cb(
+                                std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
+                                time,
+                                variable_set_requested.into(),
+                                variable_get_allowed.into(),
+                                step_finished.into(),
+                                can_return_early.into(),
+                                &mut early_return_requested as *mut binding::fmi3Boolean,
+                                &mut early_return_time as *mut binding::fmi3Float64,
+                            )
+                        };
 
-                    if early_return_requested.into() {
-                        Some(early_return_time)
-                    } else {
-                        None
-                    }
-                },
-            )
-        });
+                        if early_return_requested.into() {
+                            Some(early_return_time)
+                        } else {
+                            None
+                        }
+                    },
+                );
+                closure
+            });
 
         // Check if Co-Simulation is supported
         if !Self::SUPPORTS_CO_SIMULATION {
@@ -366,6 +362,7 @@ where
             log_message,
             resource_path,
             early_return_allowed,
+            intermediate_update,
         );
 
         match crate::fmi3::ModelInstance::<Self, BasicContext<Self>>::new(
@@ -374,9 +371,8 @@ where
             context,
             fmi::InterfaceType::CoSimulation,
         ) {
-            Ok(instance) => {
-                ::std::boxed::Box::into_raw(::std::boxed::Box::new(instance)) as binding::fmi3Instance
-            }
+            Ok(instance) => ::std::boxed::Box::into_raw(::std::boxed::Box::new(instance))
+                as binding::fmi3Instance,
             Err(_) => {
                 eprintln!("Failed to instantiate FMU: invalid instantiation token");
                 ::std::ptr::null_mut()
@@ -397,11 +393,11 @@ where
         _lock_preemption: binding::fmi3LockPreemptionCallback,
         _unlock_preemption: binding::fmi3UnlockPreemptionCallback,
     ) -> binding::fmi3Instance {
-        let name = unsafe { ::std::ffi::CStr::from_ptr(instance_name) }
+        let _name = unsafe { ::std::ffi::CStr::from_ptr(instance_name) }
             .to_string_lossy()
             .into_owned();
-        let token = unsafe { ::std::ffi::CStr::from_ptr(instantiation_token) }.to_string_lossy();
-        let resource_path = ::std::path::PathBuf::from(
+        let _token = unsafe { ::std::ffi::CStr::from_ptr(instantiation_token) }.to_string_lossy();
+        let _resource_path = ::std::path::PathBuf::from(
             unsafe { ::std::ffi::CStr::from_ptr(resource_path) }
                 .to_string_lossy()
                 .into_owned(),
@@ -601,7 +597,7 @@ where
     // Derivative functions
     #[inline(always)]
     unsafe fn fmi3_get_directional_derivative(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _unknowns: *const binding::fmi3ValueReference,
         _n_unknowns: usize,
         _knowns: *const binding::fmi3ValueReference,
@@ -617,7 +613,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_get_adjoint_derivative(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _unknowns: *const binding::fmi3ValueReference,
         _n_unknowns: usize,
         _knowns: *const binding::fmi3ValueReference,
@@ -659,7 +655,7 @@ where
     // Clock related functions
     #[inline(always)]
     unsafe fn fmi3_get_interval_decimal(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _intervals: *mut binding::fmi3Float64,
@@ -671,7 +667,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_get_interval_fraction(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _counters: *mut binding::fmi3UInt64,
@@ -684,7 +680,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_get_shift_decimal(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _shifts: *mut binding::fmi3Float64,
@@ -695,7 +691,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_get_shift_fraction(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _counters: *mut binding::fmi3UInt64,
@@ -707,7 +703,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_set_interval_decimal(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _intervals: *const binding::fmi3Float64,
@@ -718,7 +714,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_set_interval_fraction(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _counters: *const binding::fmi3UInt64,
@@ -730,7 +726,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_set_shift_decimal(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _shifts: *const binding::fmi3Float64,
@@ -741,7 +737,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_set_shift_fraction(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
         _value_references: *const binding::fmi3ValueReference,
         _n_value_references: usize,
         _counters: *const binding::fmi3UInt64,
@@ -753,7 +749,7 @@ where
 
     #[inline(always)]
     unsafe fn fmi3_evaluate_discrete_states(
-        instance: binding::fmi3Instance,
+        _instance: binding::fmi3Instance,
     ) -> binding::fmi3Status {
         //let _instance = checked_deref_me!(instance, Self);
         todo!("Discrete states not yet implemented");
@@ -837,13 +833,8 @@ where
         // Create temporary buffer for CString results
         let mut temp_strings = vec![::std::ffi::CString::default(); n_values];
 
-        match dispatch_by_instance_type!(
-            instance,
-            Self,
-            get_string,
-            value_refs,
-            &mut temp_strings
-        ) {
+        match dispatch_by_instance_type!(instance, Self, get_string, value_refs, &mut temp_strings)
+        {
             Ok(_) => {
                 // Copy C string pointers to output array
                 let values_slice = unsafe { ::std::slice::from_raw_parts_mut(values, n_values) };
@@ -928,7 +919,8 @@ where
             }
         }
 
-        match dispatch_by_instance_type!(instance, Self, get_binary, value_refs, &mut temp_buffers) {
+        match dispatch_by_instance_type!(instance, Self, get_binary, value_refs, &mut temp_buffers)
+        {
             Ok(actual_sizes) => {
                 // Update the actual sizes
                 for (i, &size) in actual_sizes.iter().enumerate() {
@@ -1056,12 +1048,7 @@ where
         let dependent_vr = dependent.into();
 
         // Call the Rust method to get dependencies
-        match dispatch_by_instance_type!(
-            instance,
-            Self,
-            get_variable_dependencies,
-            dependent_vr
-        ) {
+        match dispatch_by_instance_type!(instance, Self, get_variable_dependencies, dependent_vr) {
             Ok(dependencies) => {
                 // Check if the caller provided enough space
                 if dependencies.len() > n_dependencies {
@@ -1188,12 +1175,7 @@ where
         n_continuous_states: usize,
     ) -> binding::fmi3Status {
         let derivs = unsafe { ::std::slice::from_raw_parts_mut(derivatives, n_continuous_states) };
-        match dispatch_by_instance_type!(
-            instance,
-            Self,
-            get_continuous_state_derivatives,
-            derivs
-        ) {
+        match dispatch_by_instance_type!(instance, Self, get_continuous_state_derivatives, derivs) {
             Ok(res) => {
                 let status: Fmi3Status = res.into();
                 status.into()
@@ -1426,7 +1408,8 @@ where
 }
 
 // Automatic implementations for all models
-impl<T> Fmi3Common for T where T: Model + UserModel + ModelGetSet<Self> + ModelGetSetStates + 'static {}
+impl<T> Fmi3Common for T where T: Model + UserModel + ModelGetSet<Self> + ModelGetSetStates + 'static
+{}
 
 impl<T> Fmi3ModelExchange for T
 where

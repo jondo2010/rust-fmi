@@ -32,15 +32,15 @@ pub struct StructAttr {
     /// Optional model description (defaults to the struct docstring)
     #[attribute(optional)]
     pub description: Option<String>,
-    
+
     /// Enable Model Exchange interface
     #[attribute(optional)]
     pub model_exchange: Option<bool>,
-    
+
     /// Enable Co-Simulation interface
     #[attribute(optional)]
     pub co_simulation: Option<bool>,
-    
+
     /// Enable Scheduled Execution interface
     #[attribute(optional)]
     pub scheduled_execution: Option<bool>,
@@ -113,14 +113,6 @@ impl Model {
         })
     }
 
-    /// Counts the total number of continuous state elements (including array elements).
-    pub fn count_continuous_states(&self) -> usize {
-        todo!()
-        //self.iter_continuous_states()
-        //    .map(|field| field.field_type.total_elements())
-        //    .sum()
-    }
-
     /// Iterator over all fields that are derivatives.
     /// A field is considered a derivative if it has a derivative attribute.
     pub fn iter_derivatives(&self) -> impl Iterator<Item = &Field> {
@@ -135,15 +127,6 @@ impl Model {
             FieldAttributeOuter::Alias(alias_attr) => alias_attr.derivative.is_some(),
             _ => false,
         })
-    }
-
-    /// Counts the total number of derivative elements (including array elements).
-    #[allow(dead_code)]
-    pub fn count_derivatives(&self) -> usize {
-        todo!()
-        //self.iter_derivatives()
-        //    .map(|field| field.field_type.total_elements())
-        //    .sum()
     }
 
     /// Get the parsed model attribute, if present
@@ -181,7 +164,6 @@ impl Model {
             .and_then(|attr| attr.user_model)
             .unwrap_or(true)
     }
-
 }
 
 impl TryFrom<syn::Field> for Field {
@@ -320,7 +302,8 @@ fn parse_model_attr_bool(attr: syn::Attribute) -> Result<StructAttr, String> {
         .require_list()
         .map_err(|_| "expected a model attribute list like #[model(...)]".to_string())?;
 
-    for nested in list.parse_args_with(syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)
+    for nested in list
+        .parse_args_with(syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)
         .map_err(|_| "failed to parse #[model(...)] arguments".to_string())?
     {
         match nested {
@@ -336,11 +319,15 @@ fn parse_model_attr_bool(attr: syn::Attribute) -> Result<StructAttr, String> {
                 }
             }
             syn::Meta::Path(path) if path.is_ident("model_exchange") => {
-                return Err("model_exchange expects a boolean value, e.g. model_exchange = true".into());
+                return Err(
+                    "model_exchange expects a boolean value, e.g. model_exchange = true".into(),
+                );
             }
             syn::Meta::List(list) if list.path.is_ident("model_exchange") => {
                 let _ = list;
-                return Err("model_exchange expects a boolean value, e.g. model_exchange = true".into());
+                return Err(
+                    "model_exchange expects a boolean value, e.g. model_exchange = true".into(),
+                );
             }
             syn::Meta::NameValue(nv) if nv.path.is_ident("co_simulation") => {
                 if let syn::Expr::Lit(syn::ExprLit {
@@ -354,11 +341,15 @@ fn parse_model_attr_bool(attr: syn::Attribute) -> Result<StructAttr, String> {
                 }
             }
             syn::Meta::Path(path) if path.is_ident("co_simulation") => {
-                return Err("co_simulation expects a boolean value, e.g. co_simulation = true".into());
+                return Err(
+                    "co_simulation expects a boolean value, e.g. co_simulation = true".into(),
+                );
             }
             syn::Meta::List(list) if list.path.is_ident("co_simulation") => {
                 let _ = list;
-                return Err("co_simulation expects a boolean value, e.g. co_simulation = true".into());
+                return Err(
+                    "co_simulation expects a boolean value, e.g. co_simulation = true".into(),
+                );
             }
             syn::Meta::NameValue(nv) if nv.path.is_ident("scheduled_execution") => {
                 if let syn::Expr::Lit(syn::ExprLit {

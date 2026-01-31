@@ -13,6 +13,8 @@ mod impl_me;
 mod impl_se;
 
 pub type LogMessageClosure = Box<dyn Fn(Fmi3Status, &str, std::fmt::Arguments<'_>) + Send + Sync>;
+pub type IntermediateUpdateClosure =
+    Box<dyn Fn(f64, bool, bool, bool, bool) -> Option<f64> + Send + Sync>;
 
 /// An exportable FMU instance, generic over model type M and context type C
 #[repr(C)]

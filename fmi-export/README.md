@@ -13,7 +13,7 @@ See [http://www.fmi-standard.org](http://www.fmi-standard.org)
 
 1) Define a `cdylib` model crate and derive `FmuModel`:
 
-```
+```rust,ignore
 use fmi_export::FmuModel;
 
 #[derive(FmuModel, Default, Debug)]
@@ -25,13 +25,13 @@ struct MyModel {
 
 2) Export FMI symbols:
 
-```
+```rust,ignore
 fmi_export::export_fmu!(MyModel);
 ```
 
 3) Bundle the FMU with `xtask`:
 
-```
+```bash
 cargo run --package xtask -- --package my-model bundle
 ```
 

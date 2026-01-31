@@ -1,6 +1,9 @@
 use fmi::fmi3::{Fmi3Error, Fmi3Res, GetSet, binding};
 
-use crate::fmi3::{Model, UserModel, traits::{Context, ModelGetSet}};
+use crate::fmi3::{
+    Model, UserModel,
+    traits::{Context, ModelGetSet},
+};
 
 /// Macro to generate getter implementations for ModelInstance
 macro_rules! instance_getter {
@@ -46,7 +49,7 @@ macro_rules! instance_setter {
                         // 'time' VR is not settable
                         return Err(Fmi3Error::Error);
                     }
-                    //self.validate_variable_setting(*vr-1)?;
+                    self.validate_variable_setting(*vr - 1)?;
                     let elements_written = self.model.[<set_ $name>](*vr-1, &values[value_index..], &self.context)?;
                     value_index += elements_written;
                 }
@@ -109,11 +112,9 @@ where
                 values[value_index] = self.context.time();
                 value_index += 1;
             } else {
-                let elements_read = self.model.get_float64(
-                    *vr - 1,
-                    &mut values[value_index..],
-                    &self.context,
-                )?;
+                let elements_read =
+                    self.model
+                        .get_float64(*vr - 1, &mut values[value_index..], &self.context)?;
                 value_index += elements_read;
             }
         }
@@ -132,11 +133,9 @@ where
                 // 'time' VR is not valid here
                 return Err(Fmi3Error::Error);
             }
-            let elements_read = self.model.get_string(
-                *vr - 1,
-                &mut values[value_index..],
-                &self.context,
-            )?;
+            let elements_read =
+                self.model
+                    .get_string(*vr - 1, &mut values[value_index..], &self.context)?;
             value_index += elements_read;
         }
         Ok(())
@@ -153,7 +152,7 @@ where
                 // 'time' VR is not settable
                 return Err(Fmi3Error::Error);
             }
-            //self.validate_variable_setting(*vr)?;
+            self.validate_variable_setting(*vr)?;
             let elements_written =
                 self.model
                     .set_string(*vr - 1, &values[value_index..], &self.context)?;
@@ -175,11 +174,9 @@ where
                 // 'time' VR is not valid here
                 return Err(Fmi3Error::Error);
             }
-            let binary_sizes = self.model.get_binary(
-                *vr - 1,
-                &mut values[value_index..],
-                &self.context,
-            )?;
+            let binary_sizes =
+                self.model
+                    .get_binary(*vr - 1, &mut values[value_index..], &self.context)?;
             result_sizes.extend(binary_sizes.iter());
             value_index += binary_sizes.len();
         }
@@ -197,7 +194,7 @@ where
                 // 'time' VR is not settable
                 return Err(Fmi3Error::Error);
             }
-            //self.validate_variable_setting(*vr - 1)?;
+            self.validate_variable_setting(*vr - 1)?;
             let elements_written =
                 self.model
                     .set_binary(*vr - 1, &values[value_index..], &self.context)?;
@@ -217,8 +214,7 @@ where
                 // 'time' VR is not valid here
                 return Err(Fmi3Error::Error);
             }
-            self.model
-                .get_clock(*vr - 1, value, &self.context)?;
+            self.model.get_clock(*vr - 1, value, &self.context)?;
         }
         Ok(Fmi3Res::OK)
     }
@@ -233,9 +229,8 @@ where
                 // 'time' VR is not settable
                 return Err(Fmi3Error::Error);
             }
-            //self.validate_variable_setting(*vr - 1)?;
-            self.model
-                .set_clock(*vr - 1, value, &self.context)?;
+            self.validate_variable_setting(*vr - 1)?;
+            self.model.set_clock(*vr - 1, value, &self.context)?;
         }
         Ok(Fmi3Res::OK)
     }

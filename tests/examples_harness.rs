@@ -1,6 +1,7 @@
 use std::process::Command;
 
 use cargo_metadata::{CrateType, Metadata, MetadataCommand, Package};
+use rstest::{fixture, rstest};
 
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
@@ -11,70 +12,54 @@ enum SimMode {
     Skip,
 }
 
-struct ExampleSpec {
-    package: &'static str,
-    sim: SimMode,
+#[fixture]
+fn metadata() -> Metadata {
+    MetadataCommand::new()
+        .exec()
+        .expect("Failed to read workspace metadata")
 }
 
-const EXAMPLES: &[ExampleSpec] = &[
-    ExampleSpec {
-        package: "bouncing_ball",
-        sim: SimMode::ModelExchange,
-    },
-    ExampleSpec {
-        package: "vanderpol",
-        sim: SimMode::ModelExchange,
-    },
-    ExampleSpec {
-        package: "dahlquist",
-        sim: SimMode::Both,
-    },
-    ExampleSpec {
-        package: "stair",
-        sim: SimMode::ModelExchange,
-    },
-    ExampleSpec {
-        package: "can-triggered-output",
+#[rstest]
+#[case::bouncing_ball("bouncing_ball", SimMode::ModelExchange)]
+#[case::vanderpol("vanderpol", SimMode::ModelExchange)]
+#[case::dahlquist("dahlquist", SimMode::Both)]
+#[case::stair("stair", SimMode::ModelExchange)]
+#[case::can_triggered_output("can-triggered-output", SimMode::Skip)]
+fn examples_export_and_simulate(
+    metadata: Metadata,
+    #[case] package: &'static str,
+    #[case] sim: SimMode,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let package = find_package(&metadata, package)?;
+    let model_identifier = cdylib_target_name(package)?;
+    let fmu_path = metadata
+        .target_directory
+        .clone()
+        .into_std_path_buf()
+        .join("fmu")
+        .join(format!("{model_identifier}.fmu"));
+
+    let mut export_cmd = Command::new(cargo_path());
+    export_cmd
+        .arg("xtask")
+        .arg("-p")
+        .arg(package.name.as_str())
+        .arg("bundle");
+    run_command(export_cmd)?;
+
+    if !fmu_path.exists() {
+        return Err(format!("Expected FMU at {}", fmu_path.display()).into());
+    }
+
+    match sim {
+        SimMode::ModelExchange => run_simulation("model-exchange", &fmu_path)?,
+        SimMode::CoSimulation => run_simulation("co-simulation", &fmu_path)?,
+        SimMode::Both => {
+            run_simulation("model-exchange", &fmu_path)?;
+            run_simulation("co-simulation", &fmu_path)?;
+        }
         // Binary CAN payloads are not yet supported by fmi-sim's FMI3 binary IO path.
-        sim: SimMode::Skip,
-    },
-];
-
-#[test]
-fn examples_export_and_simulate() -> Result<(), Box<dyn std::error::Error>> {
-    let metadata = MetadataCommand::new().exec()?;
-
-    for example in EXAMPLES {
-        let package = find_package(&metadata, example.package)?;
-        let model_identifier = cdylib_target_name(package)?;
-        let fmu_path = metadata
-            .target_directory
-            .clone()
-            .into_std_path_buf()
-            .join("fmu")
-            .join(format!("{model_identifier}.fmu"));
-
-        let mut export_cmd = Command::new(cargo_path());
-        export_cmd
-            .arg("xtask")
-            .arg("-p")
-            .arg(example.package)
-            .arg("bundle");
-        run_command(export_cmd)?;
-
-        if !fmu_path.exists() {
-            return Err(format!("Expected FMU at {}", fmu_path.display()).into());
-        }
-
-        match example.sim {
-            SimMode::ModelExchange => run_simulation("model-exchange", &fmu_path)?,
-            SimMode::CoSimulation => run_simulation("co-simulation", &fmu_path)?,
-            SimMode::Both => {
-                run_simulation("model-exchange", &fmu_path)?;
-                run_simulation("co-simulation", &fmu_path)?;
-            }
-            SimMode::Skip => {}
-        }
+        SimMode::Skip => {}
     }
 
     Ok(())
@@ -93,12 +78,7 @@ fn cdylib_target_name(package: &Package) -> Result<String, String> {
         .targets
         .iter()
         .find(|t| t.crate_types.iter().any(|ct| *ct == CrateType::CDyLib))
-        .ok_or_else(|| {
-            format!(
-                "Package '{}' does not define a cdylib target",
-                package.name
-            )
-        })?;
+        .ok_or_else(|| format!("Package '{}' does not define a cdylib target", package.name))?;
 
     Ok(target.name.clone())
 }
