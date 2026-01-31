@@ -1,6 +1,6 @@
 use super::{
-    AbstractVariableTrait, FmiBinary, FmiBoolean, FmiFloat32, FmiFloat64, FmiInt8, FmiInt16,
-    FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16, FmiUInt32, FmiUInt64,
+    AbstractVariableTrait, FmiBinary, FmiBoolean, FmiClock, FmiFloat32, FmiFloat64, FmiInt8,
+    FmiInt16, FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16, FmiUInt32, FmiUInt64,
     TypedArrayableVariableTrait,
 };
 
@@ -32,6 +32,8 @@ pub enum Variable {
     String(FmiString),
     #[xml(tag = "Binary")]
     Binary(FmiBinary),
+    #[xml(tag = "Clock")]
+    Clock(FmiClock),
 }
 
 #[derive(Debug, PartialEq, Default, hard_xml::XmlRead, hard_xml::XmlWrite)]
@@ -50,7 +52,8 @@ pub struct ModelVariables {
         child = "Float64",
         child = "Boolean",
         child = "String",
-        child = "Binary"
+        child = "Binary",
+        child = "Clock"
     )]
     pub variables: Vec<Variable>,
 }
@@ -81,6 +84,7 @@ impl ModelVariables {
             Variable::Boolean(var) => var as &dyn AbstractVariableTrait,
             Variable::String(var) => var as &dyn AbstractVariableTrait,
             Variable::Binary(var) => var as &dyn AbstractVariableTrait,
+            Variable::Clock(var) => var as &dyn AbstractVariableTrait,
         })
     }
 
@@ -243,7 +247,7 @@ impl ModelVariables {
 }
 
 /// Append a variable to the given `ModelVariables` struct
-pub trait AppendToModelVariables: AbstractVariableTrait {
+pub trait AppendToModelVariables {
     fn append_to_variables(self, variables: &mut ModelVariables);
 }
 
@@ -322,5 +326,11 @@ impl AppendToModelVariables for FmiString {
 impl AppendToModelVariables for FmiBinary {
     fn append_to_variables(self, variables: &mut ModelVariables) {
         variables.variables.push(Variable::Binary(self));
+    }
+}
+
+impl AppendToModelVariables for FmiClock {
+    fn append_to_variables(self, variables: &mut ModelVariables) {
+        variables.variables.push(Variable::Clock(self));
     }
 }

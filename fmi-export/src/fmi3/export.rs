@@ -75,19 +75,36 @@ macro_rules! generate_getset_functions {
 #[macro_export]
 macro_rules! export_fmu {
     ($ty:ty) => {
-        /// Export the model components as separate Rust str symbols
-        /// This allows extracting the individual XML components from the compiled dylib
-        #[unsafe(export_name = "FMI3_MODEL_VARIABLES")]
-        pub static FMI3_MODEL_VARIABLES: &'static str =
-            <$ty as ::fmi_export::fmi3::Model>::MODEL_VARIABLES_XML;
-
-        #[unsafe(export_name = "FMI3_MODEL_STRUCTURE")]
-        pub static FMI3_MODEL_STRUCTURE: &'static str =
-            <$ty as ::fmi_export::fmi3::Model>::MODEL_STRUCTURE_XML;
+        /// Export the model components
+        #[unsafe(export_name = "model_metadata")]
+        pub fn model_metadata() -> (
+            ::fmi::fmi3::schema::ModelVariables,
+            ::fmi::fmi3::schema::ModelStructure,
+        ) {
+            <$ty as ::fmi_export::fmi3::Model>::build_toplevel_metadata()
+        }
 
         #[unsafe(export_name = "FMI3_INSTANTIATION_TOKEN")]
         pub static FMI3_INSTANTIATION_TOKEN: &'static str =
             <$ty as ::fmi_export::fmi3::Model>::INSTANTIATION_TOKEN;
+
+        #[unsafe(export_name = "fmi3SupportsModelExchange")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        pub unsafe extern "C" fn fmi3_supports_model_exchange() -> ::fmi::fmi3::binding::fmi3Boolean {
+            <$ty as ::fmi_export::fmi3::Model>::SUPPORTS_MODEL_EXCHANGE as _
+        }
+
+        #[unsafe(export_name = "fmi3SupportsCoSimulation")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        pub unsafe extern "C" fn fmi3_supports_co_simulation() -> ::fmi::fmi3::binding::fmi3Boolean {
+            <$ty as ::fmi_export::fmi3::Model>::SUPPORTS_CO_SIMULATION as _
+        }
+
+        #[unsafe(export_name = "fmi3SupportsScheduledExecution")]
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        pub unsafe extern "C" fn fmi3_supports_scheduled_execution() -> ::fmi::fmi3::binding::fmi3Boolean {
+            <$ty as ::fmi_export::fmi3::Model>::SUPPORTS_SCHEDULED_EXECUTION as _
+        }
 
         // Inquire version numbers and set debug logging
 
@@ -887,7 +904,7 @@ macro_rules! export_fmu {
             clock_reference: ::fmi::fmi3::binding::fmi3ValueReference,
             activation_time: ::fmi::fmi3::binding::fmi3Float64,
         ) -> ::fmi::fmi3::binding::fmi3Status {
-            <$ty as $crate::fmi3::Fmi3CoSimulation>::fmi3_activate_model_partition(
+            <$ty as $crate::fmi3::Fmi3ScheduledExecution>::fmi3_activate_model_partition(
                 instance,
                 clock_reference,
                 activation_time,

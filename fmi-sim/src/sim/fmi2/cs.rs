@@ -61,10 +61,11 @@ impl SimState<InstanceCS> {
 
             self.inst
                 .record_outputs(time, &mut self.recorder_state)
-                .unwrap();
+                .expect("Failed to record outputs");
+
             self.input_state
                 .apply_input::<Linear>(time, &mut self.inst, true, true, false)
-                .unwrap();
+                .expect("Failed to apply inputs");
 
             if time >= self.sim_params.stop_time {
                 stats.end_time = time;

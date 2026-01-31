@@ -12,17 +12,24 @@
 // are never covered. This is ok since they are just thin wrappers around the Rust functions.
 #[cfg_attr(coverage_nightly, coverage(off))]
 mod export;
+
 mod instance;
 mod traits;
+mod types;
 mod variable_builder;
 
 use std::{fmt::Display, str::FromStr};
 
-pub use instance::{ModelContext, ModelInstance};
+// Re-exports
+pub use instance::{ModelInstance, context::BasicContext};
 pub use traits::{
-    Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Model, ModelLoggingCategory, UserModel,
+    CSDoStepResult, Context, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange,
+    Fmi3ScheduledExecution, Model, ModelGetSet, ModelGetSetStates, ModelLoggingCategory, UserModel,
 };
+pub use types::{Binary, Clock, InitializeFromStart};
+pub use variable_builder::{FmiVariableBuilder, VariableBuilder};
 
+/// Specifies how Co-Simulation is implemented for a model
 /// Represents the current state of the model instance
 #[derive(Debug)]
 pub enum ModelState {

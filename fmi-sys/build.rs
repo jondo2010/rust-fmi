@@ -43,4 +43,24 @@ fn main() {
             .write_to_file(out_path.join("fmi3_bindings.rs"))
             .expect("Couldn't write bindings!");
     }
+
+    #[cfg(feature = "ls-bus")]
+    {
+        let bindings = bindgen::Builder::default()
+            .header("fmi-ls-bus/headers/fmi3LsBusCan.h")
+            .header("fmi-ls-bus/headers/fmi3LsBusUtil.h")
+            .clang_arg("-Ifmi-standard3/headers")
+            .dynamic_link_require_all(false)
+            .allowlist_item("fmi3LsBus.*")
+            .allowlist_item("FMI3_LS_BUS.*")
+            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+            // Configure for Rust 2024 edition compatibility
+            .wrap_unsafe_ops(true)
+            .generate()
+            .expect("Unable to generate bindings");
+
+        bindings
+            .write_to_file(out_path.join("ls_bus_bindings.rs"))
+            .expect("Couldn't write bindings!");
+    }
 }

@@ -3,12 +3,11 @@ use std::mem::MaybeUninit;
 use crate::{
     EventFlags,
     fmi3::{
-        Fmi3Error, Fmi3Res, Fmi3Status, binding,
-        import::Fmi3Import,
+        Fmi3Error, Fmi3Res, Fmi3Status, VariableDependency, binding,
         instance::Instance,
         traits::{Common, GetSet},
     },
-    traits::{FmiImport, FmiStatus},
+    traits::FmiStatus,
 };
 
 macro_rules! impl_getter_setter {
@@ -50,7 +49,6 @@ macro_rules! impl_getter_setter {
 }
 
 impl<Tag> GetSet for Instance<Tag> {
-    type ValueRef = <Fmi3Import as FmiImport>::ValueRef;
     impl_getter_setter!(
         bool,
         get_boolean,
@@ -83,7 +81,7 @@ impl<Tag> GetSet for Instance<Tag> {
 
     fn get_string(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &mut [std::ffi::CString],
     ) -> Result<(), Fmi3Error> {
         let n_values = values.len();
@@ -147,7 +145,7 @@ impl<Tag> GetSet for Instance<Tag> {
 
     fn set_string(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &[std::ffi::CString],
     ) -> Result<(), Fmi3Error> {
         let n_values = values.len();
@@ -201,7 +199,7 @@ impl<Tag> GetSet for Instance<Tag> {
         let n_value_references = value_references.len();
         let n_values = value_buffers.len();
 
-        let mut value_sizes = vec![0usize; n_values];
+        let mut value_sizes: Vec<usize> = value_buffers.iter().map(|buf| buf.len()).collect();
 
         // Use stack allocation for small arrays, heap for large ones
         const STACK_THRESHOLD: usize = 32;
@@ -230,9 +228,15 @@ impl<Tag> GetSet for Instance<Tag> {
                     return Err(Fmi3Error::Error);
                 }
 
-                // Copy the data from FMU buffer to user buffer
-                unsafe {
-                    std::ptr::copy_nonoverlapping(fmu_ptr, value_buffer.as_mut_ptr(), fmu_size);
+                // Copy only if FMU didn't write directly into our buffer.
+                if fmu_ptr != value_buffer.as_ptr() {
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            fmu_ptr,
+                            value_buffer.as_mut_ptr(),
+                            fmu_size,
+                        );
+                    }
                 }
             }
             Ok(())
@@ -243,9 +247,9 @@ impl<Tag> GetSet for Instance<Tag> {
             let mut stack_ptrs: [MaybeUninit<*const u8>; STACK_THRESHOLD] =
                 [const { MaybeUninit::uninit() }; STACK_THRESHOLD];
 
-            // Initialize pointers to null for the FMU to populate
-            for ptr in stack_ptrs.iter_mut() {
-                *ptr = MaybeUninit::new(std::ptr::null());
+            // Initialize pointers to user-provided buffers.
+            for (ptr, buffer) in stack_ptrs.iter_mut().zip(value_buffers.iter_mut()) {
+                *ptr = MaybeUninit::new(buffer.as_mut_ptr() as *const u8);
             }
 
             Fmi3Status::from(unsafe {
@@ -268,7 +272,8 @@ impl<Tag> GetSet for Instance<Tag> {
             copy_binary_data(&ptr_slice, &value_sizes, value_buffers)?;
         } else {
             // Heap allocation for large arrays
-            let mut value_ptrs: Vec<*const u8> = vec![std::ptr::null(); n_values];
+            let mut value_ptrs: Vec<*const u8> =
+                value_buffers.iter_mut().map(|b| b.as_mut_ptr() as *const u8).collect();
 
             Fmi3Status::from(unsafe {
                 self.binding.fmi3GetBinary(
@@ -316,7 +321,7 @@ impl<Tag> GetSet for Instance<Tag> {
 
     fn get_clock(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &mut [binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error> {
         Fmi3Status::from(unsafe {
@@ -328,7 +333,7 @@ impl<Tag> GetSet for Instance<Tag> {
 
     fn set_clock(
         &mut self,
-        vrs: &[Self::ValueRef],
+        vrs: &[binding::fmi3ValueReference],
         values: &[binding::fmi3Clock],
     ) -> Result<Fmi3Res, Fmi3Error> {
         Fmi3Status::from(unsafe {
@@ -454,7 +459,7 @@ impl<Tag> Common for Instance<Tag> {
 
     fn get_number_of_variable_dependencies(
         &mut self,
-        vr: Self::ValueRef,
+        vr: binding::fmi3ValueReference,
     ) -> Result<usize, Fmi3Error> {
         let mut n_dependencies: usize = 0;
         Fmi3Status::from(unsafe {
@@ -470,8 +475,8 @@ impl<Tag> Common for Instance<Tag> {
 
     fn get_variable_dependencies(
         &mut self,
-        dependent: Self::ValueRef,
-    ) -> Result<Vec<crate::fmi3::VariableDependency<Self::ValueRef>>, Fmi3Error> {
+        dependent: binding::fmi3ValueReference,
+    ) -> Result<Vec<VariableDependency>, Fmi3Error> {
         let n_dependencies = self.get_number_of_variable_dependencies(dependent)?;
 
         if n_dependencies == 0 {
@@ -479,7 +484,8 @@ impl<Tag> Common for Instance<Tag> {
         }
 
         let mut element_indices_of_dependent = vec![MaybeUninit::<usize>::uninit(); n_dependencies];
-        let mut independents = vec![MaybeUninit::<Self::ValueRef>::uninit(); n_dependencies];
+        let mut independents =
+            vec![MaybeUninit::<binding::fmi3ValueReference>::uninit(); n_dependencies];
         let mut element_indices_of_independents =
             vec![MaybeUninit::<usize>::uninit(); n_dependencies];
         let mut dependency_kinds =
@@ -503,7 +509,7 @@ impl<Tag> Common for Instance<Tag> {
             .into_iter()
             .map(|d| unsafe { d.assume_init() })
             .collect();
-        let independents: Vec<Self::ValueRef> = independents
+        let independents: Vec<binding::fmi3ValueReference> = independents
             .into_iter()
             .map(|d| unsafe { d.assume_init() })
             .collect();

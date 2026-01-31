@@ -9,7 +9,7 @@ use fmi::{
     EventFlags,
 };
 use fmi_export::{
-    fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
+    fmi3::{Context, DefaultLoggingCategory, UserModel},
     FmuModel,
 };
 
@@ -21,7 +21,7 @@ use fmi_export::{
 /// - Model termination conditions
 /// - Fixed step size for Co-Simulation
 #[derive(FmuModel, Default, Debug)]
-#[model()]
+#[model(user_model = false)]
 struct Stair {
     /// Counter that increments every second
     #[variable(causality = Output, variability = Discrete, start = 1, initial = Exact)]
@@ -33,7 +33,7 @@ impl UserModel for Stair {
 
     fn event_update(
         &mut self,
-        context: &ModelContext<Self>,
+        context: &dyn Context<Self>,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         let epsilon = (1.0 + context.time().abs()) * f64::EPSILON;

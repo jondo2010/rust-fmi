@@ -1,131 +1,106 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 use fmi::{
     EventFlags,
     fmi3::{Fmi3Error, Fmi3Res, Fmi3Status, binding},
+    schema::fmi3::AppendToModelVariables,
 };
 
-use crate::fmi3::{ModelState, instance::ModelContext};
+use crate::fmi3::ModelState;
 
+mod model_get_set;
 mod wrappers;
 
-pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange};
+pub use model_get_set::{ModelGetSet, ModelGetSetStates};
+pub use wrappers::{Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange, Fmi3ScheduledExecution};
 
-/// Macro to generate getter and setter method declarations for the Model trait
-macro_rules! model_getter_setter {
-    ($name:ident, $ty:ty) => {
-        paste::paste! {
-            /// Get [<$name>] values from the model
-            fn [<get_ $name>](
-                &mut self,
-                vrs: &[Self::ValueRef],
-                values: &mut [$ty],
-                context: &ModelContext<Self>,
-            ) -> Result<Fmi3Res, Fmi3Error> {
-                let _ = (vrs, values, context);
-                Err(Fmi3Error::Error)
-            }
+/// Context trait for FMU instances
+pub trait Context<M: UserModel> {
+    /// Check if logging is enabled for the specified category.
+    fn logging_on(&self, category: M::LoggingCategory) -> bool;
 
-            /// Set [<$name>] values in the model
-            fn [<set_ $name>](
-                &mut self,
-                vrs: &[Self::ValueRef],
-                values: &[$ty],
-                context: &ModelContext<Self>,
-            ) -> Result<Fmi3Res, Fmi3Error> {
-                let _ = (vrs, values, context);
-                Err(Fmi3Error::Error)
-            }
-        }
-    };
-}
+    /// Enable or disable logging for the specified category.
+    fn set_logging(&mut self, category: M::LoggingCategory, enabled: bool);
 
-/// Macro for special getter/setter pairs that have different return types
-macro_rules! model_getter_setter_special {
-    (string) => {
-        /// Get string values from the model
-        fn get_string(
-            &mut self,
-            vrs: &[Self::ValueRef],
-            values: &mut [std::ffi::CString],
-            context: &ModelContext<Self>,
-        ) -> Result<(), Fmi3Error> {
-            let _ = (vrs, values, context);
-            Err(Fmi3Error::Error)
-        }
+    /// Log a message if the specified logging category is enabled.
+    fn log(&self, status: Fmi3Status, category: M::LoggingCategory, args: std::fmt::Arguments<'_>);
 
-        /// Set string values in the model
-        fn set_string(
-            &mut self,
-            vrs: &[Self::ValueRef],
-            values: &[std::ffi::CString],
-            context: &ModelContext<Self>,
-        ) -> Result<(), Fmi3Error> {
-            let _ = (vrs, values, context);
-            Err(Fmi3Error::Error)
-        }
-    };
-    (binary) => {
-        /// Get binary values from the model
-        fn get_binary(
-            &mut self,
-            vrs: &[Self::ValueRef],
-            values: &mut [&mut [u8]],
-            context: &ModelContext<Self>,
-        ) -> Result<Vec<usize>, Fmi3Error> {
-            let _ = (vrs, values, context);
-            Err(Fmi3Error::Error)
-        }
+    /// Get the path to the resources directory.
+    fn resource_path(&self) -> &PathBuf;
 
-        /// Set binary values in the model
-        fn set_binary(
-            &mut self,
-            vrs: &[Self::ValueRef],
-            values: &[&[u8]],
-            context: &ModelContext<Self>,
-        ) -> Result<(), Fmi3Error> {
-            let _ = (vrs, values, context);
-            Err(Fmi3Error::Error)
-        }
-    };
+    fn initialize(&mut self, start_time: f64, stop_time: Option<f64>);
+
+    /// Get the current simulation time.
+    fn time(&self) -> f64;
+
+    /// Set the current simulation time.
+    fn set_time(&mut self, time: f64);
+
+    /// Get the simulation stop time, if any.
+    fn stop_time(&self) -> Option<f64>;
+
+    /// Whether early return is allowed for this instance (relevant for CS).
+    fn early_return_allowed(&self) -> bool {
+        false
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
 /// Model trait. This trait should be implementing by deriving `FmuModel` on the user model struct.
 ///
 /// It provides the necessary back-end functionality for the FMI 3.0 API, delegating user-specific
 /// behavior to the `UserModel` trait.
-pub trait Model: Default + UserModel {
-    type ValueRef: Copy + From<binding::fmi3ValueReference> + Into<binding::fmi3ValueReference>;
-
+pub trait Model: Default {
     const MODEL_NAME: &'static str;
-    const MODEL_VARIABLES_XML: &'static str;
-    const MODEL_STRUCTURE_XML: &'static str;
     const INSTANTIATION_TOKEN: &'static str;
+
+    /// Number of event indicators
+    const MAX_EVENT_INDICATORS: usize;
+
+    /// Whether this model supports Model Exchange interface
+    const SUPPORTS_MODEL_EXCHANGE: bool;
+
+    /// Whether this model supports Co-Simulation interface
+    const SUPPORTS_CO_SIMULATION: bool;
+
+    /// Whether this model supports Scheduled Execution interface
+    const SUPPORTS_SCHEDULED_EXECUTION: bool;
+
+    /// Recursively build the model variables and structure by appending to the provided
+    /// `ModelVariables` and `ModelStructure` instances.
+    ///
+    /// Returns the number of variables that were added.
+    fn build_metadata(
+        variables: &mut fmi::schema::fmi3::ModelVariables,
+        model_structure: &mut fmi::schema::fmi3::ModelStructure,
+        vr_offset: u32,
+        prefix: Option<&str>,
+    ) -> u32;
+
+    /// Build the top-level model variables and structure, including the 'time' variable.
+    fn build_toplevel_metadata() -> (
+        fmi::schema::fmi3::ModelVariables,
+        fmi::schema::fmi3::ModelStructure,
+    ) {
+        let mut variables = fmi::schema::fmi3::ModelVariables::default();
+        let time = fmi::schema::fmi3::FmiFloat64::new(
+            "time".to_string(),
+            0,
+            None,
+            fmi::schema::fmi3::Causality::Independent,
+            fmi::schema::fmi3::Variability::Continuous,
+            None,
+            None,
+        );
+        AppendToModelVariables::append_to_variables(time, &mut variables);
+        let mut structure = fmi::schema::fmi3::ModelStructure::default();
+        let _num_vars = Self::build_metadata(&mut variables, &mut structure, 1, None);
+        (variables, structure)
+    }
 
     /// Set start values
     fn set_start_values(&mut self);
-
-    /// Get continuous states from the model
-    /// Returns the current values of all continuous state variables
-    fn get_continuous_states(&self, states: &mut [f64]) -> Result<Fmi3Res, Fmi3Error>;
-
-    /// Set continuous states in the model
-    /// Sets new values for all continuous state variables
-    fn set_continuous_states(&mut self, states: &[f64]) -> Result<Fmi3Res, Fmi3Error>;
-
-    /// Get derivatives of continuous states
-    /// Returns the first-order time derivatives of all continuous state variables
-    fn get_continuous_state_derivatives(
-        &mut self,
-        derivatives: &mut [f64],
-        context: &ModelContext<Self>,
-    ) -> Result<Fmi3Res, Fmi3Error>;
-
-    /// Get the number of continuous states
-    fn get_number_of_continuous_states() -> usize;
-
-    /// Get the number of event indicators
-    fn get_number_of_event_indicators() -> usize;
 
     /// Validate that a variable can be set in the current model state
     /// This method should be implemented by the generated code to check
@@ -139,33 +114,6 @@ pub trait Model: Default + UserModel {
         let _ = (vr, state);
         Ok(())
     }
-
-    fn configurate(&mut self) -> Fmi3Status {
-        // Basic configuration - in a full implementation, this would:
-        // - Allocate memory for event indicators if needed
-        // - Allocate memory for continuous states if needed
-        // - Initialize event indicator values
-        // For now, just return OK since our basic implementation doesn't need these
-        Fmi3Res::OK.into()
-    }
-
-    // GetSet methods now absorbed into Model trait using macro
-
-    model_getter_setter!(boolean, bool);
-    model_getter_setter!(float32, f32);
-    model_getter_setter!(float64, f64);
-    model_getter_setter!(int8, i8);
-    model_getter_setter!(int16, i16);
-    model_getter_setter!(int32, i32);
-    model_getter_setter!(int64, i64);
-    model_getter_setter!(uint8, u8);
-    model_getter_setter!(uint16, u16);
-    model_getter_setter!(uint32, u32);
-    model_getter_setter!(uint64, u64);
-
-    // Special getter/setter methods with different signatures
-    model_getter_setter_special!(string);
-    model_getter_setter_special!(binary);
 }
 
 pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
@@ -177,6 +125,26 @@ pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
     fn error_category() -> Self;
 }
 
+/// Result payload for a Co-Simulation `do_step` implementation.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CSDoStepResult {
+    pub event_handling_needed: bool,
+    pub terminate_simulation: bool,
+    pub early_return: bool,
+    pub last_successful_time: f64,
+}
+
+impl CSDoStepResult {
+    pub fn completed(last_successful_time: f64) -> Self {
+        Self {
+            event_handling_needed: false,
+            terminate_simulation: false,
+            early_return: false,
+            last_successful_time,
+        }
+    }
+}
+
 /// User-defined model behavior trait
 ///
 /// This trait should be hand-implemented by the user to define the specific behavior of their model.
@@ -186,13 +154,18 @@ pub trait UserModel: Sized {
     /// This is an enum that implements `ModelLoggingCategory`
     type LoggingCategory: ModelLoggingCategory + 'static;
 
+    /// Configure the model (allocate memory, initialize states, etc.)
+    /// This method is called upon exiting initialization mode
+    fn configurate(&mut self, _context: &dyn Context<Self>) -> Result<(), Fmi3Error> {
+        Ok(())
+    }
+
     /// Calculate values (derivatives, outputs, etc.)
     /// This method is called whenever the model needs to update its calculated values
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &dyn Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         Ok(Fmi3Res::OK)
     }
 
-    /// Event update function for Model Exchange
     /// Called to update discrete states and check for events
     ///
     /// This method should:
@@ -203,7 +176,7 @@ pub trait UserModel: Sized {
     /// Returns Ok with the appropriate Fmi3Res status, or Err if an error occurs
     fn event_update(
         &mut self,
-        _context: &ModelContext<Self>,
+        _context: &dyn Context<Self>,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         event_flags.reset();
@@ -220,7 +193,7 @@ pub trait UserModel: Sized {
     /// - `Err(Fmi3Error)` for other error conditions
     fn get_event_indicators(
         &mut self,
-        _context: &ModelContext<Self>,
+        _context: &dyn Context<Self>,
         indicators: &mut [f64],
     ) -> Result<bool, Fmi3Error> {
         // Default implementation: no event indicators
@@ -228,5 +201,20 @@ pub trait UserModel: Sized {
             *indicator = 0.0;
         }
         Ok(true)
+    }
+
+    /// Co-Simulation step implementation.
+    ///
+    /// Default behavior advances time and reports a completed step.
+    fn do_step(
+        &mut self,
+        context: &mut dyn Context<Self>,
+        current_communication_point: f64,
+        communication_step_size: f64,
+        _no_set_fmu_state_prior_to_current_point: bool,
+    ) -> Result<CSDoStepResult, Fmi3Error> {
+        let target_time = current_communication_point + communication_step_size;
+        context.set_time(target_time);
+        Ok(CSDoStepResult::completed(target_time))
     }
 }

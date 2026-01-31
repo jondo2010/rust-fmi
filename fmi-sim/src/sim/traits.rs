@@ -39,6 +39,13 @@ pub trait ImportSchemaBuilder: FmiImport {
         &self,
         start_values: &[String],
     ) -> anyhow::Result<StartValues<Self::ValueRef>>;
+
+    /// Maximum binary size advertised by the model description for a given value reference.
+    ///
+    /// Defaults to `None` when no binary metadata is available.
+    fn binary_max_size(&self, _vr: Self::ValueRef) -> Option<usize> {
+        None
+    }
 }
 
 pub trait InstSetValues: FmiInstance {

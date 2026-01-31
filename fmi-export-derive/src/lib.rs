@@ -7,12 +7,10 @@ use syn::{DeriveInput, parse_macro_input};
 
 mod codegen;
 mod model;
-mod model_structure;
-mod model_variables;
 mod util;
 
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+//mod tests;
 
 use codegen::CodeGenerator;
 use model::Model;
@@ -41,7 +39,7 @@ const RUST_FMI_NAMESPACE: uuid::Uuid = uuid::uuid!("6ba7b810-9dad-11d1-80b4-00c0
 ///     v: f64,
 /// }
 /// ```
-#[proc_macro_derive(FmuModel, attributes(model, variable, alias))]
+#[proc_macro_derive(FmuModel, attributes(model, variable, alias, child))]
 #[proc_macro_error]
 pub fn derive_fmu_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

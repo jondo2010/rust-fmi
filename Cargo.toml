@@ -4,6 +4,7 @@ members = [
     "fmi",
     "fmi-export",
     "fmi-export-derive",
+    "fmi-ls-bus",
     "fmi-schema",
     "fmi-sim",
     "fmi-sys",
@@ -12,6 +13,9 @@ members = [
     "xtask",
 ]
 resolver = "2"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage_nightly)"] }
 
 [workspace.package]
 version = "0.5.0"
@@ -36,9 +40,11 @@ anyhow = { version = "1.0" }
 arrow = { version = "55.2" }
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
+cargo_metadata = "0.23"
 document-features = "0.2"
 flexi_logger = "0.31"
 itertools = "0.14"
+rstest = "0.21"
 libloading = "0.8"
 log = "0.4"
 paste = "1.0"
@@ -51,6 +57,7 @@ zip = "4.0"
 fmi = { path = "fmi", version = "0.5.0", default-features = false }
 fmi-export = { path = "fmi-export", version = "0.5.0" }
 fmi-export-derive = { path = "fmi-export-derive", version = "0.5.0" }
+fmi-ls-bus = { path = "fmi-ls-bus", version = "0.5.0" }
 fmi-schema = { path = "fmi-schema", version = "0.5.0", default-features = false }
 fmi-sim = { path = "fmi-sim", version = "0.5.0" }
 fmi-sys = { path = "fmi-sys", version = "0.5.0" }
@@ -68,3 +75,6 @@ edition.workspace = true
 [dev-dependencies]
 fmi = { workspace = true }
 fmi-test-data = { workspace = true }
+cargo_metadata = { workspace = true }
+tempfile = { workspace = true }
+rstest = { workspace = true }

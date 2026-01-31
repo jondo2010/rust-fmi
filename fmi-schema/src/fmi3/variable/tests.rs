@@ -389,6 +389,19 @@ fn test_variable_annotations() {
 }
 
 #[test]
+fn test_clocks() {
+    let xml = r#"<Clock name="10msClock" valueReference="5" causality="input" intervalVariability="constant" priority="1" intervalDecimal="0.01"/>"#;
+
+    let var: FmiClock = FmiClock::from_str(xml).unwrap();
+    assert_eq!(var.name(), "10msClock");
+    assert_eq!(var.value_reference(), 5);
+    assert_eq!(var.causality(), Causality::Input);
+    assert_eq!(var.interval_variability(), IntervalVariability::Constant);
+    assert_eq!(var.priority, Some(1));
+    assert_eq!(var.interval_decimal, Some(0.01));
+}
+
+#[test]
 fn test_data_type_enum() {
     let float32_var: FmiFloat32 = Default::default();
     assert_eq!(float32_var.data_type(), VariableType::FmiFloat32);
@@ -425,6 +438,12 @@ fn test_data_type_enum() {
 
     let string_var: FmiString = Default::default();
     assert_eq!(string_var.data_type(), VariableType::FmiString);
+
+    let binary_var: FmiBinary = Default::default();
+    assert_eq!(binary_var.data_type(), VariableType::FmiBinary);
+
+    let clock_var: FmiClock = Default::default();
+    assert_eq!(clock_var.data_type(), VariableType::FmiClock);
 }
 
 #[cfg(feature = "arrow")]
@@ -445,6 +464,7 @@ fn test_arrow_data_type_conversion() {
     assert_eq!(DataType::from(VariableType::FmiBoolean), DataType::Boolean);
     assert_eq!(DataType::from(VariableType::FmiString), DataType::Utf8);
     assert_eq!(DataType::from(VariableType::FmiBinary), DataType::Binary);
+    assert_eq!(DataType::from(VariableType::FmiClock), DataType::Boolean); // Represent Clock as Boolean
 }
 
 #[test]

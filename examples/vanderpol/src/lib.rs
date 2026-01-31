@@ -11,7 +11,7 @@
 
 use fmi::fmi3::{Fmi3Error, Fmi3Res};
 use fmi_export::{
-    fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
+    fmi3::{Context, DefaultLoggingCategory, UserModel},
     FmuModel,
 };
 
@@ -25,8 +25,9 @@ use fmi_export::{
 /// - der(x0) = x1
 /// - der(x1) = μ(1 - x0²)x1 - x0
 #[derive(FmuModel, Default, Debug)]
+#[model(user_model = false)]
 struct VanDerPol {
-    #[variable(causality = Output, variability = Continuous, state, start = [2.0, 0.0], initial = Exact)]
+    #[variable(causality = Output, variability = Continuous, start = [2.0, 0.0], initial = Exact)]
     x: [f64; 2],
 
     #[variable(causality = Local, variability = Continuous, derivative = x, initial = Calculated)]
@@ -39,7 +40,7 @@ struct VanDerPol {
 impl UserModel for VanDerPol {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &dyn Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // Calculate the derivatives according to Van der Pol equations:
         // der(x[0]) = x[1]
         self.der_x[0] = self.x[1];

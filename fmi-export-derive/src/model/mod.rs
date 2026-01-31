@@ -1,10 +1,8 @@
 use attribute_derive::FromAttr;
 use proc_macro_error2::emit_error;
 
-use crate::model_variables::FieldType;
-
 mod field_attr;
-pub use field_attr::{FieldAttribute, FieldAttributeOuter};
+pub use field_attr::{ChildAttribute, FieldAttribute, FieldAttributeOuter};
 
 /// Helper function to extract docstring from a syn::Attribute
 /// Follows DRY principles by centralizing doc attribute parsing logic
@@ -28,11 +26,28 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
 }
 
 /// StructAttribute represents the attributes that can be applied to the model struct
-#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone)]
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
 #[attribute(ident = model)]
 pub struct StructAttr {
     /// Optional model description (defaults to the struct docstring)
+    #[attribute(optional)]
     pub description: Option<String>,
+
+    /// Enable Model Exchange interface
+    #[attribute(optional)]
+    pub model_exchange: Option<bool>,
+
+    /// Enable Co-Simulation interface
+    #[attribute(optional)]
+    pub co_simulation: Option<bool>,
+
+    /// Enable Scheduled Execution interface
+    #[attribute(optional)]
+    pub scheduled_execution: Option<bool>,
+
+    /// Whether to auto-generate a UserModel impl (default: true)
+    #[attribute(optional)]
+    pub user_model: Option<bool>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -45,7 +60,7 @@ pub enum StructAttrOuter {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Field {
     pub ident: syn::Ident,
-    pub field_type: FieldType,
+    pub rust_type: syn::Type,
     pub attrs: Vec<FieldAttributeOuter>,
 }
 
@@ -69,6 +84,85 @@ impl Field {
                 }
             })
             .unwrap_or_else(|| "".to_string())
+    }
+}
+
+impl Model {
+    /// Returns an iterator over all continuous state fields.
+    /// A field is considered a continuous state if another field has it as a derivative.
+    pub fn iter_continuous_states(&self) -> impl Iterator<Item = &Field> {
+        self.fields.iter().filter(move |field| {
+            let field_name = field.ident.to_string();
+            self.is_continuous_state(&field_name)
+        })
+    }
+
+    /// Checks if a field with the given name is a continuous state variable.
+    /// A field is a continuous state if another field has it as a derivative.
+    pub fn is_continuous_state(&self, field_name: &str) -> bool {
+        self.fields.iter().any(|other_field| {
+            other_field.attrs.iter().any(|attr| {
+                let derivative_ref = match attr {
+                    FieldAttributeOuter::Variable(var_attr) => &var_attr.derivative,
+                    FieldAttributeOuter::Alias(alias_attr) => &alias_attr.derivative,
+                    _ => return false,
+                };
+
+                derivative_ref.as_ref().map(|d| d.to_string()) == Some(field_name.to_string())
+            })
+        })
+    }
+
+    /// Iterator over all fields that are derivatives.
+    /// A field is considered a derivative if it has a derivative attribute.
+    pub fn iter_derivatives(&self) -> impl Iterator<Item = &Field> {
+        self.fields.iter().filter(|field| self.is_derivative(field))
+    }
+
+    /// Checks if a field is a derivative variable.
+    /// A field is a derivative if it has a derivative attribute.
+    pub fn is_derivative(&self, field: &Field) -> bool {
+        field.attrs.iter().any(|attr| match attr {
+            FieldAttributeOuter::Variable(var_attr) => var_attr.derivative.is_some(),
+            FieldAttributeOuter::Alias(alias_attr) => alias_attr.derivative.is_some(),
+            _ => false,
+        })
+    }
+
+    /// Get the parsed model attribute, if present
+    pub fn get_model_attr(&self) -> Option<&StructAttr> {
+        self.attrs.iter().find_map(|attr| match attr {
+            StructAttrOuter::Model(model_attr) => Some(model_attr),
+            _ => None,
+        })
+    }
+
+    /// Check if Model Exchange is supported
+    pub fn supports_model_exchange(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.model_exchange)
+            .unwrap_or(true) // Default to true if not specified
+    }
+
+    /// Check if Co-Simulation is supported
+    pub fn supports_co_simulation(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.co_simulation)
+            .unwrap_or(false)
+    }
+
+    /// Check if Scheduled Execution is supported
+    pub fn supports_scheduled_execution(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.scheduled_execution)
+            .unwrap_or(false)
+    }
+
+    /// Check if UserModel impl should be auto-generated
+    pub fn auto_user_model(&self) -> bool {
+        self.get_model_attr()
+            .and_then(|attr| attr.user_model)
+            .unwrap_or(true)
     }
 }
 
@@ -104,15 +198,23 @@ impl TryFrom<syn::Field> for Field {
                     }
                 }
 
+                Some(ident) if ident == "child" => {
+                    match ChildAttribute::from_attribute(attr).map(FieldAttributeOuter::Child) {
+                        Ok(attr) => Some(attr),
+                        Err(e) => {
+                            emit_error!(attr, format!("{e}"));
+                            None
+                        }
+                    }
+                }
+
                 _ => None,
             })
             .collect();
 
-        let ty = FieldType::try_from(field.ty)?;
-
         Ok(Self {
             ident: field.ident.expect("Expected named field"),
-            field_type: ty,
+            rust_type: field.ty,
             attrs,
         })
     }
@@ -164,6 +266,7 @@ impl From<syn::DeriveInput> for Model {
     }
 }
 
+/// Parse struct-level attributes, accepting explicit boolean values
 pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
     attrs
         .into_iter()
@@ -172,17 +275,130 @@ pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
                 parse_doc_attribute(&attr).map(StructAttrOuter::Docstring)
             }
 
-            Some(ident) if ident == "model" => match StructAttr::from_attribute(attr.clone()) {
-                Ok(attr) => Some(StructAttrOuter::Model(attr)),
-                Err(e) => {
-                    emit_error!(attr, format!("{e}"));
-                    None
+            Some(ident) if ident == "model" => {
+                // Prefer the derived parser; fall back to a manual tolerant parser for bool flags
+                match StructAttr::from_attribute(attr.clone())
+                    .or_else(|_e| parse_model_attr_bool(attr.clone()))
+                {
+                    Ok(attr) => Some(StructAttrOuter::Model(attr)),
+                    Err(e) => {
+                        emit_error!(attr, format!("{e}"));
+                        None
+                    }
                 }
-            },
+            }
 
             _ => None,
         })
         .collect()
+}
+
+/// Fallback parser that accepts boolean flags for co_simulation/model_exchange/scheduled_execution
+fn parse_model_attr_bool(attr: syn::Attribute) -> Result<StructAttr, String> {
+    let mut model_attr = StructAttr::default();
+
+    let list = attr
+        .meta
+        .require_list()
+        .map_err(|_| "expected a model attribute list like #[model(...)]".to_string())?;
+
+    for nested in list
+        .parse_args_with(syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)
+        .map_err(|_| "failed to parse #[model(...)] arguments".to_string())?
+    {
+        match nested {
+            syn::Meta::NameValue(nv) if nv.path.is_ident("model_exchange") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.model_exchange = Some(lit_bool.value);
+                } else {
+                    return Err("model_exchange expects a boolean".into());
+                }
+            }
+            syn::Meta::Path(path) if path.is_ident("model_exchange") => {
+                return Err(
+                    "model_exchange expects a boolean value, e.g. model_exchange = true".into(),
+                );
+            }
+            syn::Meta::List(list) if list.path.is_ident("model_exchange") => {
+                let _ = list;
+                return Err(
+                    "model_exchange expects a boolean value, e.g. model_exchange = true".into(),
+                );
+            }
+            syn::Meta::NameValue(nv) if nv.path.is_ident("co_simulation") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.co_simulation = Some(lit_bool.value);
+                } else {
+                    return Err("co_simulation expects a boolean".into());
+                }
+            }
+            syn::Meta::Path(path) if path.is_ident("co_simulation") => {
+                return Err(
+                    "co_simulation expects a boolean value, e.g. co_simulation = true".into(),
+                );
+            }
+            syn::Meta::List(list) if list.path.is_ident("co_simulation") => {
+                let _ = list;
+                return Err(
+                    "co_simulation expects a boolean value, e.g. co_simulation = true".into(),
+                );
+            }
+            syn::Meta::NameValue(nv) if nv.path.is_ident("scheduled_execution") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.scheduled_execution = Some(lit_bool.value);
+                } else {
+                    return Err("scheduled_execution expects a boolean".into());
+                }
+            }
+            syn::Meta::Path(path) if path.is_ident("scheduled_execution") => {
+                return Err(
+                    "scheduled_execution expects a boolean value, e.g. scheduled_execution = true"
+                        .into(),
+                );
+            }
+            syn::Meta::List(list) if list.path.is_ident("scheduled_execution") => {
+                let _ = list;
+                return Err(
+                    "scheduled_execution expects a boolean value, e.g. scheduled_execution = true"
+                        .into(),
+                );
+            }
+            syn::Meta::NameValue(nv) if nv.path.is_ident("user_model") => {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Bool(lit_bool),
+                    ..
+                }) = nv.value
+                {
+                    model_attr.user_model = Some(lit_bool.value);
+                } else {
+                    return Err("user_model expects a boolean".into());
+                }
+            }
+            syn::Meta::Path(path) if path.is_ident("user_model") => {
+                return Err("user_model expects a boolean value, e.g. user_model = false".into());
+            }
+            syn::Meta::List(list) if list.path.is_ident("user_model") => {
+                let _ = list;
+                return Err("user_model expects a boolean value, e.g. user_model = false".into());
+            }
+            // Ignore unknown entries here and let the main parser report errors elsewhere
+            _ => {}
+        }
+    }
+
+    Ok(model_attr)
 }
 
 /// Check if a field has any FMU-relevant attributes (variable or alias)
@@ -191,7 +407,7 @@ fn has_fmu_attributes(field: &syn::Field) -> bool {
         attr.meta
             .path()
             .get_ident()
-            .map(|ident| ident == "variable" || ident == "alias")
+            .map(|ident| ident == "variable" || ident == "alias" || ident == "child")
             .unwrap_or(false)
     })
 }

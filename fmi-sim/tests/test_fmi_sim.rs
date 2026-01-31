@@ -1,7 +1,6 @@
 //! Test `fmi-sim` against the reference FMUs.
 
 #![allow(unused_imports)]
-#![allow(dead_code)]
 
 use std::{io::Cursor, path::PathBuf, str::FromStr};
 
@@ -225,6 +224,7 @@ fn test_start_value_types() {
     );
 }
 
+#[allow(dead_code)]
 fn compare_record_batches(
     expected: &arrow::record_batch::RecordBatch,
     actual: &arrow::record_batch::RecordBatch,
@@ -245,6 +245,7 @@ fn compare_record_batches(
     }
 }
 
+#[allow(dead_code)]
 fn compare_f64_column_by_name(
     expected: &arrow::record_batch::RecordBatch,
     actual: &arrow::record_batch::RecordBatch,

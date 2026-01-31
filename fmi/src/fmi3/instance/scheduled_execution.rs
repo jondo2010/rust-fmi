@@ -80,7 +80,7 @@ impl Instance<SE> {
 impl ScheduledExecution for Instance<SE> {
     fn activate_model_partition(
         &mut self,
-        clock_reference: Self::ValueRef,
+        clock_reference: binding::fmi3ValueReference,
         activation_time: f64,
     ) -> Result<Fmi3Res, Fmi3Error> {
         Fmi3Status::from(unsafe {

@@ -7,19 +7,19 @@ use fmi::{
 };
 use fmi_export::{
     FmuModel,
-    fmi3::{DefaultLoggingCategory, ModelContext, UserModel},
+    fmi3::{Context, DefaultLoggingCategory, UserModel},
 };
 
 /// BouncingBall FMU model that can be exported as a complete FMU
 #[derive(FmuModel, Default, Debug)]
-#[model()]
+#[model(user_model = false)]
 struct BouncingBall {
     /// Position of the ball
-    #[variable(causality = Output, state, event_indicator, start = 1.0, initial = Exact)]
+    #[variable(causality = Output, event_indicator, start = 1.0, initial = Exact)]
     h: f64,
 
     /// Velocity of the ball
-    #[variable(causality = Output, state, start = 0.0, initial = Exact)]
+    #[variable(causality = Output, start = 0.0, initial = Exact)]
     #[alias(name="der(h)", causality = Local, derivative = h, initial = Calculated)]
     v: f64,
 
@@ -40,20 +40,20 @@ struct BouncingBall {
 impl UserModel for BouncingBall {
     type LoggingCategory = DefaultLoggingCategory;
 
-    fn calculate_values(&mut self, _context: &ModelContext<Self>) -> Result<Fmi3Res, Fmi3Error> {
+    fn calculate_values(&mut self, _context: &dyn Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
         // nothing to do
         Ok(Fmi3Res::OK)
     }
 
     fn event_update(
         &mut self,
-        context: &ModelContext<Self>,
+        context: &dyn Context<Self>,
         event_flags: &mut EventFlags,
     ) -> Result<Fmi3Res, Fmi3Error> {
         // Handle ball bouncing off the ground
         if self.h <= 0.0 && self.v < 0.0 {
             context.log(
-                Fmi3Res::OK,
+                Fmi3Res::OK.into(),
                 Self::LoggingCategory::default(),
                 format_args!("Ball bounced! h={:.3}, v={:.3}", self.h, self.v),
             );
@@ -64,7 +64,7 @@ impl UserModel for BouncingBall {
             // Stop bouncing if velocity becomes too small
             if self.v < self.v_min {
                 context.log(
-                    Fmi3Res::OK,
+                    Fmi3Res::OK.into(),
                     Self::LoggingCategory::default(),
                     format_args!("Ball stopped bouncing"),
                 );
@@ -82,7 +82,7 @@ impl UserModel for BouncingBall {
 
     fn get_event_indicators(
         &mut self,
-        _context: &ModelContext<Self>,
+        _context: &dyn Context<Self>,
         indicators: &mut [f64],
     ) -> Result<bool, Fmi3Error> {
         assert!(!indicators.is_empty());

@@ -25,6 +25,14 @@ Build an FMU for the current platform:
 cargo run --package xtask -- --package bouncing_ball bundle
 ```
 
+The FMU zip is written to:
+
+```text
+target/fmu/<model_identifier>.fmu
+```
+
+`<model_identifier>` is the `cdylib` target name (hyphens become underscores).
+
 Build for a specific target:
 
 ```bash
@@ -34,6 +42,14 @@ cargo run --package xtask -- \
   --target x86_64-pc-windows-gnu \
   --release
 ```
+
+### End-to-end example (this repo)
+
+```bash
+cargo run --package xtask -- --package can-triggered-output bundle
+```
+
+See `docs/building-fmus.md` for a complete walkthrough.
 
 ## Integration with User Projects
 

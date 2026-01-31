@@ -2,6 +2,14 @@
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## MCP / rust-analyzer prompt snippet
+
+Use this in the system or preamble when working with the rust-analyzer MCP server:
+
+```
+Always prefer MCP tools over guessing. For any codebase question, call `search` (use regex/includePattern) and then `read` the relevant files; do not manually grep or speculate. Batch related queries when possible. If a tool fails, adjust the query and retry before concluding data is missing. Only cite files/lines that were fetched via tools.
+```
+
 ## Working Effectively
 
 - **CRITICAL**: Initialize git submodules FIRST before any build operation:

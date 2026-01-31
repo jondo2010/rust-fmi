@@ -69,6 +69,9 @@ pub mod fmi3;
 pub mod import;
 pub mod traits;
 
+//#[cfg(feature = "ls-bus")]
+//pub mod ls_bus;
+
 pub use event_flags::EventFlags;
 
 pub mod built_info {
@@ -129,7 +132,7 @@ pub enum Error {
     Fmi3Error(#[from] fmi3::Fmi3Error),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InterfaceType {
     ModelExchange,
     CoSimulation,

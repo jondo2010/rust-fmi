@@ -4,45 +4,43 @@ use anyhow::{Context, Result};
 use libloading::Library;
 use std::path::Path;
 
-use fmi::fmi3::schema;
+use fmi::fmi3::{binding, schema};
 
-const MODEL_VARIABLES_SYM: &[u8] = b"FMI3_MODEL_VARIABLES";
-const MODEL_STRUCTURE_SYM: &[u8] = b"FMI3_MODEL_STRUCTURE";
+const MODEL_METADATA_SYM: &[u8] = b"model_metadata";
 const INSTANTIATION_TOKEN_SYM: &[u8] = b"FMI3_INSTANTIATION_TOKEN";
+const SUPPORTS_ME_SYM: &[u8] = b"fmi3SupportsModelExchange";
+const SUPPORTS_CS_SYM: &[u8] = b"fmi3SupportsCoSimulation";
+const SUPPORTS_SE_SYM: &[u8] = b"fmi3SupportsScheduledExecution";
 
 pub struct ModelData {
     pub model_variables: schema::ModelVariables,
     pub model_structure: schema::ModelStructure,
     pub instantiation_token: String,
+    pub supports_model_exchange: bool,
+    pub supports_co_simulation: bool,
+    pub supports_scheduled_execution: bool,
 }
 
 impl ModelData {
-    /// Extract model XML from a compiled FMU dylib
+    /// Extract model metadata from a compiled FMU dylib
     pub fn new_from_dylib(dylib_path: &Path) -> Result<Self> {
         unsafe {
             // Load the dynamic library
             let lib = Library::new(dylib_path)
                 .with_context(|| format!("Failed to load dylib: {}", dylib_path.display()))?;
 
-            let variables_xml = {
-                let symbol = lib.get::<*const &str>(MODEL_VARIABLES_SYM)?;
-                let string: &str = **symbol;
-                if string.starts_with("<ModelVariables") {
-                    string
-                } else {
-                    anyhow::bail!("Symbol doesn't contain ModelVariables xml")
-                }
+            // Call the new Rust ABI model_metadata() function
+            let (model_variables, model_structure) = {
+                let symbol = lib.get::<fn() -> (schema::ModelVariables, schema::ModelStructure)>(
+                    MODEL_METADATA_SYM,
+                )?;
+                symbol()
             };
 
-            let structure_xml = {
-                let symbol = lib.get::<*const &str>(MODEL_STRUCTURE_SYM)?;
-                let string: &str = **symbol;
-                if string.starts_with("<ModelStructure") {
-                    string
-                } else {
-                    anyhow::bail!("Symbol doesn't contain ModelStructure xml")
-                }
-            };
+            log::info!(
+                "Extracted {} model variables from dylib.",
+                model_variables.len()
+            );
 
             let instantiation_token = {
                 let symbol = lib.get::<*const &str>(INSTANTIATION_TOKEN_SYM)?;
@@ -54,19 +52,28 @@ impl ModelData {
                 }
             };
 
-            // Parse the XML strings into structs
-            let model_variables: schema::ModelVariables =
-                fmi::schema::deserialize(variables_xml)
-                    .context("Failed to parse ModelVariables XML")?;
+            let supports_model_exchange = {
+                let symbol = lib.get::<fn() -> binding::fmi3Boolean>(SUPPORTS_ME_SYM)?;
+                symbol()
+            };
 
-            let model_structure: schema::ModelStructure =
-                fmi::schema::deserialize(structure_xml)
-                    .context("Failed to parse ModelStructure XML")?;
+            let supports_co_simulation = {
+                let symbol = lib.get::<fn() -> binding::fmi3Boolean>(SUPPORTS_CS_SYM)?;
+                symbol()
+            };
+
+            let supports_scheduled_execution = {
+                let symbol = lib.get::<fn() -> binding::fmi3Boolean>(SUPPORTS_SE_SYM)?;
+                symbol()
+            };
 
             Ok(ModelData {
                 model_variables,
                 model_structure,
                 instantiation_token,
+                supports_model_exchange,
+                supports_co_simulation,
+                supports_scheduled_execution,
             })
         }
     }

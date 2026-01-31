@@ -1,0 +1,24 @@
+[package]
+name = "fmi-ls-bus"
+description = "rust-fmi implementation for ls-bus"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+homepage.workspace = true
+include.workspace = true
+
+[features]
+default = ["can"]
+can = []
+fmi-export = ["dep:fmi-export"]
+
+[dependencies]
+thiserror.workspace = true
+
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-sys = { workspace = true, features = ["fmi3", "ls-bus"] }
+fmi-export = { workspace = true, features = ["fmi3"], optional = true }

@@ -3,8 +3,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 
-use crate::model::{FieldAttributeOuter, Model};
-use fmi::fmi3::schema;
+use crate::model::{FieldAttributeOuter, Model, Field};
 
 pub struct SetStartValuesGen<'a>(&'a Model);
 
@@ -14,59 +13,35 @@ impl<'a> SetStartValuesGen<'a> {
     }
 }
 
+/// Check if a field has the skip attribute set to true
+fn has_skip_attribute(field: &Field) -> bool {
+    field
+        .attrs
+        .iter()
+        .any(|attr| matches!(attr, FieldAttributeOuter::Variable(var_attr) if var_attr.skip))
+}
+
 impl ToTokens for SetStartValuesGen<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let mut assignments = Vec::new();
 
         for field in &self.0.fields {
+            // Skip fields with skip=true
+            if has_skip_attribute(field) {
+                continue;
+            }
+
             for attr in &field.attrs {
                 if let FieldAttributeOuter::Variable(var_attr) = attr {
                     if let Some(start_expr) = &var_attr.start {
                         let field_name = &field.ident;
 
-                        let vtype = field.field_type.r#type;
+                        // Use the trait-based approach - no type introspection needed
+                        let assignment_expr = quote! {
+                            ::fmi_export::fmi3::InitializeFromStart::set_from_start(&mut self.#field_name, #start_expr);
+                        };
 
-                        match vtype {
-                            schema::VariableType::FmiFloat64 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiFloat32 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiInt8
-                            | schema::VariableType::FmiInt16
-                            | schema::VariableType::FmiInt32
-                            | schema::VariableType::FmiInt64 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiUInt8
-                            | schema::VariableType::FmiUInt16
-                            | schema::VariableType::FmiUInt32
-                            | schema::VariableType::FmiUInt64 => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiBoolean => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr;
-                                });
-                            }
-                            schema::VariableType::FmiString => {
-                                assignments.push(quote! {
-                                    self.#field_name = #start_expr.to_string();
-                                });
-                            }
-                            schema::VariableType::FmiBinary => {
-                                // Skip binary for now
-                            }
-                        }
+                        assignments.push(assignment_expr);
                     }
                 }
             }

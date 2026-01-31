@@ -1,5 +1,6 @@
 //! FMI3-specific input and output implementation
 
+use anyhow::Context;
 use arrow::{
     array::{
         ArrayRef, AsArray, BinaryBuilder, BooleanBuilder, Float32Array, Float32Builder,
@@ -23,6 +24,8 @@ use crate::sim::{
 use fmi::{fmi3::GetSet, traits::FmiInstance};
 
 use itertools::Itertools;
+
+const DEFAULT_BINARY_BUFFER_SIZE: usize = 1024;
 
 macro_rules! impl_recorder {
     ($getter:ident, $builder_type:ident, $inst:expr, $vr:ident, $builder:ident) => {{
@@ -51,8 +54,14 @@ macro_rules! impl_record_values {
                     field,
                     value_reference: vr,
                     builder,
+                    binary_max_size,
                 } in &mut recorder.recorders
                 {
+                    log::trace!(
+                        "Recording variable VR={} of type {:?}",
+                        vr,
+                        field.data_type()
+                    );
                     match field.data_type() {
                         DataType::Boolean => {
                             impl_recorder!(get_boolean, BooleanBuilder, self, vr, builder)
@@ -88,10 +97,13 @@ macro_rules! impl_record_values {
                             impl_recorder!(get_float64, Float64Builder, self, vr, builder)
                         }
                         DataType::Binary => {
-                            // Use a reasonable buffer size for binary data
-                            let mut data = vec![0u8; 1024];
+                            let buffer_len = binary_max_size
+                                .unwrap_or(DEFAULT_BINARY_BUFFER_SIZE);
+                            let mut data = vec![0u8; buffer_len];
                             let mut value = [data.as_mut_slice()];
-                            let sizes = self.get_binary(&[*vr], &mut value)?;
+                            let sizes = self
+                                .get_binary(&[*vr], &mut value)
+                                .context("Failed to get binary data")?;
                             let actual_size = sizes.get(0).copied().unwrap_or(0);
                             data.truncate(actual_size);
                             builder
