@@ -1,6 +1,6 @@
 [package]
 name = "fmi-schema"
-version.workspace = true
+version = "0.5.0"
 description = "XML schema support for FMI 2.0 and 3.0"
 readme = "README.md"
 authors.workspace = true

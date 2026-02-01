@@ -1,6 +1,6 @@
 [package]
 name = "fmi-xtask"
-version.workspace = true
+version = "0.1.0"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
