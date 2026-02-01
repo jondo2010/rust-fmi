@@ -49,7 +49,7 @@ cargo run --package xtask -- \
 cargo run --package xtask -- --package can-triggered-output bundle
 ```
 
-See `docs/building-fmus.md` for a complete walkthrough.
+See the `fmi-export` README for a complete walkthrough.
 
 ## Integration with User Projects
 

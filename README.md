@@ -10,6 +10,73 @@ A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard.
 
 See [http://www.fmi-standard.org](http://www.fmi-standard.org)
 
+## Importing FMUs
+
+The `fmi` crate implements a Rust interface to FMUs (Functional Mockup Units) that follow the FMI
+Standard. This version of the library supports FMI 2.0 and 3.0.
+
+### Loading an FMI 2.0 FMU
+
+```rust,no_run
+use fmi::{fmi2::import::Fmi2Import, import, traits::{FmiImport, FmiInstance}};
+
+// Load an FMU from a file path
+let import: Fmi2Import = import::from_path("path/to/model.fmu").unwrap();
+assert_eq!(import.model_description().fmi_version, "2.0");
+
+// Create a Model Exchange instance
+let me = import.instantiate_me("inst1", false, true).unwrap();
+assert_eq!(me.get_version(), "2.0");
+```
+
+### Loading an FMI 3.0 FMU
+
+```rust,no_run
+use fmi::{fmi3::{import::Fmi3Import, Fmi3Model}, import, traits::{FmiImport, FmiInstance}};
+
+// Load an FMU from a file path
+let import: Fmi3Import = import::from_path("path/to/model.fmu").unwrap();
+assert_eq!(import.model_description().fmi_version, "3.0");
+
+// Create a Model Exchange instance
+let me = import.instantiate_me("inst1", false, true).unwrap();
+assert_eq!(me.get_version(), "3.0");
+```
+
+### Checking FMU version before loading
+
+```rust,no_run
+use fmi::{import, schema::{MajorVersion, traits::FmiModelDescription}};
+
+// Peek at the FMU metadata without fully extracting it
+let model_desc = import::peek_descr_path("path/to/model.fmu").unwrap();
+let version = model_desc.major_version().unwrap();
+match version {
+    MajorVersion::FMI2 => {
+        // Load as FMI 2.0
+        let import: fmi::fmi2::import::Fmi2Import = import::from_path("path/to/model.fmu").unwrap();
+        // ... use import
+    }
+    MajorVersion::FMI3 => {
+        // Load as FMI 3.0
+        let import: fmi::fmi3::import::Fmi3Import = import::from_path("path/to/model.fmu").unwrap();
+        // ... use import
+    }
+    _ => panic!("Unsupported FMI version"),
+}
+```
+
+## Exporting FMUs
+
+For exporting FMUs, use the `fmi-export` crate, which provides the traits and helper types for
+building FMUs in Rust. See the `fmi-export` documentation on
+[docs.rs](https://docs.rs/fmi-export/latest).
+
+See the `fmi-export` README for the step-by-step workflow and expected output paths.
+
+
+## Repository Structure
+
 This repository is composed of the following crates:
 
 | Crate               | Description                                        | Latest API Docs                                     | README                        |
@@ -23,10 +90,6 @@ This repository is composed of the following crates:
 | `fmi-export-derive` | Procedural macros for `fmi-export`                 | [docs.rs](https://docs.rs/fmi-export-derive/latest) | [README][fmi-export-derive-readme] |
 | `fmi-xtask`         | FMU export build tooling                           | [docs.rs](https://docs.rs/fmi-xtask/latest)         | [README][fmi-xtask-readme]    |
 
-## Building FMUs
-
-See `docs/building-fmus.md` for the step-by-step workflow and expected output paths.
-
 ## Development
 
 For development information, build instructions, and contribution guidelines, see [DEVELOP.md](DEVELOP.md).
@@ -35,9 +98,9 @@ For development information, build instructions, and contribution guidelines, se
 
 Licensed under either of
  * Apache License, Version 2.0
-   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+   ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
  * MIT license
-   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+   ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 at your option.
 
 ## Contribution

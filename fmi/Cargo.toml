@@ -15,15 +15,12 @@ repository.workspace = true
 
 [features]
 default = [
-    "export",
     "fmi2",
     "fmi3",
     "ls-bus",
     "ls-bus-can",
     #"arrow"
 ]
-## Enable suuport for exporting FMUs
-export = []
 ## Enable support for FMI 2.0
 fmi2 = ["fmi-schema/fmi2", "dep:libc", "dep:url"]
 ## Enable support for FMI 3.0

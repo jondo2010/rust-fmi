@@ -97,14 +97,14 @@ pub trait GetSet {
         unimplemented!()
     }
 
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState]
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3GetFMUState>
     #[cfg(false)]
     fn get_fmu_state<Tag>(
         &mut self,
         state: Option<Fmu3State<'_, Tag>>,
     ) -> Result<Fmu3State<'_, Tag>, Error>;
 
-    /// See [https://fmi-standard.org/docs/3.0.1/#fmi3SetFMUState]
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3SetFMUState>
     #[cfg(false)]
     fn set_fmu_state<Tag>(&mut self, state: &Fmu3State<'_, Tag>) -> Fmi3Status;
 
@@ -315,7 +315,7 @@ pub trait ModelExchange: Common {
     /// time) of the continuous states.
     ///
     /// Returns:
-    /// [`crate::fmi3::Fmi3Err::Discard`] if the FMU was not able to compute the derivatives
+    /// [`crate::fmi3::Fmi3Error::Discard`] if the FMU was not able to compute the derivatives
     /// according to 𝐟cont because, for example, a numerical issue, such as division by zero,
     /// occurred.
     fn get_continuous_state_derivatives(

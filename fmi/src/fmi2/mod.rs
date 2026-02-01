@@ -51,10 +51,10 @@ pub enum Fmi2Res {
     /// function in an asynchronous way. That means the slave starts to compute but returns
     /// immediately.
     ///
-    /// The master has to call [`instance::traits::CoSimulation::get_status`](...,
-    /// fmi2DoStepStatus) to determine if the slave has finished the computation. Can be
-    /// returned only by [`instance::traits::CoSimulation::do_step`]
-    /// and by [`instance::traits::CoSimulation::get_status`].
+    /// The master has to call [`crate::fmi2::instance::CoSimulation::do_step_status`] to
+    /// determine if the slave has finished the computation. Can be returned only by
+    /// [`crate::fmi2::instance::CoSimulation::do_step`] and by
+    /// [`crate::fmi2::instance::CoSimulation::do_step_status`].
     Pending,
 }
 
@@ -68,7 +68,7 @@ pub enum Fmi2Error {
     /// converge or because a function is outside of its domain (for example sqrt(\<negative
     /// number\>)). If this is not possible, the simulation has to be terminated.
     ///
-    /// For “co-simulation”: [`Fmi2Err::Discard`] is returned also if the slave is not able to
+    /// For “co-simulation”: [`Fmi2Error::Discard`] is returned also if the slave is not able to
     /// return the required status information. The master has to decide if the simulation run
     /// can be continued.
     ///
@@ -78,12 +78,12 @@ pub enum Fmi2Error {
     #[error("Discard")]
     Discard,
     /// The FMU encountered an error. The simulation cannot be continued with this FMU instance. If
-    /// one of the functions returns [`Fmi2Err::Error`], it can be tried to restart the
+    /// one of the functions returns [`Fmi2Error::Error`], it can be tried to restart the
     /// simulation from a formerly stored FMU state by
-    /// calling [`instance::traits::Common::set_fmu_state`]. This can be done if the capability
+    /// calling [`crate::fmi2::instance::Instance::set_fmu_state`]. This can be done if the capability
     /// flag `can_get_and_set_fmu_state` is true and
-    /// [`instance::traits::Common::get_fmu_state`] was called before in non-erroneous state. If
-    /// not, the simulation cannot be continued and [`instance::traits::Common::reset`] must be
+    /// [`crate::fmi2::instance::Instance::get_fmu_state`] was called before in non-erroneous state. If
+    /// not, the simulation cannot be continued and [`crate::fmi2::instance::Common::reset`] must be
     /// called afterwards.
     #[error("Error")]
     Error,

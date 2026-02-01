@@ -30,11 +30,11 @@ const RUST_FMI_NAMESPACE: uuid::Uuid = uuid::uuid!("6ba7b810-9dad-11d1-80b4-00c0
 /// #[model()]
 /// struct BouncingBall {
 ///     /// Height above ground (state output)
-///     #[variable(causality = Output, state, start = 1.0)]
+///     #[variable(causality = Output, start = 1.0)]
 ///     h: f64,
 ///
 ///     /// Velocity of the ball
-///     #[variable(causality = Output, state = true, start = 0.0)]
+///     #[variable(causality = Output, start = 0.0)]
 ///     #[alias(name="der(h)", causality = Local, derivative = h)]
 ///     v: f64,
 /// }

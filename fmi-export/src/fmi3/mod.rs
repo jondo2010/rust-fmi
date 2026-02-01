@@ -1,11 +1,12 @@
 //! ## Architecture
 //!
 //! The [`crate::export_fmu`] macro generates the necessary C-API bindings for the exported FMU.
-//! Many of these bindings operate on a [`binding::fmi3Instance`], which is an opaque pointer to an
-//! instance of [`instance::ModelInstance`].
+//! Many of these bindings operate on a [`::fmi::fmi3::binding::fmi3Instance`], which is an opaque
+//! pointer to an instance of [`instance::ModelInstance`].
 //!
-//! [`instance::ModelInstance`] implements the [`Common`] trait, which provides the actual implementation of
-//! the FMI 3.0 API. All user-model-specific functions are delegated to the [`Model`] trait,
+//! [`instance::ModelInstance`] implements the [`crate::fmi3::Fmi3Common`] trait, which provides
+//! the actual implementation of the FMI 3.0 API. All user-model-specific functions are delegated
+//! to the [`Model`] trait,
 //! which the user model must implement.
 
 // Disable coverage for the export module. Due to some bug in llvm-cov, the generated C functions

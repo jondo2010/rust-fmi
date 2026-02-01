@@ -52,7 +52,7 @@ pub struct Fmi2ModelDescription {
     #[xml(attr = "generationDateAndTime")]
     pub generation_date_and_time: Option<String>,
 
-    /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
+    /// Defines whether the variable names in `<ModelVariables>` and in `<TypeDefinitions>` follow a
     /// particular convention.
     #[xml(attr = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,
