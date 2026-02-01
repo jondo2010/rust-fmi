@@ -384,12 +384,12 @@ pub trait CoSimulation: Common {
     ///
     /// Arguments:
     /// * `vrs`: the variables whose derivatives shall be retrieved. If multiple derivatives of a variable shall be
-    /// retrieved, list the value reference multiple times.
+    ///   retrieved, list the value reference multiple times.
     /// * `orders`: the orders of the respective derivative (1 means the first derivative, 2 means the second
-    /// derivative, …​, 0 is not allowed). If multiple derivatives of a variable shall be retrieved, its value reference
-    /// must occur multiple times in valueReferences aligned with the corresponding orders array.
+    ///   derivative, …​, 0 is not allowed). If multiple derivatives of a variable shall be retrieved, its value reference
+    ///   must occur multiple times in valueReferences aligned with the corresponding orders array.
     /// * `values`: the values of the derivatives are returned in this array. The order of the values corresponds to the
-    /// order of the value references. Array elements are laid out contiguously.
+    ///   order of the value references. Array elements are laid out contiguously.
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3GetOutputDerivatives>
     fn get_output_derivatives(
@@ -403,9 +403,9 @@ pub trait CoSimulation: Common {
     ///
     /// Arguments:
     /// * `current_communication_point`: the current communication point of the importer (`t_i`). At the first call of
-    /// `do_step`, must be equal to the argument `start_time` of `enter_initialization_mode`.
+    ///   `do_step`, must be equal to the argument `start_time` of `enter_initialization_mode`.
     /// * `communication_step_size`: the communication step size (`h_i`). Must be >0.0. The FMU is expected to compute until
-    /// time `t_i+1 = t_i + h_i`.
+    ///   time `t_i+1 = t_i + h_i`.
     ///
     /// See: <https://fmi-standard.org/docs/3.0.1/#fmi3DoStep>
     #[allow(clippy::too_many_arguments)]
@@ -432,9 +432,9 @@ pub trait ScheduledExecution: Common {
     ///
     /// Arguments:
     /// * `clock_reference`: `ValueReference` of the input Clock associated with the model partition which shall be
-    /// activated.
+    ///   activated.
     /// * `activation_time`: value of the independent variable of the assigned Clock tick time ti [typically: simulation
-    /// (i.e. virtual) time] (which is known to the simulation algorithm).
+    ///   (i.e. virtual) time] (which is known to the simulation algorithm).
     ///
     /// See <https://fmi-standard.org/docs/3.0.1/#fmi3ActivateModelPartition>
     fn activate_model_partition(

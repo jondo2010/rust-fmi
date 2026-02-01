@@ -465,7 +465,7 @@ impl<Tag> Common for Instance<Tag> {
         Fmi3Status::from(unsafe {
             self.binding.fmi3GetNumberOfVariableDependencies(
                 self.ptr,
-                vr.into(),
+                vr,
                 &mut n_dependencies as *mut usize,
             )
         })
@@ -494,7 +494,7 @@ impl<Tag> Common for Instance<Tag> {
         Fmi3Status::from(unsafe {
             self.binding.fmi3GetVariableDependencies(
                 self.ptr,
-                dependent.into(),
+                dependent,
                 element_indices_of_dependent.as_mut_ptr() as *mut usize,
                 independents.as_mut_ptr() as *mut binding::fmi3ValueReference,
                 element_indices_of_independents.as_mut_ptr() as *mut usize,
@@ -525,9 +525,9 @@ impl<Tag> Common for Instance<Tag> {
         // Combine into VariableDependency structs
         let result = element_indices_of_dependent
             .into_iter()
-            .zip(independents.into_iter())
-            .zip(element_indices_of_independents.into_iter())
-            .zip(dependency_kinds.into_iter())
+            .zip(independents)
+            .zip(element_indices_of_independents)
+            .zip(dependency_kinds)
             .map(
                 |(((dep_idx, indep_vr), indep_idx), kind)| crate::fmi3::VariableDependency {
                     dependent_element_index: dep_idx,

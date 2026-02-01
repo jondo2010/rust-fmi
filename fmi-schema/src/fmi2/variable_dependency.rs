@@ -92,7 +92,7 @@ impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi2VariableDependency {
             });
         }
 
-        while let Some(__tag) = reader.find_element_start(Some(tag))? {
+        if let Some(__tag) = reader.find_element_start(Some(tag))? {
             return Err(XmlError::UnknownField {
                 name: "Fmi2VariableDependency".to_owned(),
                 field: __tag.to_owned(),

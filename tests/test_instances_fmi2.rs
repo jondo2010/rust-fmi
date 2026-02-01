@@ -40,18 +40,15 @@ fn test_instance_me() {
             .expect("set_debug_logging");
         inst1
             .setup_experiment(Some(1.0e-6_f64), 0.0, None)
-            .ok()
             .expect("setup_experiment");
         inst1
             .enter_initialization_mode()
-            .ok()
             .expect("enter_initialization_mode");
         inst1
             .exit_initialization_mode()
-            .ok()
             .expect("exit_initialization_mode");
-        inst1.terminate().ok().expect("terminate");
-        inst1.reset().ok().expect("reset");
+        inst1.terminate().expect("terminate");
+        inst1.reset().expect("reset");
     }
 }
 
@@ -71,12 +68,10 @@ fn test_instance_cs() {
 
         inst1
             .setup_experiment(Some(1.0e-6_f64), 0.0, None)
-            .ok()
             .expect("setup_experiment");
 
         inst1
             .enter_initialization_mode()
-            .ok()
             .expect("enter_initialization_mode");
 
         let sv = import
@@ -86,12 +81,10 @@ fn test_instance_cs() {
 
         inst1
             .set_real(&[sv.value_reference], &[2.0f64])
-            .ok()
             .expect("set k parameter");
 
         inst1
             .exit_initialization_mode()
-            .ok()
             .expect("exit_initialization_mode");
 
         let sv = import
@@ -101,11 +94,15 @@ fn test_instance_cs() {
 
         let mut x = [0.0];
 
-        inst1.get_real(&[sv.value_reference], &mut x).ok().unwrap();
+        inst1
+            .get_real(&[sv.value_reference], &mut x)
+            .expect("get_real x initial");
         assert_eq!(x, [1.0]);
 
-        inst1.do_step(0.0, 0.125, false).ok().expect("do_step");
-        inst1.get_real(&[sv.value_reference], &mut x).ok().unwrap();
+        inst1.do_step(0.0, 0.125, false).expect("do_step");
+        inst1
+            .get_real(&[sv.value_reference], &mut x)
+            .expect("get_real x after");
         assert_eq!(x, [0.8]);
     }
 }

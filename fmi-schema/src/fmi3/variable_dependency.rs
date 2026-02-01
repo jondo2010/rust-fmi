@@ -69,7 +69,7 @@ impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi3Unknown {
             match __key {
                 "valueReference" => {
                     ::hard_xml::log_start_reading_field!(Fmi3Unknown_, value_reference);
-                    if !false && __self_value_reference.is_some() {
+                    if __self_value_reference.is_some() {
                         return ::std::result::Result::Err(
                             ::hard_xml::XmlExtendedError::DuplicateAttribute(
                                 ("valueReference").into(),
@@ -85,7 +85,7 @@ impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi3Unknown {
                 }
                 "dependencies" => {
                     ::hard_xml::log_start_reading_field!(Fmi3Unknown_, dependencies);
-                    if !false && __self_dependencies.is_some() {
+                    if __self_dependencies.is_some() {
                         return ::std::result::Result::Err(
                             ::hard_xml::XmlExtendedError::DuplicateAttribute(
                                 ("dependencies").into(),
@@ -101,7 +101,7 @@ impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi3Unknown {
                 }
                 "dependenciesKind" => {
                     ::hard_xml::log_start_reading_field!(Fmi3Unknown_, dependencies_kind);
-                    if !false && __self_dependencies_kind.is_some() {
+                    if __self_dependencies_kind.is_some() {
                         return ::std::result::Result::Err(
                             ::hard_xml::XmlExtendedError::DuplicateAttribute(
                                 ("dependenciesKind").into(),
@@ -144,7 +144,7 @@ impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi3Unknown {
             match __tag {
                 "Annotations" => {
                     ::hard_xml::log_start_reading_field!(Fmi3Unknown_, annotations);
-                    if !true && __self_annotations.is_some() {
+                    if __self_annotations.is_some() {
                         return ::std::result::Result::Err(
                             ::hard_xml::XmlExtendedError::DuplicateElement(
                                 __tag.to_string().into(),
@@ -174,7 +174,7 @@ impl<'__input> ::hard_xml::XmlRead<'__input> for Fmi3Unknown {
             dependencies_kind: __self_dependencies_kind,
         };
         ::hard_xml::log_finish_reading!(Fmi3Unknown_);
-        return Ok(__res);
+        Ok(__res)
     }
 }
 
@@ -182,7 +182,7 @@ impl Fmi3Unknown {
     /// Custom implementation of to_writer allowing to specify tag name
     fn to_writer_with_tag<W: std::io::Write>(
         &self,
-        mut writer: &mut ::hard_xml::XmlWriter<W>,
+        writer: &mut ::hard_xml::XmlWriter<W>,
         tag: &str,
     ) -> ::hard_xml::XmlResult<()> {
         let Fmi3Unknown {
@@ -207,13 +207,13 @@ impl Fmi3Unknown {
             writer.write_attribute("dependenciesKind", &format!("{}", __value))?;
         }
         ::hard_xml::log_finish_writing_field!(Fmi3Unknown, __self_dependencies_kind);
-        if true && __self_annotations.is_none() {
+        if __self_annotations.is_none() {
             writer.write_element_end_empty()?;
         } else {
             writer.write_element_end_open()?;
             ::hard_xml::log_start_writing_field!(Fmi3Unknown, __self_annotations);
             if let Some(ele) = __self_annotations {
-                hard_xml::XmlWrite::to_writer(ele, &mut writer)?;
+                hard_xml::XmlWrite::to_writer(ele, writer)?;
             }
             ::hard_xml::log_finish_writing_field!(Fmi3Unknown, __self_annotations);
             writer.write_element_end_close(tag)?;

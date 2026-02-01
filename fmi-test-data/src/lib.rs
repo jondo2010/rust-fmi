@@ -176,10 +176,10 @@ impl ReferenceFmus {
             let name = file.name();
             if name.ends_with(".fmu") {
                 // Extract just the filename without path and extension
-                if let Some(filename) = name.rsplit('/').next() {
-                    if let Some(base_name) = filename.strip_suffix(".fmu") {
-                        fmus.push(base_name.to_string());
-                    }
+                if let Some(filename) = name.rsplit('/').next()
+                    && let Some(base_name) = filename.strip_suffix(".fmu")
+                {
+                    fmus.push(base_name.to_string());
                 }
             }
         }

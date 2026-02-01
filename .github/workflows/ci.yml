@@ -37,7 +37,7 @@ jobs:
         with:
           reporter: 'github-pr-review'
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          clippy_flags: -- -Dwarnings
+          clippy_flags: --all-targets --all-features -- -D warnings
 
       - name: build
         run: cargo build --all --verbose

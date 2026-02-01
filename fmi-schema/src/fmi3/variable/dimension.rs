@@ -62,8 +62,7 @@ impl<'a> XmlRead<'a> for Dimension {
             (None, None) => Err(hard_xml::XmlError::MissingField {
                 name: "Dimension".into(),
                 field: "either 'start' or 'valueReference'".into(),
-            })
-            .into(),
+            }),
             (Some(start), None) => Ok(Dimension::Fixed(start)),
             (None, Some(value_reference)) => Ok(Dimension::Variable(value_reference)),
         }

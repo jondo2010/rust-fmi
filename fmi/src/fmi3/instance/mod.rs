@@ -69,7 +69,7 @@ where
                     schema::Dimension::Fixed(start) => *start as usize,
                     schema::Dimension::Variable(vr) => {
                         let mut dim_val = [0];
-                        self.get_uint64(&[(*vr).into()], &mut dim_val)
+                        self.get_uint64(&[*vr], &mut dim_val)
                             .expect("Error getting dimension");
                         dim_val[0] as usize
                     }
