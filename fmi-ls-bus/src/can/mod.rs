@@ -75,9 +75,7 @@ impl CanBus {
     }
 
     /// Read the next CAN operation from the RX buffer (if any).
-    pub fn read_next_operation<'a>(
-        &'a mut self,
-    ) -> Result<Option<LsBusCanOp<'a>>, FmiLsBusError> {
+    pub fn read_next_operation<'a>(&'a mut self) -> Result<Option<LsBusCanOp<'a>>, FmiLsBusError> {
         self.rx_bus.read_next_operation(&mut self.rx_data)
     }
 

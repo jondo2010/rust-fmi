@@ -139,7 +139,9 @@ where
             .variables
             .iter()
             .find_map(|v| match v {
-                Variable::Binary(var) if var.value_reference == vr => var.max_size.map(|m| m as usize),
+                Variable::Binary(var) if var.value_reference == vr => {
+                    var.max_size.map(|m| m as usize)
+                }
                 _ => None,
             })
     }

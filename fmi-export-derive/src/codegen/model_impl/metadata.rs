@@ -270,7 +270,9 @@ impl BuildMetadataGen<'_> {
         let current_vr = field_name_to_vr[var_name];
 
         // Use the name attribute if specified, otherwise use the field name
-        let variable_name = var_attr.name.as_ref()
+        let variable_name = var_attr
+            .name
+            .as_ref()
             .map(|s| s.clone())
             .unwrap_or_else(|| field.ident.to_string());
         let variable_name_prefixed = quote! { format!("{}{}", #prefix_binding, #variable_name) };
@@ -349,7 +351,7 @@ impl BuildMetadataGen<'_> {
                     field_name_to_vr.get(&clock_name).map(|&vr| vr + 1) // Add 1 for vr_offset
                 })
                 .collect();
-            
+
             if !clock_vrs.is_empty() {
                 builder_calls.push(quote! {
                     .with_clocks(vec![#(#clock_vrs),*])

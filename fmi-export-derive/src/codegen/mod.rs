@@ -5,9 +5,9 @@ use quote::{ToTokens, quote};
 
 use crate::model::Model;
 
-mod model_impl;
 mod model_get_set;
 mod model_get_set_states;
+mod model_impl;
 mod user_model_impl;
 
 /// Main code generation structure

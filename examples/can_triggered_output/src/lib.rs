@@ -83,10 +83,7 @@ impl UserModel for CanTriggeredOutput {
                     context.log(
                         Fmi3Res::OK.into(),
                         Self::LoggingCategory::default(),
-                        format_args!(
-                            "Received CAN frame with ID {id} and length {}",
-                            data.len()
-                        ),
+                        format_args!("Received CAN frame with ID {id} and length {}", data.len()),
                     );
                 }
                 LsBusCanOp::ConfigBaudrate(_)
@@ -211,14 +208,18 @@ mod tests {
         assert_eq!(binaries[0].clocks(), Some(&[3u32][..])); // rx_clock has VR 3
         assert_eq!(
             binaries[0].mime_type,
-            Some("application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"".to_string())
+            Some(
+                "application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"".to_string()
+            )
         );
         assert_eq!(binaries[1].name(), "CanChannel.Tx_Data");
         assert_eq!(binaries[1].value_reference(), 2); // tx_data has VR 2
         assert_eq!(binaries[1].clocks(), Some(&[4u32][..])); // tx_clock has VR 4
         assert_eq!(
             binaries[1].mime_type,
-            Some("application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"".to_string())
+            Some(
+                "application/org.fmi-standard.fmi-ls-bus.can; version=\"1.0.0-beta.1\"".to_string()
+            )
         );
 
         assert_eq!(rx_clock.name(), "CanChannel.Rx_Clock");
@@ -353,6 +354,6 @@ mod tests {
         // Check that tx_clock is triggered after processing (this would happen in the FMI simulation)
         let mut clock_vals = [false; 1];
         model.get_clock(&[tx_clock_vr], &mut clock_vals).unwrap(); // tx_clock
-                                                         // Note: In a real simulation, calculate_values would be called by the simulation engine
+                                                                   // Note: In a real simulation, calculate_values would be called by the simulation engine
     }
 }

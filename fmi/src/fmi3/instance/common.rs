@@ -231,11 +231,7 @@ impl<Tag> GetSet for Instance<Tag> {
                 // Copy only if FMU didn't write directly into our buffer.
                 if fmu_ptr != value_buffer.as_ptr() {
                     unsafe {
-                        std::ptr::copy_nonoverlapping(
-                            fmu_ptr,
-                            value_buffer.as_mut_ptr(),
-                            fmu_size,
-                        );
+                        std::ptr::copy_nonoverlapping(fmu_ptr, value_buffer.as_mut_ptr(), fmu_size);
                     }
                 }
             }
@@ -272,8 +268,10 @@ impl<Tag> GetSet for Instance<Tag> {
             copy_binary_data(&ptr_slice, &value_sizes, value_buffers)?;
         } else {
             // Heap allocation for large arrays
-            let mut value_ptrs: Vec<*const u8> =
-                value_buffers.iter_mut().map(|b| b.as_mut_ptr() as *const u8).collect();
+            let mut value_ptrs: Vec<*const u8> = value_buffers
+                .iter_mut()
+                .map(|b| b.as_mut_ptr() as *const u8)
+                .collect();
 
             Fmi3Status::from(unsafe {
                 self.binding.fmi3GetBinary(
