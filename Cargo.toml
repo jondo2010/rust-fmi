@@ -55,7 +55,7 @@ zip = "7.2"
 
 # Workspace internal crates
 fmi = { path = "fmi", version = "0.6.0", default-features = false }
-fmi-export = { path = "fmi-export", version = "0.6.0" }
+fmi-export = { path = "fmi-export", version = "0.1.0" }
 fmi-export-derive = { path = "fmi-export-derive", version = "0.1.0" }
 fmi-ls-bus = { path = "fmi-ls-bus", version = "0.1.0" }
 fmi-schema = { path = "fmi-schema", version = "0.6.0", default-features = false }

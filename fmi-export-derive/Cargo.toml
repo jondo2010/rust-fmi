@@ -1,12 +1,15 @@
 [package]
 name = "fmi-export-derive"
 version = "0.1.0"
+description = "Proc-macro support for fmi-export"
+readme = "README.md"
 license.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
+publish = true
 homepage.workspace = true
 include.workspace = true
 
