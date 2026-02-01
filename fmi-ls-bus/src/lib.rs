@@ -1,7 +1,4 @@
-//! Rust bindings for FMI-LS-BUS interface
-//!
-//! This module provides a safe, ergonomic Rust interface for FMI-LS-BUS operations
-//! that is binary compatible with the C implementation.
+#![doc = include_str!("../README.md")]
 
 use std::mem;
 
