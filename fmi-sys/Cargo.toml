@@ -11,6 +11,15 @@ keywords.workspace = true
 license.workspace = true
 publish = true
 repository.workspace = true
+include = [
+    "Cargo.toml",
+    "README.md",
+    "build.rs",
+    "src/**",
+    "fmi-standard2/headers/**",
+    "fmi-standard3/headers/**",
+    "fmi-ls-bus/headers/**",
+]
 
 [features]
 default = ["fmi2", "fmi3", "ls-bus"]
