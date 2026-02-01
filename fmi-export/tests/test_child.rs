@@ -1,8 +1,6 @@
 use fmi::schema::fmi3::{ModelStructure, ModelVariables};
+use fmi_export::FmuModel;
 use fmi_export::fmi3::Model;
-use fmi_export::{
-    FmuModel,
-};
 
 #[derive(FmuModel, Default, Debug)]
 #[model(model_exchange = true)]

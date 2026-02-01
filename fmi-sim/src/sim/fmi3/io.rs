@@ -97,8 +97,7 @@ macro_rules! impl_record_values {
                             impl_recorder!(get_float64, Float64Builder, self, vr, builder)
                         }
                         DataType::Binary => {
-                            let buffer_len = binary_max_size
-                                .unwrap_or(DEFAULT_BINARY_BUFFER_SIZE);
+                            let buffer_len = binary_max_size.unwrap_or(DEFAULT_BINARY_BUFFER_SIZE);
                             let mut data = vec![0u8; buffer_len];
                             let mut value = [data.as_mut_slice()];
                             let sizes = self

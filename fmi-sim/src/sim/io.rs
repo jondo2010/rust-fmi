@@ -244,7 +244,7 @@ where
                  field,
                  value_reference: _,
                  mut builder,
-                  ..
+                 ..
              }| { (field, builder.finish()) },
         );
 

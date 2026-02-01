@@ -3,7 +3,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 
-use crate::model::{FieldAttributeOuter, Model, Field};
+use crate::model::{Field, FieldAttributeOuter, Model};
 
 pub struct SetStartValuesGen<'a>(&'a Model);
 

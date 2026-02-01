@@ -34,7 +34,7 @@ fn test_position_tracking() {
     // Test writing some data
     let test_data = b"Hello, World!";
     bus.write(&mut buffer, test_data).unwrap();
-    
+
     // Write position should be updated, read position stays at 0
     assert_eq!(bus.read_pos, 0);
     assert_eq!(bus.write_pos, test_data.len());

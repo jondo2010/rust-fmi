@@ -136,24 +136,28 @@ pub fn create_model_description(
         model_structure: model_data.model_structure,
         // Set the DefaultExperiment from metadata if present
         default_experiment,
-        model_exchange: model_data.supports_model_exchange.then(|| schema::Fmi3ModelExchange {
-            model_identifier: model_identifier.to_string(),
-            can_get_and_set_fmu_state: Some(false),
-            can_serialize_fmu_state: Some(false),
-            ..Default::default()
-        }),
-        co_simulation: model_data.supports_co_simulation.then(|| schema::Fmi3CoSimulation {
-            model_identifier: model_identifier.to_string(),
-            can_handle_variable_communication_step_size: Some(true),
-            has_event_mode: Some(false),
-            ..Default::default()
-        }),
-        scheduled_execution: model_data
-            .supports_scheduled_execution
-            .then(|| schema::Fmi3ScheduledExecution {
+        model_exchange: model_data
+            .supports_model_exchange
+            .then(|| schema::Fmi3ModelExchange {
                 model_identifier: model_identifier.to_string(),
+                can_get_and_set_fmu_state: Some(false),
+                can_serialize_fmu_state: Some(false),
                 ..Default::default()
             }),
+        co_simulation: model_data
+            .supports_co_simulation
+            .then(|| schema::Fmi3CoSimulation {
+                model_identifier: model_identifier.to_string(),
+                can_handle_variable_communication_step_size: Some(true),
+                has_event_mode: Some(false),
+                ..Default::default()
+            }),
+        scheduled_execution: model_data.supports_scheduled_execution.then(|| {
+            schema::Fmi3ScheduledExecution {
+                model_identifier: model_identifier.to_string(),
+                ..Default::default()
+            }
+        }),
         ..Default::default()
     })
 }

@@ -105,9 +105,7 @@ where
     }
 
     fn get_event_indicators(&mut self, indicators: &mut [f64]) -> Result<bool, Fmi3Error> {
-        let res = self
-            .model
-            .get_event_indicators(&self.context, indicators)?;
+        let res = self.model.get_event_indicators(&self.context, indicators)?;
         self.context.log(
             Fmi3Res::OK.into(),
             M::LoggingCategory::trace_category(),

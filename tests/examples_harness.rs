@@ -77,7 +77,7 @@ fn cdylib_target_name(package: &Package) -> Result<String, String> {
     let target = package
         .targets
         .iter()
-        .find(|t| t.crate_types.iter().any(|ct| *ct == CrateType::CDyLib))
+        .find(|t| t.crate_types.contains(&CrateType::CDyLib))
         .ok_or_else(|| format!("Package '{}' does not define a cdylib target", package.name))?;
 
     Ok(target.name.clone())

@@ -164,8 +164,9 @@ impl<'a> ModelGetSetStatesImpl<'a> {
             state_positions.insert(field.ident.to_string(), index);
         }
 
-                // Collect derivatives with their corresponding state positions
-        let mut derivatives_with_positions: Vec<_> = self.model
+        // Collect derivatives with their corresponding state positions
+        let mut derivatives_with_positions: Vec<_> = self
+            .model
             .iter_derivatives()
             .filter_map(|der_field| {
                 // Find which state this derivative corresponds to
@@ -176,7 +177,7 @@ impl<'a> ModelGetSetStatesImpl<'a> {
                         FieldAttributeOuter::Alias(alias_attr) => &alias_attr.derivative,
                         _ => continue,
                     };
-                    
+
                     if let Some(derivative_of) = derivative_of {
                         let state_name = derivative_of.to_string();
                         if let Some(&position) = state_positions.get(&state_name) {

@@ -90,19 +90,22 @@ macro_rules! export_fmu {
 
         #[unsafe(export_name = "fmi3SupportsModelExchange")]
         #[cfg_attr(coverage_nightly, coverage(off))]
-        pub unsafe extern "C" fn fmi3_supports_model_exchange() -> ::fmi::fmi3::binding::fmi3Boolean {
+        pub unsafe extern "C" fn fmi3_supports_model_exchange() -> ::fmi::fmi3::binding::fmi3Boolean
+        {
             <$ty as ::fmi_export::fmi3::Model>::SUPPORTS_MODEL_EXCHANGE as _
         }
 
         #[unsafe(export_name = "fmi3SupportsCoSimulation")]
         #[cfg_attr(coverage_nightly, coverage(off))]
-        pub unsafe extern "C" fn fmi3_supports_co_simulation() -> ::fmi::fmi3::binding::fmi3Boolean {
+        pub unsafe extern "C" fn fmi3_supports_co_simulation() -> ::fmi::fmi3::binding::fmi3Boolean
+        {
             <$ty as ::fmi_export::fmi3::Model>::SUPPORTS_CO_SIMULATION as _
         }
 
         #[unsafe(export_name = "fmi3SupportsScheduledExecution")]
         #[cfg_attr(coverage_nightly, coverage(off))]
-        pub unsafe extern "C" fn fmi3_supports_scheduled_execution() -> ::fmi::fmi3::binding::fmi3Boolean {
+        pub unsafe extern "C" fn fmi3_supports_scheduled_execution()
+        -> ::fmi::fmi3::binding::fmi3Boolean {
             <$ty as ::fmi_export::fmi3::Model>::SUPPORTS_SCHEDULED_EXECUTION as _
         }
 
