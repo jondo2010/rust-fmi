@@ -1053,7 +1053,7 @@ dependencies = [
 
 [[package]]
 name = "fmi"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arrow",
  "built",
@@ -1074,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-export"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "chrono",
  "document-features",
@@ -1112,7 +1112,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-schema"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "arrow",
  "chrono",
@@ -1128,7 +1128,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-sim"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -1150,7 +1150,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-sys"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bindgen",
  "cc",
@@ -3187,7 +3187,7 @@ checksum = "66fee0b777b0f5ac1c69bb06d361268faafa61cd4682ae064a171c16c433e9e4"
 
 [[package]]
 name = "xtask"
-version = "0.5.0"
+version = "0.0.0"
 dependencies = [
  "fmi-xtask",
 ]

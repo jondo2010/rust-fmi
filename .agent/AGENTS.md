@@ -22,6 +22,9 @@ Prefer the offline-safe unit tests via `./dev.sh test`. Integration tests live i
 ## Commit & Pull Request Guidelines
 Recent history favors Conventional Commits like `fix(fmi-schema): ...` and `chore(deps): ...`. Use `type(scope): summary` where possible; keep subjects short and imperative. PRs should include a concise description, linked issues if applicable, and the commands run (e.g., `./dev.sh pre-commit`). If changes affect FMUs or schemas, call that out explicitly.
 
+## Changelog Updates
+Use `git-cliff` to generate or update `CHANGELOG.md`; do not hand-edit the changelog.
+
 ## Configuration & Dependencies
 Initialize submodules for FMI headers before building: `git submodule update --init --recursive`. A C compiler (`gcc` or `clang`) is required for `fmi-sys` builds.
 
