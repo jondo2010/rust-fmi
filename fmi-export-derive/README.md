@@ -9,24 +9,19 @@ A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard.
 
 See [http://www.fmi-standard.org](http://www.fmi-standard.org)
 
-## Struct-level attributes
+## Attribute reference
 
-`#[model(...)]` accepts explicit boolean flags:
-
-```
-#[model(model_exchange = true, co_simulation = false, scheduled_execution = false, user_model = true)]
-```
-
-Set `user_model = false` when you want to provide your own `impl UserModel` for custom behavior.
+The canonical reference for all `FmuModel` attributes lives in the main
+`fmi-export` crate docs on docs.rs.
 
 ## License
 
 Licensed under either of
 
  * Apache License, Version 2.0
-   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+   ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
  * MIT license
-   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+   ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
 

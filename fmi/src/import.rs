@@ -109,7 +109,7 @@ const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 ///
 /// # Returns
 ///
-/// Returns a [`MinModelDescription`](fmi_schema::minimal::MinModelDescription) containing
+/// Returns a [`fmi_schema::minimal::MinModelDescription`] containing
 /// the essential model metadata including:
 /// - FMI version
 /// - Model name
@@ -161,7 +161,7 @@ pub fn peek_descr_path(path: impl AsRef<Path>) -> Result<MinModel, Error> {
 ///
 /// # Returns
 ///
-/// Returns a [`MinModelDescription`](fmi_schema::minimal::MinModelDescription) containing
+/// Returns a [`fmi_schema::minimal::MinModelDescription`] containing
 /// the essential model metadata.
 ///
 /// # Errors

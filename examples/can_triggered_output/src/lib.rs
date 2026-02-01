@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 #![deny(clippy::all)]
 
 use std::borrow::Cow;

@@ -1,5 +1,6 @@
-//! Example port of the BouncingBall FMU from the Reference FMUs
+#![allow(unexpected_cfgs)]
 #![deny(clippy::all)]
+//! Example port of the BouncingBall FMU from the Reference FMUs
 
 use fmi::{
     EventFlags,

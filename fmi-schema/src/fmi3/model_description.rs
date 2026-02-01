@@ -42,8 +42,8 @@ pub struct Fmi3ModelDescription {
     #[xml(attr = "copyright")]
     pub copyright: Option<String>,
 
-    /// Information on the intellectual property licensing for this FMU [for example BSD license
-    /// <license text or link to license>].
+    /// Information on the intellectual property licensing for this FMU (for example BSD license
+    /// `<license text or link to license>`).
     #[xml(attr = "license")]
     pub license: Option<String>,
 
@@ -57,7 +57,7 @@ pub struct Fmi3ModelDescription {
     #[xml(attr = "generationDateAndTime")]
     pub generation_date_and_time: Option<String>,
 
-    /// Defines whether the variable names in <ModelVariables> and in <TypeDefinitions> follow a
+    /// Defines whether the variable names in `ModelVariables` and in `TypeDefinitions` follow a
     /// particular convention.
     #[xml(attr = "variableNamingConvention")]
     pub variable_naming_convention: Option<String>,

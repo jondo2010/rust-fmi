@@ -2,7 +2,7 @@
 
 use std::{fmt::Display, ops::Deref, str::FromStr};
 
-/// Custom deserializer for Optional<f64> that can handle string inputs from JSON
+/// Custom deserializer for `Optional<f64>` that can handle string inputs from JSON
 #[cfg(feature = "serde")]
 pub fn deserialize_optional_f64_from_string<'de, D>(
     deserializer: D,

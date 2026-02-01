@@ -471,9 +471,9 @@ pub enum Variability {
     /// The value of the variable never changes.
     Constant,
     /// The value of the variable is fixed in super state Initialized, in other words, after
-    /// [`exit_initialization_mode()`] was called the variable value does not change anymore. The
+    /// `exit_initialization_mode()` was called the variable value does not change anymore. The
     /// default for variables of causality [`Causality::Parameter`],
-    /// [`Causality::StructuredParameter`] or [`Causality::CalculatedParameter`] is `Fixed`.
+    /// [`Causality::StructuralParameter`] or [`Causality::CalculatedParameter`] is `Fixed`.
     Fixed,
     /// The value of the variable is constant between events (ME and CS if Event Mode is supported)
     /// and between communication points (CS and SE). A parameter with variability = tunable
@@ -490,7 +490,7 @@ pub enum Variability {
     Discrete,
     /// Only variables of type [`FmiFloat32`]or [`FmiFloat64`] may be continuous. The default for
     /// variables of type `FmiFloat32` and `FmiFloat64` and causality other than
-    /// [`Causality::Parameter`], [`Causality::StructuredParameter`] or
+    /// [`Causality::Parameter`], [`Causality::StructuralParameter`] or
     /// [`Causality::CalculatedParameter`] is continuous. Variables with variability continuous
     /// may change in Initialization Mode and in super state Initialized.
     Continuous,
