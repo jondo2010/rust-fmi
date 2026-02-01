@@ -45,17 +45,23 @@ pub fn build_lib(
 
     for msg in Message::parse_stream(reader).filter_map(Result::ok) {
         match msg {
-            Message::CompilerArtifact(mut artifact) if artifact.target.is_cdylib() => {
+            Message::CompilerArtifact(artifact) if artifact.target.is_cdylib() => {
                 // Heuristic to parse the target triple from the output filenames. When building for
                 // specific target triples, the outputs will be placed in subdirectories named after
                 // the target, for example "target/aarch64-apple-darwin/debug/libdahlquist.dylib".
                 // When not building for specific targets, the output will be in
                 // "target/debug/libdahlquist.dylib".
 
+                // Find the actual dylib file (not debug symbols like .pdb on Windows)
                 let path = artifact
                     .filenames
-                    .pop()
-                    .map(|p| p.into_std_path_buf())
+                    .iter()
+                    .find(|p| {
+                        let p = p.as_str();
+                        // Keep only dynamic library files, exclude debug symbols
+                        !(p.ends_with(".pdb") || p.ends_with(".dSYM"))
+                    })
+                    .map(|p| p.clone().into_std_path_buf())
                     .ok_or_else(|| {
                         anyhow::anyhow!("No output filenames found for cdylib target")
                     })?;
