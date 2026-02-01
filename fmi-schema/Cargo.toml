@@ -37,4 +37,4 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 env_logger = "0.8"
-hard-xml = { version = "*", features = ["log"] }
+hard-xml = { version = "1.41", features = ["log"] }
