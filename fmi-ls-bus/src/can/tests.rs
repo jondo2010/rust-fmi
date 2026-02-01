@@ -8,6 +8,10 @@ use crate::{
 
 use std::borrow::Cow;
 
+fn cow_bytes<'a>(data: &'a Cow<'a, [u8]>) -> &'a [u8] {
+    AsRef::<[u8]>::as_ref(data)
+}
+
 #[test]
 fn test_can_transmit_operation() {
     let mut buffer = vec![0u8; 2048];
@@ -33,7 +37,7 @@ fn test_can_transmit_operation() {
             assert_eq!(id, 0x123);
             assert_eq!(ide, 1);
             assert_eq!(rtr, 0);
-            assert_eq!(data.as_ref(), test_data);
+            assert_eq!(cow_bytes(&data), test_data);
         }
         _ => panic!("Expected Transmit operation"),
     }
@@ -72,7 +76,7 @@ fn test_can_fd_transmit_operation() {
             assert_eq!(ide, 0);
             assert_eq!(brs, 1);
             assert_eq!(esi, 0);
-            assert_eq!(data.as_ref(), test_data);
+            assert_eq!(cow_bytes(&data), test_data);
         }
         _ => panic!("Expected FdTransmit operation"),
     }
@@ -117,7 +121,7 @@ fn test_can_xl_transmit_operation() {
             assert_eq!(sdt, 0);
             assert_eq!(vcid, 2);
             assert_eq!(af, 0xABC);
-            assert_eq!(data.as_ref(), test_data);
+            assert_eq!(cow_bytes(&data), test_data);
         }
         _ => panic!("Expected XlTransmit operation"),
     }
@@ -359,7 +363,7 @@ fn test_multiple_operations_in_sequence() {
     match op1 {
         Some(LsBusCanOp::Transmit { id, data, .. }) => {
             assert_eq!(id, 0x100);
-            assert_eq!(data.as_ref(), data1);
+            assert_eq!(cow_bytes(&data), data1);
         }
         _ => panic!("Expected first Transmit operation"),
     }
@@ -376,7 +380,7 @@ fn test_multiple_operations_in_sequence() {
     match op3 {
         Some(LsBusCanOp::Transmit { id, data, .. }) => {
             assert_eq!(id, 0x200);
-            assert_eq!(data.as_ref(), data2);
+            assert_eq!(cow_bytes(&data), data2);
         }
         _ => panic!("Expected second Transmit operation"),
     }
@@ -416,7 +420,7 @@ fn test_buffer_serialization() {
             assert_eq!(id, 0x999);
             assert_eq!(ide, 1);
             assert_eq!(rtr, 1);
-            assert_eq!(data.as_ref(), test_data);
+            assert_eq!(cow_bytes(&data), test_data);
         }
         _ => panic!("Expected Transmit operation"),
     }
@@ -444,7 +448,7 @@ fn test_data_borrowing_optimization() {
     let operation: Option<LsBusCanOp> = bus.read_next_operation(&buffer).unwrap();
     match operation {
         Some(LsBusCanOp::Transmit { data, .. }) => {
-            assert_eq!(data.as_ref(), test_data);
+            assert_eq!(cow_bytes(&data), test_data);
             assert!(matches!(data, Cow::Borrowed(_)));
         }
         _ => panic!("Expected Transmit operation"),
@@ -548,7 +552,7 @@ fn test_comprehensive_operation_sequence() {
                 }),
                 "Transmit",
             ) => {
-                assert_eq!(data.as_ref(), test_data);
+                assert_eq!(cow_bytes(&data), test_data);
             }
             (
                 Some(LsBusCanOp::FdTransmit {
@@ -556,7 +560,7 @@ fn test_comprehensive_operation_sequence() {
                 }),
                 "FdTransmit",
             ) => {
-                assert_eq!(data.as_ref(), test_data);
+                assert_eq!(cow_bytes(&data), test_data);
             }
             (
                 Some(LsBusCanOp::XlTransmit {
@@ -564,7 +568,7 @@ fn test_comprehensive_operation_sequence() {
                 }),
                 "XlTransmit",
             ) => {
-                assert_eq!(data.as_ref(), test_data);
+                assert_eq!(cow_bytes(&data), test_data);
             }
             (Some(LsBusCanOp::Confirm(0x400)), "Confirm") => {}
             (Some(LsBusCanOp::ConfigBaudrate(1000000)), "ConfigBaudrate") => {}
@@ -631,7 +635,7 @@ fn test_edge_cases() {
             assert_eq!(id, u32::MAX);
             assert_eq!(ide, u8::MAX);
             assert_eq!(rtr, u8::MAX);
-            assert_eq!(data.as_ref(), &max_data);
+            assert_eq!(cow_bytes(&data), &max_data);
         }
         _ => panic!("Expected Transmit operation"),
     }
@@ -687,7 +691,7 @@ fn test_simplified_transmit_interface() {
     match operation {
         Some(LsBusCanOp::Transmit { id, data, .. }) => {
             assert_eq!(id, 0x456);
-            assert_eq!(data.as_ref(), test_data);
+            assert_eq!(cow_bytes(&data), test_data);
         }
         _ => panic!("Expected Transmit operation"),
     }

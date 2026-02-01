@@ -28,4 +28,4 @@ log = { version = "0.4", optional = true }
 
 [build-dependencies]
 bindgen = "0.72"
-cc = "1.0"
+cc = "1.2"

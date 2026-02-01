@@ -28,10 +28,11 @@ fn ref_fmus() -> fmi_test_data::ReferenceFmus {
 #[trace]
 #[test]
 fn test_start_time(
-    mut ref_fmus: fmi_test_data::ReferenceFmus,
+    ref_fmus: fmi_test_data::ReferenceFmus,
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
     #[case] interface: Interface,
 ) {
+    let mut ref_fmus = ref_fmus;
     if cfg!(target_os = "macos") && fmi_version == MajorVersion::FMI2 {
         return;
     }
@@ -63,10 +64,11 @@ fn test_start_time(
 #[trace]
 #[test]
 fn test_stop_time(
-    mut ref_fmus: fmi_test_data::ReferenceFmus,
+    ref_fmus: fmi_test_data::ReferenceFmus,
     #[values(MajorVersion::FMI2, MajorVersion::FMI3)] fmi_version: MajorVersion,
     #[case] interface: Interface,
 ) {
+    let mut ref_fmus = ref_fmus;
     if cfg!(target_os = "macos") && fmi_version == MajorVersion::FMI2 {
         return;
     }

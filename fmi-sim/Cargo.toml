@@ -31,7 +31,7 @@ se = []
 anyhow = { workspace = true }
 arrow = { workspace = true, features = ["csv", "prettyprint"] }
 clap.workspace = true
-clap-verbosity-flag = "2.2"
+clap-verbosity-flag = "3.0"
 comfy-table = "7.1"
 document-features = { workspace = true }
 flexi_logger.workspace = true
@@ -45,4 +45,4 @@ thiserror = { workspace = true }
 assert_cmd = "2.0.14"
 float-cmp = { version = "0.10", features = ["std"] }
 fmi-test-data = { workspace = true }
-rstest = "0.21"
+rstest = { workspace = true }
