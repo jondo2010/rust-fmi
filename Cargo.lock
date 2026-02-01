@@ -564,9 +564,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.47"
+version = "1.2.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd405d82c84ff7f35739f175f67d8b9fb7687a0e84ccdc78bd3568839827cf07"
+checksum = "47b26a0954ae34af09b50f0de26458fa95369a0d478d8236d3f93082b219bd29"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1008,9 +1008,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.5"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
+checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "flatbuffers"
@@ -1090,7 +1090,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-export-derive"
-version = "0.5.0"
+version = "0.1.0"
 dependencies = [
  "attribute-derive",
  "chrono",
@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-ls-bus"
-version = "0.5.0"
+version = "0.1.0"
 dependencies = [
  "fmi",
  "fmi-export",
@@ -1165,7 +1165,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-test-data"
-version = "0.5.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "const_format",
@@ -1188,7 +1188,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-xtask"
-version = "0.5.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
