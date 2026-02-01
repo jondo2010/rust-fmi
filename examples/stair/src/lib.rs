@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 #![deny(clippy::all)]
 //! Example port of the Stair FMU from the Reference FMUs
 //!

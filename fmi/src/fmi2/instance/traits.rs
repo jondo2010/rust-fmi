@@ -304,7 +304,7 @@ pub trait CoSimulation: Common {
     fn last_successful_time(&mut self) -> Result<f64, Fmi2Error>;
 
     /// Returns `true`, if the slave wants to terminate the simulation. Can be called after
-    /// [`CoSimulation::do_step(..)`] returned `Fmi2Status::Discard`. Use
+    /// [`CoSimulation::do_step`] returned [`Fmi2Error::Discard`]. Use
     /// [`CoSimulation::last_successful_time()`] to determine the time instant at which the slave
     /// terminated.
     fn terminated(&mut self) -> Result<bool, Fmi2Error>;

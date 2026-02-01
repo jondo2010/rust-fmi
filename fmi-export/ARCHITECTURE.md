@@ -7,6 +7,7 @@ The FMI export system enables creating Functional Mockup Units (FMUs) from Rust 
 ### Core Design Pattern
 
 The user defines a model struct with state variables and their corresponding derivative fields.
+State variables are inferred by the `derivative_of` relationships.
 
 ```rust
 #[derive(FmuModel, Default, Debug)]
@@ -17,10 +18,10 @@ struct VanDerPol {
     mu: f64,
 
     // State variables
-    #[variable(causality = Output, state, start = 2.0)]
+    #[variable(causality = Output, start = 2.0)]
     x0: f64,
 
-    #[variable(causality = Local, state, start = 0.0)]
+    #[variable(causality = Local, start = 0.0)]
     x1: f64,
 
     // Derivative fields

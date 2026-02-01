@@ -13,11 +13,13 @@ The reference XSI can be found at [https://fmi-standard.org/downloads](https://f
 
 FMI 2.0 and 3.0 have different XML schemas.
 
-The FMI version can initially be determined in a non-specific way by using [`minimal::ModelDescription`].
+The FMI version can initially be determined in a non-specific way by using
+[`minimal::MinModelDescription`].
 
 ## Example
 
-The [`FmiModelDescription`] trait is implemented for both FMI2 and FMI3, and has serialize/deserialize methods.
+The [`traits::FmiModelDescription`] trait is implemented for both FMI2 and FMI3,
+and has serialize/deserialize methods.
 
 ```rust,no_run
 #[cfg(feature = "fmi3")]
@@ -35,9 +37,9 @@ The [`FmiModelDescription`] trait is implemented for both FMI2 and FMI3, and has
 Licensed under either of
 
  * Apache License, Version 2.0
-   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+   ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
  * MIT license
-   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+   ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
 
