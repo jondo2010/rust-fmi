@@ -1053,7 +1053,7 @@ dependencies = [
 
 [[package]]
 name = "fmi"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "arrow",
  "built",
@@ -1074,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-export"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "document-features",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-export-derive"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "attribute-derive",
  "chrono",
@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-ls-bus"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "fmi",
  "fmi-export",

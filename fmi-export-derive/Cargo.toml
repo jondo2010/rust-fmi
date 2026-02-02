@@ -1,6 +1,6 @@
 [package]
 name = "fmi-export-derive"
-version = "0.1.0"
+version = "0.1.1"
 description = "Proc-macro support for fmi-export"
 readme = "README.md"
 license.workspace = true
