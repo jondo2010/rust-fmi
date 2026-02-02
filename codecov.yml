@@ -27,7 +27,7 @@ component_management:
 
   individual_components:
     - component_id: fmi
-      name: FMI Core Library
+      name: fmi
       paths:
         - fmi/src/**
         - fmi/build.rs
@@ -37,8 +37,25 @@ component_management:
         - type: patch
           target: 70%
 
+    - component_id: fmi-export
+      name: fmi-export
+      paths:
+        - fmi-export/src/**
+        - fmi-export-derive/src/**
+      statuses:
+        - type: project
+          target: auto
+
+    - component_id: fmi-ls-bus
+      name: fmi-ls-bus
+      paths:
+        - fmi-ls-bus/src/**
+      statuses:
+        - type: project
+          target: auto
+
     - component_id: fmi-schema
-      name: FMI Schema
+      name: fmi-schema
       paths:
         - fmi-schema/src/**
       statuses:
@@ -48,7 +65,7 @@ component_management:
           target: 75%
 
     - component_id: fmi-sim
-      name: FMI Simulation
+      name: fmi-sim
       paths:
         - fmi-sim/src/**
         - fmi-sim/examples/**
@@ -59,7 +76,7 @@ component_management:
           target: 60%
 
     - component_id: fmi-sys
-      name: FMI System Bindings
+      name: fmi-sys
       paths:
         - fmi-sys/src/**
         - fmi-sys/build.rs
@@ -70,7 +87,7 @@ component_management:
           target: 50%
 
     - component_id: fmi-test-data
-      name: FMI Test Data
+      name: fmi-test-data
       paths:
         - fmi-test-data/src/**
       statuses:
@@ -91,6 +108,7 @@ ignore:
   - "**/*.md"
   - "**/tests/**"
   - "**/benches/**"
+  - "**/examples/**"
   - "fmi-standard/**"
   - "fmi-standard2/**"
   - "fmi-standard3/**"
