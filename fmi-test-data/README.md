@@ -7,6 +7,8 @@
 
 Utilities for fetching test data from Modelica's Reference-FMUs repository.
 
+This crate is part of [rust-fmi](https://github.com/jondo2010/rust-fmi).
+
 This crate provides easy access to the official [Modelica Reference FMUs](https://github.com/modelica/Reference-FMUs) for testing and validation purposes. It automatically downloads and caches the FMU archive, providing convenient methods to access individual FMUs.
 
 ## Features

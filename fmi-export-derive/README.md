@@ -7,12 +7,14 @@
 
 A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. This crate provides the `FmuModel` derive macro for automatically generating FMU implementations from annotated Rust structs.
 
+This crate is part of [rust-fmi](https://github.com/jondo2010/rust-fmi).
+
 See [http://www.fmi-standard.org](http://www.fmi-standard.org)
 
 ## Attribute reference
 
 The canonical reference for all `FmuModel` attributes lives in the main
-`fmi-export` crate docs on docs.rs.
+[`fmi-export` crate docs on docs.rs](https://docs.rs/fmi-export/latest).
 
 ## License
 

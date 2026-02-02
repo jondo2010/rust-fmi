@@ -1,10 +1,12 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 use std::mem;
 
 use fmi_sys::ls_bus;
 
 #[cfg(feature = "can")]
+#[cfg_attr(docsrs, doc(cfg(feature = "can")))]
 pub mod can;
 #[cfg(test)]
 mod tests;

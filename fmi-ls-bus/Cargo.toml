@@ -11,6 +11,9 @@ categories.workspace = true
 homepage.workspace = true
 include.workspace = true
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = ["can"]
 can = []

@@ -14,6 +14,7 @@
 pub mod fmi3;
 
 // Re-export the derive macro
+#[doc = include_str!("fmu_model_docs.md")]
 pub use fmi_export_derive::FmuModel;
 
 // Re-export paste for use in macros
