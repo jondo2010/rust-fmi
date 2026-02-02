@@ -1,6 +1,6 @@
 [package]
 name = "fmi"
-version = "0.6.0"
+version = "0.6.1"
 description = "A Rust interface to FMUs (Functional Mockup Units) that follow the FMI Standard. See http://www.fmi-standard.org/"
 readme = "README.md"
 publish = true

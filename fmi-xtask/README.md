@@ -7,6 +7,8 @@
 
 The `xtask` infrastructure for building FMU (Functional Mockup Interface) packages from Rust crates.
 
+This crate is part of [rust-fmi](https://github.com/jondo2010/rust-fmi).
+
 ## Overview
 
 The xtask system automates the process of:

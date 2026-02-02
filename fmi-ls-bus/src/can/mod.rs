@@ -7,6 +7,7 @@ use std::borrow::Cow;
 mod tests;
 
 #[cfg(feature = "fmi-export")]
+#[cfg_attr(docsrs, doc(cfg(feature = "fmi-export")))]
 use fmi_export::{
     FmuModel,
     fmi3::{Binary, Clock},
@@ -21,6 +22,7 @@ pub const DEFAULT_CAN_BUFFER_SIZE: usize = 2048;
 
 /// Reusable CAN bus component for FMU models.
 #[cfg(feature = "fmi-export")]
+#[cfg_attr(docsrs, doc(cfg(feature = "fmi-export")))]
 #[derive(FmuModel, Debug, Default)]
 pub struct CanBus {
     #[variable(
@@ -60,6 +62,7 @@ pub struct CanBus {
 }
 
 #[cfg(feature = "fmi-export")]
+#[cfg_attr(docsrs, doc(cfg(feature = "fmi-export")))]
 impl CanBus {
     /// Reset both RX/TX buffers and associated LS-BUS state.
     pub fn reset_buffers(&mut self) {

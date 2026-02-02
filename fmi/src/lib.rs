@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
+//! ## Feature flags
 #![doc = document_features::document_features!()]
 #![deny(clippy::all)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 // Re-export the fmi-schema crate
 pub use fmi_schema as schema;
@@ -9,8 +11,10 @@ use schema::MajorVersion;
 
 mod event_flags;
 #[cfg(feature = "fmi2")]
+#[cfg_attr(docsrs, doc(cfg(feature = "fmi2")))]
 pub mod fmi2;
 #[cfg(feature = "fmi3")]
+#[cfg_attr(docsrs, doc(cfg(feature = "fmi3")))]
 pub mod fmi3;
 pub mod import;
 pub mod traits;

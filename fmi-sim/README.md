@@ -7,6 +7,8 @@
 
 A pure-Rust FMI simulator framework. This crate is a work-in-progress.
 
+This crate is part of [rust-fmi](https://github.com/jondo2010/rust-fmi).
+
 ## Scope
 
 The purpose of `fmi-sim` is to simulate a single `FMI 2.0` or `FMI 3.0` FMU in ME/CS/SE modes as a way to drive testing and API completeness of the `rust-fmi` crates. The simulation algorithms are heavily inspired by those in [fmusim](https://github.com/modelica/Reference-FMUs/tree/main/fmusim).

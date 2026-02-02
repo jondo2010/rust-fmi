@@ -6,6 +6,8 @@
 Rust bindings for the FMI-LS-BUS interface, with a safe, ergonomic wrapper around
 buffer operations that is binary compatible with the C implementation.
 
+This crate is part of [rust-fmi](https://github.com/jondo2010/rust-fmi).
+
 ## Features
 
 - `can`: Enable CAN-related LS-BUS operations.

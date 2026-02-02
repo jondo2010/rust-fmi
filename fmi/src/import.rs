@@ -77,8 +77,22 @@
 //! ## Related Modules
 //!
 //! - [`crate::traits::FmiImport`] - Core import trait implemented by version-specific imports
-//! - [`crate::fmi2::import`] - FMI 2.0 specific import functionality
-//! - [`crate::fmi3::import`] - FMI 3.0 specific import functionality
+#![cfg_attr(
+    feature = "fmi2",
+    doc = "- [`crate::fmi2::import`] - FMI 2.0 specific import functionality"
+)]
+#![cfg_attr(
+    not(feature = "fmi2"),
+    doc = "- FMI 2.0 specific import functionality (enable the `fmi2` feature)"
+)]
+#![cfg_attr(
+    feature = "fmi3",
+    doc = "- [`crate::fmi3::import`] - FMI 3.0 specific import functionality"
+)]
+#![cfg_attr(
+    not(feature = "fmi3"),
+    doc = "- FMI 3.0 specific import functionality (enable the `fmi3` feature)"
+)]
 
 use std::{
     io::{Read, Seek},
