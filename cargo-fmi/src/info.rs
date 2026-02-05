@@ -2,11 +2,7 @@ use anyhow::Result;
 
 use crate::metadata::MetadataBuilder;
 
-pub fn info(
-    package: &Option<String>,
-    target: &Option<Vec<String>>,
-    release: bool,
-) -> Result<()> {
+pub fn info(package: &Option<String>, target: &Option<Vec<String>>, release: bool) -> Result<()> {
     let MetadataBuilder {
         package,
         model_identifier,

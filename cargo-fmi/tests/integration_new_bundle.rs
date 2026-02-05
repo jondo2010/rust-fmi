@@ -26,8 +26,7 @@ fn write_local_patches(project_root: &Path, repo_root: &Path) -> std::io::Result
 }
 
 fn read_manifest(project_root: &Path) -> String {
-    std::fs::read_to_string(project_root.join("Cargo.toml"))
-        .expect("read Cargo.toml")
+    std::fs::read_to_string(project_root.join("Cargo.toml")).expect("read Cargo.toml")
 }
 
 #[test]
@@ -68,9 +67,6 @@ fn cargo_fmi_new_and_bundle() {
     let manifest = read_manifest(&project_root);
     assert!(manifest.contains("[lib]\ncrate-type = [\"cdylib\"]"));
 
-    let fmu_path = project_root
-        .join("target")
-        .join("fmu")
-        .join("demo_fmu.fmu");
+    let fmu_path = project_root.join("target").join("fmu").join("demo_fmu.fmu");
     assert!(fmu_path.exists());
 }

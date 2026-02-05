@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use fmi::schema::{self, traits::FmiModelDescription, MajorVersion};
+use fmi::schema::{self, MajorVersion, traits::FmiModelDescription};
 use fmi::traits::FmiImport;
 
 use crate::InspectFormat;
@@ -15,8 +15,12 @@ pub fn inspect(fmu_path: &Path, format: InspectFormat) -> Result<()> {
 
     match format {
         InspectFormat::ModelDescription => match major {
-            MajorVersion::FMI2 => inspect_model_description::<fmi::fmi2::import::Fmi2Import>(fmu_path)?,
-            MajorVersion::FMI3 => inspect_model_description::<fmi::fmi3::import::Fmi3Import>(fmu_path)?,
+            MajorVersion::FMI2 => {
+                inspect_model_description::<fmi::fmi2::import::Fmi2Import>(fmu_path)?
+            }
+            MajorVersion::FMI3 => {
+                inspect_model_description::<fmi::fmi3::import::Fmi3Import>(fmu_path)?
+            }
             MajorVersion::FMI1 => anyhow::bail!("FMI 1.0 is not supported"),
         },
         InspectFormat::Debug => match major {
@@ -115,11 +119,8 @@ mod tests {
         let root_path = root.path();
         std::fs::write(root_path.join("modelDescription.xml"), "test").expect("write file");
         std::fs::create_dir_all(root_path.join("nested")).expect("create nested");
-        std::fs::write(
-            root_path.join("nested").join("resources.bin"),
-            "data",
-        )
-        .expect("write nested");
+        std::fs::write(root_path.join("nested").join("resources.bin"), "data")
+            .expect("write nested");
 
         let entries = list_archive_entries(root_path).expect("list entries");
         let names: Vec<_> = entries
@@ -127,9 +128,6 @@ mod tests {
             .map(|(path, _)| path.to_string_lossy().to_string())
             .collect();
         assert!(names.contains(&"modelDescription.xml".to_string()));
-        assert!(names.contains(&format!(
-            "nested{}resources.bin",
-            std::path::MAIN_SEPARATOR
-        )));
+        assert!(names.contains(&format!("nested{}resources.bin", std::path::MAIN_SEPARATOR)));
     }
 }

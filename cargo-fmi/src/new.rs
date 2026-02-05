@@ -54,10 +54,7 @@ fn try_cargo_add(project_root: &Path) -> Result<bool> {
     }
 }
 
-fn update_manifest(
-    manifest_path: &Path,
-    dep_version: &str,
-) -> Result<String> {
+fn update_manifest(manifest_path: &Path, dep_version: &str) -> Result<String> {
     let contents = fs::read_to_string(manifest_path)
         .with_context(|| format!("Failed to read {}", manifest_path.display()))?;
 
