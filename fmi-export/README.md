@@ -31,16 +31,22 @@ struct MyModel {
 fmi_export::export_fmu!(MyModel);
 ```
 
-3) Bundle the FMU with `xtask`:
+3) Install the Cargo subcommand:
 
 ```bash
-cargo run --package xtask -- --package my-model bundle
+cargo install cargo-fmi
+```
+
+4) Bundle the FMU with `cargo-fmi`:
+
+```bash
+cargo fmi --package my-model bundle
 ```
 
 ## Building FMUs
 
 This repository builds FMI 3.0 FMUs from pure Rust code. The FMI API interfacing boilerplate is generated with the
-`FmuModel` derive macro. Automated packaging is handled by an `xtask` module.
+`FmuModel` derive macro. Automated packaging is handled by the `cargo-fmi` subcommand.
 
 ### Minimal FMU setup
 
@@ -75,7 +81,7 @@ fmi_export::export_fmu!(MyModel);
 From the repository root:
 
 ```bash
-cargo run xtask -- --package can-triggered-output bundle
+cargo fmi --package can-triggered-output bundle
 ```
 
 The FMU zip is written to:
@@ -92,13 +98,13 @@ target/fmu/<model_identifier>.fmu
 - Build a release FMU:
 
 ```bash
-cargo run --package xtask -- --package can-triggered-output bundle --release
+cargo fmi --package can-triggered-output bundle --release
 ```
 
 - Build for a specific target:
 
 ```bash
-cargo run --package xtask -- --package can-triggered-output bundle --target x86_64-unknown-linux-gnu
+cargo fmi --package can-triggered-output bundle --target x86_64-unknown-linux-gnu
 ```
 
 ## License

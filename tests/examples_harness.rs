@@ -41,8 +41,11 @@ fn examples_export_and_simulate(
 
     let mut export_cmd = Command::new(cargo_path());
     export_cmd
-        .arg("xtask")
+        .arg("run")
         .arg("-p")
+        .arg("cargo-fmi")
+        .arg("--")
+        .arg("--package")
         .arg(package.name.as_str())
         .arg("bundle");
     run_command(export_cmd)?;

@@ -31,7 +31,7 @@ This is a classic test equation used in numerical analysis to evaluate ODE solve
 Build and package the Dahlquist FMU:
 
 ```bash
-cargo xtask bundle dahlquist
+cargo fmi --package dahlquist bundle
 ```
 
 ## Model Behavior

@@ -1,30 +1,42 @@
-# fmi-xtask
+# cargo-fmi
 
 [<img alt="github" src="https://img.shields.io/github/stars/jondo2010/rust-fmi?style=for-the-badge&logo=github" height="20">](https://github.com/jondo2010/rust-fmi)
-[<img alt="crates.io" src="https://img.shields.io/crates/v/fmi.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/fmi-xtask)
-[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-fmi-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/fmi-xtask)
+[<img alt="crates.io" src="https://img.shields.io/crates/v/cargo-fmi.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/cargo-fmi)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-cargo--fmi-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/cargo-fmi)
 [<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/jondo2010/rust-fmi/ci.yml?branch=main&style=for-the-badge" height="20">](https://github.com/jondo2010/rust-fmi/actions?query=branch%3Amain)
 
-The `xtask` infrastructure for building FMU (Functional Mockup Interface) packages from Rust crates.
+The `cargo-fmi` subcommand builds FMU (Functional Mockup Interface) packages from Rust crates.
 
 This crate is part of [rust-fmi](https://github.com/jondo2010/rust-fmi).
 
 ## Overview
 
-The xtask system automates the process of:
+The cargo-fmi system automates the process of:
 1. Building dynamic libraries from Rust FMU dylib crates
 2. Creating the proper FMU directory structure
 3. Generating model description XML files
 4. Packaging everything into a compliant FMU ZIP file
 
+## Install
+
+```bash
+cargo install cargo-fmi
+```
+
 ## Usage
+
+### Creating a New Project
+
+```bash
+cargo fmi new my-model
+```
 
 ### Building for Single Platform
 
 Build an FMU for the current platform:
 
 ```bash
-cargo run --package xtask -- --package bouncing_ball bundle
+cargo fmi --package bouncing_ball bundle
 ```
 
 The FMU zip is written to:
@@ -38,37 +50,56 @@ target/fmu/<model_identifier>.fmu
 Build for a specific target:
 
 ```bash
-cargo run --package xtask -- \
-  --package bouncing_ball \
-  bundle \
+cargo fmi --package bouncing_ball bundle \
   --target x86_64-pc-windows-gnu \
   --release
+```
+
+### Inspecting Model Metadata
+
+Inspect the generated model description for a packaged FMU:
+
+```bash
+cargo fmi inspect target/fmu/bouncing_ball.fmu
+```
+
+Available formats:
+
+```bash
+cargo fmi inspect target/fmu/bouncing_ball.fmu --format model-description
+cargo fmi inspect target/fmu/bouncing_ball.fmu --format debug
+```
+
+### Package Info
+
+Print the model description struct that would be serialized for packaging:
+
+```bash
+cargo fmi --package bouncing_ball info
 ```
 
 ### End-to-end example (this repo)
 
 ```bash
-cargo run --package xtask -- --package can-triggered-output bundle
+cargo fmi --package can-triggered-output bundle
 ```
 
 See the `fmi-export` README for a complete walkthrough.
 
 ## Integration with User Projects
 
-To use this xtask system in your own Rust FMI projects:
+To use this tooling in your own Rust FMI projects:
 
-1. **Copy the xtask directory** to your project root
-2. **Add xtask to your workspace** in `Cargo.toml`:
-  ```toml
-  [workspace]
-  members = ["xtask"]
+1. **Install the Cargo subcommand**:
+  ```bash
+  cargo install cargo-fmi
   ```
-3. **Configure your crate** as cdylib in `Cargo.toml`:
+2. **Configure your crate** as cdylib in `Cargo.toml`:
   ```toml
   [lib]
   crate-type = ["cdylib"]
   ```
-4. **Use the bundle command** as shown above
+3. **Use the bundle command** as shown above
 
 ### Supported Platforms
 

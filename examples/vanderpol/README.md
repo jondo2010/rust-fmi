@@ -27,7 +27,7 @@ This is implemented as a system of first-order ODEs:
 
 ```bash
 # Build the FMU
-cargo xtask bundle vanderpol
+cargo fmi --package vanderpol bundle
 
 # Run simulation
 cargo run -p fmi-sim -- --model target/fmu/vanderpol.fmu model-exchange
