@@ -12,6 +12,7 @@ fn write_local_patches(project_root: &Path, repo_root: &Path) -> std::io::Result
     std::fs::create_dir_all(&cargo_dir)?;
     let config_path = cargo_dir.join("config.toml");
 
+    let root = repo_root.to_string_lossy().replace('\\', "/");
     let config = format!(
         "[patch.crates-io]\n\
          fmi-export = {{ path = \"{root}/fmi-export\" }}\n\
@@ -19,7 +20,7 @@ fn write_local_patches(project_root: &Path, repo_root: &Path) -> std::io::Result
          fmi = {{ path = \"{root}/fmi\" }}\n\
          fmi-schema = {{ path = \"{root}/fmi-schema\" }}\n\
          fmi-sys = {{ path = \"{root}/fmi-sys\" }}\n",
-        root = repo_root.display()
+        root = root
     );
 
     std::fs::write(config_path, config)
