@@ -18,6 +18,9 @@ mod packager;
 #[command(name = "cargo-fmi", bin_name = "cargo-fmi")]
 #[command(about = "Cargo subcommand for FMI packaging and tooling")]
 struct Cli {
+    /// Default package to operate on (can be specified before or after subcommand)
+    #[arg(short = 'p', long = "package", global = true)]
+    package: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -89,7 +92,10 @@ where
         .set_palette("b1;3;2;4;6".to_string())
         .start()?;
 
-    let Cli { command } = Cli::parse_from(args);
+    let Cli {
+        command,
+        package: global_package,
+    } = Cli::parse_from(args);
 
     match command {
         Commands::New { path, name } => new::new_project(new::NewArgs { path, name })?,
@@ -97,13 +103,13 @@ where
             package,
             target,
             release,
-        } => bundle::bundle(&package, &target, release)?,
+        } => bundle::bundle(&package.or(global_package), &target, release)?,
         Commands::Inspect { fmu, format } => inspect::inspect(&fmu, format)?,
         Commands::Info {
             package,
             target,
             release,
-        } => info::info(&package, &target, release)?,
+        } => info::info(&package.or(global_package), &target, release)?,
     }
 
     Ok(())
