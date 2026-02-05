@@ -89,7 +89,7 @@ This repository is composed of the following crates:
 | `fmi-export`        | Types and traits necessary for exporting FMUs       | [docs.rs](https://docs.rs/fmi-export/latest)        | [README][fmi-export-readme]   |
 | `fmi-export-derive` | Procedural macros for `fmi-export`                  | [docs.rs](https://docs.rs/fmi-export-derive/latest) | [README][fmi-export-derive-readme] |
 | `fmi-ls-bus`        | FMI-LS-BUS support                                  | [docs.rs](https://docs.rs/fmi-ls-bus/latest)        | [README][fmi-ls-bus-readme]   |
-| `fmi-xtask`         | FMU export build tooling                            | [docs.rs](https://docs.rs/fmi-xtask/latest)         | [README][fmi-xtask-readme]    |
+| `cargo-fmi`         | Cargo subcommand for FMI packaging                  | n/a                                                 | [README][cargo-fmi-readme]    |
 
 ## Development
 
@@ -117,4 +117,4 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 [fmi-export-readme]: https://github.com/jondo2010/rust-fmi/blob/main/fmi-export/README.md
 [fmi-export-derive-readme]: https://github.com/jondo2010/rust-fmi/blob/main/fmi-export-derive/README.md
 [fmi-ls-bus-readme]: https://github.com/jondo2010/rust-fmi/blob/main/fmi-ls-bus/README.md
-[fmi-xtask-readme]: https://github.com/jondo2010/rust-fmi/blob/main/fmi-xtask/README.md
+[cargo-fmi-readme]: https://github.com/jondo2010/rust-fmi/blob/main/cargo-fmi/README.md
