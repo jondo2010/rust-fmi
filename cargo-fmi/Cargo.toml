@@ -18,7 +18,7 @@ cargo_metadata = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 flexi_logger = { workspace = true }
-fmi = { workspace = true, features = ["fmi3"] }
+fmi = { workspace = true, features = ["fmi2", "fmi3"] }
 fmi-schema = { workspace = true, features = ["serde", "fmi2"] }
 libloading = { workspace = true }
 log = { workspace = true }
