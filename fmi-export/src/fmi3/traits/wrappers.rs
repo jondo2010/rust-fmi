@@ -109,8 +109,8 @@ macro_rules! wrapper_getset_functions {
                 values: *mut $fmi_type,
                 n_values: usize,
             ) -> binding::fmi3Status {
-                // Validate array lengths match
-                if n_value_references != n_values {
+                // For array variables, n_values may exceed n_value_references.
+                if n_value_references > n_values {
                     eprintln!("FMI3: Array length mismatch in fmi3Get{}: value_references={}, values={}",
                              stringify!($type_name), n_value_references, n_values);
                     return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
@@ -135,8 +135,8 @@ macro_rules! wrapper_getset_functions {
                 values: *const $fmi_type,
                 n_values: usize,
             ) -> binding::fmi3Status {
-                // Validate array lengths match
-                if n_value_references != n_values {
+                // For array variables, n_values may exceed n_value_references.
+                if n_value_references > n_values {
                     eprintln!("FMI3: Array length mismatch in fmi3Set{}: value_references={}, values={}",
                              stringify!($type_name), n_value_references, n_values);
                     return binding::fmi3Status_fmi3Error;
@@ -819,7 +819,7 @@ where
         values: *mut binding::fmi3String,
         n_values: usize,
     ) -> binding::fmi3Status {
-        if n_value_references != n_values {
+        if n_value_references > n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3GetString: value_references={}, values={}",
                 n_value_references, n_values
@@ -855,7 +855,7 @@ where
         values: *const binding::fmi3String,
         n_values: usize,
     ) -> binding::fmi3Status {
-        if n_value_references != n_values {
+        if n_value_references > n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3SetString: value_references={}, values={}",
                 n_value_references, n_values
@@ -894,7 +894,7 @@ where
         values: *mut *mut binding::fmi3Byte,
         n_values: usize,
     ) -> binding::fmi3Status {
-        if n_value_references != n_values {
+        if n_value_references > n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3GetBinary: value_references={}, values={}",
                 n_value_references, n_values
@@ -941,7 +941,7 @@ where
         values: *const *const binding::fmi3Byte,
         n_values: usize,
     ) -> binding::fmi3Status {
-        if n_value_references != n_values {
+        if n_value_references > n_values {
             eprintln!(
                 "FMI3: Array length mismatch in fmi3SetBinary: value_references={}, values={}",
                 n_value_references, n_values

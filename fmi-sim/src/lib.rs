@@ -56,7 +56,7 @@ pub fn simulate(options: &options::FmiSimOptions) -> Result<SimStats, Error> {
             //    crate::logging::register_fmu_log_categories(category_names);
             //}
 
-            sim::simulate_with(input_data, &options.interface, import)
+            sim::simulate_with(input_data, &options.interface, &options.output, import)
         }
 
         #[cfg(feature = "fmi3")]
@@ -71,7 +71,7 @@ pub fn simulate(options: &options::FmiSimOptions) -> Result<SimStats, Error> {
             //    crate::logging::register_fmu_log_categories(category_names);
             //}
 
-            sim::simulate_with(input_data, &options.interface, import)
+            sim::simulate_with(input_data, &options.interface, &options.output, import)
         }
     }
 }

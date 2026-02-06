@@ -100,13 +100,14 @@ pub struct SimStats {
 pub fn simulate_with<Imp: FmiSim>(
     input_data: Option<arrow::array::RecordBatch>,
     interface: &options::Interface,
+    output: &options::OutputOptions,
     import: Imp,
 ) -> Result<SimStats, Error> {
     match interface {
         #[cfg(feature = "me")]
-        options::Interface::ModelExchange(options) => import.simulate_me(options, input_data),
+        options::Interface::ModelExchange(options) => import.simulate_me(options, output, input_data),
         #[cfg(feature = "cs")]
-        options::Interface::CoSimulation(options) => import.simulate_cs(options, input_data),
+        options::Interface::CoSimulation(options) => import.simulate_cs(options, output, input_data),
         #[cfg(feature = "se")]
         options::Interface::ScheduledExecution(_options) => unimplemented!(),
         #[cfg(any(not(feature = "me"), not(feature = "cs")))]

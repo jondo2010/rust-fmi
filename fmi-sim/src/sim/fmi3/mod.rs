@@ -67,6 +67,7 @@ impl FmiSim for Fmi3Import {
     fn simulate_me(
         &self,
         options: &ModelExchangeOptions,
+        output: &crate::options::OutputOptions,
         input_data: Option<arrow::array::RecordBatch>,
     ) -> Result<SimStats, Error> {
         use crate::sim::{solver, traits::SimMe};
@@ -78,10 +79,10 @@ impl FmiSim for Fmi3Import {
         let start_values = self.parse_start_values(&options.common.initial_values)?;
         let input_state = InputState::new(self, input_data)?;
         let output_vrs: Vec<_> = self.outputs().map(|(_, vr)| vr).collect();
-        let plan = build_output_plan(self, &output_vrs, &options.common.output)?;
+        let plan = build_output_plan(self, &output_vrs, output)?;
         let sink: Box<dyn crate::sim::output::OutputSink> =
-            if let Some(path) = options.common.output.output_path.as_ref() {
-                match options.common.output.output_format {
+            if let Some(path) = output.output_path.as_ref() {
+                match output.output_format {
                     OutputFormat::ArrowIpc => Box::new(ArrowIpcSink::new(path, plan.schema.clone())?),
                     OutputFormat::Csv => Box::new(CsvSink::new(path, plan.schema.clone())?),
                 }
@@ -119,6 +120,7 @@ impl FmiSim for Fmi3Import {
     fn simulate_cs(
         &self,
         options: &CoSimulationOptions,
+        output: &crate::options::OutputOptions,
         input_data: Option<arrow::array::RecordBatch>,
     ) -> Result<SimStats, Error> {
         use fmi::fmi3::instance::InstanceCS;
@@ -133,10 +135,10 @@ impl FmiSim for Fmi3Import {
         let start_values = self.parse_start_values(&options.common.initial_values)?;
         let input_state = InputState::new(self, input_data)?;
         let output_vrs: Vec<_> = self.outputs().map(|(_, vr)| vr).collect();
-        let plan = build_output_plan(self, &output_vrs, &options.common.output)?;
+        let plan = build_output_plan(self, &output_vrs, output)?;
         let sink: Box<dyn crate::sim::output::OutputSink> =
-            if let Some(path) = options.common.output.output_path.as_ref() {
-                match options.common.output.output_format {
+            if let Some(path) = output.output_path.as_ref() {
+                match output.output_format {
                     OutputFormat::ArrowIpc => Box::new(ArrowIpcSink::new(path, plan.schema.clone())?),
                     OutputFormat::Csv => Box::new(CsvSink::new(path, plan.schema.clone())?),
                 }

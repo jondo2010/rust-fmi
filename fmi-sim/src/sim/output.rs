@@ -3,8 +3,10 @@ use std::{path::Path, sync::Arc};
 use anyhow::Context;
 use arrow::{
     array::{
-        Array, ArrayBuilder, ArrayRef, Float64Builder, FixedSizeListArray, ListArray, StringArray,
-        make_builder,
+        Array, ArrayBuilder, ArrayRef, BinaryBuilder, BooleanBuilder, FixedSizeListArray, Float32Builder,
+        Float64Builder, Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListArray,
+        ListBuilder, StringArray, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
+        UInt8Builder, make_builder,
     },
     datatypes::{DataType, Field, Schema},
     json::writer::{make_encoder, EncoderOptions},
@@ -163,7 +165,7 @@ impl<Inst: FmiInstance> OutputRecorder<Inst> {
             .columns
             .into_iter()
             .map(|col| {
-                let builder = make_builder(col.field.data_type(), capacity);
+                let builder = make_column_builder(col.kind, col.field.data_type(), capacity);
                 (col, OutputColumnState { builder })
             })
             .collect();
@@ -211,6 +213,109 @@ impl<Inst: FmiInstance> OutputRecorder<Inst> {
             arrays.push(state.builder.finish());
         }
         Ok(RecordBatch::try_new(self.schema.clone(), arrays)?)
+    }
+}
+
+fn make_column_builder(kind: OutputKind, dtype: &DataType, capacity: usize) -> Box<dyn ArrayBuilder> {
+    match dtype {
+        DataType::FixedSizeList(child, len) => match kind {
+            OutputKind::Boolean | OutputKind::Clock => Box::new(
+                arrow::array::FixedSizeListBuilder::new(BooleanBuilder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int8 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(Int8Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int16 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(Int16Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int32 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(Int32Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int64 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(Int64Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt8 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(UInt8Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt16 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(UInt16Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt32 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(UInt32Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt64 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(UInt64Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Float32 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(Float32Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Float64 => Box::new(
+                arrow::array::FixedSizeListBuilder::new(Float64Builder::with_capacity(capacity), *len)
+                    .with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Utf8 => Box::new(arrow::array::FixedSizeListBuilder::new(
+                StringBuilder::with_capacity(capacity, capacity * 8),
+                *len,
+            ).with_field(child.as_ref().clone())),
+            OutputKind::Binary => Box::new(arrow::array::FixedSizeListBuilder::new(
+                BinaryBuilder::with_capacity(capacity, capacity * 8),
+                *len,
+            ).with_field(child.as_ref().clone())),
+        },
+        DataType::List(child) => match kind {
+            OutputKind::Boolean | OutputKind::Clock => Box::new(
+                ListBuilder::new(BooleanBuilder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int8 => Box::new(
+                ListBuilder::new(Int8Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int16 => Box::new(
+                ListBuilder::new(Int16Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int32 => Box::new(
+                ListBuilder::new(Int32Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Int64 => Box::new(
+                ListBuilder::new(Int64Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt8 => Box::new(
+                ListBuilder::new(UInt8Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt16 => Box::new(
+                ListBuilder::new(UInt16Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt32 => Box::new(
+                ListBuilder::new(UInt32Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::UInt64 => Box::new(
+                ListBuilder::new(UInt64Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Float32 => Box::new(
+                ListBuilder::new(Float32Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Float64 => Box::new(
+                ListBuilder::new(Float64Builder::with_capacity(capacity)).with_field(child.as_ref().clone()),
+            ),
+            OutputKind::Utf8 => Box::new(ListBuilder::new(StringBuilder::with_capacity(
+                capacity,
+                capacity * 8,
+            )).with_field(child.as_ref().clone())),
+            OutputKind::Binary => Box::new(ListBuilder::new(BinaryBuilder::with_capacity(
+                capacity,
+                capacity * 8,
+            )).with_field(child.as_ref().clone())),
+        },
+        _ => make_builder(dtype, capacity),
     }
 }
 

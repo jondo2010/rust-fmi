@@ -8,7 +8,7 @@ use fmi::traits::{FmiImport, FmiInstance};
 
 use crate::{
     Error,
-    options::{CoSimulationOptions, ModelExchangeOptions},
+    options::{CoSimulationOptions, ModelExchangeOptions, OutputOptions},
 };
 
 use super::{
@@ -124,6 +124,7 @@ pub trait FmiSim: FmiImport + ImportSchemaBuilder {
     fn simulate_me(
         &self,
         options: &ModelExchangeOptions,
+        output: &OutputOptions,
         input_data: Option<RecordBatch>,
     ) -> Result<SimStats, Error>;
 
@@ -132,6 +133,7 @@ pub trait FmiSim: FmiImport + ImportSchemaBuilder {
     fn simulate_cs(
         &self,
         options: &CoSimulationOptions,
+        output: &OutputOptions,
         input_data: Option<RecordBatch>,
     ) -> Result<SimStats, Error>;
 }

@@ -140,9 +140,6 @@ pub struct CommonOptions {
     /// Relative tolerance
     #[arg(long)]
     pub tolerance: Option<f64>,
-
-    #[command(flatten)]
-    pub output: OutputOptions,
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -161,20 +158,20 @@ impl Default for OutputFormat {
 
 #[derive(Default, Debug, clap::Args)]
 pub struct OutputOptions {
-    /// Output path for Arrow IPC stream. If omitted, outputs are not written to disk.
-    #[arg(long = "output-path")]
+    /// Output path for recorded data. If omitted, outputs are not written to disk.
+    #[arg(short = 'o', long = "output-path", global = true)]
     pub output_path: Option<std::path::PathBuf>,
     /// Output format. Only Arrow IPC stream is supported for now.
-    #[arg(long = "output-format", value_enum, default_value = "arrow-ipc")]
+    #[arg(long = "output-format", value_enum, default_value = "arrow-ipc", global = true)]
     pub output_format: OutputFormat,
     /// Flush after this many rows (overrides auto policy).
-    #[arg(long = "output-flush-rows")]
+    #[arg(long = "output-flush-rows", global = true)]
     pub flush_rows: Option<usize>,
     /// Flush after this many bytes (overrides auto policy).
-    #[arg(long = "output-flush-bytes")]
+    #[arg(long = "output-flush-bytes", global = true)]
     pub flush_bytes: Option<usize>,
     /// Override estimated row size in bytes for flush policy.
-    #[arg(long = "output-row-bytes")]
+    #[arg(long = "output-row-bytes", global = true)]
     pub row_size_override: Option<usize>,
 }
 
@@ -185,6 +182,9 @@ pub struct FmiSimOptions {
     /// Which FMI interface to use
     #[command(subcommand)]
     pub interface: Interface,
+    /// Output options shared across interfaces.
+    #[command(flatten)]
+    pub output: OutputOptions,
     /// The FMU model to read
     #[arg(long)]
     pub model: std::path::PathBuf,
