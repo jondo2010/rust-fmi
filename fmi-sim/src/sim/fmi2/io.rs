@@ -11,90 +11,86 @@ use fmi::{fmi2::instance::Common, traits::FmiInstance};
 use itertools::Itertools;
 
 use crate::sim::{
-    RecorderState,
     interpolation::{Interpolate, PreLookup},
-    io::Recorder,
+    output::{OutputKind, OutputRecorder},
     traits::{InstRecordValues, InstSetValues},
 };
 
-macro_rules! impl_recorder {
-    ($getter:ident, $builder_type:ident, $inst:expr, $vr:ident, $builder:ident) => {{
-        let mut value = [std::default::Default::default()];
-        $inst.$getter(&[*$vr], &mut value)?;
-        $builder
-            .as_any_mut()
-            .downcast_mut::<$builder_type>()
-            .expect(concat!("column is not ", stringify!($builder_type)))
-            .append_value(value[0]);
-    }};
-}
+fn record_outputs_fmi2<T>(
+    inst: &mut T,
+    time: f64,
+    recorder: &mut OutputRecorder<T>,
+) -> anyhow::Result<()>
+where
+    T: Common + FmiInstance,
+    T::ValueRef: Copy + Into<u32>,
+{
+    log::trace!("Recording variables at time {}", time);
 
-macro_rules! impl_record_values {
-    ($inst:ty) => {
-        impl InstRecordValues for $inst {
-            fn record_outputs(
-                &mut self,
-                time: f64,
-                recorder: &mut RecorderState<Self>,
-            ) -> anyhow::Result<()> {
-                log::trace!("Recording variables at time {}", time);
-
-                recorder.time.append_value(time);
-                for Recorder {
-                    field,
-                    value_reference: vr,
-                    builder,
-                    ..
-                } in &mut recorder.recorders
-                {
-                    log::trace!(
-                        "Recording variable VR={} of type {:?}",
-                        vr,
-                        field.data_type()
-                    );
-                    match field.data_type() {
-                        DataType::Boolean => {
-                            let mut value = [std::default::Default::default()];
-                            self.get_boolean(&[*vr], &mut value)?;
-                            builder
-                                .as_any_mut()
-                                .downcast_mut::<BooleanBuilder>()
-                                .expect(concat!("column is not ", stringify!($builder_type)))
-                                .append_value(value[0] > 0);
-                        }
-                        DataType::Int32 => {
-                            impl_recorder!(get_integer, Int32Builder, self, vr, builder)
-                        }
-                        DataType::Float64 => {
-                            impl_recorder!(get_real, Float64Builder, self, vr, builder)
-                        }
-                        DataType::Utf8 => {
-                            let mut values = vec![std::ffi::CString::new("").unwrap()];
-                            if self.get_string(&[*vr], &mut values).is_ok() {
-                                let string_value = values[0].to_str().unwrap_or("");
-                                builder
-                                    .as_any_mut()
-                                    .downcast_mut::<StringBuilder>()
-                                    .expect("column is not StringBuilder")
-                                    .append_value(string_value);
-                            } else {
-                                // Handle error case by appending empty string
-                                builder
-                                    .as_any_mut()
-                                    .downcast_mut::<StringBuilder>()
-                                    .expect("column is not StringBuilder")
-                                    .append_value("");
-                            }
-                        }
-                        _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
-                    }
-                }
-
-                println!("Recorded outputs at time {}", time);
-                Ok(())
+    recorder.time_builder.append_value(time);
+    for (column, state) in &mut recorder.columns {
+        log::trace!("Recording variable of kind {:?}", column.kind);
+        match column.kind {
+            OutputKind::Boolean => {
+                let mut value = [std::default::Default::default()];
+                let vr_u32: u32 = column.vr.into();
+                inst.get_boolean(&[vr_u32], &mut value)?;
+                state
+                    .builder
+                    .as_any_mut()
+                    .downcast_mut::<BooleanBuilder>()
+                    .expect("column is not BooleanBuilder")
+                    .append_value(value[0] > 0);
             }
+            OutputKind::Int32 => {
+                let mut value = [std::default::Default::default()];
+                let vr_u32: u32 = column.vr.into();
+                inst.get_integer(&[vr_u32], &mut value)?;
+                state
+                    .builder
+                    .as_any_mut()
+                    .downcast_mut::<Int32Builder>()
+                    .expect("column is not Int32Builder")
+                    .append_value(value[0]);
+            }
+            OutputKind::Float64 => {
+                let mut value = [std::default::Default::default()];
+                let vr_u32: u32 = column.vr.into();
+                inst.get_real(&[vr_u32], &mut value)?;
+                state
+                    .builder
+                    .as_any_mut()
+                    .downcast_mut::<Float64Builder>()
+                    .expect("column is not Float64Builder")
+                    .append_value(value[0]);
+            }
+            OutputKind::Utf8 => {
+                let mut values = vec![std::ffi::CString::new("").unwrap()];
+                let vr_u32: u32 = column.vr.into();
+                if inst.get_string(&[vr_u32], &mut values).is_ok() {
+                    let string_value = values[0].to_str().unwrap_or("");
+                    state
+                        .builder
+                        .as_any_mut()
+                        .downcast_mut::<StringBuilder>()
+                        .expect("column is not StringBuilder")
+                        .append_value(string_value);
+                } else {
+                    state
+                        .builder
+                        .as_any_mut()
+                        .downcast_mut::<StringBuilder>()
+                        .expect("column is not StringBuilder")
+                        .append_value("");
+                }
+            }
+            _ => unimplemented!("Unsupported output kind: {:?}", column.kind),
         }
-    };
+    }
+
+    recorder.row_count += 1;
+    recorder.maybe_flush()?;
+    Ok(())
 }
 
 macro_rules! impl_set_values {
@@ -157,10 +153,28 @@ macro_rules! impl_set_values {
 
 #[cfg(feature = "cs")]
 impl_set_values!(fmi::fmi2::instance::InstanceCS);
-#[cfg(feature = "cs")]
-impl_record_values!(fmi::fmi2::instance::InstanceCS);
 
 #[cfg(feature = "me")]
 impl_set_values!(fmi::fmi2::instance::InstanceME);
+
+#[cfg(feature = "cs")]
+impl InstRecordValues for fmi::fmi2::instance::InstanceCS {
+    fn record_outputs(
+        &mut self,
+        time: f64,
+        recorder: &mut OutputRecorder<Self>,
+    ) -> anyhow::Result<()> {
+        record_outputs_fmi2(self, time, recorder)
+    }
+}
+
 #[cfg(feature = "me")]
-impl_record_values!(fmi::fmi2::instance::InstanceME);
+impl InstRecordValues for fmi::fmi2::instance::InstanceME {
+    fn record_outputs(
+        &mut self,
+        time: f64,
+        recorder: &mut OutputRecorder<Self>,
+    ) -> anyhow::Result<()> {
+        record_outputs_fmi2(self, time, recorder)
+    }
+}

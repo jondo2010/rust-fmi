@@ -1,4 +1,3 @@
-use arrow::array::RecordBatch;
 use std::path::Path;
 
 use fmi::{
@@ -6,13 +5,14 @@ use fmi::{
     traits::{FmiEventHandler, FmiImport, FmiInstance},
 };
 
-pub use io::{InputState, RecorderState};
+pub use io::InputState;
 
 use crate::{Error, options};
 
 use self::{
     interpolation::Linear,
     params::SimParams,
+    output::OutputRecorder,
     traits::{FmiSim, InstRecordValues, InstSetValues, SimDefaultInitialize, SimHandleEvents},
 };
 
@@ -23,6 +23,7 @@ pub mod fmi3;
 mod interpolation;
 mod io;
 mod me;
+pub mod output;
 pub mod params;
 pub mod solver;
 pub mod traits;
@@ -34,7 +35,7 @@ where
 {
     sim_params: SimParams,
     input_state: InputState<Inst>,
-    recorder_state: RecorderState<Inst>,
+    recorder_state: OutputRecorder<Inst>,
     inst: Inst,
     event_flags: EventFlags,
 }
@@ -51,7 +52,7 @@ pub trait SimStateTrait<Inst: FmiInstance, Import: FmiImport> {
         import: &Import,
         sim_params: SimParams,
         input_state: InputState<Inst>,
-        output_state: RecorderState<Inst>,
+        output_state: OutputRecorder<Inst>,
     ) -> Result<Self, Error>
     where
         Self: Sized;
@@ -97,17 +98,17 @@ pub struct SimStats {
 
 /// Lower-level simulation function that takes an FMI import and a set of options.
 pub fn simulate_with<Imp: FmiSim>(
-    input_data: Option<RecordBatch>,
+    input_data: Option<arrow::array::RecordBatch>,
     interface: &options::Interface,
     import: Imp,
-) -> Result<(RecordBatch, SimStats), Error> {
+) -> Result<SimStats, Error> {
     match interface {
         #[cfg(feature = "me")]
         options::Interface::ModelExchange(options) => import.simulate_me(options, input_data),
         #[cfg(feature = "cs")]
         options::Interface::CoSimulation(options) => import.simulate_cs(options, input_data),
         #[cfg(feature = "se")]
-        options::Interface::ScheduledExecution(options) => unimplemented!(),
+        options::Interface::ScheduledExecution(_options) => unimplemented!(),
         #[cfg(any(not(feature = "me"), not(feature = "cs")))]
         _ => Err(fmi::Error::UnsupportedInterface(format!("{}", interface)).into()),
     }

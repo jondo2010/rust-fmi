@@ -11,9 +11,10 @@ use fmi::{
 use crate::{
     Error,
     sim::{
-        InputState, RecorderState, SimState, SimStateTrait, SimStats,
+        InputState, SimState, SimStateTrait, SimStats,
         interpolation::Linear,
         io::StartValues,
+        output::OutputRecorder,
         params::SimParams,
         traits::{InstRecordValues, InstSetValues, SimApplyStartValues},
     },
@@ -24,7 +25,7 @@ impl SimStateTrait<InstanceCS, Fmi2Import> for SimState<InstanceCS> {
         import: &Fmi2Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS>,
-        recorder_state: RecorderState<InstanceCS>,
+        recorder_state: OutputRecorder<InstanceCS>,
     ) -> Result<Self, Error> {
         log::trace!("Instantiating CS Simulation: {sim_params:#?}");
         let inst = import.instantiate_cs("inst1", true, true)?;

@@ -140,6 +140,42 @@ pub struct CommonOptions {
     /// Relative tolerance
     #[arg(long)]
     pub tolerance: Option<f64>,
+
+    #[command(flatten)]
+    pub output: OutputOptions,
+}
+
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum OutputFormat {
+    #[clap(name = "arrow-ipc")]
+    ArrowIpc,
+    #[clap(name = "csv")]
+    Csv,
+}
+
+impl Default for OutputFormat {
+    fn default() -> Self {
+        Self::ArrowIpc
+    }
+}
+
+#[derive(Default, Debug, clap::Args)]
+pub struct OutputOptions {
+    /// Output path for Arrow IPC stream. If omitted, outputs are not written to disk.
+    #[arg(long = "output-path")]
+    pub output_path: Option<std::path::PathBuf>,
+    /// Output format. Only Arrow IPC stream is supported for now.
+    #[arg(long = "output-format", value_enum, default_value = "arrow-ipc")]
+    pub output_format: OutputFormat,
+    /// Flush after this many rows (overrides auto policy).
+    #[arg(long = "output-flush-rows")]
+    pub flush_rows: Option<usize>,
+    /// Flush after this many bytes (overrides auto policy).
+    #[arg(long = "output-flush-bytes")]
+    pub flush_bytes: Option<usize>,
+    /// Override estimated row size in bytes for flush policy.
+    #[arg(long = "output-row-bytes")]
+    pub row_size_override: Option<usize>,
 }
 
 /// Simulate an FMU
@@ -155,9 +191,6 @@ pub struct FmiSimOptions {
     /// Name of the CSV file name with input data.
     #[arg(short = 'i', long)]
     pub input_file: Option<std::path::PathBuf>,
-    /// Simulation result output CSV file name. Default is to use standard output.
-    #[arg(short = 'o', long)]
-    pub output_file: Option<std::path::PathBuf>,
     /// Separator to be used in CSV input/output.
     #[arg(short = 'c', default_value = ",")]
     pub separator: char,

@@ -128,12 +128,14 @@ mod tests {
         assert_eq!(x.start_time, None);
         assert_eq!(x.stop_time, Some(3.0));
         assert_eq!(x.tolerance, Some(0.0001));
+        assert_eq!(x.step_size, None);
 
-        let s = r#"<DefaultExperiment startTime="0.20000000000000000e+00" stopTime="1.50000000000000000e+00" tolerance="0.0001"/>"#;
+        let s = r#"<DefaultExperiment startTime="0.20000000000000000e+00" stopTime="1.50000000000000000e+00" tolerance="0.0001" stepSize="0.05"/>"#;
         let x = DefaultExperiment::from_str(s).unwrap();
         assert_eq!(x.start_time, Some(0.2));
         assert_eq!(x.stop_time, Some(1.5));
         assert_eq!(x.tolerance, Some(0.0001));
+        assert_eq!(x.step_size, Some(0.05));
     }
 
     #[test]

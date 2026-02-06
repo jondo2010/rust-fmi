@@ -5,7 +5,7 @@ use fmi::{
 
 use crate::{
     Error,
-    sim::{InputState, RecorderState, SimState, SimStateTrait, params::SimParams},
+    sim::{InputState, SimState, SimStateTrait, output::OutputRecorder, params::SimParams},
 };
 
 impl SimStateTrait<InstanceME, Fmi3Import> for SimState<InstanceME> {
@@ -13,7 +13,7 @@ impl SimStateTrait<InstanceME, Fmi3Import> for SimState<InstanceME> {
         import: &Fmi3Import,
         sim_params: SimParams,
         input_state: InputState<InstanceME>,
-        recorder_state: RecorderState<InstanceME>,
+        recorder_state: OutputRecorder<InstanceME>,
     ) -> Result<Self, Error> {
         let inst = import.instantiate_me("inst1", true, true)?;
         Ok(Self {

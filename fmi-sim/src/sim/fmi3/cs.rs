@@ -8,8 +8,9 @@ use fmi::{
 use crate::{
     Error,
     sim::{
-        InputState, RecorderState, SimState, SimStateTrait, SimStats,
+        InputState, SimState, SimStateTrait, SimStats,
         interpolation::Linear,
+        output::OutputRecorder,
         params::SimParams,
         traits::{InstRecordValues, SimHandleEvents},
     },
@@ -20,7 +21,7 @@ impl SimStateTrait<InstanceCS, Fmi3Import> for SimState<InstanceCS> {
         import: &Fmi3Import,
         sim_params: SimParams,
         input_state: InputState<InstanceCS>,
-        output_state: RecorderState<InstanceCS>,
+        output_state: OutputRecorder<InstanceCS>,
     ) -> Result<Self, Error> {
         let inst = import.instantiate_cs(
             "inst1",

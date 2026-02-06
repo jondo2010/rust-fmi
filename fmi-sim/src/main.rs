@@ -11,7 +11,7 @@ fn main() -> anyhow::Result<()> {
 
     let _logger = flexi_logger::Logger::try_with_env()?.start()?;
 
-    let (outputs, stats) = fmi_sim::simulate(&options)?;
+    let stats = fmi_sim::simulate(&options)?;
 
     log::info!(
         "Simulation finished at t = {:.1} after {} steps and {} events.",
@@ -19,20 +19,6 @@ fn main() -> anyhow::Result<()> {
         stats.num_steps,
         stats.num_events
     );
-
-    if let Some(output_file) = options.output_file {
-        let file = std::fs::File::create(output_file).unwrap();
-        arrow::csv::writer::WriterBuilder::new()
-            .with_delimiter(options.separator as _)
-            .with_header(true)
-            .build(file)
-            .write(&outputs)?;
-    } else {
-        println!(
-            "Outputs:\n{}",
-            arrow::util::pretty::pretty_format_batches(&[outputs]).unwrap()
-        );
-    }
 
     Ok(())
 }

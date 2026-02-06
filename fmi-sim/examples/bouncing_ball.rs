@@ -29,14 +29,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Simulate the FMU model
-    let (outputs, stats) = fmi_sim::simulate(&options)?;
+    let stats = fmi_sim::simulate(&options)?;
 
     // Print the simulation results
     println!("Simulation statistics: {stats:?}");
-    println!(
-        "{}",
-        arrow::util::pretty::pretty_format_batches(&[outputs]).unwrap()
-    );
+    println!("Outputs are written via the CLI output options when configured.");
 
     Ok(())
 }

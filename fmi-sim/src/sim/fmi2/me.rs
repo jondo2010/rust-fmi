@@ -7,8 +7,9 @@ use fmi::{
 use crate::{
     Error,
     sim::{
-        InputState, RecorderState, SimState, SimStateTrait,
+        InputState, SimState, SimStateTrait,
         io::StartValues,
+        output::OutputRecorder,
         params::SimParams,
         traits::{InstSetValues, SimApplyStartValues},
     },
@@ -19,7 +20,7 @@ impl SimStateTrait<InstanceME, Fmi2Import> for SimState<InstanceME> {
         import: &Fmi2Import,
         sim_params: SimParams,
         input_state: InputState<InstanceME>,
-        recorder_state: RecorderState<InstanceME>,
+        recorder_state: OutputRecorder<InstanceME>,
     ) -> Result<Self, Error> {
         log::trace!("Instantiating ME Simulation: {sim_params:#?}");
         let inst = import.instantiate_me("inst1", true, true)?;

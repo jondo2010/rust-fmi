@@ -30,6 +30,7 @@ se = []
 [dependencies]
 anyhow = { workspace = true }
 arrow = { workspace = true, features = ["csv", "prettyprint"] }
+arrow-ipc = "55.2.0"
 clap.workspace = true
 clap-verbosity-flag = "3.0"
 comfy-table = "7.1"
@@ -46,3 +47,4 @@ assert_cmd = "2.0.14"
 float-cmp = { version = "0.10", features = ["std"] }
 fmi-test-data = { workspace = true }
 rstest = { workspace = true }
+tempfile = "3.24.0"

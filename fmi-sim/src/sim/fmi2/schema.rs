@@ -5,12 +5,16 @@ use arrow::{
 use fmi::{
     fmi2::{
         import::Fmi2Import,
-        schema::{Causality, Variability},
+        schema::{Causality, ScalarVariableElement, Variability},
     },
     traits::FmiImport,
 };
 
-use crate::sim::{io::StartValues, traits::ImportSchemaBuilder};
+use crate::sim::{
+    io::StartValues,
+    output::{OutputDimension, OutputKind},
+    traits::ImportSchemaBuilder,
+};
 
 impl ImportSchemaBuilder for Fmi2Import
 where
@@ -91,6 +95,64 @@ where
                     v.value_reference,
                 )
             })
+    }
+
+    fn output_field_for_vr(&self, vr: Self::ValueRef) -> anyhow::Result<Field> {
+        let var = self
+            .model_description()
+            .model_variables
+            .variables
+            .iter()
+            .find(|v| v.value_reference == vr)
+            .ok_or_else(|| anyhow::anyhow!("Output VR {} not found", vr))?;
+
+        if var.causality != Causality::Output {
+            return Err(anyhow::anyhow!(
+                "VR {} is not an Output variable",
+                var.value_reference
+            ));
+        }
+
+        let mut field = Field::new(&var.name, var.elem.data_type(), false);
+        if let Some(desc) = &var.description {
+            let mut meta = field.metadata().clone();
+            meta.insert("description".to_string(), desc.clone());
+            field = field.with_metadata(meta);
+        }
+        Ok(field)
+    }
+
+    fn output_kind_for_vr(&self, vr: Self::ValueRef) -> anyhow::Result<OutputKind> {
+        let var = self
+            .model_description()
+            .model_variables
+            .variables
+            .iter()
+            .find(|v| v.value_reference == vr)
+            .ok_or_else(|| anyhow::anyhow!("Output VR {} not found", vr))?;
+
+        if var.causality != Causality::Output {
+            return Err(anyhow::anyhow!(
+                "VR {} is not an Output variable",
+                var.value_reference
+            ));
+        }
+
+        let kind = match var.elem {
+            ScalarVariableElement::Real(_) => OutputKind::Float64,
+            ScalarVariableElement::Integer(_) => OutputKind::Int32,
+            ScalarVariableElement::Boolean(_) => OutputKind::Boolean,
+            ScalarVariableElement::String => OutputKind::Utf8,
+            ScalarVariableElement::Enumeration => OutputKind::Int32,
+        };
+        Ok(kind)
+    }
+
+    fn output_array_dims_for_vr(
+        &self,
+        _vr: Self::ValueRef,
+    ) -> anyhow::Result<Vec<OutputDimension<Self::ValueRef>>> {
+        Ok(Vec::new())
     }
 
     fn parse_start_values(

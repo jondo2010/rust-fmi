@@ -4,7 +4,6 @@
 #![deny(unsafe_code)]
 #![deny(clippy::all)]
 
-use arrow::array::RecordBatch;
 use fmi::schema::{MajorVersion, traits::FmiModelDescription};
 use sim::SimStats;
 
@@ -28,10 +27,7 @@ pub enum Error {
 }
 
 /// Simulate an FMI model parameterized by the given top-level options.
-///
-/// # Returns
-/// A tuple of the record batch of the simulation results and the statistics of the simulation.
-pub fn simulate(options: &options::FmiSimOptions) -> Result<(RecordBatch, SimStats), Error> {
+pub fn simulate(options: &options::FmiSimOptions) -> Result<SimStats, Error> {
     let mini_descr = fmi::import::peek_descr_path(&options.model)?;
     let version = mini_descr.major_version().map_err(fmi::Error::from)?;
 

@@ -1,5 +1,3 @@
-use arrow::array::RecordBatch;
-
 use fmi::{
     fmi3::{Common, import::Fmi3Import},
     traits::{FmiImport, FmiInstance},
@@ -7,9 +5,10 @@ use fmi::{
 
 use crate::{
     Error,
-    options::{CoSimulationOptions, ModelExchangeOptions},
+    options::{CoSimulationOptions, ModelExchangeOptions, OutputFormat},
     sim::{
-        InputState, RecorderState, SimState, SimStateTrait,
+        InputState, SimState, SimStateTrait,
+        output::{ArrowIpcSink, CsvSink, NullSink, OutputRecorder, build_output_plan},
         params::SimParams,
         traits::{ImportSchemaBuilder, SimInitialize},
     },
@@ -68,8 +67,8 @@ impl FmiSim for Fmi3Import {
     fn simulate_me(
         &self,
         options: &ModelExchangeOptions,
-        input_data: Option<RecordBatch>,
-    ) -> Result<(RecordBatch, SimStats), Error> {
+        input_data: Option<arrow::array::RecordBatch>,
+    ) -> Result<SimStats, Error> {
         use crate::sim::{solver, traits::SimMe};
         use fmi::fmi3::{ModelExchange, instance::InstanceME};
 
@@ -78,7 +77,19 @@ impl FmiSim for Fmi3Import {
 
         let start_values = self.parse_start_values(&options.common.initial_values)?;
         let input_state = InputState::new(self, input_data)?;
-        let recorder_state = RecorderState::new(self, &sim_params);
+        let output_vrs: Vec<_> = self.outputs().map(|(_, vr)| vr).collect();
+        let plan = build_output_plan(self, &output_vrs, &options.common.output)?;
+        let sink: Box<dyn crate::sim::output::OutputSink> =
+            if let Some(path) = options.common.output.output_path.as_ref() {
+                match options.common.output.output_format {
+                    OutputFormat::ArrowIpc => Box::new(ArrowIpcSink::new(path, plan.schema.clone())?),
+                    OutputFormat::Csv => Box::new(CsvSink::new(path, plan.schema.clone())?),
+                }
+            } else {
+                Box::new(NullSink)
+            };
+        let recorder_state: OutputRecorder<fmi::fmi3::instance::InstanceME> =
+            OutputRecorder::from_plan(plan, sink)?;
 
         let start_time = sim_params.start_time;
         let tol = sim_params.tolerance.unwrap_or_default();
@@ -99,16 +110,17 @@ impl FmiSim for Fmi3Import {
 
         sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
         let stats = sim_state.main_loop(solver)?;
+        sim_state.recorder_state.finish()?;
 
-        Ok((sim_state.recorder_state.finish(), stats))
+        Ok(stats)
     }
 
     #[cfg(feature = "cs")]
     fn simulate_cs(
         &self,
         options: &CoSimulationOptions,
-        input_data: Option<RecordBatch>,
-    ) -> Result<(RecordBatch, SimStats), Error> {
+        input_data: Option<arrow::array::RecordBatch>,
+    ) -> Result<SimStats, Error> {
         use fmi::fmi3::instance::InstanceCS;
 
         let sim_params = SimParams::new_from_options(
@@ -120,13 +132,26 @@ impl FmiSim for Fmi3Import {
 
         let start_values = self.parse_start_values(&options.common.initial_values)?;
         let input_state = InputState::new(self, input_data)?;
-        let output_state = RecorderState::new(self, &sim_params);
+        let output_vrs: Vec<_> = self.outputs().map(|(_, vr)| vr).collect();
+        let plan = build_output_plan(self, &output_vrs, &options.common.output)?;
+        let sink: Box<dyn crate::sim::output::OutputSink> =
+            if let Some(path) = options.common.output.output_path.as_ref() {
+                match options.common.output.output_format {
+                    OutputFormat::ArrowIpc => Box::new(ArrowIpcSink::new(path, plan.schema.clone())?),
+                    OutputFormat::Csv => Box::new(CsvSink::new(path, plan.schema.clone())?),
+                }
+            } else {
+                Box::new(NullSink)
+            };
+        let output_state: OutputRecorder<fmi::fmi3::instance::InstanceCS> =
+            OutputRecorder::from_plan(plan, sink)?;
 
         let mut sim_state =
             SimState::<InstanceCS>::new(self, sim_params, input_state, output_state)?;
         sim_state.initialize(start_values, options.common.initial_fmu_state_file.as_ref())?;
         let stats = sim_state.main_loop()?;
+        sim_state.recorder_state.finish()?;
 
-        Ok((sim_state.recorder_state.finish(), stats))
+        Ok(stats)
     }
 }

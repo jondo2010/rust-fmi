@@ -1,6 +1,6 @@
 use super::{
-    AbstractVariableTrait, FmiBinary, FmiBoolean, FmiClock, FmiFloat32, FmiFloat64, FmiInt8,
-    FmiInt16, FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16, FmiUInt32, FmiUInt64,
+    AbstractVariableTrait, Dimension, FmiBinary, FmiBoolean, FmiClock, FmiFloat32, FmiFloat64,
+    FmiInt8, FmiInt16, FmiInt32, FmiInt64, FmiString, FmiUInt8, FmiUInt16, FmiUInt32, FmiUInt64,
     TypedArrayableVariableTrait,
 };
 
@@ -100,6 +100,41 @@ impl ModelVariables {
     /// Finds a variable by its name.
     pub fn find_by_name(&self, name: &str) -> Option<&dyn AbstractVariableTrait> {
         self.iter_abstract().find(|v| v.name() == name)
+    }
+
+    /// Finds a variable by its value reference.
+    pub fn find_by_value_reference(&self, vr: u32) -> Option<&dyn AbstractVariableTrait> {
+        self.iter_abstract().find(|v| v.value_reference() == vr)
+    }
+
+    /// Returns dimensions for the variable with the given value reference, if present.
+    pub fn dimensions_by_value_reference(&self, vr: u32) -> Option<&[Dimension]> {
+        static EMPTY_DIMS: [Dimension; 0] = [];
+        self.variables.iter().find_map(|v| match v {
+            Variable::Int8(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::UInt8(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Int16(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::UInt16(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Int32(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::UInt32(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Int64(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::UInt64(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Float32(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Float64(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Boolean(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::String(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Binary(var) if var.value_reference == vr => Some(var.dimensions.as_slice()),
+            Variable::Clock(var) if var.value_reference == vr => Some(&EMPTY_DIMS),
+            _ => None,
+        })
+    }
+
+    /// Returns the Binary maxSize attribute for the given value reference, if present.
+    pub fn binary_max_size(&self, vr: u32) -> Option<u32> {
+        self.variables.iter().find_map(|v| match v {
+            Variable::Binary(var) if var.value_reference == vr => var.max_size,
+            _ => None,
+        })
     }
 
     /// Returns a vector of all Float32 variables

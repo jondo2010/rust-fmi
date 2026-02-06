@@ -1,12 +1,12 @@
 //! FMI3-specific input and output implementation
 
-use anyhow::Context;
 use arrow::{
     array::{
-        ArrayRef, AsArray, BinaryBuilder, BooleanBuilder, Float32Array, Float32Builder,
-        Float64Array, Float64Builder, Int8Builder, Int16Builder, Int32Builder, Int64Builder,
-        StringBuilder, UInt8Array, UInt8Builder, UInt16Array, UInt16Builder, UInt32Array,
-        UInt32Builder, UInt64Array, UInt64Builder, downcast_array,
+        ArrayBuilder, ArrayRef, AsArray, BinaryBuilder, BooleanBuilder, FixedSizeListBuilder,
+        Float32Array, Float32Builder, Float64Array, Float64Builder, Int8Builder, Int16Builder,
+        Int32Builder, Int64Builder, ListBuilder, StringBuilder, UInt8Array, UInt8Builder,
+        UInt16Array, UInt16Builder, UInt32Array, UInt32Builder, UInt64Array, UInt64Builder,
+        downcast_array,
     },
     datatypes::{
         DataType, Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type, UInt8Type,
@@ -15,9 +15,8 @@ use arrow::{
 };
 
 use crate::sim::{
-    RecorderState,
     interpolation::{Interpolate, PreLookup},
-    io::Recorder,
+    output::{OutputDimension, OutputKind, OutputRecorder},
     traits::{InstRecordValues, InstSetValues},
 };
 
@@ -27,107 +26,465 @@ use itertools::Itertools;
 
 const DEFAULT_BINARY_BUFFER_SIZE: usize = 1024;
 
-macro_rules! impl_recorder {
-    ($getter:ident, $builder_type:ident, $inst:expr, $vr:ident, $builder:ident) => {{
-        let mut value = [std::default::Default::default()];
-        $inst.$getter(&[*$vr], &mut value)?;
-        $builder
-            .as_any_mut()
-            .downcast_mut::<$builder_type>()
-            .expect(concat!("column is not ", stringify!($builder_type)))
-            .append_value(value[0]);
-    }};
+fn resolve_array_len<Inst>(
+    inst: &mut Inst,
+    dims: &[OutputDimension<<Inst as FmiInstance>::ValueRef>],
+) -> anyhow::Result<usize>
+where
+    Inst: GetSet + FmiInstance,
+    Inst::ValueRef: Copy + Into<u32>,
+{
+    if dims.is_empty() {
+        return Ok(1);
+    }
+    let mut len = 1usize;
+    for dim in dims {
+        match dim {
+            OutputDimension::Fixed(size) => {
+                len = len.saturating_mul(*size);
+            }
+            OutputDimension::Variable(vr) => {
+                let mut value = [0u64];
+                let vr_u32: u32 = (*vr).into();
+                inst.get_uint64(&[vr_u32], &mut value)?;
+                len = len.saturating_mul(value[0] as usize);
+            }
+        }
+    }
+    Ok(len)
 }
 
-macro_rules! impl_record_values {
-    ($inst:ty) => {
-        impl InstRecordValues for $inst {
-            fn record_outputs(
-                &mut self,
-                time: f64,
-                recorder: &mut RecorderState<Self>,
-            ) -> anyhow::Result<()> {
-                log::trace!("Recording variables at time {}", time);
-
-                recorder.time.append_value(time);
-                for Recorder {
-                    field,
-                    value_reference: vr,
-                    builder,
-                    binary_max_size,
-                } in &mut recorder.recorders
-                {
-                    log::trace!(
-                        "Recording variable VR={} of type {:?}",
-                        vr,
-                        field.data_type()
-                    );
-                    match field.data_type() {
-                        DataType::Boolean => {
-                            impl_recorder!(get_boolean, BooleanBuilder, self, vr, builder)
-                        }
-                        DataType::Int8 => {
-                            impl_recorder!(get_int8, Int8Builder, self, vr, builder)
-                        }
-                        DataType::Int16 => {
-                            impl_recorder!(get_int16, Int16Builder, self, vr, builder)
-                        }
-                        DataType::Int32 => {
-                            impl_recorder!(get_int32, Int32Builder, self, vr, builder)
-                        }
-                        DataType::Int64 => {
-                            impl_recorder!(get_int64, Int64Builder, self, vr, builder)
-                        }
-                        DataType::UInt8 => {
-                            impl_recorder!(get_uint8, UInt8Builder, self, vr, builder)
-                        }
-                        DataType::UInt16 => {
-                            impl_recorder!(get_uint16, UInt16Builder, self, vr, builder)
-                        }
-                        DataType::UInt32 => {
-                            impl_recorder!(get_uint32, UInt32Builder, self, vr, builder)
-                        }
-                        DataType::UInt64 => {
-                            impl_recorder!(get_uint64, UInt64Builder, self, vr, builder)
-                        }
-                        DataType::Float32 => {
-                            impl_recorder!(get_float32, Float32Builder, self, vr, builder)
-                        }
-                        DataType::Float64 => {
-                            impl_recorder!(get_float64, Float64Builder, self, vr, builder)
-                        }
-                        DataType::Binary => {
-                            let buffer_len = binary_max_size.unwrap_or(DEFAULT_BINARY_BUFFER_SIZE);
-                            let mut data = vec![0u8; buffer_len];
-                            let mut value = [data.as_mut_slice()];
-                            let sizes = self
-                                .get_binary(&[*vr], &mut value)
-                                .context("Failed to get binary data")?;
-                            let actual_size = sizes.get(0).copied().unwrap_or(0);
-                            data.truncate(actual_size);
-                            builder
-                                .as_any_mut()
-                                .downcast_mut::<BinaryBuilder>()
-                                .expect("column is not Binary")
-                                .append_value(data);
-                        }
-                        DataType::Utf8 => {
-                            let mut values = [std::ffi::CString::new("").unwrap()];
-                            let _ = self.get_string(&[*vr], &mut values);
-                            let string_value = values[0].to_string_lossy();
-                            builder
-                                .as_any_mut()
-                                .downcast_mut::<StringBuilder>()
-                                .expect("column is not Utf8")
-                                .append_value(string_value);
-                        }
-                        _ => unimplemented!("Unsupported data type: {:?}", field.data_type()),
+macro_rules! append_listable_primitive {
+    ($fn_name:ident, $scalar_dt:pat, $builder_ty:ty, $values_ty:ty, $builder_label:expr, $dtype_label:expr) => {
+        fn $fn_name(
+            builder: &mut dyn ArrayBuilder,
+            dtype: &DataType,
+            values: &[$values_ty],
+            len: usize,
+        ) {
+            match dtype {
+                $scalar_dt => builder
+                    .as_any_mut()
+                    .downcast_mut::<$builder_ty>()
+                    .expect(concat!("column is not ", $builder_label))
+                    .append_value(values[0]),
+                DataType::FixedSizeList(_, _) => {
+                    let builder = builder
+                        .as_any_mut()
+                        .downcast_mut::<FixedSizeListBuilder<$builder_ty>>()
+                        .expect(concat!("column is not FixedSizeList<", $builder_label, ">"));
+                    for v in values.iter().take(len) {
+                        builder.values().append_value(*v);
                     }
+                    builder.append(true);
                 }
-                Ok(())
+                DataType::List(_) => {
+                    let builder = builder
+                        .as_any_mut()
+                        .downcast_mut::<ListBuilder<$builder_ty>>()
+                        .expect(concat!("column is not List<", $builder_label, ">"));
+                    for v in values.iter().take(len) {
+                        builder.values().append_value(*v);
+                    }
+                    builder.append(true);
+                }
+                _ => unimplemented!(concat!("Unsupported ", $dtype_label, " dtype {:?}"), dtype),
             }
         }
     };
+}
+
+append_listable_primitive!(
+    append_bool,
+    DataType::Boolean,
+    BooleanBuilder,
+    bool,
+    "BooleanBuilder",
+    "boolean"
+);
+append_listable_primitive!(
+    append_i8,
+    DataType::Int8,
+    Int8Builder,
+    i8,
+    "Int8Builder",
+    "int8"
+);
+append_listable_primitive!(
+    append_i16,
+    DataType::Int16,
+    Int16Builder,
+    i16,
+    "Int16Builder",
+    "int16"
+);
+append_listable_primitive!(
+    append_i32,
+    DataType::Int32,
+    Int32Builder,
+    i32,
+    "Int32Builder",
+    "int32"
+);
+append_listable_primitive!(
+    append_i64,
+    DataType::Int64,
+    Int64Builder,
+    i64,
+    "Int64Builder",
+    "int64"
+);
+append_listable_primitive!(
+    append_u8,
+    DataType::UInt8,
+    UInt8Builder,
+    u8,
+    "UInt8Builder",
+    "uint8"
+);
+append_listable_primitive!(
+    append_u16,
+    DataType::UInt16,
+    UInt16Builder,
+    u16,
+    "UInt16Builder",
+    "uint16"
+);
+append_listable_primitive!(
+    append_u32,
+    DataType::UInt32,
+    UInt32Builder,
+    u32,
+    "UInt32Builder",
+    "uint32"
+);
+append_listable_primitive!(
+    append_u64,
+    DataType::UInt64,
+    UInt64Builder,
+    u64,
+    "UInt64Builder",
+    "uint64"
+);
+append_listable_primitive!(
+    append_f32,
+    DataType::Float32,
+    Float32Builder,
+    f32,
+    "Float32Builder",
+    "float32"
+);
+append_listable_primitive!(
+    append_f64,
+    DataType::Float64,
+    Float64Builder,
+    f64,
+    "Float64Builder",
+    "float64"
+);
+fn append_utf8(
+    builder: &mut dyn ArrayBuilder,
+    dtype: &DataType,
+    values: &[std::ffi::CString],
+    len: usize,
+) {
+    match dtype {
+        DataType::Utf8 => builder
+            .as_any_mut()
+            .downcast_mut::<StringBuilder>()
+            .expect("column is not StringBuilder")
+            .append_value(values[0].to_string_lossy()),
+        DataType::FixedSizeList(_, _) => {
+            let builder = builder
+                .as_any_mut()
+                .downcast_mut::<FixedSizeListBuilder<StringBuilder>>()
+                .expect("column is not FixedSizeList<StringBuilder>");
+            for v in values.iter().take(len) {
+                builder.values().append_value(v.to_string_lossy());
+            }
+            builder.append(true);
+        }
+        DataType::List(_) => {
+            let builder = builder
+                .as_any_mut()
+                .downcast_mut::<ListBuilder<StringBuilder>>()
+                .expect("column is not List<StringBuilder>");
+            for v in values.iter().take(len) {
+                builder.values().append_value(v.to_string_lossy());
+            }
+            builder.append(true);
+        }
+        _ => unimplemented!("Unsupported utf8 dtype {:?}", dtype),
+    }
+}
+
+fn append_binary(builder: &mut dyn ArrayBuilder, dtype: &DataType, values: &[Vec<u8>], len: usize) {
+    match dtype {
+        DataType::Binary => builder
+            .as_any_mut()
+            .downcast_mut::<BinaryBuilder>()
+            .expect("column is not BinaryBuilder")
+            .append_value(values[0].as_slice()),
+        DataType::FixedSizeList(_, _) => {
+            let builder = builder
+                .as_any_mut()
+                .downcast_mut::<FixedSizeListBuilder<BinaryBuilder>>()
+                .expect("column is not FixedSizeList<BinaryBuilder>");
+            for v in values.iter().take(len) {
+                builder.values().append_value(v.as_slice());
+            }
+            builder.append(true);
+        }
+        DataType::List(_) => {
+            let builder = builder
+                .as_any_mut()
+                .downcast_mut::<ListBuilder<BinaryBuilder>>()
+                .expect("column is not List<BinaryBuilder>");
+            for v in values.iter().take(len) {
+                builder.values().append_value(v.as_slice());
+            }
+            builder.append(true);
+        }
+        _ => unimplemented!("Unsupported binary dtype {:?}", dtype),
+    }
+}
+
+fn record_outputs_fmi3<T>(
+    inst: &mut T,
+    time: f64,
+    recorder: &mut OutputRecorder<T>,
+) -> anyhow::Result<()>
+where
+    T: GetSet + FmiInstance,
+    T::ValueRef: Copy + Into<u32>,
+{
+    log::trace!("Recording variables at time {}", time);
+
+    recorder.time_builder.append_value(time);
+
+    let mut record_kind = |kind: OutputKind| -> anyhow::Result<()> {
+        let mut indices = Vec::new();
+        for (idx, (column, _)) in recorder.columns.iter().enumerate() {
+            if column.kind == kind {
+                indices.push(idx);
+            }
+        }
+        if indices.is_empty() {
+            return Ok(());
+        }
+
+        let mut vrs = Vec::with_capacity(indices.len());
+        let mut vrs_u32 = Vec::with_capacity(indices.len());
+        let mut lengths = Vec::with_capacity(indices.len());
+        let mut total_len = 0usize;
+
+        for idx in &indices {
+            let column = &recorder.columns[*idx].0;
+            let len = resolve_array_len(inst, &column.array_dims)?;
+            vrs.push(column.vr);
+            vrs_u32.push(column.vr.into());
+            lengths.push(len);
+            total_len = total_len.saturating_add(len);
+        }
+
+        match kind {
+            OutputKind::Boolean | OutputKind::Clock => {
+                let mut values = vec![false; total_len];
+                if kind == OutputKind::Clock {
+                    inst.get_clock(&vrs_u32, &mut values)?;
+                } else {
+                    inst.get_boolean(&vrs_u32, &mut values)?;
+                }
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_bool(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Int8 => {
+                let mut values = vec![0i8; total_len];
+                inst.get_int8(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_i8(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Int16 => {
+                let mut values = vec![0i16; total_len];
+                inst.get_int16(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_i16(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Int32 => {
+                let mut values = vec![0i32; total_len];
+                inst.get_int32(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_i32(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Int64 => {
+                let mut values = vec![0i64; total_len];
+                inst.get_int64(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_i64(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::UInt8 => {
+                let mut values = vec![0u8; total_len];
+                inst.get_uint8(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_u8(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::UInt16 => {
+                let mut values = vec![0u16; total_len];
+                inst.get_uint16(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_u16(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::UInt32 => {
+                let mut values = vec![0u32; total_len];
+                inst.get_uint32(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_u32(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::UInt64 => {
+                let mut values = vec![0u64; total_len];
+                inst.get_uint64(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_u64(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Float32 => {
+                let mut values = vec![0f32; total_len];
+                inst.get_float32(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_f32(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Float64 => {
+                let mut values = vec![0f64; total_len];
+                inst.get_float64(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_f64(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Utf8 => {
+                let mut values = vec![std::ffi::CString::new("").unwrap(); total_len];
+                inst.get_string(&vrs_u32, &mut values)?;
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &values[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_utf8(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+            OutputKind::Binary => {
+                let mut buffers: Vec<Vec<u8>> = Vec::with_capacity(total_len);
+                let mut buffer_slices: Vec<&mut [u8]> = Vec::with_capacity(total_len);
+                for (i, idx) in indices.iter().enumerate() {
+                    let column = &recorder.columns[*idx].0;
+                    let len = lengths[i];
+                    let buffer_len = column.binary_max_size.unwrap_or(DEFAULT_BINARY_BUFFER_SIZE);
+                    for _ in 0..len {
+                        buffers.push(vec![0u8; buffer_len]);
+                    }
+                }
+                for buf in &mut buffers {
+                    buffer_slices.push(buf.as_mut_slice());
+                }
+                let sizes = inst.get_binary(&vrs_u32, &mut buffer_slices)?;
+                for (buf, size) in buffers.iter_mut().zip(sizes.iter()) {
+                    buf.truncate(*size);
+                }
+                let mut offset = 0;
+                for (i, idx) in indices.iter().enumerate() {
+                    let len = lengths[i];
+                    let slice = &buffers[offset..offset + len];
+                    let (column, state) = &mut recorder.columns[*idx];
+                    append_binary(state.builder.as_mut(), column.field.data_type(), slice, len);
+                    offset += len;
+                }
+            }
+        }
+
+        Ok(())
+    };
+
+    record_kind(OutputKind::Boolean)?;
+    record_kind(OutputKind::Clock)?;
+    record_kind(OutputKind::Int8)?;
+    record_kind(OutputKind::Int16)?;
+    record_kind(OutputKind::Int32)?;
+    record_kind(OutputKind::Int64)?;
+    record_kind(OutputKind::UInt8)?;
+    record_kind(OutputKind::UInt16)?;
+    record_kind(OutputKind::UInt32)?;
+    record_kind(OutputKind::UInt64)?;
+    record_kind(OutputKind::Float32)?;
+    record_kind(OutputKind::Float64)?;
+    record_kind(OutputKind::Utf8)?;
+    record_kind(OutputKind::Binary)?;
+    recorder.row_count += 1;
+    recorder.maybe_flush()?;
+    Ok(())
 }
 
 macro_rules! impl_set_values {
@@ -274,10 +631,28 @@ macro_rules! impl_set_values {
 
 #[cfg(feature = "cs")]
 impl_set_values!(fmi::fmi3::instance::InstanceCS);
-#[cfg(feature = "cs")]
-impl_record_values!(fmi::fmi3::instance::InstanceCS);
 
 #[cfg(feature = "me")]
 impl_set_values!(fmi::fmi3::instance::InstanceME);
+
+#[cfg(feature = "cs")]
+impl InstRecordValues for fmi::fmi3::instance::InstanceCS {
+    fn record_outputs(
+        &mut self,
+        time: f64,
+        recorder: &mut OutputRecorder<Self>,
+    ) -> anyhow::Result<()> {
+        record_outputs_fmi3(self, time, recorder)
+    }
+}
+
 #[cfg(feature = "me")]
-impl_record_values!(fmi::fmi3::instance::InstanceME);
+impl InstRecordValues for fmi::fmi3::instance::InstanceME {
+    fn record_outputs(
+        &mut self,
+        time: f64,
+        recorder: &mut OutputRecorder<Self>,
+    ) -> anyhow::Result<()> {
+        record_outputs_fmi3(self, time, recorder)
+    }
+}

@@ -95,7 +95,7 @@ fn test_serialize_deserialize_default_experiment() {
         start_time: Some(0.0),
         stop_time: Some(10.0),
         tolerance: Some(1e-7),
-        step_size: None,
+        step_size: Some(0.01),
     };
 
     // Serialize to XML
@@ -108,6 +108,7 @@ fn test_serialize_deserialize_default_experiment() {
     assert_eq!(default_experiment.start_time, deserialized.start_time);
     assert_eq!(default_experiment.stop_time, deserialized.stop_time);
     assert_eq!(default_experiment.tolerance, deserialized.tolerance);
+    assert_eq!(default_experiment.step_size, deserialized.step_size);
 }
 
 #[test]
@@ -203,7 +204,7 @@ fn test_fmi2_model_description_traits() {
     assert!(md.start_time().is_some());
     assert!(md.stop_time().is_some());
     assert!(md.tolerance().is_none());
-    assert_eq!(md.step_size(), Some(1e-3)); // FMI2 doesn't have step_size in DefaultExperiment
+    assert_eq!(md.step_size(), Some(1e-3)); // FMI2 DefaultExperiment supports stepSize
 
     // Test round-trip serialization through trait
     let serialized = md.serialize().unwrap();

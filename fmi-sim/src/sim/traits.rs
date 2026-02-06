@@ -12,9 +12,10 @@ use crate::{
 };
 
 use super::{
-    RecorderState, SimStats,
+    SimStats,
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
+    output::{OutputDimension, OutputKind, OutputRecorder},
     solver::Solver,
 };
 
@@ -30,6 +31,17 @@ pub trait ImportSchemaBuilder: FmiImport {
     fn discrete_inputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_;
     /// Build a list of Schema column (index, ValueReference) for the outputs.
     fn outputs(&self) -> impl Iterator<Item = (Field, Self::ValueRef)> + '_;
+    /// Build a Field for a specific output variable, including metadata.
+    fn output_field_for_vr(&self, vr: Self::ValueRef) -> anyhow::Result<Field>;
+    /// Resolve the output kind (data type) for a specific output variable.
+    fn output_kind_for_vr(&self, vr: Self::ValueRef) -> anyhow::Result<OutputKind>;
+    /// Return the array dimensions for output variables that are arrays.
+    fn output_array_dims_for_vr(
+        &self,
+        _vr: Self::ValueRef,
+    ) -> anyhow::Result<Vec<OutputDimension<Self::ValueRef>>> {
+        Ok(Vec::new())
+    }
     /// Parse a list of "var=value" strings.
     ///
     /// # Returns
@@ -66,7 +78,7 @@ pub trait InstRecordValues: FmiInstance + Sized {
     fn record_outputs(
         &mut self,
         time: f64,
-        recorder: &mut RecorderState<Self>,
+        recorder: &mut OutputRecorder<Self>,
     ) -> anyhow::Result<()>;
 }
 
@@ -113,7 +125,7 @@ pub trait FmiSim: FmiImport + ImportSchemaBuilder {
         &self,
         options: &ModelExchangeOptions,
         input_data: Option<RecordBatch>,
-    ) -> Result<(RecordBatch, SimStats), Error>;
+    ) -> Result<SimStats, Error>;
 
     /// Simulate the model using Co-Simulation.
     #[cfg(feature = "cs")]
@@ -121,5 +133,5 @@ pub trait FmiSim: FmiImport + ImportSchemaBuilder {
         &self,
         options: &CoSimulationOptions,
         input_data: Option<RecordBatch>,
-    ) -> Result<(RecordBatch, SimStats), Error>;
+    ) -> Result<SimStats, Error>;
 }

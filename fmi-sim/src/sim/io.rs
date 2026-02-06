@@ -2,8 +2,8 @@ use std::{fmt::Display, sync::Arc};
 
 use anyhow::Context;
 use arrow::{
-    array::{ArrayBuilder, ArrayRef, Float64Array, Float64Builder, downcast_array, make_builder},
-    datatypes::{DataType, Field, Schema},
+    array::{ArrayRef, Float64Array, downcast_array},
+    datatypes::Field,
     downcast_primitive_array,
     record_batch::RecordBatch,
 };
@@ -13,7 +13,6 @@ use crate::Error;
 
 use super::{
     interpolation::{Interpolate, PreLookup, find_index},
-    params::SimParams,
     traits::{ImportSchemaBuilder, InstSetValues},
     util::project_input_data,
 };
@@ -182,79 +181,5 @@ where
             }
         }
         f64::INFINITY
-    }
-}
-
-pub struct Recorder<Inst: FmiInstance> {
-    pub(crate) field: Field,
-    pub(crate) value_reference: Inst::ValueRef,
-    pub(crate) builder: Box<dyn ArrayBuilder>,
-    pub(crate) binary_max_size: Option<usize>,
-}
-
-pub struct RecorderState<Inst: FmiInstance> {
-    pub(crate) time: Float64Builder,
-    pub(crate) recorders: Vec<Recorder<Inst>>,
-}
-
-impl<Inst> RecorderState<Inst>
-where
-    Inst: FmiInstance,
-{
-    pub fn new<Import: ImportSchemaBuilder<ValueRef = Inst::ValueRef>>(
-        import: &Import,
-        sim_params: &SimParams,
-    ) -> Self {
-        let num_points = ((sim_params.stop_time - sim_params.start_time)
-            / sim_params.output_interval)
-            .ceil() as usize;
-
-        let time = Float64Builder::with_capacity(num_points);
-
-        let recorders = import
-            .outputs()
-            .map(|(field, vr)| {
-                let builder = make_builder(field.data_type(), num_points);
-                let binary_max_size = if field.data_type() == &DataType::Binary {
-                    import.binary_max_size(vr)
-                } else {
-                    None
-                };
-                Recorder {
-                    field,
-                    value_reference: vr,
-                    builder,
-                    binary_max_size,
-                }
-            })
-            .collect();
-
-        Self { time, recorders }
-    }
-
-    /// Finish the output state and return the RecordBatch.
-    pub fn finish(self) -> RecordBatch {
-        let Self {
-            mut time,
-            recorders,
-        } = self;
-
-        let recorders = recorders.into_iter().map(
-            |Recorder {
-                 field,
-                 value_reference: _,
-                 mut builder,
-                 ..
-             }| { (field, builder.finish()) },
-        );
-
-        let time = std::iter::once((
-            Field::new("time", DataType::Float64, false),
-            Arc::new(time.finish()) as _,
-        ));
-
-        let (fields, columns): (Vec<_>, Vec<_>) = time.chain(recorders).unzip();
-        let schema = Arc::new(Schema::new(fields));
-        RecordBatch::try_new(schema, columns).unwrap()
     }
 }

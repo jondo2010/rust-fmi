@@ -1152,6 +1152,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "arrow",
+ "arrow-ipc",
  "assert_cmd",
  "clap",
  "clap-verbosity-flag",
@@ -1165,6 +1166,7 @@ dependencies = [
  "log",
  "num-traits",
  "rstest",
+ "tempfile",
  "thiserror 2.0.18",
 ]
 
