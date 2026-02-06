@@ -148,6 +148,9 @@ pub enum OutputFormat {
     ArrowIpc,
     #[clap(name = "csv")]
     Csv,
+    #[cfg(feature = "mcap")]
+    #[clap(name = "mcap")]
+    Mcap,
 }
 
 impl Default for OutputFormat {

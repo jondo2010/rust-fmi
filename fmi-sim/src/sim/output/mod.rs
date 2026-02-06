@@ -1,22 +1,28 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
-use anyhow::Context;
 use arrow::{
     array::{
-        Array, ArrayBuilder, ArrayRef, BinaryBuilder, BooleanBuilder, FixedSizeListArray, Float32Builder,
-        Float64Builder, Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListArray,
-        ListBuilder, StringArray, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
-        UInt8Builder, make_builder,
+        ArrayBuilder, BinaryBuilder, BooleanBuilder, Float32Builder, Float64Builder, Int16Builder,
+        Int32Builder, Int64Builder, Int8Builder, ListBuilder, StringBuilder, UInt16Builder,
+        UInt32Builder, UInt64Builder, UInt8Builder, make_builder,
     },
     datatypes::{DataType, Field, Schema},
-    json::writer::{make_encoder, EncoderOptions},
     record_batch::RecordBatch,
 };
-use arrow_ipc::writer::StreamWriter;
 use fmi::traits::FmiInstance;
 use std::collections::HashSet;
 
 use crate::{options::OutputOptions, sim::traits::ImportSchemaBuilder};
+
+pub mod arrow_ipc;
+pub mod csv;
+#[cfg(feature = "mcap")]
+pub mod mcap;
+
+pub use arrow_ipc::ArrowIpcSink;
+pub use csv::CsvSink;
+#[cfg(feature = "mcap")]
+pub use mcap::McapSink;
 
 const DEFAULT_BINARY_ESTIMATE: usize = 128;
 const DEFAULT_STRING_ESTIMATE: usize = 64;
@@ -81,55 +87,6 @@ impl FlushPolicy {
 pub trait OutputSink {
     fn write_batch(&mut self, batch: &RecordBatch) -> anyhow::Result<()>;
     fn finish(&mut self) -> anyhow::Result<()>;
-}
-
-pub struct ArrowIpcSink {
-    writer: StreamWriter<std::fs::File>,
-}
-
-impl ArrowIpcSink {
-    pub fn new<P: AsRef<Path>>(path: P, schema: Arc<Schema>) -> anyhow::Result<Self> {
-        let file = std::fs::File::create(path).context("Failed to create output file")?;
-        let writer = StreamWriter::try_new(file, &schema).context("Failed to open IPC writer")?;
-        Ok(Self { writer })
-    }
-}
-
-impl OutputSink for ArrowIpcSink {
-    fn write_batch(&mut self, batch: &RecordBatch) -> anyhow::Result<()> {
-        self.writer
-            .write(batch)
-            .context("Failed to write Arrow IPC batch")
-    }
-
-    fn finish(&mut self) -> anyhow::Result<()> {
-        self.writer.finish().context("Failed to finalize IPC writer")
-    }
-}
-
-pub struct CsvSink {
-    writer: arrow::csv::writer::Writer<std::fs::File>,
-}
-
-impl CsvSink {
-    pub fn new<P: AsRef<Path>>(path: P, _schema: Arc<Schema>) -> anyhow::Result<Self> {
-        let file = std::fs::File::create(path).context("Failed to create CSV output file")?;
-        let writer = arrow::csv::writer::WriterBuilder::new()
-            .with_header(true)
-            .build(file);
-        Ok(Self { writer })
-    }
-}
-
-impl OutputSink for CsvSink {
-    fn write_batch(&mut self, batch: &RecordBatch) -> anyhow::Result<()> {
-        let batch = stringify_list_columns(batch)?;
-        self.writer.write(&batch).context("Failed to write CSV batch")
-    }
-
-    fn finish(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
 }
 
 pub struct NullSink;
@@ -402,74 +359,4 @@ fn estimate_field_bytes(field: &Field, binary_max_size: Option<usize>) -> usize 
         }
         _ => DEFAULT_STRING_ESTIMATE,
     }
-}
-
-fn stringify_list_columns(batch: &RecordBatch) -> anyhow::Result<RecordBatch> {
-    let mut columns: Vec<ArrayRef> = Vec::with_capacity(batch.num_columns());
-    let mut fields: Vec<Field> = Vec::with_capacity(batch.num_columns());
-
-    for (field, column) in batch.schema().fields().iter().zip(batch.columns()) {
-        match field.data_type() {
-            DataType::FixedSizeList(_, _) | DataType::List(_) => {
-                let string_array = list_array_to_string(column)?;
-                let new_field = Field::new(field.name(), DataType::Utf8, field.is_nullable());
-                columns.push(Arc::new(string_array));
-                fields.push(new_field);
-            }
-            _ => {
-                columns.push(column.clone());
-                fields.push(field.as_ref().clone());
-            }
-        }
-    }
-
-    Ok(RecordBatch::try_new(Arc::new(Schema::new(fields)), columns)?)
-}
-
-fn list_array_to_string(array: &ArrayRef) -> anyhow::Result<StringArray> {
-    if let Some(list) = array.as_any().downcast_ref::<ListArray>() {
-        return list_to_string(list);
-    }
-    if let Some(list) = array.as_any().downcast_ref::<FixedSizeListArray>() {
-        return fixed_list_to_string(list);
-    }
-    Err(anyhow::anyhow!("Unsupported list array type"))
-}
-
-fn list_to_string(list: &ListArray) -> anyhow::Result<StringArray> {
-    let field = Arc::new(Field::new("list", list.data_type().clone(), true));
-    let options = EncoderOptions::default();
-    let mut encoder = make_encoder(&field, list, &options)
-        .context("Failed to build JSON encoder for list column")?;
-    let mut out = Vec::with_capacity(list.len());
-    for i in 0..list.len() {
-        if encoder.is_null(i) {
-            out.push(None);
-            continue;
-        }
-        let mut buf = Vec::new();
-        encoder.encode(i, &mut buf);
-        let json = String::from_utf8(buf).context("Failed to decode JSON string")?;
-        out.push(Some(json));
-    }
-    Ok(StringArray::from(out))
-}
-
-fn fixed_list_to_string(list: &FixedSizeListArray) -> anyhow::Result<StringArray> {
-    let field = Arc::new(Field::new("list", list.data_type().clone(), true));
-    let options = EncoderOptions::default();
-    let mut encoder = make_encoder(&field, list, &options)
-        .context("Failed to build JSON encoder for fixed list column")?;
-    let mut out = Vec::with_capacity(list.len());
-    for i in 0..list.len() {
-        if encoder.is_null(i) {
-            out.push(None);
-            continue;
-        }
-        let mut buf = Vec::new();
-        encoder.encode(i, &mut buf);
-        let json = String::from_utf8(buf).context("Failed to decode JSON string")?;
-        out.push(Some(json));
-    }
-    Ok(StringArray::from(out))
 }

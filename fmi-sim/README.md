@@ -15,6 +15,8 @@ The purpose of `fmi-sim` is to simulate a single `FMI 2.0` or `FMI 3.0` FMU in M
 
 ## Running
 
+Output recording supports Arrow IPC (`--output-format arrow-ipc`) and CSV (`--output-format csv`).
+When compiled with `--features mcap`, MCAP output is available via `--output-format mcap`.
 ```bash
 ➜ cargo run -p fmi-sim -- --help
     Finished dev [unoptimized + debuginfo] target(s) in 0.08s

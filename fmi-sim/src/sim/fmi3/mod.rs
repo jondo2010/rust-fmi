@@ -85,6 +85,11 @@ impl FmiSim for Fmi3Import {
                 match output.output_format {
                     OutputFormat::ArrowIpc => Box::new(ArrowIpcSink::new(path, plan.schema.clone())?),
                     OutputFormat::Csv => Box::new(CsvSink::new(path, plan.schema.clone())?),
+                    #[cfg(feature = "mcap")]
+                    OutputFormat::Mcap => Box::new(crate::sim::output::McapSink::new(
+                        path,
+                        plan.schema.clone(),
+                    )?),
                 }
             } else {
                 Box::new(NullSink)
@@ -141,6 +146,11 @@ impl FmiSim for Fmi3Import {
                 match output.output_format {
                     OutputFormat::ArrowIpc => Box::new(ArrowIpcSink::new(path, plan.schema.clone())?),
                     OutputFormat::Csv => Box::new(CsvSink::new(path, plan.schema.clone())?),
+                    #[cfg(feature = "mcap")]
+                    OutputFormat::Mcap => Box::new(crate::sim::output::McapSink::new(
+                        path,
+                        plan.schema.clone(),
+                    )?),
                 }
             } else {
                 Box::new(NullSink)
