@@ -7,6 +7,7 @@ use crate::model::{FieldAttributeOuter, Model};
 
 mod metadata;
 mod start_values;
+mod terminals;
 
 /// Generate the Model trait implementation
 pub struct ModelImpl<'a> {
@@ -34,6 +35,8 @@ impl ToTokens for ModelImpl<'_> {
         // Generate function bodies
         let build_metadata_body = metadata::BuildMetadataGen::new(&self.model);
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
+        let build_terminals_body = terminals::BuildTerminalsGen::new(&self.model);
+        let terminal_provider_impl = terminals::TerminalProviderImpl::new(struct_name, &self.model);
 
         let number_of_event_indicators = count_event_indicators(&self.model);
 
@@ -66,6 +69,13 @@ impl ToTokens for ModelImpl<'_> {
                     #set_start_values_body
                 }
 
+                fn build_terminals(
+                    terminals: &mut Vec<::fmi::schema::fmi3::Terminal>,
+                    prefix: Option<&str>,
+                ) {
+                    #build_terminals_body
+                }
+
                 fn validate_variable_setting(
                     vr: ::fmi::fmi3::binding::fmi3ValueReference,
                     state: &::fmi_export::fmi3::ModelState,
@@ -74,6 +84,7 @@ impl ToTokens for ModelImpl<'_> {
                     Ok(())
                 }
             }
+            #terminal_provider_impl
         });
     }
 }

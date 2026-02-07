@@ -2,7 +2,7 @@ use attribute_derive::FromAttr;
 use proc_macro_error2::emit_error;
 
 mod field_attr;
-pub use field_attr::{ChildAttribute, FieldAttribute, FieldAttributeOuter};
+pub use field_attr::{ChildAttribute, FieldAttribute, FieldAttributeOuter, TerminalAttribute};
 
 /// Helper function to extract docstring from a syn::Attribute
 /// Follows DRY principles by centralizing doc attribute parsing logic
@@ -54,6 +54,22 @@ pub struct StructAttr {
 pub enum StructAttrOuter {
     Docstring(String),
     Model(StructAttr),
+    Terminal(TerminalStructAttr),
+}
+
+/// Struct-level attributes for terminal generation
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
+#[attribute(ident = terminal)]
+pub struct TerminalStructAttr {
+    /// Optional terminal name override (defaults to struct name)
+    #[attribute(optional)]
+    pub name: Option<String>,
+    /// Optional matching rule override (defaults to "bus")
+    #[attribute(optional)]
+    pub matching_rule: Option<String>,
+    /// Optional terminal kind override
+    #[attribute(optional)]
+    pub terminal_kind: Option<String>,
 }
 
 /// Representation of an FmuModel field with it's parsed attributes
@@ -137,6 +153,14 @@ impl Model {
         })
     }
 
+    /// Get the parsed terminal attribute, if present
+    pub fn get_terminal_attr(&self) -> Option<&TerminalStructAttr> {
+        self.attrs.iter().find_map(|attr| match attr {
+            StructAttrOuter::Terminal(terminal_attr) => Some(terminal_attr),
+            _ => None,
+        })
+    }
+
     /// Check if Model Exchange is supported
     pub fn supports_model_exchange(&self) -> bool {
         self.get_model_attr()
@@ -200,6 +224,17 @@ impl TryFrom<syn::Field> for Field {
 
                 Some(ident) if ident == "child" => {
                     match ChildAttribute::from_attribute(attr).map(FieldAttributeOuter::Child) {
+                        Ok(attr) => Some(attr),
+                        Err(e) => {
+                            emit_error!(attr, format!("{e}"));
+                            None
+                        }
+                    }
+                }
+
+                Some(ident) if ident == "terminal" => {
+                    match TerminalAttribute::from_attribute(attr).map(FieldAttributeOuter::Terminal)
+                    {
                         Ok(attr) => Some(attr),
                         Err(e) => {
                             emit_error!(attr, format!("{e}"));
@@ -281,6 +316,16 @@ pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
                     .or_else(|_e| parse_model_attr_bool(attr.clone()))
                 {
                     Ok(attr) => Some(StructAttrOuter::Model(attr)),
+                    Err(e) => {
+                        emit_error!(attr, format!("{e}"));
+                        None
+                    }
+                }
+            }
+
+            Some(ident) if ident == "terminal" => {
+                match TerminalStructAttr::from_attribute(attr.clone()) {
+                    Ok(attr) => Some(StructAttrOuter::Terminal(attr)),
                     Err(e) => {
                         emit_error!(attr, format!("{e}"));
                         None
@@ -407,7 +452,9 @@ fn has_fmu_attributes(field: &syn::Field) -> bool {
         attr.meta
             .path()
             .get_ident()
-            .map(|ident| ident == "variable" || ident == "alias" || ident == "child")
+            .map(|ident| {
+                ident == "variable" || ident == "alias" || ident == "child" || ident == "terminal"
+            })
             .unwrap_or(false)
     })
 }

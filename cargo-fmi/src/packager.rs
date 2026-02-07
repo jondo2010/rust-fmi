@@ -11,6 +11,7 @@ pub fn package_fmu(
     model_identifier: &str,
     model_description: schema::Fmi3ModelDescription,
     build_description: schema::Fmi3BuildDescription,
+    terminals_and_icons: Option<schema::Fmi3TerminalsAndIcons>,
     fmu_path: &Path,
     dylibs: &[(Option<&'static platforms::Platform>, PathBuf)],
 ) -> anyhow::Result<()> {
@@ -45,6 +46,18 @@ pub fn package_fmu(
     let build_xml = fmi::schema::serialize(&build_description, false)
         .context("Failed to serialize build description")?;
     zw.write_all(build_xml.as_bytes())?;
+
+    if let Some(terminals) = terminals_and_icons {
+        let terminals_dir = PathBuf::from("resources").join("terminalsAndIcons");
+        zw.add_directory_from_path(&terminals_dir, zip::write::SimpleFileOptions::default())?;
+        zw.start_file_from_path(
+            terminals_dir.join("terminalsAndIcons.xml"),
+            zip::write::SimpleFileOptions::default(),
+        )?;
+        let terminals_xml = fmi::schema::serialize(&terminals, false)
+            .context("Failed to serialize terminals and icons")?;
+        zw.write_all(terminals_xml.as_bytes())?;
+    }
 
     for (platform, dylib_path) in dylibs {
         let (os, arch) = if let Some(p) = platform {

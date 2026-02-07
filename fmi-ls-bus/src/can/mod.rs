@@ -24,6 +24,10 @@ pub const DEFAULT_CAN_BUFFER_SIZE: usize = 2048;
 #[cfg(feature = "fmi-export")]
 #[cfg_attr(docsrs, doc(cfg(feature = "fmi-export")))]
 #[derive(FmuModel, Debug, Default)]
+#[terminal(
+    matching_rule = "org.fmi-ls-bus.transceiver",
+    terminal_kind = "org.fmi-ls-bus.network-terminal"
+)]
 pub struct CanBus {
     #[variable(
         name = "Rx_Data",

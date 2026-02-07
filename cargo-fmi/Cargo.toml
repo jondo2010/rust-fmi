@@ -20,6 +20,7 @@ clap = { workspace = true }
 flexi_logger = { workspace = true }
 fmi = { workspace = true, features = ["fmi2", "fmi3"] }
 fmi-schema = { workspace = true, features = ["serde", "fmi2"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
 libloading = { workspace = true }
 log = { workspace = true }
 platforms = { version = "3.6" }

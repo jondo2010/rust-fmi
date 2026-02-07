@@ -28,7 +28,8 @@ pub fn bundle(
     // Build the cdylib for the specified targets or native if none specified
     let cdylibs = crate::builder::build_lib(&package.id, &target_platforms, release)?;
 
-    let model_data = crate::extractor::ModelData::new_from_dylib(&cdylibs[0].1)?;
+    let mut model_data = crate::extractor::ModelData::new_from_dylib(&cdylibs[0].1)?;
+    let terminals_and_icons = model_data.terminals_and_icons.take();
     let model_description =
         crate::metadata::create_model_description(&model_identifier, &package, model_data)?;
     let build_description = crate::metadata::create_build_description(&model_identifier)?;
@@ -43,6 +44,7 @@ pub fn bundle(
         &model_identifier,
         model_description,
         build_description,
+        terminals_and_icons,
         &fmu_path,
         &cdylibs,
     )?;
