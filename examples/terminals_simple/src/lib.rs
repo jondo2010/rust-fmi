@@ -2,8 +2,8 @@
 #![deny(clippy::all)]
 
 use fmi_export::{
-    fmi3::{Binary, Clock, DefaultLoggingCategory, UserModel},
     FmuModel,
+    fmi3::{Binary, Clock, DefaultLoggingCategory, UserModel},
 };
 
 /// Simple terminal component that exposes RX/TX variables and clocks.

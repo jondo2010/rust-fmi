@@ -104,10 +104,7 @@ impl BuildTerminalsGen<'_> {
         syn::LitStr::new(prefix, field.ident.span())
     }
 
-    fn terminal_attr<'a>(
-        &self,
-        field: &'a Field,
-    ) -> Option<&'a crate::model::TerminalAttribute> {
+    fn terminal_attr<'a>(&self, field: &'a Field) -> Option<&'a crate::model::TerminalAttribute> {
         field.attrs.iter().find_map(|attr| {
             if let FieldAttributeOuter::Terminal(terminal_attr) = attr {
                 Some(terminal_attr)
@@ -271,10 +268,7 @@ impl TerminalProviderImpl<'_> {
         syn::LitStr::new(prefix, field.ident.span())
     }
 
-    fn terminal_attr<'a>(
-        &self,
-        field: &'a Field,
-    ) -> Option<&'a crate::model::TerminalAttribute> {
+    fn terminal_attr<'a>(&self, field: &'a Field) -> Option<&'a crate::model::TerminalAttribute> {
         field.attrs.iter().find_map(|attr| {
             if let FieldAttributeOuter::Terminal(terminal_attr) = attr {
                 Some(terminal_attr)

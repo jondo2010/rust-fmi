@@ -81,7 +81,6 @@ macro_rules! export_fmu {
             <$ty as ::fmi_export::fmi3::Model>::build_toplevel_metadata()
         }
 
-
         #[unsafe(export_name = "FMI3_INSTANTIATION_TOKEN")]
         pub static FMI3_INSTANTIATION_TOKEN: &'static str =
             <$ty as ::fmi_export::fmi3::Model>::INSTANTIATION_TOKEN;

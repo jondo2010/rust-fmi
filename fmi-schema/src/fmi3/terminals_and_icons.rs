@@ -5,7 +5,10 @@ use crate::{Error, fmi3::variable::AbstractVariableTrait};
 use super::{Annotations, Fmi3ModelDescription};
 
 #[derive(Default, Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "fmiTerminalsAndIcons", strict(unknown_attribute, unknown_element))]
+#[xml(
+    tag = "fmiTerminalsAndIcons",
+    strict(unknown_attribute, unknown_element)
+)]
 pub struct Fmi3TerminalsAndIcons {
     #[xml(attr = "fmiVersion")]
     pub fmi_version: String,
@@ -44,7 +47,10 @@ pub struct Terminal {
 }
 
 #[derive(Default, Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "TerminalMemberVariable", strict(unknown_attribute, unknown_element))]
+#[xml(
+    tag = "TerminalMemberVariable",
+    strict(unknown_attribute, unknown_element)
+)]
 pub struct TerminalMemberVariable {
     #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
@@ -57,7 +63,10 @@ pub struct TerminalMemberVariable {
 }
 
 #[derive(Default, Debug, PartialEq, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "TerminalStreamMemberVariable", strict(unknown_attribute, unknown_element))]
+#[xml(
+    tag = "TerminalStreamMemberVariable",
+    strict(unknown_attribute, unknown_element)
+)]
 pub struct TerminalStreamMemberVariable {
     #[xml(child = "Annotations")]
     pub annotations: Option<Annotations>,
@@ -149,7 +158,9 @@ pub fn resolve_terminals<'a>(
     model: &'a Fmi3ModelDescription,
 ) -> Result<ResolvedTerminals<'a>, TerminalResolutionError> {
     let Some(root) = terminals.terminals.as_ref() else {
-        return Ok(ResolvedTerminals { terminals: Vec::new() });
+        return Ok(ResolvedTerminals {
+            terminals: Vec::new(),
+        });
     };
 
     let lookup = build_variable_lookup(&model.model_variables);
@@ -157,7 +168,9 @@ pub fn resolve_terminals<'a>(
     for terminal in &root.terminals {
         resolved.push(resolve_terminal(terminal, &lookup, terminal.name.as_str())?);
     }
-    Ok(ResolvedTerminals { terminals: resolved })
+    Ok(ResolvedTerminals {
+        terminals: resolved,
+    })
 }
 
 fn build_variable_lookup<'a>(

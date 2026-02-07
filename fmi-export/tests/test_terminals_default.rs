@@ -1,6 +1,6 @@
 use fmi_export::{
-    fmi3::{Binary, Clock, Model, TerminalProvider},
     FmuModel,
+    fmi3::{Binary, Clock, Model, TerminalProvider},
 };
 
 #[derive(FmuModel, Default)]
@@ -76,8 +76,7 @@ fn terminals_include_all_variables_and_children() {
         Some("Child.y")
     );
 
-    let child_terminal_provider =
-        <Child as TerminalProvider>::terminal("ignored", Some("Child."));
+    let child_terminal_provider = <Child as TerminalProvider>::terminal("ignored", Some("Child."));
     assert_eq!(child_terminal_provider.terminal_member_variables.len(), 1);
 }
 

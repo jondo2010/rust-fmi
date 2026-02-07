@@ -36,8 +36,7 @@ impl ToTokens for ModelImpl<'_> {
         let build_metadata_body = metadata::BuildMetadataGen::new(&self.model);
         let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
         let build_terminals_body = terminals::BuildTerminalsGen::new(&self.model);
-        let terminal_provider_impl =
-            terminals::TerminalProviderImpl::new(struct_name, &self.model);
+        let terminal_provider_impl = terminals::TerminalProviderImpl::new(struct_name, &self.model);
 
         let number_of_event_indicators = count_event_indicators(&self.model);
 

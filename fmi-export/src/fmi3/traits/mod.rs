@@ -79,11 +79,7 @@ pub trait Model: Default {
     ) -> u32;
 
     /// Recursively build terminal definitions by appending to the provided list.
-    fn build_terminals(
-        _terminals: &mut Vec<fmi::schema::fmi3::Terminal>,
-        _prefix: Option<&str>,
-    ) {
-    }
+    fn build_terminals(_terminals: &mut Vec<fmi::schema::fmi3::Terminal>, _prefix: Option<&str>) {}
 
     /// Build top-level terminals metadata, if any.
     fn build_toplevel_terminals() -> Option<fmi::schema::fmi3::Fmi3TerminalsAndIcons> {
@@ -92,9 +88,8 @@ pub trait Model: Default {
         if terminals.is_empty() {
             return None;
         }
-        let fmi_version =
-            unsafe { std::ffi::CStr::from_ptr(binding::fmi3Version.as_ptr() as _) }
-                .to_string_lossy();
+        let fmi_version = unsafe { std::ffi::CStr::from_ptr(binding::fmi3Version.as_ptr() as _) }
+            .to_string_lossy();
         Some(fmi::schema::fmi3::Fmi3TerminalsAndIcons {
             fmi_version: fmi_version.to_string(),
             terminals: Some(fmi::schema::fmi3::Terminals { terminals }),

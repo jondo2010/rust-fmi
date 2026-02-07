@@ -233,7 +233,8 @@ impl TryFrom<syn::Field> for Field {
                 }
 
                 Some(ident) if ident == "terminal" => {
-                    match TerminalAttribute::from_attribute(attr).map(FieldAttributeOuter::Terminal) {
+                    match TerminalAttribute::from_attribute(attr).map(FieldAttributeOuter::Terminal)
+                    {
                         Ok(attr) => Some(attr),
                         Err(e) => {
                             emit_error!(attr, format!("{e}"));

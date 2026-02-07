@@ -20,10 +20,7 @@ fn test_fmi3_terminals_and_icons_parse() {
         powertrain.terminal_kind.as_deref(),
         Some("org.fmi-ls-bus.network-terminal")
     );
-    assert_eq!(
-        powertrain.matching_rule,
-        "org.fmi-ls-bus.transceiver"
-    );
+    assert_eq!(powertrain.matching_rule, "org.fmi-ls-bus.transceiver");
     assert_eq!(powertrain.terminal_member_variables.len(), 2);
     assert_eq!(
         powertrain.terminal_member_variables[0].variable_name,
@@ -62,7 +59,10 @@ fn test_fmi3_terminals_and_icons_roundtrip() {
 #[test]
 #[cfg(feature = "fmi3")]
 fn test_matching_rule_validation() {
-    use fmi_schema::{Error, fmi3::{Terminal, TerminalMemberVariable}};
+    use fmi_schema::{
+        Error,
+        fmi3::{Terminal, TerminalMemberVariable},
+    };
 
     let plug_terminal = Terminal {
         name: "Plug".to_string(),
@@ -136,8 +136,7 @@ fn test_matching_rule_validation() {
 fn test_terminals_resolution() {
     use fmi_schema::fmi3::{
         Fmi3ModelDescription, Fmi3TerminalsAndIcons, FmiFloat64, ModelVariables, Terminal,
-        TerminalMemberVariable, TerminalResolutionError, Terminals, Variable,
-        resolve_terminals,
+        TerminalMemberVariable, TerminalResolutionError, Terminals, Variable, resolve_terminals,
     };
 
     let model = Fmi3ModelDescription {
