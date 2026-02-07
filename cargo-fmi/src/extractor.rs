@@ -5,6 +5,7 @@ use libloading::Library;
 use std::path::Path;
 
 use fmi::fmi3::{binding, schema};
+use fmi_export::fmi3::ModelMetadata;
 
 const MODEL_METADATA_SYM: &[u8] = b"model_metadata";
 const INSTANTIATION_TOKEN_SYM: &[u8] = b"FMI3_INSTANTIATION_TOKEN";
@@ -15,6 +16,7 @@ const SUPPORTS_SE_SYM: &[u8] = b"fmi3SupportsScheduledExecution";
 pub struct ModelData {
     pub model_variables: schema::ModelVariables,
     pub model_structure: schema::ModelStructure,
+    pub terminals_and_icons: Option<schema::Fmi3TerminalsAndIcons>,
     pub instantiation_token: String,
     pub supports_model_exchange: bool,
     pub supports_co_simulation: bool,
@@ -30,16 +32,14 @@ impl ModelData {
                 .with_context(|| format!("Failed to load dylib: {}", dylib_path.display()))?;
 
             // Call the new Rust ABI model_metadata() function
-            let (model_variables, model_structure) = {
-                let symbol = lib.get::<fn() -> (schema::ModelVariables, schema::ModelStructure)>(
-                    MODEL_METADATA_SYM,
-                )?;
+            let metadata = {
+                let symbol = lib.get::<fn() -> ModelMetadata>(MODEL_METADATA_SYM)?;
                 symbol()
             };
 
             log::info!(
                 "Extracted {} model variables from dylib.",
-                model_variables.len()
+                metadata.model_variables.len()
             );
 
             let instantiation_token = {
@@ -68,8 +68,9 @@ impl ModelData {
             };
 
             Ok(ModelData {
-                model_variables,
-                model_structure,
+                model_variables: metadata.model_variables,
+                model_structure: metadata.model_structure,
+                terminals_and_icons: metadata.terminals,
                 instantiation_token,
                 supports_model_exchange,
                 supports_co_simulation,

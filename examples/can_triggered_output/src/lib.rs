@@ -17,6 +17,7 @@ const CAN_ID: u32 = 0x1;
 #[model(co_simulation = true, model_exchange = false, user_model = false)]
 struct CanTriggeredOutput {
     #[child(prefix = "CanChannel")]
+    #[terminal(name = "CanChannel")]
     can: CanBus,
 
     #[variable(skip)]
@@ -177,7 +178,9 @@ mod tests {
 
     #[test]
     fn test_metadata() {
-        let (vars, structure) = CanTriggeredOutput::build_toplevel_metadata();
+        let metadata = CanTriggeredOutput::build_toplevel_metadata();
+        let vars = metadata.model_variables;
+        let structure = metadata.model_structure;
 
         // Debug print to see actual VRs
         let binaries = vars.binary();
@@ -252,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_model_get_set() {
-        let (vars, _) = CanTriggeredOutput::build_toplevel_metadata();
+        let vars = CanTriggeredOutput::build_toplevel_metadata().model_variables;
         let rx_clock_vr = vars
             .find_by_name("CanChannel.Rx_Clock")
             .expect("rx clock variable")
@@ -320,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_can_data_processing() {
-        let (vars, _) = CanTriggeredOutput::build_toplevel_metadata();
+        let vars = CanTriggeredOutput::build_toplevel_metadata().model_variables;
         let rx_data_vr = vars
             .find_by_name("CanChannel.Rx_Data")
             .expect("rx data variable")

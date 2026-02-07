@@ -19,6 +19,8 @@ Formatting is enforced by `rustfmt.toml` (edition 2024). Use `cargo fmt --all` b
 ## Testing Guidelines
 Prefer the offline-safe unit tests via `./dev.sh test`. Integration tests live in `tests/` and may require FMU assets from `fmi-test-data`. Name test functions descriptively (e.g., `loads_model_description`), and keep tests focused on one behavior.
 
+For a full workspace run, use `cargo test --all`.
+
 ## Commit & Pull Request Guidelines
 Recent history favors Conventional Commits like `fix(fmi-schema): ...` and `chore(deps): ...`. Use `type(scope): summary` where possible; keep subjects short and imperative. PRs should include a concise description, linked issues if applicable, and the commands run (e.g., `./dev.sh pre-commit`). If changes affect FMUs or schemas, call that out explicitly.
 

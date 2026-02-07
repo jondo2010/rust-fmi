@@ -77,10 +77,7 @@ macro_rules! export_fmu {
     ($ty:ty) => {
         /// Export the model components
         #[unsafe(export_name = "model_metadata")]
-        pub fn model_metadata() -> (
-            ::fmi::fmi3::schema::ModelVariables,
-            ::fmi::fmi3::schema::ModelStructure,
-        ) {
+        pub fn model_metadata() -> ::fmi_export::fmi3::ModelMetadata {
             <$ty as ::fmi_export::fmi3::Model>::build_toplevel_metadata()
         }
 

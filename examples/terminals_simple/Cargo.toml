@@ -1,0 +1,15 @@
+[package]
+name = "terminals-simple"
+version = "0.1.0"
+edition = "2024"
+description = "Minimal terminals example without CAN dependencies"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
+
+[package.metadata.fmu]
+default_experiment = { start_time = "0", stop_time = "1", step_size = "0.1" }

@@ -103,3 +103,52 @@ Notes:
 - Child fields should implement the `Model` trait (typically via `FmuModel`).
 - `#[child]` only affects naming and metadata; it does not change runtime
   behavior of the child component.
+
+### Terminals
+
+Annotating your `FmuModel`-derived struct with the `#[terminal(...)]` attribute
+will generate a `Terminal` definition. All struct members declared with
+`#[variable(...)]` or `#[child(...)]` will be included as members with
+`memberName` equal to the full variable name.
+
+Use the struct-level `#[terminal(...)]` attribute to override the terminal name,
+matching rule, or terminal kind:
+
+```rust,ignore
+#[derive(FmuModel, Default)]
+#[terminal(name = "Powertrain", matching_rule = "bus")]
+struct SimpleBus {
+    #[variable(causality = Input, variability = Discrete)]
+    rx_data: Binary,
+}
+```
+
+Use field-level `#[terminal(name = "...")]` on child components to override the
+name used for the nested terminal that is generated for that child. Terminals
+are still discovered recursively even when the parent struct is not annotated.
+
+```rust,ignore
+use fmi_export::FmuModel;
+use fmi_ls_bus::can::CanBus;
+
+#[derive(FmuModel, Default)]
+struct MyModel {
+    #[child(prefix = "Powertrain")]
+    #[terminal(name = "Powertrain")]
+    bus: CanBus,
+}
+```
+
+Supported keys (struct-level):
+
+- `name`: Optional string. Overrides the terminal name (defaults to the struct
+  name).
+- `matching_rule`: Optional string. Defaults to `"bus"`.
+- `terminal_kind`: Optional string.
+
+Notes:
+
+- Child fields should implement `fmi_export::fmi3::TerminalProvider` (generated
+  automatically for `FmuModel` structs).
+- If `#[child(prefix = "...")]` is present, that prefix is used when building
+  variable names in the nested terminal definition.

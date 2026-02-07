@@ -42,6 +42,9 @@ impl ToTokens for BuildMetadataGen<'_> {
                     FieldAttributeOuter::Child(_) => {
                         // Child fields are flattened in a later pass; VRs are assigned then
                     }
+                    FieldAttributeOuter::Terminal(_) => {
+                        // Terminals are handled separately
+                    }
                     FieldAttributeOuter::Docstring(_) => {
                         // Skip docstrings
                     }
@@ -198,6 +201,9 @@ impl ToTokens for BuildMetadataGen<'_> {
                         }
                         FieldAttributeOuter::Child(_) => {
                             // Child fields are handled separately
+                        }
+                        FieldAttributeOuter::Terminal(_) => {
+                            // Terminals are handled separately
                         }
                         FieldAttributeOuter::Docstring(_) => {
                             // Skip docstrings

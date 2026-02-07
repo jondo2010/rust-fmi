@@ -25,7 +25,8 @@ use std::{fmt::Display, str::FromStr};
 pub use instance::{ModelInstance, context::BasicContext};
 pub use traits::{
     CSDoStepResult, Context, Fmi3CoSimulation, Fmi3Common, Fmi3ModelExchange,
-    Fmi3ScheduledExecution, Model, ModelGetSet, ModelGetSetStates, ModelLoggingCategory, UserModel,
+    Fmi3ScheduledExecution, Model, ModelGetSet, ModelGetSetStates, ModelLoggingCategory,
+    ModelMetadata, TerminalProvider, UserModel,
 };
 pub use types::{Binary, Clock, InitializeFromStart};
 pub use variable_builder::{FmiVariableBuilder, VariableBuilder};

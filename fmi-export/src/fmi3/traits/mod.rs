@@ -78,11 +78,27 @@ pub trait Model: Default {
         prefix: Option<&str>,
     ) -> u32;
 
-    /// Build the top-level model variables and structure, including the 'time' variable.
-    fn build_toplevel_metadata() -> (
-        fmi::schema::fmi3::ModelVariables,
-        fmi::schema::fmi3::ModelStructure,
-    ) {
+    /// Recursively build terminal definitions by appending to the provided list.
+    fn build_terminals(_terminals: &mut Vec<fmi::schema::fmi3::Terminal>, _prefix: Option<&str>) {}
+
+    /// Build top-level terminals metadata, if any.
+    fn build_toplevel_terminals() -> Option<fmi::schema::fmi3::Fmi3TerminalsAndIcons> {
+        let mut terminals = Vec::new();
+        Self::build_terminals(&mut terminals, None);
+        if terminals.is_empty() {
+            return None;
+        }
+        let fmi_version = unsafe { std::ffi::CStr::from_ptr(binding::fmi3Version.as_ptr() as _) }
+            .to_string_lossy();
+        Some(fmi::schema::fmi3::Fmi3TerminalsAndIcons {
+            fmi_version: fmi_version.to_string(),
+            terminals: Some(fmi::schema::fmi3::Terminals { terminals }),
+            annotations: None,
+        })
+    }
+
+    /// Build the top-level model metadata, including the 'time' variable.
+    fn build_toplevel_metadata() -> ModelMetadata {
         let mut variables = fmi::schema::fmi3::ModelVariables::default();
         let time = fmi::schema::fmi3::FmiFloat64::new(
             "time".to_string(),
@@ -96,7 +112,12 @@ pub trait Model: Default {
         AppendToModelVariables::append_to_variables(time, &mut variables);
         let mut structure = fmi::schema::fmi3::ModelStructure::default();
         let _num_vars = Self::build_metadata(&mut variables, &mut structure, 1, None);
-        (variables, structure)
+        let terminals = Self::build_toplevel_terminals();
+        ModelMetadata {
+            model_variables: variables,
+            model_structure: structure,
+            terminals,
+        }
     }
 
     /// Set start values
@@ -114,6 +135,19 @@ pub trait Model: Default {
         let _ = (vr, state);
         Ok(())
     }
+}
+
+/// Aggregated metadata for an FMI 3.0 model.
+pub struct ModelMetadata {
+    pub model_variables: fmi::schema::fmi3::ModelVariables,
+    pub model_structure: fmi::schema::fmi3::ModelStructure,
+    pub terminals: Option<fmi::schema::fmi3::Fmi3TerminalsAndIcons>,
+}
+
+/// Trait for providing FMI 3.0 terminal definitions.
+#[allow(dead_code)]
+pub trait TerminalProvider {
+    fn terminal(name: &str, prefix: Option<&str>) -> fmi::schema::fmi3::Terminal;
 }
 
 pub trait ModelLoggingCategory: Display + FromStr + Ord + Copy + Default {
