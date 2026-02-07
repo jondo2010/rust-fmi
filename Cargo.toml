@@ -44,7 +44,7 @@ document-features = "0.2"
 flexi_logger = "0.31"
 itertools = "0.14"
 rstest = "0.26"
-libloading = "0.8"
+libloading = "0.9"
 log = "0.4"
 paste = "1.0"
 serde = { version = "1.0", features = ["derive"] }
