@@ -204,6 +204,16 @@ pub enum FieldAttributeOuter {
     Variable(FieldAttribute),
     Alias(FieldAttribute),
     Child(ChildAttribute),
+    Terminal(TerminalAttribute),
+}
+
+/// Attributes for terminal provider fields
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
+#[attribute(ident = terminal)]
+pub struct TerminalAttribute {
+    /// Optional terminal name override (defaults to field name)
+    #[attribute(optional)]
+    pub name: Option<String>,
 }
 
 /// Attributes for child model fields
