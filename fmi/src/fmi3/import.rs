@@ -1,13 +1,16 @@
 use std::path::PathBuf;
 
-use fmi_schema::{MajorVersion, traits::FmiModelDescription};
+use fmi_schema::{MajorVersion, deserialize, traits::FmiModelDescription};
 use tempfile::TempDir;
 
 use crate::{
     Error,
     fmi3::{Fmi3Model, binding, instance, schema},
+    import::MODEL_DESCRIPTION,
     traits::FmiImport,
 };
+
+const TERMINALS_AND_ICONS: &str = "resources/terminalsAndIcons/terminalsAndIcons.xml";
 
 /// FMU import for FMI 3.0
 #[derive(Debug)]
@@ -16,6 +19,8 @@ pub struct Fmi3Import {
     dir: tempfile::TempDir,
     /// Parsed raw-schema model description
     model_description: schema::Fmi3ModelDescription,
+    /// Optional terminals and icons definition
+    terminals_and_icons: Option<schema::Fmi3TerminalsAndIcons>,
 }
 
 impl FmiImport for Fmi3Import {
@@ -25,11 +30,34 @@ impl FmiImport for Fmi3Import {
     type ValueRef = binding::fmi3ValueReference;
 
     /// Create a new FMI 3.0 import from a directory containing the unzipped FMU
-    fn new(dir: TempDir, schema_xml: &str) -> Result<Self, Error> {
-        let model_description = schema::Fmi3ModelDescription::deserialize(schema_xml)?;
+    fn new(dir: TempDir) -> Result<Self, Error> {
+        // Open and read the modelDescription XML into a string
+        let descr_file_path = dir.path().join(MODEL_DESCRIPTION);
+        let descr_xml = std::fs::read_to_string(descr_file_path)?;
+
+        let terminals_path = dir.path().join(TERMINALS_AND_ICONS);
+        let terminals_xml = if terminals_path.exists() {
+            Some(std::fs::read_to_string(terminals_path)?)
+        } else {
+            None
+        };
+
+        let model_description = schema::Fmi3ModelDescription::deserialize(&descr_xml)?;
+        let terminals_and_icons = if let Some(terminals_xml) = terminals_xml {
+            match deserialize::<schema::Fmi3TerminalsAndIcons>(&terminals_xml) {
+                Ok(terminals) => Some(terminals),
+                Err(err) => {
+                    log::warn!("Failed to parse terminalsAndIcons.xml: {}", err);
+                    None
+                }
+            }
+        } else {
+            None
+        };
         Ok(Self {
             dir,
             model_description,
+            terminals_and_icons,
         })
     }
 
@@ -73,6 +101,13 @@ impl FmiImport for Fmi3Import {
             .to_str()
             .expect("Invalid resource path")
             .to_owned()
+    }
+}
+
+impl Fmi3Import {
+    /// Get the parsed terminals and icons, if present.
+    pub fn terminals_and_icons(&self) -> Option<&schema::Fmi3TerminalsAndIcons> {
+        self.terminals_and_icons.as_ref()
     }
 }
 

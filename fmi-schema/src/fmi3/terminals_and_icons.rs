@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use crate::{Error, fmi3::variable::AbstractVariableTrait};
 
@@ -171,6 +174,17 @@ pub fn resolve_terminals<'a>(
     Ok(ResolvedTerminals {
         terminals: resolved,
     })
+}
+
+pub fn read_terminals_and_icons(path: &Path) -> Result<Fmi3TerminalsAndIcons, Error> {
+    let xml = std::fs::read_to_string(path).map_err(|err| {
+        Error::Model(format!(
+            "Failed to read terminalsAndIcons.xml at {}: {}",
+            path.display(),
+            err
+        ))
+    })?;
+    crate::deserialize(&xml)
 }
 
 fn build_variable_lookup<'a>(

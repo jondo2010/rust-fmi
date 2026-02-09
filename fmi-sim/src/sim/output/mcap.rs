@@ -8,27 +8,44 @@ use arrow::record_batch::RecordBatch;
 use mcap::records::MessageHeader;
 use mcap::Writer;
 
-use super::OutputSink;
+use super::{OutputSink, TerminalChannelBinding};
 
 const MCAP_CHANNEL: &str = "fmi-sim/output";
 const MCAP_ENCODING: &str = "json";
 
 pub struct McapSink {
     writer: Writer<BufWriter<std::fs::File>>,
-    channel_id: u16,
+    row_channel_id: u16,
+    terminal_channels: Vec<TerminalChannel>,
     sequence: u32,
 }
 
+struct TerminalChannel {
+    channel_id: u16,
+    fields: Vec<TerminalFieldIndex>,
+}
+
+struct TerminalFieldIndex {
+    column_index: usize,
+    field_name: String,
+}
+
 impl McapSink {
-    pub fn new<P: AsRef<Path>>(path: P, _schema: Arc<Schema>) -> anyhow::Result<Self> {
+    pub fn new<P: AsRef<Path>>(
+        path: P,
+        _schema: Arc<Schema>,
+        terminal_bindings: Vec<TerminalChannelBinding>,
+    ) -> anyhow::Result<Self> {
         let file = std::fs::File::create(path).context("Failed to create MCAP output file")?;
         let mut writer = Writer::new(BufWriter::new(file)).context("Failed to open MCAP writer")?;
-        let channel_id = writer
+        let row_channel_id = writer
             .add_channel(0, MCAP_CHANNEL, MCAP_ENCODING, &BTreeMap::new())
             .context("Failed to register MCAP channel")?;
+        let terminal_channels = register_terminal_channels(&mut writer, terminal_bindings)?;
         Ok(Self {
             writer,
-            channel_id,
+            row_channel_id,
+            terminal_channels,
             sequence: 0,
         })
     }
@@ -62,7 +79,7 @@ impl OutputSink for McapSink {
             payload.clear();
             write_row_json(fields.as_ref(), &mut encoders, row, &mut payload);
             let header = MessageHeader {
-                channel_id: self.channel_id,
+                channel_id: self.row_channel_id,
                 sequence: self.sequence,
                 log_time,
                 publish_time: log_time,
@@ -71,6 +88,21 @@ impl OutputSink for McapSink {
             self.writer
                 .write_to_known_channel(&header, &payload)
                 .context("Failed to write MCAP message")?;
+
+            for terminal in &mut self.terminal_channels {
+                payload.clear();
+                write_terminal_json(&terminal.fields, &mut encoders, row, &mut payload);
+                let header = MessageHeader {
+                    channel_id: terminal.channel_id,
+                    sequence: self.sequence,
+                    log_time,
+                    publish_time: log_time,
+                };
+                self.sequence = self.sequence.wrapping_add(1);
+                self.writer
+                    .write_to_known_channel(&header, &payload)
+                    .context("Failed to write terminal MCAP message")?;
+            }
         }
         Ok(())
     }
@@ -111,6 +143,59 @@ fn write_row_json(
         }
     }
     out.push(b'}');
+}
+
+fn write_terminal_json(
+    fields: &[TerminalFieldIndex],
+    encoders: &mut [NullableEncoder<'_>],
+    row: usize,
+    out: &mut Vec<u8>,
+) {
+    out.push(b'{');
+    for (idx, field) in fields.iter().enumerate() {
+        if idx > 0 {
+            out.push(b',');
+        }
+        write_json_string(&field.field_name, out);
+        out.push(b':');
+        let encoder = &mut encoders[field.column_index];
+        if encoder.is_null(row) {
+            out.extend_from_slice(b"null");
+        } else {
+            encoder.encode(row, out);
+        }
+    }
+    out.push(b'}');
+}
+
+fn register_terminal_channels(
+    writer: &mut Writer<BufWriter<std::fs::File>>,
+    bindings: Vec<TerminalChannelBinding>,
+) -> anyhow::Result<Vec<TerminalChannel>> {
+    let mut channels = Vec::new();
+    for binding in bindings {
+        let mut metadata = BTreeMap::new();
+        if let Some(name) = binding.schema_name.as_deref() {
+            metadata.insert("foxglove.schema".to_string(), name.to_string());
+        }
+        if let Some(url) = binding.schema_url.as_deref() {
+            metadata.insert("foxglove.schema_url".to_string(), url.to_string());
+        }
+        let channel_name = format!("fmi-sim/terminal/{}", binding.terminal_name);
+        let channel_id = writer
+            .add_channel(0, &channel_name, MCAP_ENCODING, &metadata)
+            .context("Failed to register terminal MCAP channel")?;
+        let fields = binding
+            .fields
+            .into_iter()
+            .map(|field| TerminalFieldIndex {
+                column_index: field.column_index,
+                field_name: field.field_name,
+            })
+            .collect();
+        channels.push(TerminalChannel { channel_id, fields });
+    }
+    Ok(channels)
 }
 
 fn write_json_string(value: &str, out: &mut Vec<u8>) {

@@ -2172,6 +2172,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a546fc83c436ffbef8e7e639df8498bbc5122e0bd19cf8db208720c2cc85290e"
 
 [[package]]
+name = "point2-terminal"
+version = "0.1.0"
+dependencies = [
+ "fmi",
+ "fmi-export",
+]
+
+[[package]]
 name = "potential_utf"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

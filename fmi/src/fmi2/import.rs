@@ -1,7 +1,7 @@
 use std::{path::PathBuf, str::FromStr};
 
 use super::{binding, instance::Instance};
-use crate::{CS, Error, ME, traits::FmiImport};
+use crate::{CS, Error, ME, import::MODEL_DESCRIPTION, traits::FmiImport};
 
 use fmi_schema::{MajorVersion, fmi2 as schema};
 
@@ -19,8 +19,11 @@ impl FmiImport for Fmi2Import {
     type Binding = binding::Fmi2Binding;
     type ValueRef = binding::fmi2ValueReference;
 
-    fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error> {
-        let schema = schema::Fmi2ModelDescription::from_str(schema_xml)?;
+    fn new(dir: tempfile::TempDir) -> Result<Self, Error> {
+        // Open and read the modelDescription XML into a string
+        let descr_file_path = dir.path().join(MODEL_DESCRIPTION);
+        let descr_xml = std::fs::read_to_string(descr_file_path)?;
+        let schema = schema::Fmi2ModelDescription::from_str(&descr_xml)?;
         Ok(Self {
             dir,
             model_description: schema,

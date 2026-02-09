@@ -9,10 +9,11 @@ use fmi::{
     schema::fmi3::{Dimension, Variability, VariableType},
     traits::FmiImport,
 };
+use fmi::schema::fmi3::{Annotations, ResolvedTerminal, resolve_terminals};
 
 use crate::sim::{
     io::StartValues,
-    output::{OutputDimension, OutputKind},
+    output::{OutputDimension, OutputKind, TerminalFieldBinding, TerminalSchemaBinding},
     traits::ImportSchemaBuilder,
 };
 
@@ -192,6 +193,22 @@ where
             .collect();
         Ok(mapped)
     }
+
+    fn output_terminal_bindings(
+        &self,
+    ) -> anyhow::Result<Vec<TerminalSchemaBinding<Self::ValueRef>>> {
+        let Some(terminals) = self.terminals_and_icons() else {
+            return Ok(Vec::new());
+        };
+        let resolved = resolve_terminals(terminals, self.model_description())
+            .map_err(|err| anyhow::anyhow!("Failed to resolve terminals: {:?}", err))?;
+
+        let mut bindings = Vec::new();
+        for terminal in resolved.terminals {
+            collect_terminal_bindings::<Self::ValueRef>(&terminal, &mut bindings);
+        }
+        Ok(bindings)
+    }
     fn parse_start_values(
         &self,
         start_values: &[String],
@@ -245,6 +262,66 @@ where
             .binary_max_size(vr)
             .map(|m| m as usize)
     }
+}
+
+fn collect_terminal_bindings<VR: From<u32> + Copy>(
+    terminal: &ResolvedTerminal<'_>,
+    out: &mut Vec<TerminalSchemaBinding<VR>>,
+) {
+    if let Some(binding) = terminal_binding_from_terminal::<VR>(terminal) {
+        out.push(binding);
+    }
+    for nested in &terminal.terminals {
+        collect_terminal_bindings::<VR>(nested, out);
+    }
+}
+
+fn terminal_binding_from_terminal<VR: From<u32> + Copy>(
+    terminal: &ResolvedTerminal<'_>,
+) -> Option<TerminalSchemaBinding<VR>> {
+    let schema_name = annotation_value(terminal.terminal.annotations.as_ref(), "foxglove.schema")
+        .or_else(|| terminal.terminal.terminal_kind.clone());
+    let schema_url = annotation_value(
+        terminal.terminal.annotations.as_ref(),
+        "foxglove.schema_url",
+    );
+    if schema_name.is_none() && schema_url.is_none() {
+        return None;
+    }
+
+    let mut fields = Vec::new();
+    for member in &terminal.members {
+        if member.variable.causality() != Causality::Output {
+            continue;
+        }
+        let field_name = annotation_value(member.member.annotations.as_ref(), "foxglove.field")
+            .or_else(|| member.member.member_name.clone())
+            .unwrap_or_else(|| member.variable.name().to_string());
+        fields.push(TerminalFieldBinding {
+            vr: VR::from(member.variable.value_reference()),
+            field_name,
+        });
+    }
+    if fields.is_empty() {
+        return None;
+    }
+
+    Some(TerminalSchemaBinding {
+        terminal_name: terminal.terminal.name.clone(),
+        schema_name,
+        schema_url,
+        fields,
+    })
+}
+
+fn annotation_value(annotations: Option<&Annotations>, key: &str) -> Option<String> {
+    annotations.and_then(|annotations| {
+        annotations
+            .annotations
+            .iter()
+            .find(|annotation| annotation.r#type == key)
+            .map(|annotation| annotation.content.clone())
+    })
 }
 
 fn fixed_array_len(dimensions: &[Dimension]) -> Option<u64> {

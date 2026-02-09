@@ -15,7 +15,7 @@ use super::{
     SimStats,
     interpolation::{Interpolate, PreLookup},
     io::StartValues,
-    output::{OutputDimension, OutputKind, OutputRecorder},
+    output::{OutputDimension, OutputKind, OutputRecorder, TerminalSchemaBinding},
     solver::Solver,
 };
 
@@ -40,6 +40,12 @@ pub trait ImportSchemaBuilder: FmiImport {
         &self,
         _vr: Self::ValueRef,
     ) -> anyhow::Result<Vec<OutputDimension<Self::ValueRef>>> {
+        Ok(Vec::new())
+    }
+    /// Return terminal bindings that map outputs into typed schema channels.
+    fn output_terminal_bindings(
+        &self,
+    ) -> anyhow::Result<Vec<TerminalSchemaBinding<Self::ValueRef>>> {
         Ok(Vec::new())
     }
     /// Parse a list of "var=value" strings.

@@ -109,7 +109,7 @@ use fmi_schema::{minimal::MinModelDescription as MinModel, traits::FmiModelDescr
 /// `modelDescription.xml` at the root level of the ZIP archive. This file
 /// contains the complete model metadata including variables, capabilities,
 /// and platform-specific information.
-const MODEL_DESCRIPTION: &str = "modelDescription.xml";
+pub const MODEL_DESCRIPTION: &str = "modelDescription.xml";
 
 /// Quickly inspect an FMU's model description without full extraction.
 ///
@@ -358,10 +358,5 @@ pub fn new<R: Read + Seek, Imp: FmiImport>(reader: R) -> Result<Imp, Error> {
     let temp_dir = tempfile::Builder::new().prefix("fmi-rs").tempdir()?;
     log::debug!("Extracting into {temp_dir:?}");
     archive.extract(&temp_dir)?;
-
-    // Open and read the modelDescription XML into a string
-    let descr_file_path = temp_dir.path().join(MODEL_DESCRIPTION);
-    let descr_xml = std::fs::read_to_string(descr_file_path)?;
-
-    Imp::new(temp_dir, &descr_xml)
+    Imp::new(temp_dir)
 }

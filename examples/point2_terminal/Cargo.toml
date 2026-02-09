@@ -1,0 +1,15 @@
+[package]
+name = "point2-terminal"
+version = "0.1.0"
+edition = "2024"
+description = "Point2 terminal example for Foxglove-compatible MCAP output"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
+
+[package.metadata.fmu]
+default_experiment = { start_time = "0", stop_time = "10", step_size = "0.1" }

@@ -22,7 +22,7 @@ pub trait FmiImport: Sized {
     type ValueRef;
 
     /// Create a new FMI import from a directory containing the unzipped FMU
-    fn new(dir: tempfile::TempDir, schema_xml: &str) -> Result<Self, Error>;
+    fn new(dir: tempfile::TempDir) -> Result<Self, Error>;
 
     /// Return the path to the extracted FMU
     fn archive_path(&self) -> &std::path::Path;

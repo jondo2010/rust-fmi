@@ -46,6 +46,10 @@ impl FmiSim for Fmi2Import {
                     OutputFormat::Mcap => Box::new(crate::sim::output::McapSink::new(
                         path,
                         plan.schema.clone(),
+                        crate::sim::output::resolve_terminal_channel_bindings(
+                            &plan.columns,
+                            &plan.terminal_bindings,
+                        ),
                     )?),
                 }
             } else {
@@ -104,6 +108,10 @@ impl FmiSim for Fmi2Import {
                     OutputFormat::Mcap => Box::new(crate::sim::output::McapSink::new(
                         path,
                         plan.schema.clone(),
+                        crate::sim::output::resolve_terminal_channel_bindings(
+                            &plan.columns,
+                            &plan.terminal_bindings,
+                        ),
                     )?),
                 }
             } else {

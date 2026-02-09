@@ -16,7 +16,10 @@ use arrow::{
 use arrow_ipc::reader::StreamReader;
 use fmi::{fmi2::import::Fmi2Import, fmi3::import::Fmi3Import, schema::MajorVersion};
 use fmi_sim::{
-    options::{CoSimulationOptions, CommonOptions, FmiSimOptions, Interface, ModelExchangeOptions},
+    options::{
+        CoSimulationOptions, CommonOptions, FmiSimOptions, Interface, ModelExchangeOptions,
+        OutputOptions,
+    },
     sim::traits::FmiSim,
 };
 use tempfile::NamedTempFile;
@@ -28,20 +31,6 @@ fn read_ipc_batch(path: &Path) -> RecordBatch {
     concat_batches(&batches[0].schema(), &batches).unwrap()
 }
 
-fn set_output_path(interface: &mut Interface, path: PathBuf) {
-    match interface {
-        Interface::CoSimulation(opts) => {
-            opts.common.output.output_path = Some(path);
-        }
-        Interface::ModelExchange(opts) => {
-            opts.common.output.output_path = Some(path);
-        }
-        #[cfg(feature = "se")]
-        Interface::ScheduledExecution(opts) => {
-            opts.output.output_path = Some(path);
-        }
-    }
-}
 
 #[rstest::fixture]
 fn ref_fmus() -> fmi_test_data::ReferenceFmus {
@@ -68,12 +57,14 @@ fn test_start_time(
         .unwrap();
 
     let output_file = NamedTempFile::new().unwrap();
-    let mut interface = interface;
-    set_output_path(&mut interface, output_file.path().to_path_buf());
 
     let options = FmiSimOptions {
         interface,
         model: fmu_file.path().to_path_buf(),
+        output: OutputOptions {
+            output_path: Some(output_file.path().to_path_buf()),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -109,12 +100,14 @@ fn test_stop_time(
         .unwrap();
 
     let output_file = NamedTempFile::new().unwrap();
-    let mut interface = interface;
-    set_output_path(&mut interface, output_file.path().to_path_buf());
 
     let options = FmiSimOptions {
         interface,
         model: fmu_file.path().to_path_buf(),
+        output: OutputOptions {
+            output_path: Some(output_file.path().to_path_buf()),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -164,9 +157,11 @@ fn test_start_value_types() {
         event_mode_used: false,
         early_return_allowed: false,
     };
-    let mut options = options;
-    options.common.output.output_path = Some(output_file.path().to_path_buf());
-    let _stats = import.simulate_cs(&options, None).unwrap();
+    let output = OutputOptions {
+        output_path: Some(output_file.path().to_path_buf()),
+        ..Default::default()
+    };
+    let _stats = import.simulate_cs(&options, &output, None).unwrap();
     let output = read_ipc_batch(output_file.path());
 
     assert_eq!(
@@ -405,8 +400,8 @@ fn test_input_data(
     //#[with(interface)] feedthrough_output_data: arrow::record_batch::RecordBatch,
 ) {
     let output_file = NamedTempFile::new().unwrap();
-    let mut interface = interface;
-    set_output_path(&mut interface, output_file.path().to_path_buf());
+    let mut output = OutputOptions::default();
+    output.output_path = Some(output_file.path().to_path_buf());
 
     let _stats = match fmi_version {
         MajorVersion::FMI1 => unimplemented!(),
@@ -417,12 +412,14 @@ fn test_input_data(
             }
 
             let import: Fmi2Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
-            fmi_sim::sim::simulate_with(Some(input_data), &interface, import).unwrap()
+            fmi_sim::sim::simulate_with(Some(input_data), &interface, &output, import)
+            .unwrap()
         }
 
         MajorVersion::FMI3 => {
             let import: Fmi3Import = ref_fmus.get_reference_fmu("Feedthrough").unwrap();
-            fmi_sim::sim::simulate_with(Some(input_data), &interface, import).unwrap()
+            fmi_sim::sim::simulate_with(Some(input_data), &interface, &output, import)
+            .unwrap()
         }
     };
 

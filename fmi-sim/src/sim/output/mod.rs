@@ -10,7 +10,7 @@ use arrow::{
     record_batch::RecordBatch,
 };
 use fmi::traits::FmiInstance;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{options::OutputOptions, sim::traits::ImportSchemaBuilder};
 
@@ -61,6 +61,34 @@ pub struct OutputColumnState {
 }
 
 #[derive(Debug, Clone)]
+pub struct TerminalSchemaBinding<VR> {
+    pub terminal_name: String,
+    pub schema_name: Option<String>,
+    pub schema_url: Option<String>,
+    pub fields: Vec<TerminalFieldBinding<VR>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TerminalFieldBinding<VR> {
+    pub vr: VR,
+    pub field_name: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TerminalChannelBinding {
+    pub terminal_name: String,
+    pub schema_name: Option<String>,
+    pub schema_url: Option<String>,
+    pub fields: Vec<TerminalFieldIndex>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TerminalFieldIndex {
+    pub column_index: usize,
+    pub field_name: String,
+}
+
+#[derive(Debug, Clone)]
 pub enum OutputDimension<VR> {
     Fixed(usize),
     Variable(VR),
@@ -71,6 +99,7 @@ pub struct OutputPlan<VR> {
     pub columns: Vec<OutputColumn<VR>>,
     pub flush_policy: FlushPolicy,
     pub byte_estimate_per_row: usize,
+    pub terminal_bindings: Vec<TerminalSchemaBinding<VR>>,
 }
 
 pub struct FlushPolicy {
@@ -109,6 +138,56 @@ pub struct OutputRecorder<Inst: FmiInstance> {
     pub sink: Box<dyn OutputSink>,
     pub row_count: usize,
     pub byte_estimate_per_row: usize,
+}
+
+pub fn resolve_terminal_channel_bindings<VR: Eq + std::hash::Hash + Copy>(
+    columns: &[OutputColumn<VR>],
+    bindings: &[TerminalSchemaBinding<VR>],
+) -> Vec<TerminalChannelBinding> {
+    let mut lookup = HashMap::new();
+    for (idx, column) in columns.iter().enumerate() {
+        lookup.insert(column.vr, idx + 1);
+    }
+
+    let mut resolved = Vec::new();
+    for binding in bindings {
+        if binding.schema_name.is_none() && binding.schema_url.is_none() {
+            log::warn!(
+                "Terminal '{}' has no foxglove schema annotation; skipping typed channel",
+                binding.terminal_name
+            );
+            continue;
+        }
+        let mut fields = Vec::new();
+        for field in &binding.fields {
+            if let Some(col_idx) = lookup.get(&field.vr) {
+                fields.push(TerminalFieldIndex {
+                    column_index: *col_idx,
+                    field_name: field.field_name.clone(),
+                });
+            } else {
+                log::warn!(
+                    "Terminal '{}' field '{}' not in output columns; skipping field",
+                    binding.terminal_name,
+                    field.field_name
+                );
+            }
+        }
+        if fields.is_empty() {
+            log::warn!(
+                "Terminal '{}' has no resolvable output fields; skipping typed channel",
+                binding.terminal_name
+            );
+            continue;
+        }
+        resolved.push(TerminalChannelBinding {
+            terminal_name: binding.terminal_name.clone(),
+            schema_name: binding.schema_name.clone(),
+            schema_url: binding.schema_url.clone(),
+            fields,
+        });
+    }
+    resolved
 }
 
 impl<Inst: FmiInstance> OutputRecorder<Inst> {
@@ -334,11 +413,20 @@ where
         target_bytes,
     };
 
+    let terminal_bindings = match import.output_terminal_bindings() {
+        Ok(bindings) => bindings,
+        Err(err) => {
+            log::warn!("Failed to load terminal bindings: {err}");
+            Vec::new()
+        }
+    };
+
     Ok(OutputPlan {
         schema,
         columns,
         flush_policy,
         byte_estimate_per_row,
+        terminal_bindings,
     })
 }
 
