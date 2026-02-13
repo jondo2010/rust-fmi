@@ -520,7 +520,6 @@ version = "0.0.0"
 dependencies = [
  "fmi",
  "fmi-export",
- "fmi-sim",
 ]
 
 [[package]]
@@ -3323,7 +3322,6 @@ version = "0.0.0"
 dependencies = [
  "fmi",
  "fmi-export",
- "fmi-sim",
 ]
 
 [[package]]

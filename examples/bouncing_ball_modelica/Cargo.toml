@@ -15,8 +15,5 @@ fmi-export = { workspace = true, features = ["fmi3"] }
 [build-dependencies]
 fmi-export = { workspace = true, features = ["rumoca"] }
 
-[dev-dependencies]
-fmi-sim = { workspace = true }
-
 [package.metadata.fmu]
 default_experiment = { start_time = "0", stop_time = "3", step_size = "1e-2" }
