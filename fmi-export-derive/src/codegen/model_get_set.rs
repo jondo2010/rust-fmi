@@ -626,6 +626,7 @@ impl ToTokens for ModelGetSetImpl<'_> {
         let clock_set_fn = build_clock_set_fn(self.model);
 
         tokens.extend(quote! {
+            #[allow(non_snake_case)]
             impl<M: ::fmi_export::fmi3::Model> ::fmi_export::fmi3::ModelGetSet<M> for #struct_name {
                 const FIELD_COUNT: usize = #(
                     <#field_types as ::fmi_export::fmi3::ModelGetSet<M>>::FIELD_COUNT

@@ -11,9 +11,21 @@ This crate is part of [rust-fmi](https://github.com/jondo2010/rust-fmi).
 
 See [http://www.fmi-standard.org](http://www.fmi-standard.org)
 
-## Quick start: export an FMU
+## Quick start: Build an FMU
 
-1) Define a `cdylib` model crate and derive `FmuModel`:
+1) Install the `cargo-fmi` subcommand:
+
+```bash
+cargo install cargo-fmi
+```
+
+2) Create a new crate for your model using `cargo-fmi`:
+
+```bash
+cargo fmi new my-model
+```
+
+This will generate a `cdylib` crate with a sample model struct deriving `FmuModel`:
 
 ```rust,ignore
 use fmi_export::FmuModel;
@@ -25,19 +37,13 @@ struct MyModel {
 }
 ```
 
-2) Export FMI symbols:
+The `export_fmu!` macro will generate the required FMI-API exports.
 
 ```rust,ignore
 fmi_export::export_fmu!(MyModel);
 ```
 
-3) Install the Cargo subcommand:
-
-```bash
-cargo install cargo-fmi
-```
-
-4) Bundle the FMU with `cargo-fmi`:
+3) Build and bundle the FMU with `cargo-fmi`:
 
 ```bash
 cargo fmi --package my-model bundle
@@ -45,8 +51,11 @@ cargo fmi --package my-model bundle
 
 ## Building FMUs
 
-This repository builds FMI 3.0 FMUs from pure Rust code. The FMI API interfacing boilerplate is generated with the
-`FmuModel` derive macro. Automated packaging is handled by the `cargo-fmi` subcommand.
+This repository builds FMI 3.0 FMUs from pure Rust code, and is driven by the `FmuModel`
+derive macro.
+
+The FMI API interfacing boilerplate is generated, and automated packaging is handled by the
+`cargo-fmi` subcommand.
 
 ### Minimal FMU setup
 
@@ -76,7 +85,7 @@ struct MyModel {
 fmi_export::export_fmu!(MyModel);
 ```
 
-### Build an FMU (this repo)
+### Build an example FMU (this repo)
 
 From the repository root:
 
@@ -106,6 +115,44 @@ cargo fmi --package can-triggered-output bundle --release
 ```bash
 cargo fmi --package can-triggered-output bundle --target x86_64-unknown-linux-gnu
 ```
+
+## Building FMUs from Modelica models
+
+Using the [rumoca](https://crates.io/crates/rumoca) crate, `fmi-export` can generate
+Rust code from Modelica models.
+
+The template can be used directly via Rumoca, but the **primary workflow** is to enable
+the `rumoca` feature in `fmi-export` and call its helper API from `build.rs`.
+
+### Quick Start
+
+1) Add `fmi-export` with the `rumoca` feature to your `Cargo.toml`:
+
+```toml
+[build-dependencies]
+fmi-export = { version = "0.1.1", features = ["rumoca"] }
+```
+
+2) Invoke the Rumoca compiler in your crates' `build.rs`:
+
+```rust,ignore
+let model_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+    .join("src/model.mo");
+println!("cargo:rerun-if-changed={}", model_path.display());
+fmi_export::rumoca::write_modelica_to_out_dir("MyModel", &model_path)
+    .expect("render model.mo");
+```
+
+Direct Rumoca usage is also supported (path shown is for this repo checkout):
+
+```bash
+rumoca model.mo -m MyModel --template-file fmi-export/templates/rust-fmi.jinja > my_fmu_crate/src/lib.rs
+```
+
+If you're outside this repo, point `--template-file` at a local copy of
+`rust-fmi.jinja` from the `fmi-export/templates` directory.
+
+See [templates/README.md](templates/README.md) and the examples for further details.
 
 ## License
 

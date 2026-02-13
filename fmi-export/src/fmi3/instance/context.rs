@@ -71,8 +71,6 @@ where
         if self.logging_on(category) {
             // Call the logging callback
             (self.log_message)(status, &category.to_string(), args);
-        } else {
-            eprintln!("Logging disabled for category: {}", category);
         }
     }
 

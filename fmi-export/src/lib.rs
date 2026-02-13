@@ -13,6 +13,9 @@
 #[cfg(feature = "fmi3")]
 pub mod fmi3;
 
+#[cfg(feature = "rumoca")]
+pub mod rumoca;
+
 // Re-export the derive macro
 #[doc = include_str!("fmu_model_docs.md")]
 pub use fmi_export_derive::FmuModel;
