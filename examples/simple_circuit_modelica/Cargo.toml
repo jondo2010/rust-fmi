@@ -1,0 +1,19 @@
+[package]
+name = "simple-circuit-modelica"
+version = "0.0.0"
+publish = false
+edition = "2024"
+description = "A simple circuit model implemented in Modelica."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fmi = { workspace = true, features = ["fmi3"] }
+fmi-export = { workspace = true, features = ["fmi3"] }
+
+[build-dependencies]
+fmi-export = { workspace = true, features = ["rumoca"] }
+
+[package.metadata.fmu]
+default_experiment = { start_time = "0", stop_time = "3", step_size = "1e-2" }

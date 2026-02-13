@@ -253,6 +253,7 @@ impl ToTokens for ModelGetSetStatesImpl<'_> {
 
         // Always generate the trait implementation, even for models with no states
         tokens.extend(quote! {
+            #[allow(non_snake_case)]
             impl ::fmi_export::fmi3::ModelGetSetStates for #struct_name {
                 const NUM_STATES: usize = #num_states;
 

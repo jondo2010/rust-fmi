@@ -17,13 +17,17 @@ include.workspace = true
 default = ["fmi3"]
 ## Enable support for FMI 3.0
 fmi3 = ["fmi/fmi3"]
+## Enable support for Rumoca-based Modelica compilation
+rumoca = ["dep:anyhow", "dep:rumoca"]
 
 [dependencies]
+anyhow = { workspace = true, optional = true }
 chrono = { workspace = true }
 document-features = { workspace = true }
 fmi = { workspace = true }
 fmi-export-derive = { workspace = true }
 paste = { workspace = true }
+rumoca = { version = "0.7", optional = true }
 thiserror = { workspace = true }
 
 [lints.rust]

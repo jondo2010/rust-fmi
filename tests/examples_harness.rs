@@ -21,6 +21,8 @@ fn metadata() -> Metadata {
 
 #[rstest]
 #[case::bouncing_ball("bouncing_ball", SimMode::ModelExchange)]
+#[case::bouncing_ball_modelica("bouncing-ball-modelica", SimMode::ModelExchange)]
+#[case::simple_circuit_modelica("simple-circuit-modelica", SimMode::ModelExchange)]
 #[case::vanderpol("vanderpol", SimMode::ModelExchange)]
 #[case::dahlquist("dahlquist", SimMode::Both)]
 #[case::stair("stair", SimMode::ModelExchange)]

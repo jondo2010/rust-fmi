@@ -45,7 +45,9 @@ pub fn build_lib(
 
     for msg in Message::parse_stream(reader).filter_map(Result::ok) {
         match msg {
-            Message::CompilerArtifact(artifact) if artifact.target.is_cdylib() => {
+            Message::CompilerArtifact(artifact)
+                if artifact.target.is_cdylib() && artifact.package_id == *package =>
+            {
                 // Heuristic to parse the target triple from the output filenames. When building for
                 // specific target triples, the outputs will be placed in subdirectories named after
                 // the target, for example "target/aarch64-apple-darwin/debug/libdahlquist.dylib".

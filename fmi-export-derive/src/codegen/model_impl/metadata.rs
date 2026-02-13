@@ -89,6 +89,7 @@ impl ToTokens for BuildMetadataGen<'_> {
                 for attr in &field.attrs {
                     match attr {
                         FieldAttributeOuter::Variable(var_attr) => {
+                            let mut added_initial_unknown = false;
                             let var_token = self.generate_variable_definition(
                                 field,
                                 var_attr,
@@ -130,6 +131,7 @@ impl ToTokens for BuildMetadataGen<'_> {
                                                     dependencies_kind: None,
                                                 }));
                                             });
+                                            added_initial_unknown = true;
                                         }
                                     }
                                 }
@@ -186,6 +188,41 @@ impl ToTokens for BuildMetadataGen<'_> {
                                         // Output without dependencies
                                         model_structure_tokens.push(quote! {
                                             model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::Output(::fmi::schema::fmi3::Fmi3Unknown {
+                                                annotations: None,
+                                                value_reference: current_vr_offset + #current_vr,
+                                                dependencies: None,
+                                                dependencies_kind: None,
+                                            }));
+                                        });
+                                    }
+                                }
+                            }
+
+                            // Generate model structure entries for event indicators
+                            if matches!(var_attr.event_indicator, Some(true)) {
+                                let current_vr = field_name_to_vr[&field.ident.to_string()];
+                                model_structure_tokens.push(quote! {
+                                    model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::EventIndicator(::fmi::schema::fmi3::Fmi3Unknown {
+                                        annotations: None,
+                                        value_reference: current_vr_offset + #current_vr,
+                                        dependencies: None,
+                                        dependencies_kind: None,
+                                    }));
+                                });
+                            }
+
+                            // Add any variable with initial=Calculated to InitialUnknowns
+                            if !added_initial_unknown {
+                                if let Some(initial) = &var_attr.initial {
+                                    let initial_schema: ::fmi::fmi3::schema::Initial =
+                                        (*initial).into();
+                                    if matches!(
+                                        initial_schema,
+                                        ::fmi::fmi3::schema::Initial::Calculated
+                                    ) {
+                                        let current_vr = field_name_to_vr[&field.ident.to_string()];
+                                        model_structure_tokens.push(quote! {
+                                            model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::InitialUnknown(::fmi::schema::fmi3::Fmi3Unknown {
                                                 annotations: None,
                                                 value_reference: current_vr_offset + #current_vr,
                                                 dependencies: None,
@@ -328,7 +365,7 @@ impl BuildMetadataGen<'_> {
             let derivative_name = derivative_ref.to_string();
             if let Some(&derivative_vr) = field_name_to_vr.get(&derivative_name) {
                 builder_calls.push(quote! {
-                    .with_derivative(#derivative_vr)
+                    .with_derivative(current_vr_offset + #derivative_vr)
                 });
             }
         }

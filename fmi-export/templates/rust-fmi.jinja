@@ -1,0 +1,408 @@
+{#
+Rumoca -> rust-fmi (fmi-export) template.
+Generates a ModelExchange-only FMI 3 model.
+#}
+{%- macro rust_ident(name) -%}
+{{- name
+    | replace("::", "_")
+    | replace(".", "_")
+    | replace("(", "_")
+    | replace(")", "_")
+    | replace("[", "_")
+    | replace("]", "_")
+    | replace("{", "_")
+    | replace("}", "_")
+    | replace(",", "_")
+    | replace(" ", "_")
+    | replace("-", "_")
+-}}
+{%- endmacro -%}
+
+{%- macro comp_name(comp_ref) -%}
+{{- comp_ref.parts | map(attribute="ident") | map(attribute="text") | join(".") -}}
+{%- endmacro -%}
+
+{%- macro type_name(comp) -%}
+{{- comp.type_name.name | map(attribute="text") | join(".") -}}
+{%- endmacro -%}
+
+{%- macro rust_type(comp) -%}
+{%- set tname = type_name(comp) -%}
+{%- if tname == "Real" -%}f64
+{%- elif tname == "Integer" -%}i32
+{%- elif tname == "Boolean" -%}bool
+{%- elif tname == "String" -%}String
+{%- else -%}f64
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro render_start(comp) -%}
+{%- set tname = type_name(comp) -%}
+{%- if "Terminal" in comp.start -%}
+    {%- set term = comp.start.Terminal -%}
+    {%- if tname == "Integer" and term.terminal_type == "UnsignedInteger" -%}
+{{ term.token.text }}
+    {%- elif tname == "Boolean" and term.terminal_type == "Bool" -%}
+{{ term.token.text | lower }}
+    {%- elif tname == "String" and term.terminal_type == "String" -%}
+"{{ term.token.text }}"
+    {%- else -%}
+{{ render_expr(comp.start) }}
+    {%- endif -%}
+{%- else -%}
+{{ render_expr(comp.start) }}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro render_expr(expr) -%}
+{%- if "Terminal" in expr -%}
+    {%- set term = expr.Terminal -%}
+    {%- if term.terminal_type == "String" -%}"{{ term.token.text }}"
+    {%- elif term.terminal_type == "Bool" -%}{{ term.token.text | lower }}
+    {%- elif term.terminal_type == "UnsignedInteger" -%}{{ term.token.text }}.0
+    {%- else -%}{{ term.token.text }}
+    {%- endif -%}
+{%- elif "ComponentReference" in expr -%}
+    {%- set comp_ref_name = comp_name(expr.ComponentReference) -%}
+    {%- if comp_ref_name == "time" -%}
+        _context.time()
+    {%- else -%}
+        self.{{ rust_ident(comp_ref_name) }}
+    {%- endif -%}
+{%- elif "Unary" in expr -%}
+    {%- set unary = expr.Unary -%}
+    {%- if "Minus" in unary.op -%}-({{ render_expr(unary.rhs) }})
+    {%- elif "Plus" in unary.op -%}+({{ render_expr(unary.rhs) }})
+    {%- elif "Not" in unary.op -%}!({{ render_expr(unary.rhs) }})
+    {%- else -%}{{ render_expr(unary.rhs) }}
+    {%- endif -%}
+{%- elif "Binary" in expr -%}
+    {%- set binary = expr.Binary -%}
+    {%- if "Exp" in binary.op -%}({{ render_expr(binary.lhs) }}).powf({{ render_expr(binary.rhs) }})
+    {%- else -%}({{ render_expr(binary.lhs) }}) {%- if "Add" in binary.op -%}+{%- elif "Sub" in binary.op -%}-{%- elif "Mul" in binary.op -%}*{%- elif "Div" in binary.op -%}/{%- elif "Eq" in binary.op -%}=={%- elif "Neq" in binary.op -%}!={%- elif "Lt" in binary.op -%}<{%- elif "Le" in binary.op -%}<={%- elif "Gt" in binary.op -%}>{%- elif "Ge" in binary.op -%}>={%- elif "And" in binary.op -%}&&{%- elif "Or" in binary.op -%}||{%- else -%}?{%- endif -%} ({{ render_expr(binary.rhs) }})
+    {%- endif -%}
+{%- elif "FunctionCall" in expr -%}
+    {%- set func = expr.FunctionCall -%}
+    {%- set func_name = comp_name(func.comp) -%}
+    {%- set func_base = func_name | split(".") | last -%}
+    {%- if func_base == "pre" -%}
+        {%- if func.args | length == 1 and "ComponentReference" in func.args[0] -%}
+            _pre_{{ rust_ident(comp_name(func.args[0].ComponentReference)) }}
+        {%- else -%}{{ panic("pre() requires a component reference") }}
+        {%- endif -%}
+    {%- elif func_base == "der" -%}
+        {%- if func.args | length == 1 and "ComponentReference" in func.args[0] -%}
+            self.{{ rust_ident("der_" ~ comp_name(func.args[0].ComponentReference)) }}
+        {%- else -%}{{ panic("der() requires a component reference") }}
+        {%- endif -%}
+    {%- elif func_base == "noEvent" -%}
+        {%- if func.args | length == 1 -%}
+            {{ render_expr(func.args[0]) }}
+        {%- else -%}{{ panic("noEvent() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "sqrt" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).sqrt()
+        {%- else -%}{{ panic("sqrt() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "sin" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).sin()
+        {%- else -%}{{ panic("sin() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "cos" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).cos()
+        {%- else -%}{{ panic("cos() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "tan" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).tan()
+        {%- else -%}{{ panic("tan() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "asin" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).asin()
+        {%- else -%}{{ panic("asin() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "acos" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).acos()
+        {%- else -%}{{ panic("acos() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "atan" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).atan()
+        {%- else -%}{{ panic("atan() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "atan2" -%}
+        {%- if func.args | length == 2 -%}
+            ({{ render_expr(func.args[0]) }}).atan2({{ render_expr(func.args[1]) }})
+        {%- else -%}{{ panic("atan2() requires two arguments") }}
+        {%- endif -%}
+    {%- elif func_base == "sinh" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).sinh()
+        {%- else -%}{{ panic("sinh() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "cosh" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).cosh()
+        {%- else -%}{{ panic("cosh() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "tanh" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).tanh()
+        {%- else -%}{{ panic("tanh() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "exp" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).exp()
+        {%- else -%}{{ panic("exp() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "log" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).ln()
+        {%- else -%}{{ panic("log() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "log10" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).log10()
+        {%- else -%}{{ panic("log10() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "abs" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).abs()
+        {%- else -%}{{ panic("abs() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "floor" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).floor()
+        {%- else -%}{{ panic("floor() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "ceil" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).ceil()
+        {%- else -%}{{ panic("ceil() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "integer" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).trunc()
+        {%- else -%}{{ panic("integer() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "sign" -%}
+        {%- if func.args | length == 1 -%}
+            ({{ render_expr(func.args[0]) }}).signum()
+        {%- else -%}{{ panic("sign() requires a single argument") }}
+        {%- endif -%}
+    {%- elif func_base == "mod" -%}
+        {%- if func.args | length == 2 -%}
+            ({{ render_expr(func.args[0]) }}).rem_euclid({{ render_expr(func.args[1]) }})
+        {%- else -%}{{ panic("mod() requires two arguments") }}
+        {%- endif -%}
+    {%- elif func_base == "rem" -%}
+        {%- if func.args | length == 2 -%}
+            ({{ render_expr(func.args[0]) }}) % ({{ render_expr(func.args[1]) }})
+        {%- else -%}{{ panic("rem() requires two arguments") }}
+        {%- endif -%}
+    {%- elif func_base == "min" -%}
+        {%- if func.args | length == 2 -%}
+            ({{ render_expr(func.args[0]) }}).min({{ render_expr(func.args[1]) }})
+        {%- else -%}{{ panic("min() requires two arguments") }}
+        {%- endif -%}
+    {%- elif func_base == "max" -%}
+        {%- if func.args | length == 2 -%}
+            ({{ render_expr(func.args[0]) }}).max({{ render_expr(func.args[1]) }})
+        {%- else -%}{{ panic("max() requires two arguments") }}
+        {%- endif -%}
+    {%- else -%}{{ panic("unsupported function call: " ~ func_name) }}
+    {%- endif -%}
+{%- elif "Parenthesized" in expr -%}
+    ({{ render_expr(expr.Parenthesized.inner) }})
+{%- elif "If" in expr -%}
+    {%- set if_expr = expr.If -%}
+    (if {{ render_expr(if_expr.branches[0][0]) }} { {{ render_expr(if_expr.branches[0][1]) }} } else { {{ render_expr(if_expr.else_branch) }} })
+{%- elif "Array" in expr -%}
+    vec![{%- for elem in expr.Array.elements -%}{{ render_expr(elem) }}{{ ", " if not loop.last }}{%- endfor -%}]
+{%- else -%}
+    {{ panic("unsupported expression") }}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro render_indicator_expr(expr) -%}
+{%- if "Binary" in expr -%}
+    {%- set binary = expr.Binary -%}
+    {%- if "Lt" in binary.op or "Le" in binary.op or "Gt" in binary.op or "Ge" in binary.op or "Eq" in binary.op or "Neq" in binary.op -%}
+        ({{ render_expr(binary.lhs) }}) - ({{ render_expr(binary.rhs) }})
+    {%- else -%}{{ render_expr(expr) }}
+    {%- endif -%}
+{%- else -%}{{ render_expr(expr) }}
+{%- endif -%}
+{%- endmacro -%}
+
+{%- macro event_indicator_for(name) -%}
+{%- set ns = namespace(found=false) -%}
+{%- for (cond_name, cond_expr) in dae.fc | items -%}
+    {%- if "Binary" in cond_expr and "ComponentReference" in cond_expr.Binary.lhs -%}
+        {%- set lhs_name = comp_name(cond_expr.Binary.lhs.ComponentReference) -%}
+        {%- if lhs_name == name -%}
+            {%- set ns.found = true -%}
+        {%- endif -%}
+{%- endif -%}
+{%- endfor -%}
+{{- "true" if ns.found else "false" -}}
+{%- endmacro -%}
+
+{% macro emit_variable(name, comp, default_causality, default_variability) %}
+{%- set rust_name = rust_ident(name) -%}
+{%- set descr = comp.description | map(attribute="text") | join(" ") -%}
+{%- set has_descr = descr | length > 0 -%}
+{%- set has_start = "Empty" not in comp.start -%}
+{%- set is_state = name in dae.x -%}
+{%- set causality = default_causality -%}
+{%- if "Input" in comp.causality -%}{%- set causality = "Input" -%}{%- elif "Output" in comp.causality -%}{%- set causality = "Output" -%}{%- endif -%}
+{%- set variability = default_variability -%}
+{%- if "Constant" in comp.variability -%}{%- set variability = "Constant" -%}{%- elif "Parameter" in comp.variability -%}{%- set variability = "Fixed" -%}{%- elif "Discrete" in comp.variability -%}{%- set variability = "Discrete" -%}{%- endif -%}
+{%- set ns = namespace(derivative_of=None) -%}
+{%- for eq in dae.fx -%}
+    {%- if "Simple" in eq -%}
+        {%- set simple = eq.Simple -%}
+        {%- if "FunctionCall" in simple.lhs and comp_name(simple.lhs.FunctionCall.comp) == "der" -%}
+            {%- if "ComponentReference" in simple.rhs -%}
+                {%- set rhs_name = comp_name(simple.rhs.ComponentReference) -%}
+                {%- if rhs_name == name -%}
+                    {%- if simple.lhs.FunctionCall.args | length == 1 and "ComponentReference" in simple.lhs.FunctionCall.args[0] -%}
+                        {%- set ns.derivative_of = comp_name(simple.lhs.FunctionCall.args[0].ComponentReference) -%}
+                    {%- endif -%}
+                {%- endif -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- endif -%}
+{%- endfor -%}
+#[variable(name = "{{ name }}", causality = {{ causality }}, variability = {{ variability }}{% if has_start %}, start = {{ render_start(comp) }}{% endif %}{% if has_start %}, initial = Exact{% elif is_state %}, initial = Calculated{% endif %}{% if ns.derivative_of %}, derivative = {{ rust_ident(ns.derivative_of) }}{% endif %}{% if event_indicator_for(name) == "true" %}, event_indicator = true{% endif %}{% if has_descr %}, description = "{{ descr }}"{% endif %})]
+pub {{ rust_name }}: {{ rust_type(comp) }},
+{% endmacro %}
+
+use fmi::{EventFlags, fmi3::{Fmi3Error, Fmi3Res}};
+use fmi_export::{FmuModel, fmi3::{Context, DefaultLoggingCategory, UserModel}};
+
+#[allow(non_snake_case)]
+#[derive(FmuModel, Default, Debug)]
+#[model(model_exchange = true, co_simulation = false, scheduled_execution = false, user_model = false)]
+#[doc = "{{ dae.t.description }}"]
+pub struct {{ dae.model_name }} {
+{% for (name, comp) in dae.p | items %}
+    {{ emit_variable(name, comp, "Parameter", "Fixed") | indent(4) }}
+{% endfor %}
+{% for (name, comp) in dae.cp | items %}
+    {{ emit_variable(name, comp, "Parameter", "Constant") | indent(4) }}
+{% endfor %}
+{% for (name, comp) in dae.u | items %}
+    {{ emit_variable(name, comp, "Input", "Continuous") | indent(4) }}
+{% endfor %}
+{% for (name, comp) in dae.x | items %}
+    {{ emit_variable(name, comp, "Local", "Continuous") | indent(4) }}
+{% endfor %}
+{% for (name, comp) in dae.y | items %}
+    {{ emit_variable(name, comp, "Local", "Continuous") | indent(4) }}
+{% endfor %}
+{% for (name, comp) in dae.z | items %}
+    {{ emit_variable(name, comp, "Local", "Discrete") | indent(4) }}
+{% endfor %}
+{% for (name, comp) in dae.m | items %}
+    {{ emit_variable(name, comp, "Local", "Discrete") | indent(4) }}
+{% endfor %}
+{% for eq in dae.fx %}
+    {% if "Simple" in eq and "FunctionCall" in eq.Simple.lhs and comp_name(eq.Simple.lhs.FunctionCall.comp) == "der" %}
+        {% set der_arg = eq.Simple.lhs.FunctionCall.args[0] %}
+        {% if "ComponentReference" in der_arg %}
+            {% set state_name = comp_name(der_arg.ComponentReference) %}
+            {% if not ("ComponentReference" in eq.Simple.rhs and comp_name(eq.Simple.rhs.ComponentReference) in dae.x) %}
+                {% set state_comp = dae.x[state_name] %}
+    #[variable(name = "der({{ state_name }})", causality = Local, variability = Continuous, derivative = {{ rust_ident(state_name) }}, initial = Calculated)]
+    pub {{ rust_ident("der_" ~ state_name) }}: {{ rust_type(state_comp) }},
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+}
+
+impl UserModel for {{ dae.model_name }} {
+    type LoggingCategory = DefaultLoggingCategory;
+
+    fn calculate_values(&mut self, _context: &dyn Context<Self>) -> Result<Fmi3Res, Fmi3Error> {
+{% for eq in dae.fx %}
+    {% if "Simple" in eq and "ComponentReference" in eq.Simple.lhs %}
+        {% set lhs_name = comp_name(eq.Simple.lhs.ComponentReference) %}
+        {% if lhs_name in dae.y or lhs_name in dae.z or lhs_name in dae.m %}
+        self.{{ rust_ident(lhs_name) }} = {{ render_expr(eq.Simple.rhs) }};
+        {% endif %}
+    {% endif %}
+{% endfor %}
+{% for eq in dae.fx %}
+    {% if "Simple" in eq and "FunctionCall" in eq.Simple.lhs and comp_name(eq.Simple.lhs.FunctionCall.comp) == "der" %}
+        {% set der_arg = eq.Simple.lhs.FunctionCall.args[0] %}
+        {% if "ComponentReference" in der_arg %}
+            {% set state_name = comp_name(der_arg.ComponentReference) %}
+            {% if not ("ComponentReference" in eq.Simple.rhs and comp_name(eq.Simple.rhs.ComponentReference) in dae.x) %}
+        self.{{ rust_ident("der_" ~ state_name) }} = {{ render_expr(eq.Simple.rhs) }};
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+        Ok(Fmi3Res::OK)
+    }
+
+    #[allow(non_snake_case, unused_mut, unused_variables)]
+    fn event_update(
+        &mut self,
+        _context: &dyn Context<Self>,
+        event_flags: &mut EventFlags,
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        event_flags.reset();
+        let mut any_event = false;
+{% for (name, comp) in dae.x | items %}
+        let _pre_{{ rust_ident(name) }} = self.{{ rust_ident(name) }};
+{% endfor %}
+{% for (name, comp) in dae.y | items %}
+        let _pre_{{ rust_ident(name) }} = self.{{ rust_ident(name) }};
+{% endfor %}
+{% for (name, comp) in dae.z | items %}
+        let _pre_{{ rust_ident(name) }} = self.{{ rust_ident(name) }};
+{% endfor %}
+{% for (name, comp) in dae.m | items %}
+        let _pre_{{ rust_ident(name) }} = self.{{ rust_ident(name) }};
+{% endfor %}
+{% for (cond_name, cond_expr) in dae.fc | items %}
+        if {{ render_expr(cond_expr) }} {
+    {% for (reset_key, reset_stmt) in dae.fr | items %}
+        {% set reset_cond = reset_key | split("_") | first %}
+        {% if reset_cond == cond_name and "Assignment" in reset_stmt %}
+            {% set assignment = reset_stmt.Assignment %}
+            {% set target_name = comp_name(assignment.comp) %}
+            self.{{ rust_ident(target_name) }} = {{ render_expr(assignment.value) }};
+            any_event = true;
+        {% endif %}
+    {% endfor %}
+        }
+{% endfor %}
+        if any_event {
+            event_flags.values_of_continuous_states_changed = true;
+        }
+        Ok(Fmi3Res::OK)
+    }
+
+    #[allow(unused_variables)]
+    fn get_event_indicators(
+        &mut self,
+        _context: &dyn Context<Self>,
+        indicators: &mut [f64],
+    ) -> Result<bool, Fmi3Error> {
+{% for (cond_name, cond_expr) in dae.fc | items %}
+        if indicators.len() > {{ loop.index0 }} {
+            indicators[{{ loop.index0 }}] = {{ render_indicator_expr(cond_expr) }};
+        }
+{% endfor %}
+        Ok(true)
+    }
+}

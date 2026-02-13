@@ -179,7 +179,7 @@ pub struct DefaultExperiment {
     pub step_size: Option<f64>,
 }
 
-#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
+#[derive(Default, PartialEq, Debug, hard_xml::XmlRead)]
 #[xml(tag = "ModelStructure", strict(unknown_attribute, unknown_element))]
 pub struct ModelStructure {
     #[xml(
@@ -190,6 +190,64 @@ pub struct ModelStructure {
         child = "EventIndicator"
     )]
     pub unknowns: Vec<VariableDependency>,
+}
+
+impl hard_xml::XmlWrite for ModelStructure {
+    fn to_writer<W: std::io::Write>(
+        &self,
+        writer: &mut hard_xml::XmlWriter<W>,
+    ) -> hard_xml::XmlResult<()> {
+        ::hard_xml::log_start_writing!(ModelStructure);
+        writer.write_element_start("ModelStructure")?;
+
+        if self.unknowns.is_empty() {
+            writer.write_element_end_empty()?;
+            ::hard_xml::log_finish_writing!(ModelStructure);
+            return Ok(());
+        }
+
+        writer.write_element_end_open()?;
+
+        for unknown in self
+            .unknowns
+            .iter()
+            .filter(|dep| matches!(dep, VariableDependency::Output(_)))
+        {
+            hard_xml::XmlWrite::to_writer(unknown, writer)?;
+        }
+        for unknown in self
+            .unknowns
+            .iter()
+            .filter(|dep| matches!(dep, VariableDependency::ContinuousStateDerivative(_)))
+        {
+            hard_xml::XmlWrite::to_writer(unknown, writer)?;
+        }
+        for unknown in self
+            .unknowns
+            .iter()
+            .filter(|dep| matches!(dep, VariableDependency::ClockedState(_)))
+        {
+            hard_xml::XmlWrite::to_writer(unknown, writer)?;
+        }
+        for unknown in self
+            .unknowns
+            .iter()
+            .filter(|dep| matches!(dep, VariableDependency::InitialUnknown(_)))
+        {
+            hard_xml::XmlWrite::to_writer(unknown, writer)?;
+        }
+        for unknown in self
+            .unknowns
+            .iter()
+            .filter(|dep| matches!(dep, VariableDependency::EventIndicator(_)))
+        {
+            hard_xml::XmlWrite::to_writer(unknown, writer)?;
+        }
+
+        writer.write_element_end_close("ModelStructure")?;
+        ::hard_xml::log_finish_writing!(ModelStructure);
+        Ok(())
+    }
 }
 
 impl ModelStructure {
@@ -227,7 +285,7 @@ impl ModelStructure {
 
 #[cfg(test)]
 mod tests {
-    use hard_xml::XmlRead;
+    use hard_xml::{XmlRead, XmlWrite};
 
     use crate::fmi3::Fmi3Unknown;
 
@@ -279,6 +337,40 @@ mod tests {
                     ..Default::default()
                 })],
             }
+        );
+    }
+
+    #[test]
+    fn test_model_structure_ordering() {
+        let model_structure = ModelStructure {
+            unknowns: vec![
+                VariableDependency::EventIndicator(Fmi3Unknown {
+                    value_reference: 5,
+                    ..Default::default()
+                }),
+                VariableDependency::Output(Fmi3Unknown {
+                    value_reference: 1,
+                    ..Default::default()
+                }),
+                VariableDependency::ContinuousStateDerivative(Fmi3Unknown {
+                    value_reference: 2,
+                    ..Default::default()
+                }),
+                VariableDependency::InitialUnknown(Fmi3Unknown {
+                    value_reference: 4,
+                    ..Default::default()
+                }),
+                VariableDependency::ClockedState(Fmi3Unknown {
+                    value_reference: 3,
+                    ..Default::default()
+                }),
+            ],
+        };
+
+        let xml = model_structure.to_string().unwrap();
+        assert_eq!(
+            xml,
+            r#"<ModelStructure><Output valueReference="1"/><ContinuousStateDerivative valueReference="2"/><ClockedState valueReference="3"/><InitialUnknown valueReference="4"/><EventIndicator valueReference="5"/></ModelStructure>"#
         );
     }
 }
