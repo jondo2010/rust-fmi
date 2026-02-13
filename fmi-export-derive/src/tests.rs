@@ -66,12 +66,12 @@ fn test_comprehensive_datatype_support() {
             // Test alias functionality with different types
             /// Velocity alias (float)
             #[variable(causality = Output, start = 2.7)]
-            #[alias(name = "vel_alias", description = "Velocity alias", causality = Output)]
+            #[alias(name = "vel_alias", description = "Velocity alias", display_unit = "m/s")]
             velocity_alias: f64,
 
             /// Counter alias (integer)
             #[variable(causality = Parameter, start = 42)]
-            #[alias(name = "count_alias", description = "Counter alias", causality = Parameter)]
+            #[alias(name = "count_alias", description = "Counter alias")]
             counter_alias: i32,
         }
     };
@@ -79,12 +79,12 @@ fn test_comprehensive_datatype_support() {
     let model = Model::from(input);
     let model_variables = build_model_variables(&model.fields);
 
-    // Test variable counts - each alias creates an additional variable (plus automatic time variable)
+    // Test variable counts - aliases do not create additional variables (time variable included)
     assert_eq!(model_variables.float32().len(), 1);
-    assert_eq!(model_variables.float64().len(), 4); // velocity_f64 + velocity_alias + vel_alias + time variable
+    assert_eq!(model_variables.float64().len(), 3); // velocity_f64 + velocity_alias + time variable
     assert_eq!(model_variables.int8().len(), 1);
     assert_eq!(model_variables.int16().len(), 1);
-    assert_eq!(model_variables.int32().len(), 3); // count_i32 + counter_alias + count_alias
+    assert_eq!(model_variables.int32().len(), 2); // count_i32 + counter_alias
     assert_eq!(model_variables.int64().len(), 1);
     assert_eq!(model_variables.uint8().len(), 1);
     assert_eq!(model_variables.uint16().len(), 1);
@@ -93,8 +93,8 @@ fn test_comprehensive_datatype_support() {
     assert_eq!(model_variables.boolean().len(), 1);
     assert_eq!(model_variables.string().len(), 1);
 
-    // Total should be 17 variables (12 base + 2 aliases + 2 additional variables with aliases + 1 time variable = 17)
-    assert_eq!(model_variables.len(), 17);
+    // Total should be 15 variables (14 base + 1 time variable = 15)
+    assert_eq!(model_variables.len(), 15);
 
     // Test specific variable properties
     // Float types use Vec<T> for start values (skip time variable at index 0)
@@ -151,7 +151,7 @@ fn test_comprehensive_datatype_support() {
     );
     assert_eq!(
         model_variables.int32()[0].variability(),
-        schema::Variability::Discrete
+        schema::Variability::Fixed
     );
     assert_eq!(
         model_variables.boolean()[0].variability(),

@@ -2,7 +2,9 @@ use attribute_derive::FromAttr;
 use proc_macro_error2::emit_error;
 
 mod field_attr;
-pub use field_attr::{ChildAttribute, FieldAttribute, FieldAttributeOuter, TerminalAttribute};
+pub use field_attr::{
+    AliasAttribute, ChildAttribute, FieldAttribute, FieldAttributeOuter, TerminalAttribute,
+};
 
 /// Helper function to extract docstring from a syn::Attribute
 /// Follows DRY principles by centralizing doc attribute parsing logic
@@ -120,7 +122,6 @@ impl Model {
             other_field.attrs.iter().any(|attr| {
                 let derivative_ref = match attr {
                     FieldAttributeOuter::Variable(var_attr) => &var_attr.derivative,
-                    FieldAttributeOuter::Alias(alias_attr) => &alias_attr.derivative,
                     _ => return false,
                 };
 
@@ -140,7 +141,6 @@ impl Model {
     pub fn is_derivative(&self, field: &Field) -> bool {
         field.attrs.iter().any(|attr| match attr {
             FieldAttributeOuter::Variable(var_attr) => var_attr.derivative.is_some(),
-            FieldAttributeOuter::Alias(alias_attr) => alias_attr.derivative.is_some(),
             _ => false,
         })
     }
@@ -213,7 +213,7 @@ impl TryFrom<syn::Field> for Field {
                 }
 
                 Some(ident) if ident == "alias" => {
-                    match FieldAttribute::from_attribute(attr).map(FieldAttributeOuter::Alias) {
+                    match AliasAttribute::from_attribute(attr).map(FieldAttributeOuter::Alias) {
                         Ok(attr) => Some(attr),
                         Err(e) => {
                             emit_error!(attr, format!("{e}"));
@@ -256,20 +256,41 @@ impl TryFrom<syn::Field> for Field {
 }
 
 /// Check for variable name conflicts with the built-in "time" variable
+/// and for alias/variable name uniqueness.
 fn check_time_variable_conflicts(fields: &[Field]) {
+    let mut seen_names = std::collections::HashSet::new();
+
     for field in fields {
         let field_name = field.ident.to_string();
-        if field_name.to_lowercase() == "time" {
-            emit_error!(field.ident, "'time' is a reserved name.");
+
+        // Check variable names (including custom name overrides)
+        for attr in &field.attrs {
+            if let FieldAttributeOuter::Variable(var_attr) = attr {
+                let var_name = var_attr.name.as_deref().unwrap_or(&field_name);
+                if var_name.to_lowercase() == "time" {
+                    emit_error!(field.ident, "'time' is a reserved name.");
+                }
+                if !seen_names.insert(var_name.to_string()) {
+                    emit_error!(
+                        field.ident,
+                        format!("Duplicate variable or alias name '{var_name}'.")
+                    );
+                }
+            }
         }
 
         // Check alias names too
         for attr in &field.attrs {
             if let FieldAttributeOuter::Alias(alias_attr) = attr {
-                if let Some(alias_name) = &alias_attr.name {
-                    if alias_name.to_lowercase() == "time" {
-                        emit_error!(field.ident, "'time' is a reserved name.");
-                    }
+                let alias_name = alias_attr.name.as_str();
+                if alias_name.to_lowercase() == "time" {
+                    emit_error!(field.ident, "'time' is a reserved name.");
+                }
+                if !seen_names.insert(alias_name.to_string()) {
+                    emit_error!(
+                        field.ident,
+                        format!("Duplicate variable or alias name '{alias_name}'.")
+                    );
                 }
             }
         }
@@ -508,7 +529,7 @@ mod tests {
 
                 /// Test2
                 #[variable(causality = Output, start = 0.0)]
-                #[alias(name="der(h)", description = "Derivative of h", causality = Local, derivative=h)]
+                #[alias(name="alias_h", description = "Alias of h")]
                 v: f64,
             }
         };
@@ -536,12 +557,10 @@ mod tests {
                     start: Some(syn::parse_quote!(0.0)),
                     ..Default::default()
                 }),
-                FieldAttributeOuter::Alias(FieldAttribute {
-                    name: Some("der(h)".to_string()),
-                    description: Some("Derivative of h".to_string()),
-                    causality: Some(schema::Causality::Local.into()),
-                    derivative: Some(syn::parse_quote!(h)),
-                    ..Default::default()
+                FieldAttributeOuter::Alias(AliasAttribute {
+                    name: "alias_h".to_string(),
+                    description: Some("Alias of h".to_string()),
+                    display_unit: None,
                 })
             ],
             "Second field should have 3 attributes: docstring, variable, and alias"

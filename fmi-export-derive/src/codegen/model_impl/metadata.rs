@@ -1,9 +1,10 @@
+use proc_macro_error2::emit_error;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, format_ident, quote};
 use std::collections::HashMap;
 
 use crate::Model;
-use crate::model::{Field, FieldAttributeOuter};
+use crate::model::{AliasAttribute, Field, FieldAttributeOuter};
 
 pub struct BuildMetadataGen<'a> {
     model: &'a Model,
@@ -24,6 +25,51 @@ impl<'a> BuildMetadataGen<'a> {
                 .unwrap_or(false),
             _ => false,
         }
+    }
+
+    fn is_float_type(&self, ty: &syn::Type) -> bool {
+        match ty {
+            syn::Type::Path(type_path) => {
+                let last = type_path.path.segments.last();
+                match last.map(|segment| segment.ident.to_string()) {
+                    Some(ident) if ident == "f32" || ident == "f64" => true,
+                    Some(ident) if ident == "Vec" => segment_has_float_arg(last),
+                    Some(ident) if ident == "Option" => segment_has_float_arg(last),
+                    Some(ident) if ident == "Box" => segment_has_float_arg(last),
+                    _ => false,
+                }
+            }
+            syn::Type::Array(array) => self.is_float_type(&array.elem),
+            syn::Type::Reference(reference) => self.is_float_type(&reference.elem),
+            _ => false,
+        }
+    }
+}
+
+fn segment_has_float_arg(segment: Option<&syn::PathSegment>) -> bool {
+    let Some(segment) = segment else {
+        return false;
+    };
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return false;
+    };
+    args.args.iter().any(|arg| match arg {
+        syn::GenericArgument::Type(ty) => matches_float_type(ty),
+        _ => false,
+    })
+}
+
+fn matches_float_type(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(type_path) => type_path
+            .path
+            .segments
+            .last()
+            .map(|segment| matches!(segment.ident.to_string().as_str(), "f32" | "f64"))
+            .unwrap_or(false),
+        syn::Type::Array(array) => matches_float_type(&array.elem),
+        syn::Type::Reference(reference) => matches_float_type(&reference.elem),
+        _ => false,
     }
 }
 
@@ -101,6 +147,14 @@ impl ToTokens for BuildMetadataGen<'_> {
                 for attr in &field.attrs {
                     match attr {
                         FieldAttributeOuter::Variable(var_attr) => {
+                            let alias_attrs: Vec<&AliasAttribute> = field
+                                .attrs
+                                .iter()
+                                .filter_map(|attr| match attr {
+                                    FieldAttributeOuter::Alias(alias_attr) => Some(alias_attr),
+                                    _ => None,
+                                })
+                                .collect();
                             let mut added_initial_unknown = false;
                             let var_token = self.generate_variable_definition(
                                 field,
@@ -108,6 +162,7 @@ impl ToTokens for BuildMetadataGen<'_> {
                                 &field.ident.to_string(),
                                 &field_name_to_vr,
                                 &prefix_binding,
+                                &alias_attrs,
                             );
                             variable_tokens.push(var_token);
 
@@ -349,9 +404,11 @@ impl BuildMetadataGen<'_> {
         var_name: &str,
         field_name_to_vr: &HashMap<String, u32>,
         prefix_binding: &TokenStream2,
+        alias_attrs: &[&AliasAttribute],
     ) -> TokenStream2 {
         let field_type = &field.rust_type;
         let current_vr = field_name_to_vr[var_name];
+        let is_float = self.is_float_type(&field.rust_type);
 
         // Use the name attribute if specified, otherwise use the field name
         let variable_name = var_attr
@@ -382,6 +439,27 @@ impl BuildMetadataGen<'_> {
             builder_calls.push(quote! {
                 .with_variability(::fmi::fmi3::schema::Variability::#variability_variant)
             });
+        }
+
+        // Default variability based on FMI3 spec if not provided explicitly.
+        if var_attr.variability.is_none() {
+            if let Some(causality) = &var_attr.causality {
+                let causality_schema: ::fmi::fmi3::schema::Causality = (*causality).into();
+                let default_variability = match causality_schema {
+                    ::fmi::fmi3::schema::Causality::Parameter
+                    | ::fmi::fmi3::schema::Causality::CalculatedParameter
+                    | ::fmi::fmi3::schema::Causality::StructuralParameter => {
+                        ::fmi::fmi3::schema::Variability::Fixed
+                    }
+                    _ if is_float => ::fmi::fmi3::schema::Variability::Continuous,
+                    _ => ::fmi::fmi3::schema::Variability::Discrete,
+                };
+                let variability_str = format!("{:?}", default_variability);
+                let variability_variant = format_ident!("{}", variability_str);
+                builder_calls.push(quote! {
+                    .with_variability(::fmi::fmi3::schema::Variability::#variability_variant)
+                });
+            }
         }
 
         // Set interval variability if specified (for Clock variables)
@@ -468,12 +546,60 @@ impl BuildMetadataGen<'_> {
             }
         };
 
+        let alias_tokens: Vec<TokenStream2> = alias_attrs
+            .iter()
+            .map(|alias_attr| {
+                if alias_attr.display_unit.is_some() && !is_float {
+                    emit_error!(
+                        field.ident,
+                        "alias display_unit is only allowed for Float32/Float64 variables"
+                    );
+                }
+
+                let alias_name_lit = syn::LitStr::new(&alias_attr.name, field.ident.span());
+                let alias_name_prefixed =
+                    quote! { format!("{}{}", #prefix_binding, #alias_name_lit) };
+                let alias_description = alias_attr.description.as_ref().map_or_else(
+                    || quote! { None },
+                    |desc| {
+                        let desc_lit = syn::LitStr::new(desc, field.ident.span());
+                        quote! { Some(#desc_lit.to_string()) }
+                    },
+                );
+                let alias_display_unit = alias_attr.display_unit.as_ref().map_or_else(
+                    || quote! { None },
+                    |display_unit| {
+                        let display_unit_lit = syn::LitStr::new(display_unit, field.ident.span());
+                        quote! { Some(#display_unit_lit.to_string()) }
+                    },
+                );
+
+                if is_float {
+                    quote! {
+                        var.aliases.push(::fmi::schema::fmi3::FloatVariableAlias {
+                            name: #alias_name_prefixed,
+                            description: #alias_description,
+                            display_unit: #alias_display_unit,
+                        });
+                    }
+                } else {
+                    quote! {
+                        var.aliases.push(::fmi::schema::fmi3::VariableAlias {
+                            name: #alias_name_prefixed,
+                            description: #alias_description,
+                        });
+                    }
+                }
+            })
+            .collect();
+
         quote! {
-            <#field_type as ::fmi_export::fmi3::FmiVariableBuilder>::variable(#variable_name_prefixed, current_vr_offset + #current_vr)
+            let mut var = <#field_type as ::fmi_export::fmi3::FmiVariableBuilder>::variable(#variable_name_prefixed, current_vr_offset + #current_vr)
                 #description
                 #(#builder_calls)*
-                .finish()
-                .append_to_variables(variables);
+                .finish();
+            #(#alias_tokens)*
+            var.append_to_variables(variables);
         }
     }
 }

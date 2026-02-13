@@ -44,7 +44,6 @@ impl ToTokens for ValueRefEnum<'_> {
         // Collect all variables from the model description and create a mapping
         // from field name to value reference
         let mut field_to_vr = std::collections::HashMap::new();
-        let mut alias_to_vr = std::collections::HashMap::new();
 
         // Build mapping from the model description (source of truth)
         for variable in self.model_variables.iter_abstract() {
@@ -56,7 +55,7 @@ impl ToTokens for ValueRefEnum<'_> {
                 continue;
             }
 
-            // Try to match this variable to a field or alias in the model
+            // Try to match this variable to a field in the model
             for field in &self.model.fields {
                 let field_name = field.ident.to_string();
 
@@ -68,16 +67,6 @@ impl ToTokens for ValueRefEnum<'_> {
                         .any(|attr| matches!(attr, FieldAttributeOuter::Variable(_)));
                     if has_variable {
                         field_to_vr.insert(field_name.clone(), vr);
-                    }
-                }
-
-                // Check if this is an alias variable
-                for attr in &field.attrs {
-                    if let FieldAttributeOuter::Alias(alias_attr) = attr {
-                        let alias_name = alias_attr.name.as_deref().unwrap_or(&field_name);
-                        if var_name == alias_name {
-                            alias_to_vr.insert(alias_name.to_string(), vr);
-                        }
                     }
                 }
             }
@@ -107,29 +96,6 @@ impl ToTokens for ValueRefEnum<'_> {
                     into_u32_arms.push(quote! {
                         #value_ref_enum_name::#variant_name => #vr
                     });
-                }
-            }
-
-            // Then add any alias variables with their custom names
-            for attr in &field.attrs {
-                if let FieldAttributeOuter::Alias(alias_attr) = attr {
-                    let alias_name = alias_attr.name.as_deref().unwrap_or(&field_name);
-
-                    if let Some(&vr) = alias_to_vr.get(alias_name) {
-                        let variant_name = util::generate_variant_name(alias_name);
-
-                        value_ref_variants.push(quote! {
-                            #variant_name = #vr
-                        });
-
-                        from_u32_arms.push(quote! {
-                            #vr => Ok(#value_ref_enum_name::#variant_name)
-                        });
-
-                        into_u32_arms.push(quote! {
-                            #value_ref_enum_name::#variant_name => #vr
-                        });
-                    }
                 }
             }
         }

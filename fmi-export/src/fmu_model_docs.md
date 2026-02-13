@@ -38,7 +38,8 @@ Notes:
 ### Field-level attributes
 
 Use `#[variable(...)]` to include a field as an FMI variable. Use `#[alias(...)]`
-for additional aliases. Both attributes accept the same keys.
+to define FMI3 alias names for the same variable (aliases do not create new
+variables or value references).
 
 ```rust,ignore
 #[derive(FmuModel, Default)]
@@ -49,12 +50,12 @@ struct MyModel {
 
     /// Velocity of the ball
     #[variable(causality = Output, start = 0.0)]
-    #[alias(name = "der(h)", causality = Local, derivative = h)]
+    #[alias(name = "velocity_alias", description = "Alternate velocity name")]
     v: f64,
 }
 ```
 
-Supported keys for `#[variable(...)]` and `#[alias(...)]`:
+Supported keys for `#[variable(...)]`:
 
 - `skip`: Bool. When `true`, the field is ignored for FMI variables.
 - `name`: String. Overrides the variable name (defaults to the field name).
@@ -73,6 +74,12 @@ Supported keys for `#[variable(...)]` and `#[alias(...)]`:
 - `clocks`: List of clock field idents that this variable belongs to.
 - `max_size`: Integer. Max size for Binary variables.
 - `mime_type`: String. MIME type for Binary variables.
+
+Supported keys for `#[alias(...)]`:
+
+- `name`: String. Required alias name (must be unique among variables and aliases).
+- `description`: Optional string. Alias description.
+- `display_unit`: Optional string. Only allowed on Float32/Float64 variables.
 
 Notes:
 

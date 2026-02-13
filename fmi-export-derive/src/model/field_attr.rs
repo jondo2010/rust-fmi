@@ -2,7 +2,7 @@ use fmi::fmi3::schema;
 
 /// FieldAttribute represents the attributes that can be applied to a model struct field
 #[derive(Default, Debug, attribute_derive::FromAttr, PartialEq, Clone)]
-#[attribute(ident = variable, aliases = [alias])]
+#[attribute(ident = variable)]
 #[attribute(error(missing_field = "`{field}` was not specified"))]
 pub struct FieldAttribute {
     /// Skip this field from being included as a variable in the FMU
@@ -29,6 +29,19 @@ pub struct FieldAttribute {
     pub clocks: Option<Vec<syn::Ident>>,
     pub max_size: Option<usize>,
     pub mime_type: Option<String>,
+}
+
+/// AliasAttribute represents FMI alias attributes for a model struct field
+#[derive(Debug, attribute_derive::FromAttr, PartialEq, Clone, Default)]
+#[attribute(ident = alias)]
+#[attribute(error(missing_field = "`{field}` was not specified"))]
+pub struct AliasAttribute {
+    /// Required alias name (unique among variables and aliases)
+    pub name: String,
+    /// Optional description
+    pub description: Option<String>,
+    /// Optional display unit (float variables only)
+    pub display_unit: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -208,7 +221,7 @@ impl attribute_derive::parsing::AttributeValue for IntervalVariability {
 pub enum FieldAttributeOuter {
     Docstring(String),
     Variable(FieldAttribute),
-    Alias(FieldAttribute),
+    Alias(AliasAttribute),
     Child(ChildAttribute),
     Terminal(TerminalAttribute),
 }

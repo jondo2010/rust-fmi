@@ -20,13 +20,13 @@ struct BouncingBall {
     h: f64,
 
     /// Velocity of the ball
-    #[variable(causality = Output, start = 0.0, initial = Exact)]
-    #[alias(name="der(h)", causality = Local, derivative = h, initial = Calculated)]
+    #[variable(causality = Output, start = 0.0, initial = Exact, derivative = h)]
+    #[alias(name = "der(h)", description = "Derivative of h")]
     v: f64,
 
     /// Gravity acting on the ball
-    #[variable(causality = Parameter, start = -9.81, initial = Exact)]
-    #[alias(name = "der(v)", causality = Local, derivative = v, initial = Calculated)]
+    #[variable(causality = Parameter, start = -9.81, initial = Exact, derivative = v)]
+    #[alias(name = "der(v)", description = "Derivative of v")]
     g: f64,
 
     /// Coefficient of restitution

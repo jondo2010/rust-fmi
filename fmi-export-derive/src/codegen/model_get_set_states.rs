@@ -171,10 +171,8 @@ impl<'a> ModelGetSetStatesImpl<'a> {
             .filter_map(|der_field| {
                 // Find which state this derivative corresponds to
                 for attr in &der_field.attrs {
-                    // Check both Variable and Alias attributes for derivative information
                     let derivative_of = match attr {
                         FieldAttributeOuter::Variable(var_attr) => &var_attr.derivative,
-                        FieldAttributeOuter::Alias(alias_attr) => &alias_attr.derivative,
                         _ => continue,
                     };
 

@@ -35,7 +35,7 @@ const RUST_FMI_NAMESPACE: uuid::Uuid = uuid::uuid!("6ba7b810-9dad-11d1-80b4-00c0
 ///
 ///     /// Velocity of the ball
 ///     #[variable(causality = Output, start = 0.0)]
-///     #[alias(name="der(h)", causality = Local, derivative = h)]
+///     #[alias(name = "velocity_alias", description = "Alternate velocity name")]
 ///     v: f64,
 /// }
 /// ```
