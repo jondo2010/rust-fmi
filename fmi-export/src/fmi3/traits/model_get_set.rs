@@ -68,20 +68,20 @@ macro_rules! impl_model_get_set_primitive {
             }
 
             impl<M: Model, const N: usize> ModelGetSet<M> for [$ty; N] {
-                const FIELD_COUNT: usize = N;
+                const FIELD_COUNT: usize = 1;
                 fn [<get_ $name>](
                     &self,
                     vr: binding::fmi3ValueReference,
                     values: &mut [$ty],
                     _context: &dyn Context<M>,
                 ) -> Result<usize, Fmi3Error> {
-                    if (vr as usize) < N && !values.is_empty() {
-                        let len = std::cmp::min(N - (vr as usize), values.len());
-                        values[..len].copy_from_slice(&self[(vr as usize)..(vr as usize + len)]);
-                        Ok(len)
-                    } else {
-                        Err(Fmi3Error::Error)
+                    let _ = vr;
+                    if values.is_empty() {
+                        return Err(Fmi3Error::Error);
                     }
+                    let len = std::cmp::min(N, values.len());
+                    values[..len].copy_from_slice(&self[..len]);
+                    Ok(len)
                 }
                 fn [<set_ $name>](
                     &mut self,
@@ -89,13 +89,13 @@ macro_rules! impl_model_get_set_primitive {
                     values: &[$ty],
                     _context: &dyn Context<M>,
                 ) -> Result<usize, Fmi3Error> {
-                    if (vr as usize) < N && !values.is_empty() {
-                        let len = std::cmp::min(N - (vr as usize), values.len());
-                        self[(vr as usize)..(vr as usize + len)].copy_from_slice(&values[..len]);
-                        Ok(len)
-                    } else {
-                        Err(Fmi3Error::Error)
+                    let _ = vr;
+                    if values.is_empty() {
+                        return Err(Fmi3Error::Error);
                     }
+                    let len = std::cmp::min(N, values.len());
+                    self[..len].copy_from_slice(&values[..len]);
+                    Ok(len)
                 }
             }
         }

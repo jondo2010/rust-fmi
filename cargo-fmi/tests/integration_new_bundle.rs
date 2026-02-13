@@ -111,7 +111,7 @@ fn cargo_fmi_new_and_bundle() {
     let file = std::fs::File::open(&fmu_path).expect("open fmu");
     let mut archive = ZipArchive::new(file).expect("open zip");
     let mut entry = archive
-        .by_name("resources/terminalsAndIcons/terminalsAndIcons.xml")
+        .by_name("terminalsAndIcons/terminalsAndIcons.xml")
         .expect("terminalsAndIcons.xml present");
     let mut xml = String::new();
     std::io::Read::read_to_string(&mut entry, &mut xml).expect("read terminals xml");

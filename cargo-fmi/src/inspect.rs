@@ -64,7 +64,10 @@ fn inspect_debug<Imp: FmiImport>(fmu_path: &Path, major: MajorVersion) -> Result
     }
 
     if major == MajorVersion::FMI3 {
-        let build_path = import.archive_path().join("buildDescription.xml");
+        let build_path = import
+            .archive_path()
+            .join("sources")
+            .join("buildDescription.xml");
         if build_path.exists() {
             let build_xml = std::fs::read_to_string(&build_path)
                 .with_context(|| format!("Failed to read {}", build_path.display()))?;

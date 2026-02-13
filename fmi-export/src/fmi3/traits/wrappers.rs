@@ -109,8 +109,8 @@ macro_rules! wrapper_getset_functions {
                 values: *mut $fmi_type,
                 n_values: usize,
             ) -> binding::fmi3Status {
-                // Validate array lengths match
-                if n_value_references != n_values {
+                // Require at least one output slot per value reference; array variables may need more.
+                if n_values < n_value_references {
                     eprintln!("FMI3: Array length mismatch in fmi3Get{}: value_references={}, values={}",
                              stringify!($type_name), n_value_references, n_values);
                     return ::fmi::fmi3::binding::fmi3Status_fmi3Error;
@@ -135,8 +135,8 @@ macro_rules! wrapper_getset_functions {
                 values: *const $fmi_type,
                 n_values: usize,
             ) -> binding::fmi3Status {
-                // Validate array lengths match
-                if n_value_references != n_values {
+                // Require at least one input per value reference; array variables may need more.
+                if n_values < n_value_references {
                     eprintln!("FMI3: Array length mismatch in fmi3Set{}: value_references={}, values={}",
                              stringify!($type_name), n_value_references, n_values);
                     return binding::fmi3Status_fmi3Error;

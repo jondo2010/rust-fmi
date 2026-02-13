@@ -90,6 +90,7 @@ where
 
     // Clock attributes
     clocks: Option<Vec<u32>>,
+    interval_variability: Option<schema::IntervalVariability>,
 
     // Dimensions for array variables
     dimensions: Vec<schema::Dimension>,
@@ -124,6 +125,7 @@ where
             max_size: None,
             mime_type: None,
             clocks: None,
+            interval_variability: None,
             dimensions: Vec::new(),
             _phantom: std::marker::PhantomData,
         }
@@ -252,6 +254,15 @@ where
     /// Set the clocks that this variable belongs to.
     pub fn with_clocks(mut self, clocks: Vec<u32>) -> Self {
         self.clocks = Some(clocks);
+        self
+    }
+
+    /// Set the interval variability for clock variables.
+    pub fn with_interval_variability(
+        mut self,
+        interval_variability: schema::IntervalVariability,
+    ) -> Self {
+        self.interval_variability = Some(interval_variability);
         self
     }
 
@@ -467,6 +478,7 @@ where
             max_size: builder.max_size,
             mime_type: builder.mime_type,
             clocks: builder.clocks,
+            interval_variability: builder.interval_variability,
             dimensions: builder.dimensions,
             _phantom: std::marker::PhantomData,
         };
@@ -512,6 +524,7 @@ where
             max_size: builder.max_size,
             mime_type: builder.mime_type,
             clocks: builder.clocks,
+            interval_variability: builder.interval_variability,
             dimensions: builder.dimensions,
             _phantom: std::marker::PhantomData,
         };
@@ -532,6 +545,13 @@ impl FmiVariableBuilder for Clock {
             builder.description,
             builder.causality.unwrap_or(schema::Causality::Local),
             builder.variability.unwrap_or_default(),
+        );
+
+        let mut var = var;
+        var.interval_variability = Some(
+            builder
+                .interval_variability
+                .unwrap_or(schema::IntervalVariability::Triggered),
         );
 
         var

@@ -38,9 +38,11 @@ pub fn package_fmu(
         .context("Failed to serialize model description")?;
     zw.write_all(xml.as_bytes())?;
 
-    // Write the buildDescription.xml file
-    zw.start_file(
-        "buildDescription.xml",
+    // Write the buildDescription.xml file (under sources/)
+    let sources_dir = PathBuf::from("sources");
+    zw.add_directory_from_path(&sources_dir, zip::write::SimpleFileOptions::default())?;
+    zw.start_file_from_path(
+        sources_dir.join("buildDescription.xml"),
         zip::write::SimpleFileOptions::default(),
     )?;
     let build_xml = fmi::schema::serialize(&build_description, false)
@@ -48,7 +50,7 @@ pub fn package_fmu(
     zw.write_all(build_xml.as_bytes())?;
 
     if let Some(terminals) = terminals_and_icons {
-        let terminals_dir = PathBuf::from("resources").join("terminalsAndIcons");
+        let terminals_dir = PathBuf::from("terminalsAndIcons");
         zw.add_directory_from_path(&terminals_dir, zip::write::SimpleFileOptions::default())?;
         zw.start_file_from_path(
             terminals_dir.join("terminalsAndIcons.xml"),

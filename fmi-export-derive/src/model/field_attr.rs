@@ -168,6 +168,12 @@ impl From<schema::IntervalVariability> for IntervalVariability {
     }
 }
 
+impl From<IntervalVariability> for schema::IntervalVariability {
+    fn from(iv: IntervalVariability) -> Self {
+        iv.0
+    }
+}
+
 impl attribute_derive::parsing::AttributeBase for IntervalVariability {
     type Partial = Self;
 }

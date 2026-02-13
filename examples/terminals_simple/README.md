@@ -9,4 +9,4 @@ To bundle:
 
 The resulting FMU should contain:
 
-    resources/terminalsAndIcons/terminalsAndIcons.xml
+    terminalsAndIcons/terminalsAndIcons.xml

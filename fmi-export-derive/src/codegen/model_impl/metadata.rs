@@ -13,6 +13,18 @@ impl<'a> BuildMetadataGen<'a> {
     pub fn new(model: &'a Model) -> Self {
         Self { model }
     }
+
+    fn is_clock_type(&self, ty: &syn::Type) -> bool {
+        match ty {
+            syn::Type::Path(type_path) => type_path
+                .path
+                .segments
+                .last()
+                .map(|segment| segment.ident == "Clock")
+                .unwrap_or(false),
+            _ => false,
+        }
+    }
 }
 
 impl ToTokens for BuildMetadataGen<'_> {
@@ -198,6 +210,27 @@ impl ToTokens for BuildMetadataGen<'_> {
                                 }
                             }
 
+                            // Output clocks must be listed in InitialUnknowns
+                            if let Some(causality) = &var_attr.causality {
+                                let causality_schema: ::fmi::fmi3::schema::Causality =
+                                    (*causality).into();
+                                if matches!(
+                                    causality_schema,
+                                    ::fmi::fmi3::schema::Causality::Output
+                                ) && self.is_clock_type(&field.rust_type)
+                                {
+                                    let current_vr = field_name_to_vr[&field.ident.to_string()];
+                                    model_structure_tokens.push(quote! {
+                                        model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::InitialUnknown(::fmi::schema::fmi3::Fmi3Unknown {
+                                            annotations: None,
+                                            value_reference: current_vr_offset + #current_vr,
+                                            dependencies: None,
+                                            dependencies_kind: None,
+                                        }));
+                                    });
+                                }
+                            }
+
                             // Generate model structure entries for event indicators
                             if matches!(var_attr.event_indicator, Some(true)) {
                                 let current_vr = field_name_to_vr[&field.ident.to_string()];
@@ -220,15 +253,23 @@ impl ToTokens for BuildMetadataGen<'_> {
                                         initial_schema,
                                         ::fmi::fmi3::schema::Initial::Calculated
                                     ) {
-                                        let current_vr = field_name_to_vr[&field.ident.to_string()];
-                                        model_structure_tokens.push(quote! {
-                                            model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::InitialUnknown(::fmi::schema::fmi3::Fmi3Unknown {
-                                                annotations: None,
-                                                value_reference: current_vr_offset + #current_vr,
-                                                dependencies: None,
-                                                dependencies_kind: None,
-                                            }));
-                                        });
+                                        // Skip clocked variables; the triggering clock handles initial unknowns.
+                                        if var_attr
+                                            .clocks
+                                            .as_ref()
+                                            .map_or(true, |clocks| clocks.is_empty())
+                                        {
+                                            let current_vr =
+                                                field_name_to_vr[&field.ident.to_string()];
+                                            model_structure_tokens.push(quote! {
+                                                model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::InitialUnknown(::fmi::schema::fmi3::Fmi3Unknown {
+                                                    annotations: None,
+                                                    value_reference: current_vr_offset + #current_vr,
+                                                    dependencies: None,
+                                                    dependencies_kind: None,
+                                                }));
+                                            });
+                                        }
                                     }
                                 }
                             }
@@ -340,6 +381,19 @@ impl BuildMetadataGen<'_> {
             let variability_variant = format_ident!("{}", variability_str);
             builder_calls.push(quote! {
                 .with_variability(::fmi::fmi3::schema::Variability::#variability_variant)
+            });
+        }
+
+        // Set interval variability if specified (for Clock variables)
+        if let Some(interval_variability) = &var_attr.interval_variability {
+            let interval_variability_schema: fmi::fmi3::schema::IntervalVariability =
+                (*interval_variability).into();
+            let interval_variability_str = format!("{:?}", interval_variability_schema);
+            let interval_variability_variant = format_ident!("{}", interval_variability_str);
+            builder_calls.push(quote! {
+                .with_interval_variability(
+                    ::fmi::fmi3::schema::IntervalVariability::#interval_variability_variant
+                )
             });
         }
 
