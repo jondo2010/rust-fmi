@@ -51,7 +51,7 @@ serde = { version = "1.0", features = ["derive"] }
 tempfile = "3.1"
 thiserror = "2.0"
 uuid = { version = "1", features = ["v5"] }
-zip = "7.2"
+zip = "8.0"
 
 # Workspace internal crates
 fmi = { path = "fmi", version = "0.6.1", default-features = false }
