@@ -5,10 +5,7 @@ use super::{
 };
 
 #[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(
-    tag = "fmiModelDescription",
-    strict(unknown_attribute, unknown_element)
-)]
+#[xml(tag = "fmiModelDescription", strict(unknown_attribute))]
 pub struct Fmi2ModelDescription {
     /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
     /// as "2.0").
