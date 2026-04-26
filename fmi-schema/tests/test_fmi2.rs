@@ -90,6 +90,29 @@ fn test_fmi2_co_simulation_without_event_indicators() {
 
 #[test]
 #[cfg(feature = "fmi2")]
+fn test_fmi2_with_vendor_annotations() {
+    use std::str::FromStr;
+
+    let xml = r#"
+<fmiModelDescription fmiVersion="2.0" modelName="VendorAnnotated" guid="{11111111-1111-1111-1111-111111111111}">
+    <CoSimulation modelIdentifier="VendorAnnotated" />
+    <VendorAnnotations>
+        <Tool name="Simulink">
+            <SomeToolSpecificMetadata key="value" />
+        </Tool>
+    </VendorAnnotations>
+    <ModelVariables />
+    <ModelStructure />
+</fmiModelDescription>
+"#;
+
+    let md = fmi_schema::fmi2::Fmi2ModelDescription::from_str(xml).unwrap();
+    assert_eq!(md.model_name, "VendorAnnotated");
+    assert!(md.co_simulation.is_some());
+}
+
+#[test]
+#[cfg(feature = "fmi2")]
 fn test_fmi2_allows_optional_author_attribute() {
     use std::str::FromStr;
 
