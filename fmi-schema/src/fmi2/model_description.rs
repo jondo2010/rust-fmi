@@ -5,7 +5,10 @@ use super::{
 };
 
 #[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "fmiModelDescription", strict(unknown_attribute))]
+#[xml(
+    tag = "fmiModelDescription",
+    strict(unknown_attribute, unknown_element)
+)]
 pub struct Fmi2ModelDescription {
     /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
     /// as "2.0").
@@ -24,6 +27,10 @@ pub struct Fmi2ModelDescription {
 
     #[xml(attr = "description")]
     pub description: Option<String>,
+
+    /// String with the name and organization of the model author.
+    #[xml(attr = "author")]
+    pub author: Option<String>,
 
     /// Version of FMU, e.g., "1.4.1"
     #[xml(attr = "version")]
@@ -251,174 +258,5 @@ impl FmiModelDescription for Fmi2ModelDescription {
 
     fn serialize(&self) -> Result<String, crate::Error> {
         hard_xml::XmlWrite::to_string(self).map_err(crate::Error::XmlParse)
-    }
-}
-
-#[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "LogCategories", strict(unknown_attribute, unknown_element))]
-pub struct LogCategories {
-    #[xml(child = "Category")]
-    pub categories: Vec<Category>,
-}
-
-#[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "Category", strict(unknown_attribute, unknown_element))]
-pub struct Category {
-    #[xml(attr = "name")]
-    pub name: String,
-    #[xml(attr = "description")]
-    pub description: String,
-}
-
-#[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "DefaultExperiment")]
-pub struct DefaultExperiment {
-    /// Default start time of simulation
-    #[xml(attr = "startTime")]
-    pub start_time: Option<f64>,
-    /// Default stop time of simulation
-    #[xml(attr = "stopTime")]
-    pub stop_time: Option<f64>,
-    /// Default relative integration tolerance
-    #[xml(attr = "tolerance")]
-    pub tolerance: Option<f64>,
-    /// ModelExchange: Default step size for fixed step integrators.
-    /// CoSimulation: Preferred communicationStepSize.
-    #[xml(attr = "stepSize")]
-    pub step_size: Option<f64>,
-}
-
-impl DefaultExperiment {
-    pub fn start_time(&self) -> f64 {
-        self.start_time.unwrap_or(0.0)
-    }
-
-    pub fn stop_time(&self) -> f64 {
-        self.stop_time.unwrap_or(10.0)
-    }
-
-    pub fn tolerance(&self) -> f64 {
-        self.tolerance.unwrap_or(1e-3)
-    }
-
-    pub fn step_size(&self) -> Option<f64> {
-        self.step_size
-    }
-}
-
-#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "UnitDefinitions", strict(unknown_attribute, unknown_element))]
-pub struct UnitDefinitions {
-    #[xml(child = "Unit")]
-    pub units: Vec<Fmi2Unit>,
-}
-
-#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "TypeDefinitions", strict(unknown_attribute, unknown_element))]
-pub struct TypeDefinitions {
-    #[xml(child = "SimpleType")]
-    pub types: Vec<SimpleType>,
-}
-
-#[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "ModelVariables", strict(unknown_attribute, unknown_element))]
-pub struct ModelVariables {
-    #[xml(child = "ScalarVariable")]
-    pub variables: Vec<ScalarVariable>,
-}
-
-#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "ModelStructure", strict(unknown_attribute, unknown_element))]
-pub struct ModelStructure {
-    #[xml(child = "Outputs", default)]
-    pub outputs: Outputs,
-
-    #[xml(child = "Derivatives", default)]
-    pub derivatives: Derivatives,
-
-    #[xml(child = "InitialUnknowns", default)]
-    pub initial_unknowns: InitialUnknowns,
-}
-
-#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "Outputs")]
-pub struct Outputs {
-    #[xml(child = "Unknown")]
-    pub unknowns: Vec<Fmi2VariableDependency>,
-}
-
-#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "Derivatives")]
-pub struct Derivatives {
-    #[xml(child = "Unknown")]
-    pub unknowns: Vec<Fmi2VariableDependency>,
-}
-
-#[derive(Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(tag = "InitialUnknowns")]
-pub struct InitialUnknowns {
-    #[xml(child = "Unknown")]
-    pub unknowns: Vec<Fmi2VariableDependency>,
-}
-
-#[cfg(test)]
-mod tests {
-    use hard_xml::XmlRead;
-
-    use super::*;
-
-    #[test]
-    fn test_model_description() {
-        let s = r##"<?xml version="1.0" encoding="UTF8"?>
-<fmiModelDescription
- fmiVersion="2.0"
- modelName="MyLibrary.SpringMassDamper"
- guid="{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}"
- description="Rotational Spring Mass Damper System"
- version="1.0"
- generationDateAndTime="2011-09-23T16:57:33Z"
- variableNamingConvention="structured"
- numberOfEventIndicators="2">
- <ModelVariables>
-    <ScalarVariable name="x[1]" valueReference="0" initial="exact"> <Real/> </ScalarVariable> <!-- idex="5" -->
-    <ScalarVariable name="x[2]" valueReference="1" initial="exact"> <Real/> </ScalarVariable> <!-- index="6" -->
-    <ScalarVariable name="PI.x" valueReference="46" description="State of block" causality="local" variability="continuous" initial="calculated">
-        <Real relativeQuantity="false" />
-    </ScalarVariable>
-    <ScalarVariable name="der(PI.x)" valueReference="45" causality="local" variability="continuous" initial="calculated">
-        <Real relativeQuantity="false" derivative="3" />
-    </ScalarVariable>
- </ModelVariables>
- <ModelStructure>
-    <Outputs><Unknown index="1" dependencies="1 2" /><Unknown index="2" /></Outputs>
-    <Derivatives><Unknown index="4" dependencies="1 2" /></Derivatives>
-    <InitialUnknowns />
-</ModelStructure>
-</fmiModelDescription>"##;
-        let md = Fmi2ModelDescription::from_str(&s).unwrap();
-        assert_eq!(md.fmi_version, "2.0");
-        assert_eq!(md.model_name, "MyLibrary.SpringMassDamper");
-        assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}");
-        assert_eq!(
-            md.description.as_deref(),
-            Some("Rotational Spring Mass Damper System")
-        );
-        assert_eq!(md.version.as_deref(), Some("1.0"));
-        // assert_eq!(x.generation_date_and_time, chrono::DateTime<chrono::Utc>::from)
-        assert_eq!(md.variable_naming_convention, Some("structured".to_owned()));
-        assert_eq!(md.number_of_event_indicators, Some(2));
-        assert_eq!(md.model_variables.variables.len(), 4);
-
-        let outputs = &md.model_structure.outputs.unknowns;
-        assert_eq!(outputs.len(), 2);
-        assert_eq!(outputs[0].index, 1);
-        assert_eq!(outputs[0].dependencies, vec![1, 2]);
-        assert_eq!(outputs[1].index, 2);
-        assert!(outputs[1].dependencies.is_empty());
-
-        let derivatives = &md.model_structure.derivatives.unknowns;
-        assert_eq!(derivatives.len(), 1);
-        assert_eq!(derivatives[0].index, 4);
-        assert_eq!(derivatives[0].dependencies, vec![1, 2]);
     }
 }
