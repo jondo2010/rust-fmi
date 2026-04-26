@@ -25,6 +25,10 @@ pub struct Fmi2ModelDescription {
     #[xml(attr = "description")]
     pub description: Option<String>,
 
+    /// String with the name and organization of the model author.
+    #[xml(attr = "author")]
+    pub author: Option<String>,
+
     /// Version of FMU, e.g., "1.4.1"
     #[xml(attr = "version")]
     pub version: Option<String>,
