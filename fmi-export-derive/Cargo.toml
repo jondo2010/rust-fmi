@@ -19,7 +19,7 @@ proc-macro = true
 [dependencies]
 attribute-derive = "0.10"
 chrono = { workspace = true }
-convert_case = "0.6"
+convert_case = "0.11"
 fmi = { workspace = true, features = ["fmi3"] }
 proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"
