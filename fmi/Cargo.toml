@@ -42,7 +42,7 @@ itertools = { workspace = true }
 # Note: libc is only used for FMI 2.0 support, needed for alloc
 libc = { version = "0.2", features = ["align"], optional = true }
 libloading = { workspace = true }
-log = { version = "0.4", features = ["std", "serde"] }
+log = { workspace = true, features = ["std", "serde"] }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 url = { version = "2.2", optional = true }
