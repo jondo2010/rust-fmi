@@ -271,7 +271,7 @@ pub struct Category {
     #[xml(attr = "name")]
     pub name: String,
     #[xml(attr = "description")]
-    pub description: Option<String>,
+    pub description: String,
 }
 
 #[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]

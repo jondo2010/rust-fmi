@@ -33,6 +33,21 @@ where
     state: ModelState,
     /// Do we need to re-evaluate the model equations?
     is_dirty_values: bool,
+    /// Scheduled-Execution only: the set of countdown Clock value references whose current
+    /// interval has *already been observed* by `fmi3GetInterval*` since that Clock's last
+    /// tick.
+    ///
+    /// The FMI 3.0.1 spec tracks the interval qualifier **per Clock**: once a Clock's
+    /// interval is reported with `fmi3IntervalChanged`, subsequent reads with no intervening
+    /// `activate_model_partition` *for that Clock* must return `fmi3IntervalUnchanged`. So a
+    /// Clock is removed from this set when it ticks (its next read is `Changed` again) and
+    /// inserted when its interval is read. A Clock not in the set that reports an interval is
+    /// `Changed`; a Clock whose model returns no interval is `fmi3IntervalNotYetKnown` (and
+    /// is not inserted). A single instance-wide boolean would be wrong here: activating
+    /// Clock A must not make Clock B look `Changed`, and reading A must not clear B.
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3GetIntervalDecimal>
+    intervals_observed: std::collections::HashSet<binding::fmi3ValueReference>,
     /// The user-defined model
     model: M,
 }
@@ -64,6 +79,7 @@ where
             state: ModelState::Instantiated,
             instance_type,
             is_dirty_values: true,
+            intervals_observed: std::collections::HashSet::new(),
             model: M::default(),
         };
 

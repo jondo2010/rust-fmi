@@ -386,24 +386,80 @@ where
         instantiation_token: binding::fmi3String,
         resource_path: binding::fmi3String,
         _visible: binding::fmi3Boolean,
-        _logging_on: binding::fmi3Boolean,
+        logging_on: binding::fmi3Boolean,
         _instance_environment: binding::fmi3InstanceEnvironment,
-        _log_message: binding::fmi3LogMessageCallback,
+        log_message: binding::fmi3LogMessageCallback,
+        // Scheduled-Execution real-time callbacks. Countdown Clocks report their next
+        // interval through `fmi3GetInterval*` (a pull model), so the exporter never needs
+        // `clock_update`; preemption locking is the responsibility of a preemptive
+        // scheduler and is a no-op for our single-threaded model evaluation.
         _clock_update: binding::fmi3ClockUpdateCallback,
         _lock_preemption: binding::fmi3LockPreemptionCallback,
         _unlock_preemption: binding::fmi3UnlockPreemptionCallback,
     ) -> binding::fmi3Instance {
-        let _name = unsafe { ::std::ffi::CStr::from_ptr(instance_name) }
+        let name = unsafe { ::std::ffi::CStr::from_ptr(instance_name) }
             .to_string_lossy()
             .into_owned();
-        let _token = unsafe { ::std::ffi::CStr::from_ptr(instantiation_token) }.to_string_lossy();
-        let _resource_path = ::std::path::PathBuf::from(
+        let token = unsafe { ::std::ffi::CStr::from_ptr(instantiation_token) }.to_string_lossy();
+        let resource_path = ::std::path::PathBuf::from(
             unsafe { ::std::ffi::CStr::from_ptr(resource_path) }
                 .to_string_lossy()
                 .into_owned(),
         );
 
-        todo!("Scheduled-Execution not yet implemented");
+        if !Self::SUPPORTS_SCHEDULED_EXECUTION {
+            eprintln!("Scheduled Execution not supported by this FMU");
+            return ::std::ptr::null_mut();
+        }
+
+        let logging_on = logging_on.into();
+        // Wrap the C logging callback in a Rust closure (falling back to stderr).
+        let log_message: LogMessageClosure = if let Some(cb) = log_message {
+            Box::new(
+                move |status: Fmi3Status, category: &str, args: std::fmt::Arguments<'_>| {
+                    let category_c = CString::new(category).unwrap_or_default();
+                    let message_c = CString::new(args.to_string()).unwrap_or_default();
+                    unsafe {
+                        cb(
+                            std::ptr::null_mut() as binding::fmi3InstanceEnvironment,
+                            status.into(),
+                            category_c.as_ptr(),
+                            message_c.as_ptr(),
+                        )
+                    };
+                },
+            )
+        } else {
+            Box::new(
+                move |status: Fmi3Status, category: &str, args: std::fmt::Arguments<'_>| {
+                    let category_c = CString::new(category).unwrap_or_default();
+                    let message_c = CString::new(args.to_string()).unwrap_or_default();
+                    eprintln!(
+                        "Log (status: {:?}, category: {}): {}",
+                        status,
+                        category_c.to_string_lossy(),
+                        message_c.to_string_lossy()
+                    );
+                },
+            )
+        };
+
+        // Scheduled Execution has neither early return nor intermediate update.
+        let context = BasicContext::new(logging_on, log_message, resource_path, false, None);
+
+        match crate::fmi3::ModelInstance::<Self, BasicContext<Self>>::new(
+            name,
+            &token,
+            context,
+            fmi::InterfaceType::ScheduledExecution,
+        ) {
+            Ok(instance) => ::std::boxed::Box::into_raw(::std::boxed::Box::new(instance))
+                as binding::fmi3Instance,
+            Err(_) => {
+                eprintln!("Failed to instantiate FMU: invalid instantiation token");
+                ::std::ptr::null_mut()
+            }
+        }
     }
 
     #[inline(always)]
@@ -461,8 +517,21 @@ where
                 // _this dropped here
             }
             fmi::InterfaceType::ScheduledExecution => {
-                // TODO: Add SEContext when implemented
-                eprintln!("Scheduled Execution not yet implemented");
+                let _this = unsafe {
+                    ::std::boxed::Box::from_raw(
+                        instance
+                            as *mut crate::fmi3::ModelInstance<
+                                Self,
+                                crate::fmi3::instance::context::BasicContext<Self>,
+                            >,
+                    )
+                };
+                _this.context().log(
+                    Fmi3Res::OK.into(),
+                    Default::default(),
+                    format_args!("{}: fmi3FreeInstance()", _this.instance_name()),
+                );
+                // _this dropped here
             }
         }
     }
@@ -652,53 +721,154 @@ where
         }
     }
 
-    // Clock related functions
+    // ---------------------------------------------------------------------
+    // Clock related functions (Scheduled Execution)
+    //
+    // The GET functions delegate to the instance-level helpers in `impl_se.rs`,
+    // which query the user model's `next_interval` hook. The SET functions are
+    // deliberately unsupported: no model built with `fmi-export` today exposes a
+    // *tunable* Clock (interval/shift chosen by the environment), so a plausible
+    // but untested `unsafe` FFI implementation would be less trustworthy than an
+    // honest `fmi3Error`. Crucially, all of these used to be `todo!()`, which
+    // panics *across the FFI boundary* (undefined behaviour) if an importer ever
+    // calls them; returning a status code is always sound.
+    // ---------------------------------------------------------------------
+
     #[inline(always)]
     unsafe fn fmi3_get_interval_decimal(
-        _instance: binding::fmi3Instance,
-        _value_references: *const binding::fmi3ValueReference,
-        _n_value_references: usize,
-        _intervals: *mut binding::fmi3Float64,
-        _qualifiers: *mut binding::fmi3IntervalQualifier,
+        instance: binding::fmi3Instance,
+        value_references: *const binding::fmi3ValueReference,
+        n_value_references: usize,
+        intervals: *mut binding::fmi3Float64,
+        qualifiers: *mut binding::fmi3IntervalQualifier,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        if value_references.is_null() || intervals.is_null() {
+            eprintln!("FMI3: null pointer passed to fmi3GetIntervalDecimal");
+            return binding::fmi3Status_fmi3Error;
+        }
+        let value_refs =
+            unsafe { std::slice::from_raw_parts(value_references, n_value_references) };
+        let intervals = unsafe { std::slice::from_raw_parts_mut(intervals, n_value_references) };
+        // `qualifiers` is required by the standard, but tolerate a null pointer.
+        let mut tmp_qualifiers: Vec<binding::fmi3IntervalQualifier>;
+        let qualifiers: &mut [binding::fmi3IntervalQualifier] = if qualifiers.is_null() {
+            tmp_qualifiers = vec![0; n_value_references];
+            &mut tmp_qualifiers
+        } else {
+            unsafe { std::slice::from_raw_parts_mut(qualifiers, n_value_references) }
+        };
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_interval_decimal,
+            value_refs,
+            intervals,
+            qualifiers
+        ) {
+            Ok(res) => {
+                let status: Fmi3Status = res.into();
+                status.into()
+            }
+            Err(_) => binding::fmi3Status_fmi3Error,
+        }
     }
 
     #[inline(always)]
     unsafe fn fmi3_get_interval_fraction(
-        _instance: binding::fmi3Instance,
-        _value_references: *const binding::fmi3ValueReference,
-        _n_value_references: usize,
-        _counters: *mut binding::fmi3UInt64,
-        _resolutions: *mut binding::fmi3UInt64,
-        _qualifiers: *mut binding::fmi3IntervalQualifier,
+        instance: binding::fmi3Instance,
+        value_references: *const binding::fmi3ValueReference,
+        n_value_references: usize,
+        counters: *mut binding::fmi3UInt64,
+        resolutions: *mut binding::fmi3UInt64,
+        qualifiers: *mut binding::fmi3IntervalQualifier,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        if value_references.is_null() || counters.is_null() || resolutions.is_null() {
+            eprintln!("FMI3: null pointer passed to fmi3GetIntervalFraction");
+            return binding::fmi3Status_fmi3Error;
+        }
+        let value_refs =
+            unsafe { std::slice::from_raw_parts(value_references, n_value_references) };
+        let counters = unsafe { std::slice::from_raw_parts_mut(counters, n_value_references) };
+        let resolutions =
+            unsafe { std::slice::from_raw_parts_mut(resolutions, n_value_references) };
+        let mut tmp_qualifiers: Vec<binding::fmi3IntervalQualifier>;
+        let qualifiers: &mut [binding::fmi3IntervalQualifier] = if qualifiers.is_null() {
+            tmp_qualifiers = vec![0; n_value_references];
+            &mut tmp_qualifiers
+        } else {
+            unsafe { std::slice::from_raw_parts_mut(qualifiers, n_value_references) }
+        };
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_interval_fraction,
+            value_refs,
+            counters,
+            resolutions,
+            qualifiers
+        ) {
+            Ok(res) => {
+                let status: Fmi3Status = res.into();
+                status.into()
+            }
+            Err(_) => binding::fmi3Status_fmi3Error,
+        }
     }
 
     #[inline(always)]
     unsafe fn fmi3_get_shift_decimal(
-        _instance: binding::fmi3Instance,
-        _value_references: *const binding::fmi3ValueReference,
-        _n_value_references: usize,
-        _shifts: *mut binding::fmi3Float64,
+        instance: binding::fmi3Instance,
+        value_references: *const binding::fmi3ValueReference,
+        n_value_references: usize,
+        shifts: *mut binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        if value_references.is_null() || shifts.is_null() {
+            eprintln!("FMI3: null pointer passed to fmi3GetShiftDecimal");
+            return binding::fmi3Status_fmi3Error;
+        }
+        let value_refs =
+            unsafe { std::slice::from_raw_parts(value_references, n_value_references) };
+        let shifts = unsafe { std::slice::from_raw_parts_mut(shifts, n_value_references) };
+        match dispatch_by_instance_type!(instance, Self, get_shift_decimal, value_refs, shifts) {
+            Ok(res) => {
+                let status: Fmi3Status = res.into();
+                status.into()
+            }
+            Err(_) => binding::fmi3Status_fmi3Error,
+        }
     }
 
     #[inline(always)]
     unsafe fn fmi3_get_shift_fraction(
-        _instance: binding::fmi3Instance,
-        _value_references: *const binding::fmi3ValueReference,
-        _n_value_references: usize,
-        _counters: *mut binding::fmi3UInt64,
-        _resolutions: *mut binding::fmi3UInt64,
+        instance: binding::fmi3Instance,
+        value_references: *const binding::fmi3ValueReference,
+        n_value_references: usize,
+        counters: *mut binding::fmi3UInt64,
+        resolutions: *mut binding::fmi3UInt64,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        if value_references.is_null() || counters.is_null() || resolutions.is_null() {
+            eprintln!("FMI3: null pointer passed to fmi3GetShiftFraction");
+            return binding::fmi3Status_fmi3Error;
+        }
+        let value_refs =
+            unsafe { std::slice::from_raw_parts(value_references, n_value_references) };
+        let counters = unsafe { std::slice::from_raw_parts_mut(counters, n_value_references) };
+        let resolutions =
+            unsafe { std::slice::from_raw_parts_mut(resolutions, n_value_references) };
+        match dispatch_by_instance_type!(
+            instance,
+            Self,
+            get_shift_fraction,
+            value_refs,
+            counters,
+            resolutions
+        ) {
+            Ok(res) => {
+                let status: Fmi3Status = res.into();
+                status.into()
+            }
+            Err(_) => binding::fmi3Status_fmi3Error,
+        }
     }
 
     #[inline(always)]
@@ -708,8 +878,10 @@ where
         _n_value_references: usize,
         _intervals: *const binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        // Unsupported: the exporter's Clocks define their own interval (countdown),
+        // they are not set by the environment. See the module note above.
+        eprintln!("FMI3: fmi3SetIntervalDecimal is not supported (Clocks are FMU-defined)");
+        binding::fmi3Status_fmi3Error
     }
 
     #[inline(always)]
@@ -720,8 +892,8 @@ where
         _counters: *const binding::fmi3UInt64,
         _resolutions: *const binding::fmi3UInt64,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        eprintln!("FMI3: fmi3SetIntervalFraction is not supported (Clocks are FMU-defined)");
+        binding::fmi3Status_fmi3Error
     }
 
     #[inline(always)]
@@ -731,8 +903,8 @@ where
         _n_value_references: usize,
         _shifts: *const binding::fmi3Float64,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        eprintln!("FMI3: fmi3SetShiftDecimal is not supported (Clocks have no shift)");
+        binding::fmi3Status_fmi3Error
     }
 
     #[inline(always)]
@@ -743,16 +915,19 @@ where
         _counters: *const binding::fmi3UInt64,
         _resolutions: *const binding::fmi3UInt64,
     ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Clock interval not yet implemented");
+        eprintln!("FMI3: fmi3SetShiftFraction is not supported (Clocks have no shift)");
+        binding::fmi3Status_fmi3Error
     }
 
     #[inline(always)]
-    unsafe fn fmi3_evaluate_discrete_states(
-        _instance: binding::fmi3Instance,
-    ) -> binding::fmi3Status {
-        //let _instance = checked_deref_me!(instance, Self);
-        todo!("Discrete states not yet implemented");
+    unsafe fn fmi3_evaluate_discrete_states(instance: binding::fmi3Instance) -> binding::fmi3Status {
+        match dispatch_by_instance_type!(instance, Self, evaluate_discrete_states) {
+            Ok(res) => {
+                let status: Fmi3Status = res.into();
+                status.into()
+            }
+            Err(_) => binding::fmi3Status_fmi3Error,
+        }
     }
 
     #[inline(always)]

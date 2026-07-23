@@ -251,4 +251,50 @@ pub trait UserModel: Sized {
         context.set_time(target_time);
         Ok(CSDoStepResult::completed(target_time))
     }
+
+    /// Scheduled-Execution partition activation. **This is the SE analogue of
+    /// [`UserModel::do_step`]**: the importer's scheduler calls
+    /// `fmi3ActivateModelPartition(clock_reference, time)` when the input Clock
+    /// `clock_reference` ticks, meaning "run one tick of the model partition that
+    /// this Clock triggers, now, at simulation time `time`".
+    ///
+    /// In DEVS terms this executes the internal/external transition (`δint`/`δext`)
+    /// plus the output function (`λ`) of the atom bound to `clock_reference`.
+    ///
+    /// The default implementation simply recomputes the whole model via
+    /// [`UserModel::calculate_values`], which is correct for a single-partition FMU.
+    /// A multi-partition model overrides this and dispatches on `clock_reference`
+    /// (each input Clock owns one partition).
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3ActivateModelPartition>
+    fn activate_partition(
+        &mut self,
+        context: &mut dyn Context<Self>,
+        _clock_reference: binding::fmi3ValueReference,
+        _time: f64,
+    ) -> Result<Fmi3Res, Fmi3Error> {
+        self.calculate_values(&*context)
+    }
+
+    /// Report the interval (in seconds) until the next tick of the *countdown*
+    /// input Clock `clock_reference` — the remaining `σ` of a DEVS `ta()`.
+    ///
+    /// The importer reads this with `fmi3GetIntervalDecimal` after each partition
+    /// activation and schedules the next `fmi3ActivateModelPartition` accordingly.
+    ///
+    /// - `Some(interval)` → the Clock's next interval is `interval` seconds. The exporter
+    ///   reports it with `fmi3IntervalChanged` the first time it is read after that Clock's
+    ///   tick, and `fmi3IntervalUnchanged` on repeated reads with no intervening activation
+    ///   of that Clock. This "observe once per tick" bookkeeping is done per Clock by the
+    ///   instance, so you only ever return your *current* interval here.
+    /// - `None`           → this Clock has no interval yet; the exporter reports
+    ///   `fmi3IntervalNotYetKnown` (distinct from "unchanged": the importer must not reuse
+    ///   a previous value).
+    ///
+    /// The default returns `None` (the model exposes no countdown Clock).
+    ///
+    /// See <https://fmi-standard.org/docs/3.0.1/#fmi3GetIntervalDecimal>
+    fn next_interval(&self, _clock_reference: binding::fmi3ValueReference) -> Option<f64> {
+        None
+    }
 }

@@ -328,6 +328,11 @@ macro_rules! impl_fmi_variable_builder_float {
                     var.reinit = Some(reinit);
                 }
 
+                // Mark the variable as clocked if it belongs to one or more Clocks.
+                if let Some(clocks) = builder.clocks {
+                    var.clocks = Some(fmi::schema::utils::AttrList(clocks));
+                }
+
                 // Apply dimensions if any
                 if !builder.dimensions.is_empty() {
                     var.dimensions = builder.dimensions;
@@ -360,6 +365,11 @@ macro_rules! impl_fmi_variable_builder_int {
                     builder.start.map(Into::into),
                     builder.initial,
                 );
+
+                // Mark the variable as clocked if it belongs to one or more Clocks.
+                if let Some(clocks) = builder.clocks {
+                    var.clocks = Some(fmi::schema::utils::AttrList(clocks));
+                }
 
                 // Apply dimensions if any
                 if !builder.dimensions.is_empty() {
@@ -401,6 +411,11 @@ impl FmiVariableBuilder for bool {
             builder.start.map(Into::into),
             builder.initial,
         );
+
+        // Mark the variable as clocked if it belongs to one or more Clocks.
+        if let Some(clocks) = builder.clocks {
+            var.clocks = Some(fmi::schema::utils::AttrList(clocks));
+        }
 
         // Apply dimensions if any
         if !builder.dimensions.is_empty() {

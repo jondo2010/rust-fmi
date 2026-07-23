@@ -122,6 +122,8 @@ where
         self.state = ModelState::Instantiated;
         self.context.initialize(0.0, None);
         self.model.set_start_values();
+        self.is_dirty_values = true;
+        self.intervals_observed.clear();
         Ok(Fmi3Res::OK)
     }
 

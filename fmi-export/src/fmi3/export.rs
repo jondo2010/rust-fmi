@@ -565,7 +565,8 @@ macro_rules! export_fmu {
         // Clock related functions
 
         #[unsafe(export_name = "fmi3GetIntervalDecimal")]
-        unsafe fn fmi3_get_interval_decimal(
+        #[cfg_attr(coverage_nightly, coverage(off))]
+        unsafe extern "C" fn fmi3_get_interval_decimal(
             instance: ::fmi::fmi3::binding::fmi3Instance,
             value_references: *const ::fmi::fmi3::binding::fmi3ValueReference,
             n_value_references: usize,
