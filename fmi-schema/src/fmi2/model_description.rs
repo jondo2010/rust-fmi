@@ -5,10 +5,7 @@ use super::{
 };
 
 #[derive(Default, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]
-#[xml(
-    tag = "fmiModelDescription",
-    strict(unknown_attribute, unknown_element)
-)]
+#[xml(tag = "fmiModelDescription", strict(unknown_attribute))]
 pub struct Fmi2ModelDescription {
     /// Version of FMI (Clarification for FMI 2.0.2: for FMI 2.0.x revisions fmiVersion is defined
     /// as "2.0").
@@ -27,6 +24,10 @@ pub struct Fmi2ModelDescription {
 
     #[xml(attr = "description")]
     pub description: Option<String>,
+
+    /// String with the name and organization of the model author.
+    #[xml(attr = "author")]
+    pub author: Option<String>,
 
     /// Version of FMU, e.g., "1.4.1"
     #[xml(attr = "version")]
@@ -270,7 +271,7 @@ pub struct Category {
     #[xml(attr = "name")]
     pub name: String,
     #[xml(attr = "description")]
-    pub description: String,
+    pub description: Option<String>,
 }
 
 #[derive(Clone, Default, PartialEq, Debug, hard_xml::XmlRead, hard_xml::XmlWrite)]

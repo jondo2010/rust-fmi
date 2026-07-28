@@ -1,6 +1,6 @@
 [package]
 name = "cargo-fmi"
-version = "0.1.0"
+version = "0.2.0"
 description = "Cargo subcommand for FMI packaging and tooling"
 readme = "README.md"
 license.workspace = true

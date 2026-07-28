@@ -39,6 +39,9 @@ impl FmiImport for Fmi2Import {
             ("windows", "x86") => "win32",
             ("linux", "x86_64") => "linux64",
             ("linux", "x86") => "linux32",
+            // FMI 2.0 predates Linux/aarch64; FMpy and other common exporters place aarch64
+            // binaries under binaries/linux64/ by convention, so map to "linux64" here.
+            ("linux", "aarch64") => "linux64",
             ("macos", "x86_64") => "darwin64",
             ("macos", "x86") => "darwin32",
             _ => {

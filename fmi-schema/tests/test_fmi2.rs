@@ -87,3 +87,49 @@ fn test_fmi2_co_simulation_without_event_indicators() {
     assert_eq!(md.number_of_event_indicators, None);
     assert_eq!(md.num_event_indicators(), 0);
 }
+
+#[test]
+#[cfg(feature = "fmi2")]
+fn test_fmi2_with_vendor_annotations() {
+    use std::str::FromStr;
+
+    let xml = r#"
+<fmiModelDescription fmiVersion="2.0" modelName="VendorAnnotated" guid="{11111111-1111-1111-1111-111111111111}">
+    <CoSimulation modelIdentifier="VendorAnnotated" />
+    <VendorAnnotations>
+        <Tool name="Simulink">
+            <SomeToolSpecificMetadata key="value" />
+        </Tool>
+    </VendorAnnotations>
+    <ModelVariables />
+    <ModelStructure />
+</fmiModelDescription>
+"#;
+
+    let md = fmi_schema::fmi2::Fmi2ModelDescription::from_str(xml).unwrap();
+    assert_eq!(md.model_name, "VendorAnnotated");
+    assert!(md.co_simulation.is_some());
+}
+
+#[test]
+#[cfg(feature = "fmi2")]
+fn test_fmi2_allows_optional_author_attribute() {
+    use std::str::FromStr;
+
+    let xml = r#"
+<fmiModelDescription
+    fmiVersion="2.0"
+    modelName="WithAuthor"
+    guid="{00000000-0000-0000-0000-000000000000}"
+    author="Example Author, Example Org">
+    <ModelExchange modelIdentifier="WithAuthor" />
+    <ModelVariables />
+    <ModelStructure />
+</fmiModelDescription>
+"#;
+
+    let md = fmi_schema::fmi2::Fmi2ModelDescription::from_str(xml).unwrap();
+
+    assert_eq!(md.author.as_deref(), Some("Example Author, Example Org"));
+    assert!(md.model_exchange.is_some());
+}

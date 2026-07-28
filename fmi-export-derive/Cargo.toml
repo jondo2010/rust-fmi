@@ -1,6 +1,6 @@
 [package]
 name = "fmi-export-derive"
-version = "0.1.1"
+version = "0.2.0"
 description = "Proc-macro support for fmi-export"
 readme = "README.md"
 license.workspace = true
@@ -19,7 +19,7 @@ proc-macro = true
 [dependencies]
 attribute-derive = "0.10"
 chrono = { workspace = true }
-convert_case = "0.6"
+convert_case = "0.11"
 fmi = { workspace = true, features = ["fmi3"] }
 proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"

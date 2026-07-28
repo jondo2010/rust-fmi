@@ -1,6 +1,6 @@
 [package]
 name = "fmi-export"
-version = "0.1.1"
+version = "0.2.0"
 description = "FMU export support for FMI 3.0"
 readme = "README.md"
 license.workspace = true
