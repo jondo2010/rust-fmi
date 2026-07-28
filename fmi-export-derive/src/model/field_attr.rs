@@ -68,7 +68,7 @@ impl attribute_derive::parsing::AttributeValue for Causality {
         input: syn::parse::ParseStream,
     ) -> syn::Result<attribute_derive::parsing::SpannedValue<Self::Partial>> {
         let causality_id: syn::Ident = input.parse()?;
-        let causality = match (&causality_id).to_string().as_str() {
+        let causality = match causality_id.to_string().as_str() {
             "Parameter" => schema::Causality::Parameter,
             "CalculatedParameter" => schema::Causality::CalculatedParameter,
             "Input" => schema::Causality::Input,
@@ -218,6 +218,7 @@ impl attribute_derive::parsing::AttributeValue for IntervalVariability {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum FieldAttributeOuter {
     Docstring(String),
     Variable(FieldAttribute),

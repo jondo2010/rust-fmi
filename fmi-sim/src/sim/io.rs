@@ -170,13 +170,13 @@ where
 
                 // skip continuous variables
                 for (field, _vr) in &self.discrete_inputs {
-                    if let Some(input_col) = input_data.column_by_name(field.name()) {
-                        if downcast_primitive_array!(
+                    if let Some(input_col) = input_data.column_by_name(field.name())
+                        && downcast_primitive_array!(
                             input_col => input_col.value(i) != input_col.value(i + 1),
                             t => panic!("Unsupported datatype {}", t)
-                        ) {
-                            return t1;
-                        }
+                        )
+                    {
+                        return t1;
                     }
                 }
             }

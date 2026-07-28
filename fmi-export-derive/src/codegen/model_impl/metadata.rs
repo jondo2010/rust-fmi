@@ -169,7 +169,7 @@ impl ToTokens for BuildMetadataGen<'_> {
                             // Generate model structure entries for derivatives
                             if let Some(derivative_ref) = &var_attr.derivative {
                                 let derivative_name = derivative_ref.to_string();
-                                if field_name_to_vr.get(&derivative_name).is_some() {
+                                if field_name_to_vr.contains_key(&derivative_name) {
                                     let current_vr = field_name_to_vr[&field.ident.to_string()];
 
                                     // Add this field (derivative) to continuous_state_derivative
@@ -220,21 +220,14 @@ impl ToTokens for BuildMetadataGen<'_> {
                                         for other_attr in &other_field.attrs {
                                             if let FieldAttributeOuter::Variable(other_var_attr) =
                                                 other_attr
-                                            {
-                                                if let Some(other_derivative_ref) =
+                                                && let Some(other_derivative_ref) =
                                                     &other_var_attr.derivative
-                                                {
-                                                    if other_derivative_ref.to_string()
-                                                        == field.ident.to_string()
-                                                    {
-                                                        if let Some(&other_vr) = field_name_to_vr
-                                                            .get(&other_field.ident.to_string())
-                                                        {
-                                                            derivative_vr = Some(other_vr);
-                                                            break;
-                                                        }
-                                                    }
-                                                }
+                                                && other_derivative_ref == &field.ident
+                                                && let Some(&other_vr) = field_name_to_vr
+                                                    .get(&other_field.ident.to_string())
+                                            {
+                                                derivative_vr = Some(other_vr);
+                                                break;
                                             }
                                         }
                                         if derivative_vr.is_some() {
@@ -300,23 +293,21 @@ impl ToTokens for BuildMetadataGen<'_> {
                             }
 
                             // Add any variable with initial=Calculated to InitialUnknowns
-                            if !added_initial_unknown {
-                                if let Some(initial) = &var_attr.initial {
-                                    let initial_schema: ::fmi::fmi3::schema::Initial =
-                                        (*initial).into();
-                                    if matches!(
-                                        initial_schema,
-                                        ::fmi::fmi3::schema::Initial::Calculated
-                                    ) {
-                                        // Skip clocked variables; the triggering clock handles initial unknowns.
-                                        if var_attr
-                                            .clocks
-                                            .as_ref()
-                                            .map_or(true, |clocks| clocks.is_empty())
-                                        {
-                                            let current_vr =
-                                                field_name_to_vr[&field.ident.to_string()];
-                                            model_structure_tokens.push(quote! {
+                            if !added_initial_unknown && let Some(initial) = &var_attr.initial {
+                                let initial_schema: ::fmi::fmi3::schema::Initial =
+                                    (*initial).into();
+                                if matches!(
+                                    initial_schema,
+                                    ::fmi::fmi3::schema::Initial::Calculated
+                                ) {
+                                    // Skip clocked variables; the triggering clock handles initial unknowns.
+                                    if var_attr
+                                        .clocks
+                                        .as_ref()
+                                        .is_none_or(|clocks| clocks.is_empty())
+                                    {
+                                        let current_vr = field_name_to_vr[&field.ident.to_string()];
+                                        model_structure_tokens.push(quote! {
                                                 model_structure.unknowns.push(::fmi::schema::fmi3::VariableDependency::InitialUnknown(::fmi::schema::fmi3::Fmi3Unknown {
                                                     annotations: None,
                                                     value_reference: current_vr_offset + #current_vr,
@@ -324,7 +315,6 @@ impl ToTokens for BuildMetadataGen<'_> {
                                                     dependencies_kind: None,
                                                 }));
                                             });
-                                        }
                                     }
                                 }
                             }
@@ -413,8 +403,7 @@ impl BuildMetadataGen<'_> {
         // Use the name attribute if specified, otherwise use the field name
         let variable_name = var_attr
             .name
-            .as_ref()
-            .map(|s| s.clone())
+            .clone()
             .unwrap_or_else(|| field.ident.to_string());
         let variable_name_prefixed = quote! { format!("{}{}", #prefix_binding, #variable_name) };
 
@@ -442,24 +431,24 @@ impl BuildMetadataGen<'_> {
         }
 
         // Default variability based on FMI3 spec if not provided explicitly.
-        if var_attr.variability.is_none() {
-            if let Some(causality) = &var_attr.causality {
-                let causality_schema: ::fmi::fmi3::schema::Causality = (*causality).into();
-                let default_variability = match causality_schema {
-                    ::fmi::fmi3::schema::Causality::Parameter
-                    | ::fmi::fmi3::schema::Causality::CalculatedParameter
-                    | ::fmi::fmi3::schema::Causality::StructuralParameter => {
-                        ::fmi::fmi3::schema::Variability::Fixed
-                    }
-                    _ if is_float => ::fmi::fmi3::schema::Variability::Continuous,
-                    _ => ::fmi::fmi3::schema::Variability::Discrete,
-                };
-                let variability_str = format!("{:?}", default_variability);
-                let variability_variant = format_ident!("{}", variability_str);
-                builder_calls.push(quote! {
-                    .with_variability(::fmi::fmi3::schema::Variability::#variability_variant)
-                });
-            }
+        if var_attr.variability.is_none()
+            && let Some(causality) = &var_attr.causality
+        {
+            let causality_schema: ::fmi::fmi3::schema::Causality = (*causality).into();
+            let default_variability = match causality_schema {
+                ::fmi::fmi3::schema::Causality::Parameter
+                | ::fmi::fmi3::schema::Causality::CalculatedParameter
+                | ::fmi::fmi3::schema::Causality::StructuralParameter => {
+                    ::fmi::fmi3::schema::Variability::Fixed
+                }
+                _ if is_float => ::fmi::fmi3::schema::Variability::Continuous,
+                _ => ::fmi::fmi3::schema::Variability::Discrete,
+            };
+            let variability_str = format!("{:?}", default_variability);
+            let variability_variant = format_ident!("{}", variability_str);
+            builder_calls.push(quote! {
+                .with_variability(::fmi::fmi3::schema::Variability::#variability_variant)
+            });
         }
 
         // Set interval variability if specified (for Clock variables)

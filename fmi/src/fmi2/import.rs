@@ -13,6 +13,21 @@ pub struct Fmi2Import {
     model_description: schema::Fmi2ModelDescription,
 }
 
+fn platform_folder(os: &str, arch: &str) -> Option<&'static str> {
+    match (os, arch) {
+        ("windows", "x86_64") => Some("win64"),
+        ("windows", "x86") => Some("win32"),
+        ("linux", "x86_64") => Some("linux64"),
+        ("linux", "x86") => Some("linux32"),
+        // FMI 2.0 predates Linux/aarch64; FMpy and other common exporters place aarch64
+        // binaries under binaries/linux64/ by convention, so map to "linux64" here.
+        ("linux", "aarch64") => Some("linux64"),
+        ("macos", "x86_64") => Some("darwin64"),
+        ("macos", "x86") => Some("darwin32"),
+        _ => None,
+    }
+}
+
 impl FmiImport for Fmi2Import {
     const MAJOR_VERSION: MajorVersion = MajorVersion::FMI2;
     type ModelDescription = schema::Fmi2ModelDescription;
@@ -34,23 +49,11 @@ impl FmiImport for Fmi2Import {
 
     /// Get the path to the shared library
     fn shared_lib_path(&self, model_identifier: &str) -> Result<PathBuf, Error> {
-        let platform_folder = match (std::env::consts::OS, std::env::consts::ARCH) {
-            ("windows", "x86_64") => "win64",
-            ("windows", "x86") => "win32",
-            ("linux", "x86_64") => "linux64",
-            ("linux", "x86") => "linux32",
-            // FMI 2.0 predates Linux/aarch64; FMpy and other common exporters place aarch64
-            // binaries under binaries/linux64/ by convention, so map to "linux64" here.
-            ("linux", "aarch64") => "linux64",
-            ("macos", "x86_64") => "darwin64",
-            ("macos", "x86") => "darwin32",
-            _ => {
-                return Err(Error::UnsupportedPlatform {
-                    os: std::env::consts::OS.to_string(),
-                    arch: std::env::consts::ARCH.to_string(),
-                });
-            }
-        };
+        let platform_folder = platform_folder(std::env::consts::OS, std::env::consts::ARCH)
+            .ok_or_else(|| Error::UnsupportedPlatform {
+                os: std::env::consts::OS.to_string(),
+                arch: std::env::consts::ARCH.to_string(),
+            })?;
         let fname = format!("{model_identifier}{}", std::env::consts::DLL_SUFFIX);
         Ok(std::path::PathBuf::from("binaries")
             .join(platform_folder)
@@ -102,5 +105,15 @@ impl Fmi2Import {
         logging_on: bool,
     ) -> Result<Instance<CS>, Error> {
         Instance::<CS>::new(self, instance_name, visible, logging_on)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::platform_folder;
+
+    #[test]
+    fn linux_aarch64_uses_linux64_platform_folder() {
+        assert_eq!(platform_folder("linux", "aarch64"), Some("linux64"));
     }
 }

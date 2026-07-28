@@ -43,7 +43,7 @@ where
         .unwrap_or(array.len())
         .saturating_sub(1);
 
-    let row = if after_event {
+    if after_event {
         array.values()[row..]
             .iter()
             .position(|&x| x > value)
@@ -51,8 +51,7 @@ where
             .unwrap_or(row)
     } else {
         row
-    };
-    row
+    }
 }
 
 impl PreLookup {

@@ -25,7 +25,30 @@ fn write_local_patches(project_root: &Path, repo_root: &Path) -> std::io::Result
         root = root
     );
 
-    std::fs::write(config_path, config)
+    std::fs::write(config_path, config)?;
+
+    let manifest_path = project_root.join("Cargo.toml");
+    let manifest = std::fs::read_to_string(&manifest_path)?
+        .lines()
+        .map(|line| {
+            if line.starts_with("fmi-export = ") {
+                format!("fmi-export = {{ path = \"{root}/fmi-export\" }}")
+            } else if line.starts_with("fmi = ") {
+                format!("fmi = {{ path = \"{root}/fmi\" }}")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(manifest_path, manifest)?;
+
+    let lockfile = project_root.join("Cargo.lock");
+    if lockfile.exists() {
+        std::fs::remove_file(lockfile)?;
+    }
+
+    Ok(())
 }
 
 fn read_manifest(project_root: &Path) -> String {
@@ -86,7 +109,10 @@ fn cargo_fmi_new_and_bundle() {
     write_local_patches(&project_root, repo_root).expect("write local patches");
     add_dependency(
         &project_root,
-        "fmi-ls-bus = { version = \"*\", features = [\"fmi-export\"] }\n",
+        &format!(
+            "fmi-ls-bus = {{ path = \"{}/fmi-ls-bus\", features = [\"fmi-export\"] }}\n",
+            repo_root.to_string_lossy().replace('\\', "/")
+        ),
     );
     write_demo_lib(&project_root);
 

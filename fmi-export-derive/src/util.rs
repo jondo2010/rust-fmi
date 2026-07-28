@@ -166,9 +166,9 @@ mod tests {
         let result = parse_start_value::<f64>(&input);
         assert_eq!(result, vec![42.5]);
 
-        let input: syn::Expr = parse_quote!(-3.14);
+        let input: syn::Expr = parse_quote!(-3.125);
         let result = parse_start_value::<f32>(&input);
-        assert_eq!(result, vec![-3.14_f32]);
+        assert_eq!(result, vec![-3.125_f32]);
 
         let input: syn::Expr = parse_quote!(123);
         let result = parse_start_value::<i32>(&input);

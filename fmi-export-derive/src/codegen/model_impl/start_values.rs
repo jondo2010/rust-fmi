@@ -32,17 +32,17 @@ impl ToTokens for SetStartValuesGen<'_> {
             }
 
             for attr in &field.attrs {
-                if let FieldAttributeOuter::Variable(var_attr) = attr {
-                    if let Some(start_expr) = &var_attr.start {
-                        let field_name = &field.ident;
+                if let FieldAttributeOuter::Variable(var_attr) = attr
+                    && let Some(start_expr) = &var_attr.start
+                {
+                    let field_name = &field.ident;
 
-                        // Use the trait-based approach - no type introspection needed
-                        let assignment_expr = quote! {
-                            ::fmi_export::fmi3::InitializeFromStart::set_from_start(&mut self.#field_name, #start_expr);
-                        };
+                    // Use the trait-based approach - no type introspection needed
+                    let assignment_expr = quote! {
+                        ::fmi_export::fmi3::InitializeFromStart::set_from_start(&mut self.#field_name, #start_expr);
+                    };
 
-                        assignments.push(assignment_expr);
-                    }
+                    assignments.push(assignment_expr);
                 }
             }
         }

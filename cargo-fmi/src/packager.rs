@@ -23,11 +23,11 @@ pub fn package_fmu(
             .with_context(|| format!("Failed to create output directory: {}", parent.display()))?;
     }
 
-    let mut zw = zip::ZipWriter::new(std::fs::File::create(&fmu_path)?);
+    let mut zw = zip::ZipWriter::new(std::fs::File::create(fmu_path)?);
 
     let binaries_path = PathBuf::from("binaries");
 
-    zw.set_comment("Created by rust-fmi");
+    zw.set_comment("Created by rust-fmi")?;
 
     // Write the modelDescription.xml file
     zw.start_file(

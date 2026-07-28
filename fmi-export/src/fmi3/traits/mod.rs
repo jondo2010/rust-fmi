@@ -222,8 +222,8 @@ pub trait UserModel: Sized {
     /// # Returns
     /// - `Ok(true)` if event indicators were successfully computed
     /// - `Ok(false)` if the FMU was not able to compute the event indicators because, for example,
-    ///     a numerical issue such as division by zero occurred (corresponding to the C API
-    ///     returning fmi3Discard)
+    ///   a numerical issue such as division by zero occurred (corresponding to the C API
+    ///   returning fmi3Discard)
     /// - `Err(Fmi3Error)` for other error conditions
     fn get_event_indicators(
         &mut self,

@@ -55,7 +55,7 @@ fn find_cdylib_target(package: &Package) -> anyhow::Result<&Target> {
     let target = package
         .targets
         .iter()
-        .find(|t| t.crate_types.iter().any(|ct| *ct == CrateType::CDyLib))
+        .find(|t| t.crate_types.contains(&CrateType::CDyLib))
         .ok_or_else(|| {
             log::error!(
                 "No cdylib target found in package '{}'. \

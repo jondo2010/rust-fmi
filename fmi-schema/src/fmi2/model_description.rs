@@ -399,7 +399,7 @@ mod tests {
     <InitialUnknowns />
 </ModelStructure>
 </fmiModelDescription>"##;
-        let md = Fmi2ModelDescription::from_str(&s).unwrap();
+        let md = Fmi2ModelDescription::from_str(s).unwrap();
         assert_eq!(md.fmi_version, "2.0");
         assert_eq!(md.model_name, "MyLibrary.SpringMassDamper");
         assert_eq!(md.guid, "{8c4e810f-3df3-4a00-8276-176fa3c9f9e0}");

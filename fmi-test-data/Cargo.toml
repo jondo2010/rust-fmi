@@ -1,6 +1,6 @@
 [package]
 name = "fmi-test-data"
-version = "0.1.0"
+version = "0.2.0"
 description = "Utilities for fetching test data from Modelica's Reference-FMUs repository."
 license.workspace = true
 edition.workspace = true

@@ -108,13 +108,13 @@ fn test_binary() {
 #[test]
 fn test_float32() {
     let xml =
-        r#"<Float32 name="float32_var" valueReference="10" causality="output" start="3.14"/>"#;
+        r#"<Float32 name="float32_var" valueReference="10" causality="output" start="3.125"/>"#;
     let var = FmiFloat32::from_str(xml).unwrap();
 
     assert_eq!(var.name(), "float32_var");
     assert_eq!(var.value_reference(), 10);
     assert_eq!(var.causality(), Causality::Output);
-    assert_eq!(var.start, Some(AttrList(vec![3.14])));
+    assert_eq!(var.start, Some(AttrList(vec![3.125])));
     assert_eq!(var.variability(), Variability::Continuous); // Default for float types
     assert_eq!(var.derivative(), None);
     assert_eq!(var.reinit(), None);

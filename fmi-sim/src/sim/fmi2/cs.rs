@@ -97,7 +97,7 @@ impl SimState<InstanceCS> {
 
         //TODO save final FMU state
 
-        self.inst.terminate().map_err(Into::into)?;
+        self.inst.terminate()?;
 
         Ok(stats)
     }

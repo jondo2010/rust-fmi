@@ -173,9 +173,9 @@ pub fn resolve_terminals<'a>(
     })
 }
 
-fn build_variable_lookup<'a>(
-    model_variables: &'a super::variable::ModelVariables,
-) -> HashMap<&'a str, &'a dyn AbstractVariableTrait> {
+fn build_variable_lookup(
+    model_variables: &super::variable::ModelVariables,
+) -> HashMap<&str, &dyn AbstractVariableTrait> {
     let mut lookup = HashMap::new();
     for var in model_variables.iter_abstract() {
         lookup.insert(var.name(), var);

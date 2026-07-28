@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-28
+
+### Added
+
+- Support the optional FMI 2.0 `author` attribute (#177)
+- Load FMI 2.0 Linux/aarch64 binaries from the conventional `binaries/linux64/` directory (#179)
+
+### Changed
+
+- Accept unknown FMI 2.0 top-level vendor elements (#174)
+- Update Rust dependencies, including Arrow 59, itertools 0.15, and zip 8 (#175)
+- Update GitHub Actions and batch Renovate dependency updates monthly
+- Restore warning-free builds with Rust and Clippy 1.97
+
+### Fixed
+
+- Treat FMI 2.0 log category descriptions as optional (#178)
+
 ## [0.7.0] - 2026-02-13
 
 ### Added
@@ -198,6 +216,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - * Added .gitlab-ci.yml
 - * Initial Gitlab import
 
+[0.8.0]: https://github.com/jondo2010/rust-fmi/compare/v0.7.0..v0.8.0
 [0.7.0]: https://github.com/jondo2010/rust-fmi/compare/v0.6.0..v0.7.0
 [0.6.0]: https://github.com/jondo2010/rust-fmi/compare/v0.5.0..v0.6.0
 [0.5.0]: https://github.com/jondo2010/rust-fmi/compare/v0.4.0..v0.5.0

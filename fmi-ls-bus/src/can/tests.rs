@@ -552,7 +552,7 @@ fn test_comprehensive_operation_sequence() {
                 }),
                 "Transmit",
             ) => {
-                assert_eq!(cow_bytes(&data), test_data);
+                assert_eq!(cow_bytes(data), test_data);
             }
             (
                 Some(LsBusCanOp::FdTransmit {
@@ -560,7 +560,7 @@ fn test_comprehensive_operation_sequence() {
                 }),
                 "FdTransmit",
             ) => {
-                assert_eq!(cow_bytes(&data), test_data);
+                assert_eq!(cow_bytes(data), test_data);
             }
             (
                 Some(LsBusCanOp::XlTransmit {
@@ -568,7 +568,7 @@ fn test_comprehensive_operation_sequence() {
                 }),
                 "XlTransmit",
             ) => {
-                assert_eq!(cow_bytes(&data), test_data);
+                assert_eq!(cow_bytes(data), test_data);
             }
             (Some(LsBusCanOp::Confirm(0x400)), "Confirm") => {}
             (Some(LsBusCanOp::ConfigBaudrate(1000000)), "ConfigBaudrate") => {}

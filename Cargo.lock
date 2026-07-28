@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-fmi"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -1397,7 +1397,7 @@ dependencies = [
 
 [[package]]
 name = "fmi"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "built",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-export"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1432,7 +1432,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-export-derive"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "attribute-derive",
  "chrono",
@@ -1448,7 +1448,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-ls-bus"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "fmi",
  "fmi-export",
@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-schema"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "chrono",
@@ -1474,7 +1474,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-sim"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "arrow",
@@ -1507,7 +1507,7 @@ dependencies = [
 
 [[package]]
 name = "fmi-test-data"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "const_format",

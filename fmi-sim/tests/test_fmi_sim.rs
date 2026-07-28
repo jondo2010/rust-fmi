@@ -385,7 +385,7 @@ fn test_input_data(
     // Pretty-print the output
     println!(
         "Outputs:\n{}",
-        arrow::util::pretty::pretty_format_batches(&[output.clone()]).unwrap()
+        arrow::util::pretty::pretty_format_batches(std::slice::from_ref(&output)).unwrap()
     );
 
     let f64_cts_out = output

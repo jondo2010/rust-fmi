@@ -78,7 +78,6 @@ macro_rules! instance_getter_setter {
 /// the model's variables.
 ///
 /// Only the float64 getter has special handling for 'time' VR=0, as it is the only type that can represent time.
-
 impl<M, C> GetSet for super::ModelInstance<M, C>
 where
     M: Model + UserModel + ModelGetSet<M>,

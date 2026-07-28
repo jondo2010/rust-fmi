@@ -329,10 +329,12 @@ fn test_fmi3_interface_types_traits() {
 #[cfg(feature = "fmi2")]
 fn test_trait_error_handling() {
     // Create a model description with invalid version for testing error handling
-    let mut md = Fmi2ModelDescription::default();
-    md.model_name = "TestModel".to_string();
-    md.fmi_version = "invalid.version".to_string();
-    md.guid = "test-guid".to_string();
+    let md = Fmi2ModelDescription {
+        model_name: "TestModel".to_string(),
+        fmi_version: "invalid.version".to_string(),
+        guid: "test-guid".to_string(),
+        ..Default::default()
+    };
 
     // Test that version parsing fails gracefully
     assert!(md.version().is_err());
@@ -411,10 +413,12 @@ fn test_serialize_deserialize_round_trip_consistency() {
 #[cfg(feature = "fmi2")]
 fn test_fmi2_edge_cases_and_optional_fields() {
     // Create a minimal FMI2 model description to test edge cases
-    let mut md = Fmi2ModelDescription::default();
-    md.model_name = "MinimalModel".to_string();
-    md.fmi_version = "2.0".to_string();
-    md.guid = "minimal-guid".to_string();
+    let md = Fmi2ModelDescription {
+        model_name: "MinimalModel".to_string(),
+        fmi_version: "2.0".to_string(),
+        guid: "minimal-guid".to_string(),
+        ..Default::default()
+    };
 
     // Test with no default experiment (should return None values)
     assert_eq!(md.start_time(), None);
@@ -438,10 +442,12 @@ fn test_fmi2_edge_cases_and_optional_fields() {
 #[cfg(feature = "fmi3")]
 fn test_fmi3_edge_cases_and_optional_fields() {
     // Create a minimal FMI3 model description to test edge cases
-    let mut md = Fmi3ModelDescription::default();
-    md.model_name = "MinimalModel".to_string();
-    md.fmi_version = "3.0".to_string();
-    md.instantiation_token = "minimal-token".to_string();
+    let md = Fmi3ModelDescription {
+        model_name: "MinimalModel".to_string(),
+        fmi_version: "3.0".to_string(),
+        instantiation_token: "minimal-token".to_string(),
+        ..Default::default()
+    };
 
     // Test serialization/deserialization of minimal model
     let serialized = serialize(&md, false).unwrap();
@@ -459,9 +465,11 @@ fn test_fmi3_edge_cases_and_optional_fields() {
 fn test_version_edge_cases() {
     #[cfg(feature = "fmi2")]
     {
-        let mut md = Fmi2ModelDescription::default();
-        md.model_name = "TestModel".to_string();
-        md.guid = "test-guid".to_string();
+        let mut md = Fmi2ModelDescription {
+            model_name: "TestModel".to_string(),
+            guid: "test-guid".to_string(),
+            ..Default::default()
+        };
 
         // Test various version strings
         md.fmi_version = "2.0.1".to_string();

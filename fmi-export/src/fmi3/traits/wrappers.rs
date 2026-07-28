@@ -6,6 +6,12 @@
 //!   - the entire API must invariably be available through these traits.
 //! 2. The instantiation functions:
 //!  - must fail here if the model doesn't "support" the requested interface
+#![allow(
+    clippy::missing_safety_doc,
+    clippy::too_many_arguments,
+    clippy::useless_conversion
+)]
+
 use ::std::ffi::CString;
 
 use crate::fmi3::{
@@ -174,7 +180,7 @@ where
         categories: *const binding::fmi3String,
     ) -> binding::fmi3Status {
         let categories = unsafe { std::slice::from_raw_parts(categories, n_categories) }
-            .into_iter()
+            .iter()
             .filter_map(|cat| unsafe { std::ffi::CStr::from_ptr(*cat) }.to_str().ok())
             .collect::<::std::vec::Vec<_>>();
         match dispatch_by_instance_type!(instance, Self, set_debug_logging, logging_on, &categories)

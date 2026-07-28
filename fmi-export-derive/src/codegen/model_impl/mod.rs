@@ -1,7 +1,6 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, quote};
 use syn::Ident;
-use uuid;
 
 use crate::model::{FieldAttributeOuter, Model};
 
@@ -33,12 +32,12 @@ impl ToTokens for ModelImpl<'_> {
             uuid::Uuid::new_v5(&crate::RUST_FMI_NAMESPACE, model_name.as_bytes()).to_string();
 
         // Generate function bodies
-        let build_metadata_body = metadata::BuildMetadataGen::new(&self.model);
-        let set_start_values_body = start_values::SetStartValuesGen::new(&self.model);
-        let build_terminals_body = terminals::BuildTerminalsGen::new(&self.model);
-        let terminal_provider_impl = terminals::TerminalProviderImpl::new(struct_name, &self.model);
+        let build_metadata_body = metadata::BuildMetadataGen::new(self.model);
+        let set_start_values_body = start_values::SetStartValuesGen::new(self.model);
+        let build_terminals_body = terminals::BuildTerminalsGen::new(self.model);
+        let terminal_provider_impl = terminals::TerminalProviderImpl::new(struct_name, self.model);
 
-        let number_of_event_indicators = count_event_indicators(&self.model);
+        let number_of_event_indicators = count_event_indicators(self.model);
 
         let supports_me = self.model.supports_model_exchange();
         let supports_cs = self.model.supports_co_simulation();

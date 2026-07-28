@@ -107,7 +107,7 @@ pub fn simulate_with<Imp: FmiSim>(
         #[cfg(feature = "cs")]
         options::Interface::CoSimulation(options) => import.simulate_cs(options, input_data),
         #[cfg(feature = "se")]
-        options::Interface::ScheduledExecution(options) => unimplemented!(),
+        options::Interface::ScheduledExecution(_options) => unimplemented!(),
         #[cfg(any(not(feature = "me"), not(feature = "cs")))]
         _ => Err(fmi::Error::UnsupportedInterface(format!("{}", interface)).into()),
     }

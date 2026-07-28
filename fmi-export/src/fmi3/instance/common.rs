@@ -24,7 +24,7 @@ where
         categories: &[&str],
     ) -> Result<Fmi3Res, Fmi3Error> {
         for &cat in categories.iter() {
-            if let Some(cat) = cat.parse::<M::LoggingCategory>().ok() {
+            if let Ok(cat) = cat.parse::<M::LoggingCategory>() {
                 self.context.set_logging(cat, logging_on);
             } else {
                 self.context.log(

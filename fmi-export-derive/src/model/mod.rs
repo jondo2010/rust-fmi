@@ -484,7 +484,7 @@ pub fn build_fields(fields: syn::Fields) -> Vec<Field> {
     match fields {
         syn::Fields::Named(syn::FieldsNamed { named, .. }) => named
             .into_iter()
-            .filter(|field| has_fmu_attributes(field)) // Only process fields with FMU attributes
+            .filter(has_fmu_attributes) // Only process fields with FMU attributes
             .filter_map(|ref field| match Field::try_from(field.clone()) {
                 Ok(field) => Some(field),
                 Err(e) => {

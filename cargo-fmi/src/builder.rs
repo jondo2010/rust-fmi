@@ -18,12 +18,12 @@ pub fn build_lib(
     let mut command = Command::new("cargo");
 
     command
-        .args(&["build", "--lib", "--message-format=json-render-diagnostics"])
-        .args(&["--package", &package.repr]);
+        .args(["build", "--lib", "--message-format=json-render-diagnostics"])
+        .args(["--package", &package.repr]);
 
     if let Some(platforms) = &target_triples {
         for platform in platforms {
-            command.args(&["--target", platform.target_triple]);
+            command.args(["--target", platform.target_triple]);
         }
     } else {
         log::info!("No target triples specified, building for host platform");
@@ -68,7 +68,7 @@ pub fn build_lib(
                         anyhow::anyhow!("No output filenames found for cdylib target")
                     })?;
 
-                let target = if let Some(_) = target_triples {
+                let target = if target_triples.is_some() {
                     // Extract the target triple from the path components. It should be the 3rd from last.
                     Some(
                         path.components()

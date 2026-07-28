@@ -391,7 +391,7 @@ impl FmiVariableBuilder for bool {
         let mut var = schema::FmiBoolean::new(
             builder.name,
             builder.value_reference,
-            if builder.description.as_ref().map_or(true, |d| d.is_empty()) {
+            if builder.description.as_ref().is_none_or(|d| d.is_empty()) {
                 None
             } else {
                 builder.description
@@ -420,7 +420,7 @@ impl FmiVariableBuilder for String {
         let mut var = schema::FmiString::new(
             builder.name,
             builder.value_reference,
-            if builder.description.as_ref().map_or(true, |d| d.is_empty()) {
+            if builder.description.as_ref().is_none_or(|d| d.is_empty()) {
                 None
             } else {
                 builder.description
