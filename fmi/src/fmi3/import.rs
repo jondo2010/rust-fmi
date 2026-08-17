@@ -73,9 +73,7 @@ impl FmiImport for Fmi3Import {
             .to_str()
             .expect("Invalid resource path")
             .to_owned();
-        if !resource_path.ends_with(std::path::MAIN_SEPARATOR) {
-            resource_path.push(std::path::MAIN_SEPARATOR);
-        }
+        resource_path.push(std::path::MAIN_SEPARATOR);
         resource_path
     }
 }
