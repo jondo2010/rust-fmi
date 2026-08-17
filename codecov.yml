@@ -33,7 +33,7 @@ component_management:
         - fmi/build.rs
       statuses:
         - type: project
-          target: auto
+          target: 80%
         - type: patch
           target: 70%
 
@@ -60,7 +60,7 @@ component_management:
         - fmi-schema/src/**
       statuses:
         - type: project
-          target: 75%
+          target: 85%
         - type: patch
           target: 75%
 
@@ -82,7 +82,7 @@ component_management:
         - fmi-sys/build.rs
       statuses:
         - type: project
-          target: auto
+          target: 60%
         - type: patch
           target: 50%
 
