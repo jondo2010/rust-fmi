@@ -255,3 +255,168 @@ fn test_type_definitions() {
     let types: TypeDefinitions = hard_xml::XmlRead::from_str(xml).unwrap();
     assert_eq!(types.type_definitions.len(), 3);
 }
+
+#[cfg(test)]
+mod tests {
+    use hard_xml::{XmlRead, XmlWrite};
+
+    use super::*;
+
+    #[test]
+    fn float_base_type_trait_exposes_name_and_description() {
+        let float32 = Float32Type {
+            name: "speed".into(),
+            description: Some("shaft speed".into()),
+            ..Default::default()
+        };
+        let float64 = Float64Type {
+            name: "position".into(),
+            ..Default::default()
+        };
+
+        assert_eq!(float32.name(), "speed");
+        assert_eq!(float32.description(), Some("shaft speed"));
+        assert_eq!(float64.name(), "position");
+        assert_eq!(float64.description(), None);
+    }
+
+    #[test]
+    fn all_type_definitions_parse_and_round_trip() {
+        let xml = r#"<TypeDefinitions>
+            <Float32Type name="f32" description="single" quantity="q" unit="m" displayUnit="cm" relativeQuantity="true" unbounded="false" min="-1.5" max="2.5" nominal="1.0"/>
+            <Float64Type name="f64" min="-2" max="4" nominal="0.5"/>
+            <Int8Type name="i8" quantity="count" min="-8" max="7"/>
+            <UInt8Type name="u8" min="0" max="8"/>
+            <Int16Type name="i16" min="-16" max="16"/>
+            <UInt16Type name="u16" min="0" max="16"/>
+            <Int32Type name="i32" min="-32" max="32"/>
+            <UInt32Type name="u32" min="0" max="32"/>
+            <Int64Type name="i64" min="-64" max="64"/>
+            <UInt64Type name="u64" min="0" max="64"/>
+            <BooleanType name="enabled" description="switch"/>
+            <StringType name="label" description="caption"/>
+            <BinaryType name="payload" mimeType="application/octet-stream" maxSize="4096"/>
+            <EnumerationType name="state" quantity="mode">
+                <Item name="off" value="0" description="disabled"/>
+                <Item name="on" value="1"/>
+            </EnumerationType>
+            <ClockType name="tick" canBeDeactivated="true" priority="2" intervalVariability="constant" intervalDecimal="0.25" shiftDecimal="0.5" supportsFraction="true" resolution="1000" intervalCounter="4" shiftCounter="1"/>
+        </TypeDefinitions>"#;
+
+        let parsed = TypeDefinitions::from_str(xml).unwrap();
+        assert_eq!(parsed.type_definitions.len(), 15);
+        assert!(matches!(
+            &parsed.type_definitions[0],
+            TypeDefinition::Float32(value)
+                if value.description.as_deref() == Some("single")
+                    && value.relative_quantity == Some(true)
+                    && value.min == Some(-1.5)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[1],
+            TypeDefinition::Float64(value)
+                if value.name == "f64" && value.min == Some(-2.0) && value.max == Some(4.0)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[2],
+            TypeDefinition::Int8(value)
+                if value.name == "i8" && value.min == Some(-8) && value.max == Some(7)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[3],
+            TypeDefinition::UInt8(value)
+                if value.name == "u8" && value.min == Some(0) && value.max == Some(8)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[4],
+            TypeDefinition::Int16(value)
+                if value.name == "i16" && value.min == Some(-16) && value.max == Some(16)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[5],
+            TypeDefinition::UInt16(value)
+                if value.name == "u16" && value.min == Some(0) && value.max == Some(16)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[6],
+            TypeDefinition::Int32(value)
+                if value.name == "i32" && value.min == Some(-32) && value.max == Some(32)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[7],
+            TypeDefinition::UInt32(value)
+                if value.name == "u32" && value.min == Some(0) && value.max == Some(32)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[8],
+            TypeDefinition::Int64(value)
+                if value.name == "i64" && value.min == Some(-64) && value.max == Some(64)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[9],
+            TypeDefinition::UInt64(value)
+                if value.name == "u64" && value.min == Some(0) && value.max == Some(64)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[10],
+            TypeDefinition::Boolean(value)
+                if value.name == "enabled" && value.description.as_deref() == Some("switch")
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[11],
+            TypeDefinition::String(value)
+                if value.name == "label" && value.description.as_deref() == Some("caption")
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[12],
+            TypeDefinition::Binary(value)
+                if value.mime_type.as_deref() == Some("application/octet-stream")
+                    && value.max_size == Some(4096)
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[13],
+            TypeDefinition::Enumeration(value)
+                if value.items.len() == 2
+                    && value.items[0].value == 0
+                    && value.items[1].name == "on"
+        ));
+        assert!(matches!(
+            &parsed.type_definitions[14],
+            TypeDefinition::Clock(value)
+                if value.priority == Some(2)
+                    && value.interval_decimal == Some(0.25)
+                    && value.resolution == Some(1000)
+        ));
+
+        let serialized = parsed.to_string().unwrap();
+        let reparsed = TypeDefinitions::from_str(&serialized).unwrap();
+        assert_eq!(reparsed, parsed);
+    }
+
+    #[test]
+    fn type_defaults_are_empty() {
+        assert!(TypeDefinitions::default().type_definitions.is_empty());
+        assert!(Float32Type::default().name.is_empty());
+        assert!(Float64Type::default().description.is_none());
+        assert!(Int8Type::default().min.is_none());
+        assert!(UInt8Type::default().max.is_none());
+        assert!(Int16Type::default().name.is_empty());
+        assert!(UInt16Type::default().name.is_empty());
+        assert!(Int32Type::default().name.is_empty());
+        assert!(UInt32Type::default().name.is_empty());
+        assert!(Int64Type::default().name.is_empty());
+        assert!(UInt64Type::default().name.is_empty());
+        assert!(BooleanType::default().description.is_none());
+        assert!(StringType::default().annotations.is_none());
+        assert!(BinaryType::default().max_size.is_none());
+        assert!(ClockType::default().interval_decimal.is_none());
+    }
+
+    #[test]
+    fn strict_type_schema_rejects_unknown_attributes() {
+        let xml =
+            r#"<TypeDefinitions><Float64Type name="x" unsupported="true"/></TypeDefinitions>"#;
+
+        assert!(TypeDefinitions::from_str(xml).is_err());
+    }
+}

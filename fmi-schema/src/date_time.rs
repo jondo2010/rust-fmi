@@ -31,3 +31,34 @@ impl std::str::FromStr for DateTime {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::DateTime;
+
+    #[test]
+    fn parses_xsd_date_time_without_timezone_as_utc() {
+        let date_time = DateTime::from_str("2024-02-29T12:34:56.789").unwrap();
+
+        assert_eq!(date_time.to_string(), "2024-02-29T12:34:56.789+00:00");
+    }
+
+    #[test]
+    fn preserves_explicit_positive_and_negative_offsets() {
+        let positive = DateTime::from_str("2024-02-29T12:34:56+05:30").unwrap();
+        let negative = DateTime::from_str("2024-02-29T12:34:56-07:00").unwrap();
+
+        assert_eq!(positive.to_string(), "2024-02-29T12:34:56+05:30");
+        assert_eq!(negative.to_string(), "2024-02-29T12:34:56-07:00");
+    }
+
+    #[test]
+    fn accepts_zulu_timezone_and_rejects_invalid_dates() {
+        let zulu = DateTime::from_str("2024-02-29T12:34:56Z").unwrap();
+
+        assert_eq!(zulu.to_string(), "2024-02-29T12:34:56+00:00");
+        assert!(DateTime::from_str("2023-02-29T12:34:56Z").is_err());
+    }
+}
