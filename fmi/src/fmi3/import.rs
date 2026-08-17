@@ -68,11 +68,13 @@ impl FmiImport for Fmi3Import {
     /// As per the FMI3.0 standard, `resourcePath` is the absolute file path (with a trailing file separator) of the
     /// resources directory of the extracted FMU archive.
     fn canonical_resource_path_string(&self) -> String {
-        std::path::absolute(self.resource_path())
+        let mut resource_path = std::path::absolute(self.resource_path())
             .expect("Invalid resource path")
             .to_str()
             .expect("Invalid resource path")
-            .to_owned()
+            .to_owned();
+        resource_path.push(std::path::MAIN_SEPARATOR);
+        resource_path
     }
 }
 

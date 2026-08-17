@@ -143,3 +143,28 @@ fn test_instance_feedthrough_binary() {
     // compare my_binary to the new value
     assert_eq!(&my_binary[..values_sizes[0]], b"New Binary Value");
 }
+
+#[test]
+fn test_instance_resource() {
+    let mut ref_fmus = ReferenceFmus::new().unwrap();
+    let import: Fmi3Import = ref_fmus.get_reference_fmu("Resource").unwrap();
+    let resource_path = import.canonical_resource_path_string();
+    assert!(resource_path.ends_with(std::path::MAIN_SEPARATOR));
+
+    let mut instance = import
+        .instantiate_cs("inst1", true, true, false, false, &[])
+        .unwrap();
+    instance.enter_initialization_mode(None, 0.0, None).unwrap();
+    instance.exit_initialization_mode().unwrap();
+
+    let variable = import
+        .model_description()
+        .model_variables
+        .find_by_name("y")
+        .unwrap();
+    let mut y = [0_i32];
+    instance
+        .get_int32(&[variable.value_reference()], &mut y)
+        .unwrap();
+    assert_eq!(y, [b'a' as i32]);
+}
