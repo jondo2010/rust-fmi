@@ -302,3 +302,115 @@ fn test_dependencies_kind() {
     let xml_out = var.to_string().unwrap();
     assert_eq!(xml_out, xml);
 }
+
+#[cfg(test)]
+mod tests {
+    use hard_xml::{XmlRead, XmlWrite};
+
+    use super::*;
+    use crate::fmi3::Annotation;
+
+    #[test]
+    fn dependency_kinds_parse_display_and_reject_unknown_values() {
+        let cases = [
+            ("dependent", DependenciesKind::Dependent),
+            ("constant", DependenciesKind::Constant),
+            ("fixed", DependenciesKind::Fixed),
+            ("tunable", DependenciesKind::Tunable),
+            ("discrete", DependenciesKind::Discrete),
+        ];
+
+        for (text, expected) in cases {
+            let parsed = DependenciesKind::from_str(text).unwrap();
+            assert_eq!(parsed, expected);
+            assert_eq!(parsed.to_string(), text);
+        }
+
+        assert_eq!(DependenciesKind::default(), DependenciesKind::Dependent);
+        assert_eq!(
+            DependenciesKind::from_str("continuous").unwrap_err(),
+            "Invalid DependenciesKind: continuous"
+        );
+    }
+
+    #[test]
+    fn every_dependency_variant_round_trips_with_its_own_tag() {
+        let cases = [
+            ("Output", 1),
+            ("ContinuousStateDerivative", 2),
+            ("ClockedState", 3),
+            ("InitialUnknown", 4),
+            ("EventIndicator", 5),
+        ];
+
+        for (expected_tag, value_reference) in cases {
+            let xml = format!(r#"<{expected_tag} valueReference="{value_reference}"/>"#);
+            let dependency = VariableDependency::from_str(&xml).unwrap();
+            let (actual_tag, unknown) = match &dependency {
+                VariableDependency::Output(unknown) => ("Output", unknown),
+                VariableDependency::ContinuousStateDerivative(unknown) => {
+                    ("ContinuousStateDerivative", unknown)
+                }
+                VariableDependency::ClockedState(unknown) => ("ClockedState", unknown),
+                VariableDependency::InitialUnknown(unknown) => ("InitialUnknown", unknown),
+                VariableDependency::EventIndicator(unknown) => ("EventIndicator", unknown),
+            };
+
+            assert_eq!(actual_tag, expected_tag);
+            assert_eq!(unknown.value_reference, value_reference);
+            assert_eq!(dependency.to_string().unwrap(), xml);
+        }
+    }
+
+    #[test]
+    fn unknown_with_annotations_and_all_dependency_kinds_round_trips() {
+        let xml = r#"<InitialUnknown valueReference="17" dependencies="2 4 8 16 32" dependenciesKind="dependent constant fixed tunable discrete"><Annotations><Annotation type="source">generated</Annotation></Annotations></InitialUnknown>"#;
+
+        let dependency = VariableDependency::from_str(xml).unwrap();
+        assert_eq!(
+            dependency,
+            VariableDependency::InitialUnknown(Fmi3Unknown {
+                annotations: Some(Annotations {
+                    annotations: vec![Annotation {
+                        r#type: "source".to_owned(),
+                        content: "generated".to_owned(),
+                    }],
+                }),
+                value_reference: 17,
+                dependencies: Some(AttrList(vec![2, 4, 8, 16, 32])),
+                dependencies_kind: Some(AttrList(vec![
+                    DependenciesKind::Dependent,
+                    DependenciesKind::Constant,
+                    DependenciesKind::Fixed,
+                    DependenciesKind::Tunable,
+                    DependenciesKind::Discrete,
+                ])),
+            })
+        );
+        assert_eq!(dependency.to_string().unwrap(), xml);
+    }
+
+    #[test]
+    fn unknown_parser_rejects_invalid_attributes_and_elements() {
+        let malformed = [
+            r#"<Output/>"#,
+            r#"<Output></Output>"#,
+            r#"<Output valueReference="one"/>"#,
+            r#"<Output valueReference="1" dependencies="two"/>"#,
+            r#"<Output valueReference="1" dependenciesKind="continuous"/>"#,
+            r#"<Output valueReference="1" unexpected="value"/>"#,
+            r#"<Output valueReference="1" valueReference="2"/>"#,
+            r#"<Output valueReference="1" dependencies="2" dependencies="3"/>"#,
+            r#"<Output valueReference="1" dependenciesKind="fixed" dependenciesKind="tunable"/>"#,
+            r#"<Output valueReference="1"><Unexpected/></Output>"#,
+            r#"<Output valueReference="1"><Annotations/><Annotations/></Output>"#,
+        ];
+
+        for xml in malformed {
+            assert!(
+                VariableDependency::from_str(xml).is_err(),
+                "malformed dependency unexpectedly parsed: {xml}"
+            );
+        }
+    }
+}
