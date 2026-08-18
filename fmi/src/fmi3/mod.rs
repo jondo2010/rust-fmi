@@ -3,8 +3,6 @@
 pub mod import;
 pub mod instance;
 pub(crate) mod logger;
-#[cfg(false)]
-pub mod model;
 mod traits;
 use std::fmt::Display;
 

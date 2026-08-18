@@ -83,12 +83,6 @@ impl Fmi3Model for Fmi3Import {
     type InstanceME = instance::InstanceME;
     type InstanceSE = instance::InstanceSE;
 
-    /// Build a derived model description from the raw-schema model description
-    #[cfg(false)]
-    pub fn model(&self) -> &model::ModelDescription {
-        &self.model
-    }
-
     /// Create a new instance of the FMU for Model-Exchange
     ///
     /// See [`instance::InstanceME::new`] for more information.

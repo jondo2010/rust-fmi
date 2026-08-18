@@ -9,9 +9,6 @@ mod codegen;
 mod model;
 mod util;
 
-//#[cfg(test)]
-//mod tests;
-
 use codegen::CodeGenerator;
 use model::Model;
 
