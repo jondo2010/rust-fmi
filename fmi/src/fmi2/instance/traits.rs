@@ -163,9 +163,6 @@ pub trait Common: FmiInstance {
         dv_known_values: &[binding::fmi2Real],
         dv_unknown_values: &mut [binding::fmi2Real],
     ) -> Result<Fmi2Res, Fmi2Error>;
-
-    #[cfg(false)]
-    fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef);
 }
 
 pub trait ModelExchange: Common {

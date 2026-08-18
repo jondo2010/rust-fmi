@@ -145,7 +145,6 @@ pub struct ModelMetadata {
 }
 
 /// Trait for providing FMI 3.0 terminal definitions.
-#[allow(dead_code)]
 pub trait TerminalProvider {
     fn terminal(name: &str, prefix: Option<&str>) -> fmi::schema::fmi3::Terminal;
 }

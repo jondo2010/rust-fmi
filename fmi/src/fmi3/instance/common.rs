@@ -418,14 +418,6 @@ impl<Tag> Common for Instance<Tag> {
         Fmi3Status::from(unsafe { self.binding.fmi3Reset(self.ptr) }).ok()
     }
 
-    #[cfg(false)]
-    fn get_fmu_state<T>(
-        &mut self,
-        state: Option<Fmu3State<'_, T>>,
-    ) -> Result<Fmu3State<'_, T>, Error> {
-        unsafe { self.binding.fmi3GetFMUState(self.instance, FMUState) }
-    }
-
     fn update_discrete_states(
         &mut self,
         event_flags: &mut EventFlags,

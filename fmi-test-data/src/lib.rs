@@ -279,24 +279,4 @@ mod tests {
             reference_fmus.get_reference_fmu("NonExistentFMU");
         assert!(result.is_err());
     }
-
-    #[cfg(false)]
-    #[test]
-    fn print_registry_contents() {
-        let registry_contents = STATIC_FETCH_DATA
-            .gen_registry_contents([REF_ARCHIVE])
-            .unwrap();
-        println!("{registry_contents}");
-    }
-
-    #[cfg(false)]
-    #[test]
-    fn print_all_available_fmus() {
-        let mut reference_fmus = ReferenceFmus::new().unwrap();
-        let fmus = reference_fmus.list_available_fmus().unwrap();
-        println!("Available FMUs ({} total):", fmus.len());
-        for fmu in fmus {
-            println!("  - {}", fmu);
-        }
-    }
 }
