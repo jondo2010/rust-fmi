@@ -31,6 +31,10 @@ fn fmi2_model_counts_aggregate_type_variability_and_causality() {
     assert_eq!(counts.num_enum_vars, 1);
     assert_eq!(counts.num_bool_vars, 1);
     assert_eq!(counts.num_string_vars, 1);
+    assert_eq!(
+        counts.to_string(),
+        "Variable Counts { Constants: 1, Parameters: 1, Discrete: 1, Continuous: 2, Inputs: 1, Outputs: 1, Local: 1, Independent: 1, Calculated parameters: 1, Real: 2, Integer: 1, Enumeration: 1, Boolean: 1, String: 1 }"
+    );
 }
 
 #[test]
