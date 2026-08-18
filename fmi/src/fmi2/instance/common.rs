@@ -234,49 +234,4 @@ impl<Tag: InstanceTag> Common for Instance<Tag> {
         })
         .ok()
     }
-
-    #[cfg(false)]
-    fn set_values(&mut self, vrs: &[binding::fmi2ValueReference], values: &arrow::array::ArrayRef) {
-        use arrow::datatypes::DataType;
-        match values.data_type() {
-            DataType::Boolean => {
-                let values: arrow::array::Int32Array =
-                    arrow::compute::cast(values, &DataType::Int32)
-                        .map(|a| arrow::array::downcast_array(&a))
-                        .expect("Error casting");
-                self.set_boolean(vrs, values.values());
-            }
-            DataType::Int8
-            | DataType::Int16
-            | DataType::Int32
-            | DataType::UInt8
-            | DataType::UInt16
-            | DataType::UInt32 => {
-                let values: arrow::array::Int32Array =
-                    arrow::compute::cast(values, &DataType::Int32)
-                        .map(|a| arrow::array::downcast_array(&a))
-                        .expect("Error casting");
-                self.set_integer(vrs, values.values());
-            }
-            DataType::Float32 | DataType::Float64 => {
-                let values: arrow::array::Float64Array =
-                    arrow::compute::cast(values, &DataType::Float64)
-                        .map(|a| arrow::array::downcast_array(&a))
-                        .expect("Error casting");
-                self.set_real(vrs, values.values());
-            }
-            DataType::Binary => todo!(),
-            DataType::Utf8 => {
-                let values: arrow::array::StringArray = arrow::array::downcast_array(values);
-                let strings = values
-                    .into_iter()
-                    .map(|s| CString::new(s.unwrap_or_default()))
-                    .collect::<Result<Vec<_>, _>>()
-                    .expect("Error converting string");
-                let values: Vec<_> = strings.iter().map(|s| s.as_ptr()).collect();
-                self.set_string(vrs, &values);
-            }
-            _ => unimplemented!("Unsupported data type"),
-        }
-    }
 }
