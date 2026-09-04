@@ -19,12 +19,12 @@ proc-macro = true
 [dependencies]
 attribute-derive = "0.10"
 chrono = { workspace = true }
-convert_case = "0.11"
+convert_case = "0.12"
 fmi = { workspace = true, features = ["fmi3"] }
 proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2.0", features = ["full", "extra-traits"] }
+syn = { version = "3.0", features = ["full", "extra-traits"] }
 uuid = { workspace = true }
 
 [dev-dependencies]

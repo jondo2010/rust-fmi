@@ -44,7 +44,7 @@ document-features = "0.2"
 flexi_logger = "0.31"
 itertools = "0.15"
 rstest = "0.26"
-libloading = "0.8"                                 # Pinned to 0.8 until bindgen has a new release
+libloading = "0.9"                                 # Pinned to 0.8 until bindgen has a new release
 log = "0.4"
 paste = "1.0"
 serde = { version = "1.0", features = ["derive"] }
