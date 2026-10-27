@@ -72,7 +72,7 @@ pub fn pretty_format_projection(
     time_field: Arc<Field>,
 ) -> impl std::fmt::Display {
     let mut table = Table::new();
-    table.load_preset(comfy_table::presets::ASCII_BORDERS_ONLY_CONDENSED);
+    table.load_style(comfy_table::presets::ASCII_BORDERS_ONLY_CONDENSED);
     table.set_header(vec!["Variable", "Input Type", "Model Type"]);
     let rows_iter = input_data_schema.fields().iter().map(|input_field| {
         let model_field_name = model_input_schema

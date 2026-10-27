@@ -133,3 +133,21 @@ fn test_fmi2_allows_optional_author_attribute() {
     assert_eq!(md.author.as_deref(), Some("Example Author, Example Org"));
     assert!(md.model_exchange.is_some());
 }
+
+#[test]
+#[cfg(feature = "fmi2")]
+fn test_fmi2_attribute_whitespace() {
+    use hard_xml::XmlRead;
+
+    // Issue #186: OpenModelica exports spaces around attribute equals signs.
+    for eq in ["=", " =", "= ", " = ", "\t=\t", "\n=\n", "\r\n=\r\n"] {
+        for quote in ['"', '\''] {
+            let xml = format!(
+                "<CoSimulation modelIdentifier=\"M\" canRunAsynchronuously{eq}{quote}false{quote}/>"
+            );
+            let cs = fmi_schema::fmi2::CoSimulation::from_str(&xml).unwrap();
+            assert_eq!(cs.model_identifier, "M");
+            assert_eq!(cs.can_run_asynchronuously, Some(false));
+        }
+    }
+}

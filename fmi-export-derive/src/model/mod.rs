@@ -338,7 +338,7 @@ pub fn build_attrs(attrs: Vec<syn::Attribute>) -> Vec<StructAttrOuter> {
                 {
                     Ok(attr) => Some(StructAttrOuter::Model(attr)),
                     Err(e) => {
-                        emit_error!(attr, format!("{e}"));
+                        emit_error!(attr, e.to_string());
                         None
                     }
                 }
@@ -488,7 +488,7 @@ pub fn build_fields(fields: syn::Fields) -> Vec<Field> {
             .filter_map(|ref field| match Field::try_from(field.clone()) {
                 Ok(field) => Some(field),
                 Err(e) => {
-                    emit_error!(field, format!("{e}"));
+                    emit_error!(field, e.to_string());
                     None
                 }
             })
