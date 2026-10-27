@@ -173,7 +173,7 @@ impl ReferenceFmus {
         let mut fmus = Vec::new();
         for i in 0..self.archive.len() {
             let file = self.archive.by_index(i)?;
-            let name = file.name();
+            let name = file.name()?;
             if name.ends_with(".fmu") {
                 // Extract just the filename without path and extension
                 if let Some(filename) = name.rsplit('/').next()
