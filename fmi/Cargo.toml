@@ -50,4 +50,4 @@ zip = { workspace = true }
 paste = { workspace = true }
 
 [build-dependencies]
-built = "0.8"
+built = "0.9"
